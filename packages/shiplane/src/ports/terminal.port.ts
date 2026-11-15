@@ -46,6 +46,12 @@ export interface StepPlace {
   total: number;
 }
 
+/** A batch running at once: how many of its items are done so far, read on every redraw. */
+export interface BatchPlace {
+  done: () => number;
+  total: number;
+}
+
 /**
  * Where the release is, for a person to follow: the stage of its journey, what it is reading or
  * running right now, and the mascot's mood. How much of it shows is the adapter's choice.
@@ -53,8 +59,13 @@ export interface StepPlace {
 export interface Progress {
   /** The release reached `stages[index]`. */
   stage: (stages: readonly string[], index: number) => void;
-  /** Runs `work` while showing `label`; a step also shows its place in its run. */
-  during: <T>(label: string, mood: Mood, work: () => Promise<T>, step?: StepPlace) => Promise<T>;
+  /** Runs `work` while showing `label`; a step also shows its place in its run, a batch its count. */
+  during: <T>(
+    label: string,
+    mood: Mood,
+    work: () => Promise<T>,
+    step?: StepPlace | BatchPlace,
+  ) => Promise<T>;
   /** One line, said in a mood: done, failed, nothing to do. */
   say: (mood: Mood, text: string) => void;
 }

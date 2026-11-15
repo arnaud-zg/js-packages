@@ -11,6 +11,7 @@ import { tagName } from "../domain/tags";
 import { askPaths, PATH_LABEL } from "./askPath";
 import { checkEnvBeforeDeploy } from "./checkEnvBeforeDeploy";
 import { runFollowUps } from "./followUps";
+import { mapLimit } from "./mapLimit";
 import { pullRequestFirst } from "./pullRequestFirst";
 import { deployedOn } from "./readScope";
 import { signIn, signInsOf } from "./requirements";
@@ -96,10 +97,14 @@ const chosen = async (
     : { action: "none", status: choice.held };
 };
 
+/** Units checked at once: their platforms answer slowly, each on its own. */
+const CHECKS_AT_ONCE = 4;
+
 /**
- * What every picked unit needs on the environment, in dispatch order, said as it goes. A module may
- * first need a small PR merged (a version moving): it opens, merges, and the module decides again.
- * Null when one of them refused.
+ * What every picked unit needs on the environment, in dispatch order, said as it goes. Every unit is
+ * checked at once, then each is settled in order. A module may first need a small PR merged (a
+ * version moving): it opens, merges, and that unit and every one after it decide again. Null when
+ * one of them refused.
  */
 const decideAll = async (
   context: ReleaseContext,
@@ -108,28 +113,64 @@ const decideAll = async (
 ): Promise<Ready[] | null> => {
   const { release, services, output } = context;
   const recorded = await services.codeHost.deployments().catch(() => []);
-  const ready: Ready[] = [];
-  for (const unit of release.units) {
+  const picked = release.units.flatMap((unit) => {
     const module = moduleOf(context, unit);
-    if ((scope && !scope.has(unit.name)) || !module) continue;
-    const tag = tagName(unit.name, unit.version, context.release.tagFormat);
-    if (!module.decide && !(await services.sourceControl.tagCommit(tag))) continue;
-    const decide = async () => {
-      const { head } = await services.sourceControl.position();
-      const input = jobInput(context, module, unit, { tag, environment, commit: head });
-      const decision = module.decide
-        ? await module.decide(decideContext(context), input)
-        : webDecision(context, module, input, recorded);
-      return { input, decision };
-    };
-    const checked = module.kind === "published-package" ? module.provider : environment;
-    let { input, decision } = await context.progress.during(
-      module.releaseOnly
+    if ((scope && !scope.has(unit.name)) || !module) return [];
+    return [{ unit, module, tag: tagName(unit.name, unit.version, context.release.tagFormat) }];
+  });
+  const tagged = await mapLimit(
+    picked,
+    CHECKS_AT_ONCE,
+    async ({ module, tag }) =>
+      module.decide !== undefined || (await services.sourceControl.tagCommit(tag)) !== null,
+  );
+  const units = picked
+    .filter((_, index) => tagged[index])
+    .map(({ unit, module, tag }) => {
+      const decide = async () => {
+        const { head } = await services.sourceControl.position();
+        const input = jobInput(context, module, unit, { tag, environment, commit: head });
+        const decision = module.decide
+          ? await module.decide(decideContext(context), input)
+          : webDecision(context, module, input, recorded);
+        return { input, decision };
+      };
+      const checked = module.kind === "published-package" ? module.provider : environment;
+      const label = module.releaseOnly
         ? `Checking what ${tag} needs`
-        : `Checking what ${tag} needs on ${checked}`,
-      "thinking",
-      decide,
-    );
+        : `Checking what ${tag} needs on ${checked}`;
+      const on = module.releaseOnly ? null : checked;
+      return { unit, module, tag, decide, label, on };
+    });
+  const [only] = units;
+  const places = new Set(units.map(({ on }) => on));
+  const [place] = places;
+  const batchLabel = `Checking what ${units.length} units need${places.size === 1 && place ? ` on ${place}` : ""}`;
+  let done = 0;
+  const firstLook = !only
+    ? []
+    : units.length === 1
+      ? [await context.progress.during(only.label, "thinking", only.decide)]
+      : await context.progress.during(
+          batchLabel,
+          "thinking",
+          () =>
+            mapLimit(units, CHECKS_AT_ONCE, async ({ decide }) => {
+              const result = await decide();
+              done += 1;
+              return result;
+            }),
+          { done: () => done, total: units.length },
+        );
+  const ready: Ready[] = [];
+  // A merged PR moves main: every unit after it decides again on the new commit.
+  let moved = false;
+  for (const [index, { unit, module, tag, decide, label }] of units.entries()) {
+    const looked = firstLook[index];
+    if (!looked) continue;
+    let { input, decision } = moved
+      ? await context.progress.during(label, "thinking", decide)
+      : looked;
     while (decision.action === "pull-request") {
       const merged = await pullRequestFirst(context, decision);
       if (merged === "failed") return null;
@@ -137,6 +178,7 @@ const decideAll = async (
         decision = { action: "none", status: "left for later" };
         break;
       }
+      moved = true;
       ({ input, decision } = await decide());
     }
     if (decision.action === "choose") decision = await chosen(context, decision);
