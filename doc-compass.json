@@ -1,0 +1,14 @@
+{
+  "docs": [
+    { "folder": "docs/agent-context-budget", "index": "../README.md" },
+    { "folder": "docs/contributing", "index": "../README.md" },
+    { "folder": "docs/expo-native-guard", "index": "../README.md" },
+    { "folder": "docs/expo-pnpm-catalog", "index": "../README.md" },
+    {
+      "folder": "docs/shiplane",
+      "index": "../README.md",
+      "examples": "packages/shiplane/examples"
+    },
+    { "folder": "docs/vite-workspace-resolver", "index": "../README.md" }
+  ]
+}
