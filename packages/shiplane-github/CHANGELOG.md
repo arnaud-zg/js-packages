@@ -1,5 +1,16 @@
 # @shiplane/github
 
+## 0.5.2
+
+### Patch Changes
+
+- [#65](https://github.com/arnaud-zg/packages/pull/65) [`6e69da8`](https://github.com/arnaud-zg/packages/commit/6e69da8a8daab624025cc1a7ae95c7db5c5b905c) - Release comments post one comment per PR or issue, naming every unit new there, instead of one per
+  unit. A custom tag format no longer comments twice on a rerun.
+- Updated dependencies [[`db97ed6`](https://github.com/arnaud-zg/packages/commit/db97ed691c25430fc092605ec076595e266f3b19), [`44f95e6`](https://github.com/arnaud-zg/packages/commit/44f95e68b21bd5439bec2db70c1e49a90adda705)]:
+  - shiplane@0.5.2
+
+🙏 Thanks to [@arnaud-zg](https://github.com/arnaud-zg) for this release!
+
 ## 0.5.1
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@shiplane/github",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "GitHub plugin for shiplane: release PRs, GitHub Releases, deployment records and the ship workflow on Actions.",
   "keywords": [
     "shiplane",

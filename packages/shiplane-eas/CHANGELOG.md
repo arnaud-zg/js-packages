@@ -1,5 +1,16 @@
 # @shiplane/eas
 
+## 0.5.2
+
+### Patch Changes
+
+- [#63](https://github.com/arnaud-zg/packages/pull/63) [`db97ed6`](https://github.com/arnaud-zg/packages/commit/db97ed691c25430fc092605ec076595e266f3b19) - The EAS adapter says whether preview or production carries the tagged version (a finished build, an
+  update, or a build still running), so an errored build is offered again.
+- Updated dependencies [[`db97ed6`](https://github.com/arnaud-zg/packages/commit/db97ed691c25430fc092605ec076595e266f3b19), [`44f95e6`](https://github.com/arnaud-zg/packages/commit/44f95e68b21bd5439bec2db70c1e49a90adda705)]:
+  - shiplane@0.5.2
+
+🙏 Thanks to [@arnaud-zg](https://github.com/arnaud-zg) for this release!
+
 ## 0.5.1
 
 ### Patch Changes
