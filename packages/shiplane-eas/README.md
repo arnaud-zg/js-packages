@@ -85,6 +85,10 @@ run from this machine and return at once (`--no-wait`). An update script with `-
 starts a staged rollout that `shiplane promote` widens. `init` offers this adapter for a folder with
 an `eas.json`.
 
+A preview build that failed after main moved on is offered again as released: each platform builds
+or submits only what EAS shows missing, from the tag's commit
+([Retry a failed release](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to.md#a-mobile-build-failed-and-main-moved-on)).
+
 ## 🔑 Tools and sign-ins
 
 | Tool  | Checked with                       | Fixed with                        | In CI        |

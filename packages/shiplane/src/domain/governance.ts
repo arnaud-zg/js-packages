@@ -12,16 +12,18 @@ export interface GitPosition {
 export type SourceResult = { allowed: true } | { allowed: false; why: "not-main" | "behind-main" };
 
 /**
- * A binary ships what it was built from, so builds start from main as it is on origin. Preview
+ * A binary ships what it was built from, so builds start from main as it is on origin, or from
+ * exactly the commit the release tagged (a runner checked out at the tag, retrying it). Preview
  * updates may come from a branch for testers; production updates only from main.
  */
 export const releaseSource = (
   intent: ReleaseIntent,
   channel: Environment,
   { branch, head, originMain }: GitPosition,
+  { tagCommit = null }: { tagCommit?: string | null } = {},
 ): SourceResult => {
   const needsMain = intent === "build" || (intent === "update" && channel === "production");
-  if (!needsMain) return { allowed: true };
+  if (!needsMain || head === tagCommit) return { allowed: true };
   if (branch !== "main") return { allowed: false, why: "not-main" };
   if (head !== originMain) return { allowed: false, why: "behind-main" };
   return { allowed: true };

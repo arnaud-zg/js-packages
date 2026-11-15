@@ -14,11 +14,13 @@ import type {
 } from "shiplane/plugin";
 import { defineMobileDistribution, perEnv, releaseSource, tagName, z } from "shiplane/plugin";
 
-import type { MobileRelease } from "./eas/policy";
+import type { MobileRelease, Platform, RetryStep } from "./eas/policy";
 import {
   analyse,
   analysisJson,
   planWhy,
+  PLATFORM_NAME,
+  PLATFORMS,
   rolloutLines,
   updateHealth,
   verdictLines,
@@ -32,6 +34,9 @@ import {
   needsNewVersion,
   productionMobile,
   releaseChangesets,
+  retryFailure,
+  retryLine,
+  retryStep,
   ROLLOUT_STEPS,
   rolloutAdvice,
 } from "./eas/policy";
@@ -221,8 +226,11 @@ const buildRefusal = async (
   context: DecideContext,
   analysis: Awaited<ReturnType<typeof analyse>>,
   input: JobInput<Options>,
+  { retry = false }: { retry?: boolean } = {},
 ): Promise<Refusal | null> => {
-  const source = releaseSource("build", input.environment, analysis.git);
+  // A runner checked out at the tag builds exactly what the release named.
+  const tagCommit = await context.sourceControl.tagCommit(input.tag);
+  const source = releaseSource("build", input.environment, analysis.git, { tagCommit });
   if (!source.allowed) {
     return source.why === "not-main"
       ? {
@@ -236,7 +244,8 @@ const buildRefusal = async (
           commands: ["git pull"],
         };
   }
-  if (needsNewVersion(analysis.checked.map(({ state }) => state))) {
+  // A retry finishes the version a platform already built from its tag, on the other platform.
+  if (!retry && needsNewVersion(analysis.checked.map(({ state }) => state))) {
     return {
       title: `${analysis.version} already has a ${input.environment} binary`,
       detail: "a new native layer needs a new version, or updates would reach both binaries.",
@@ -273,19 +282,258 @@ const previewState = async (context: DecideContext, input: JobInput<Options>) =>
   const lastBuildCommit = builtFrom.every((commit) => commit === builtFrom[0])
     ? (builtFrom[0] ?? null)
     : null;
+  const atTag = await sinceTag(analysis.git.head);
+  // Once main moved on, whether the tag's update already went out decides a retry too.
   const lastUpdate =
-    tag && analysis.plan.action === "update" ? await client.lastUpdate("preview") : null;
+    tag && (analysis.plan.action === "update" || !atTag)
+      ? await client.lastUpdate("preview")
+      : null;
   const lastUpdateCommit = lastUpdate
     ? (await client.updateOrigin(lastUpdate.group, "preview")).commit
     : null;
+  const updatedFromTag = await sinceTag(lastUpdateCommit);
   const ship = mobileShip(analysis.plan.action, {
     tagged: tag !== null,
-    codeSinceTag: tag !== null && !(await sinceTag(analysis.git.head)),
+    codeSinceTag: tag !== null && !atTag,
     codeShipped:
-      analysis.plan.action === "update" &&
-      ((await sinceTag(lastBuildCommit)) || (await sinceTag(lastUpdateCommit))),
+      analysis.plan.action === "update" && ((await sinceTag(lastBuildCommit)) || updatedFromTag),
   });
-  return { analysis, codeSince, ship };
+  return { analysis, client, codeSince, sinceTag, ship, tag, atTag, updatedFromTag };
+};
+
+/**
+ * What the release at the tag named: a build moves the preview binary version to the tagged
+ * version, an update leaves it on the binary it targets. Read at the tag, not at HEAD.
+ */
+const namedAtTag = async (
+  context: DecideContext,
+  { unit, options, tag }: JobInput<Options>,
+): Promise<{ ships: "build" | "update"; binary: string }> => {
+  const text = await context.sourceControl.fileAt(
+    tag,
+    path.posix.join(unit.dir, options.versionFile),
+  );
+  let atTag: string | undefined;
+  try {
+    atTag = text ? VersionsSchema.parse(JSON.parse(text)).preview?.version : undefined;
+  } catch {
+    atTag = undefined;
+  }
+  const binary = atTag ?? binaryVersion(context.root, unit, options, "preview");
+  return { ships: binary === unit.version ? "build" : "update", binary };
+};
+
+/** Each platform's step for a binary version the tag named, from its builds and submissions. */
+const retrySteps = async (
+  client: ReturnType<typeof easClient>,
+  sinceTag: (commit: string | null) => Promise<boolean>,
+  binary: string,
+): Promise<RetryStep[]> =>
+  Promise.all(
+    PLATFORMS.map(async (platform) => {
+      const builds = await client.versionBuilds(platform, "preview", binary);
+      const finishedFromTag = await sinceTag(builds.finished?.gitCommit ?? null);
+      const submissions =
+        builds.finished && finishedFromTag && !builds.running
+          ? await client.submissions(platform, "preview")
+          : [];
+      return retryStep(platform, { ...builds, finishedFromTag, submissions });
+    }),
+  );
+
+/** A build of the platforms a retry still needs, submitted when done; from the tag when given. */
+const retryBuildJob = (
+  { unit, environment, tag }: JobInput<Options>,
+  platforms: Platform[],
+  fromTag: boolean,
+): Job => ({
+  label: `build ${platforms.map((platform) => PLATFORM_NAME[platform]).join(" and ")} ${unit.version} on EAS ${environment}, submitted when done`,
+  local: [
+    {
+      command: "pnpm",
+      args: [
+        "exec",
+        "eas",
+        "build",
+        "--profile",
+        environment,
+        "--platform",
+        platforms.length === 1 && platforms[0] ? platforms[0] : "all",
+        "--auto-submit",
+        "--no-wait",
+      ],
+      cwd: unit.dir,
+      env: { EXPO_ATLAS: "false", APP_VARIANT: environment },
+    },
+  ],
+  ...(fromTag ? { ci: { ref: tag }, from: tag } : {}),
+});
+
+/** Submits a build EAS already finished, to the store its environment's profile names. */
+const submitJob = (
+  { unit, environment, tag }: JobInput<Options>,
+  step: Extract<RetryStep, { action: "submit" }>,
+  fromTag: boolean,
+): Job => ({
+  label: `submit ${PLATFORM_NAME[step.platform]} build ${step.build.buildNumber ?? step.build.id} to ${environment}`,
+  local: [
+    {
+      command: "pnpm",
+      args: [
+        "exec",
+        "eas",
+        "submit",
+        "--platform",
+        step.platform,
+        "--id",
+        step.build.id,
+        "--profile",
+        environment,
+        "--non-interactive",
+      ],
+      cwd: unit.dir,
+      env: { APP_VARIANT: environment },
+    },
+  ],
+  ...(fromTag ? { ci: { ref: tag }, from: tag } : {}),
+});
+
+/** What finishes a version on each platform: one build for those with none, a submit for the rest. */
+const retryJobs = (input: JobInput<Options>, steps: readonly RetryStep[], fromTag: boolean) => {
+  const builds = steps.filter(({ action }) => action === "build").map(({ platform }) => platform);
+  return [
+    ...(builds.length > 0 ? [retryBuildJob(input, builds, fromTag)] : []),
+    ...steps.flatMap((step) => (step.action === "submit" ? [submitJob(input, step, fromTag)] : [])),
+  ];
+};
+
+/** Nothing left to retry: every platform done, or the rest still building. */
+const settled = (unit: ReleaseUnit, steps: readonly RetryStep[]): Decision | null => {
+  if (steps.every(({ action }) => action === "done")) {
+    return { action: "none", status: `${unit.name} ${unit.version} is on preview` };
+  }
+  if (steps.every(({ action }) => action === "done" || action === "running")) {
+    return {
+      action: "none",
+      status: `${unit.name} ${unit.version} is building on EAS, submitted when done`,
+    };
+  }
+  return null;
+};
+
+const NEW_CODE = ["pnpm changeset", "pnpm shiplane"];
+
+/**
+ * Main moved past a version that never reached preview: the person picks between retrying the
+ * tagged version as released and releasing the new code. With nobody to ask, it refuses and says
+ * what a terminal run offers.
+ */
+const retryChoice = async (
+  context: DecideContext,
+  input: JobInput<Options>,
+  state: Awaited<ReturnType<typeof previewState>>,
+  {
+    seenShipped = false,
+  }: {
+    /** Preview already runs the tagged code: offer a retry only when a platform still misses it. */
+    seenShipped?: boolean;
+  } = {},
+): Promise<Decision | null> => {
+  const { unit, tag } = input;
+  const version = unit.version;
+  const { client, codeSince, sinceTag, analysis } = state;
+  const named = await namedAtTag(context, input);
+  // An update the tag named is checked by preview's last update, which a retry would repeat.
+  if (named.ships === "update" && (seenShipped || state.updatedFromTag)) {
+    return seenShipped ? null : { action: "none", status: `${unit.name} ${version} is on preview` };
+  }
+  const steps = named.ships === "build" ? await retrySteps(client, sinceTag, named.binary) : [];
+  const done = named.ships === "build" ? settled(unit, steps) : null;
+  if (done) return seenShipped ? null : done;
+  const [changed, commits, notes] = await Promise.all([
+    codeSince(analysis.git.head),
+    context.sourceControl.commitsBetween(state.tag ?? tag, analysis.git.head),
+    context.codeHost
+      .releasedTags()
+      .then((tags) => tags.has(tag))
+      .catch(() => null),
+  ]);
+  const files = changed.slice(0, 3).join(", ") + (changed.length > 3 ? ", ..." : "");
+  const moved = `main has ${commits.length} ${commits.length === 1 ? "commit" : "commits"} since its tag (${files}).`;
+  const failure = retryFailure(steps, context.now());
+  const jobs =
+    named.ships === "build" ? retryJobs(input, steps, true) : [{ ...updateJob(input), from: tag }];
+  const line =
+    named.ships === "build"
+      ? retryLine(steps, notes)
+      : `tag ✓${notes === null ? "" : `, release notes ${notes ? "✓" : "✗"}`} → publish the preview update from ${tag}`;
+  // With no failure to show, the question asks whether there was one: the options answer it.
+  const [retry, newCode] = failure ? ["Retry", "Release"] : ["Yes, retry", "No, release"];
+  return {
+    action: "choose",
+    lines: [
+      failure
+        ? `${unit.name} ${version} didn't reach preview: ${failure.short}.`
+        : `${unit.name} ${version} is tagged, but nothing for it reached preview.`,
+      moved,
+    ],
+    question: failure
+      ? "What should ship?"
+      : `Did the last attempt to ship ${version} fail before it got this far?`,
+    suggested: "retry",
+    options: [
+      {
+        value: "retry",
+        label: `${retry} ${version} exactly as released`,
+        jobs,
+        then: [line],
+      },
+      {
+        value: "new-code",
+        label: `${newCode} the new code instead (pnpm changeset, then shiplane)`,
+        jobs: [],
+        then: NEW_CODE,
+      },
+      { value: "cancel", label: "Cancel", jobs: [] },
+    ],
+    held: "nothing shipped",
+    kind:
+      named.ships === "update"
+        ? "update"
+        : steps.some(({ action }) => action === "build")
+          ? "build"
+          : "submit",
+    confirmed: true,
+    unattended: {
+      title: `main moved past ${tag}`,
+      detail: failure
+        ? `The last ${failure.platform} ${failure.what} of ${version} ${failure.verb} ${failure.when}: run it from a terminal to retry ${version} as released.`
+        : `nothing for ${version} reached preview, and ${files} changed since: run it from a terminal to retry ${version} as released.`,
+      commands: [`pnpm shiplane ship ${unit.name}`, "pnpm changeset"],
+    },
+  };
+};
+
+/**
+ * HEAD carries the tagged code and the release named a build: a platform that already built it
+ * from the tag is left alone or only submitted, the others build.
+ */
+const finishFromTag = async (
+  context: DecideContext,
+  input: JobInput<Options>,
+  state: Awaited<ReturnType<typeof previewState>>,
+): Promise<Decision | null> => {
+  const named = await namedAtTag(context, input);
+  if (named.ships !== "build") return null;
+  const steps = await retrySteps(state.client, state.sinceTag, named.binary);
+  if (steps.every(({ action }) => action === "build")) return null;
+  const done = settled(input.unit, steps);
+  if (done) return done;
+  const refusal = await buildRefusal(context, state.analysis, input, { retry: true });
+  if (refusal) return refuse(refusal);
+  const jobs = retryJobs(input, steps, false);
+  const builds = steps.some(({ action }) => action === "build");
+  return { action: "ship", kind: builds ? "build" : "submit", jobs };
 };
 
 const previewDecision = async (
@@ -294,7 +542,25 @@ const previewDecision = async (
 ): Promise<Decision> => {
   const { unit } = input;
   const version = unit.version;
-  const { analysis, codeSince, ship } = await previewState(context, input);
+  const state = await previewState(context, input);
+  const { analysis, codeSince, ship } = state;
+  // Main moved past a version preview never fully got: retry the tag, or release the new code.
+  if (ship === "moved-past" && analysis.plan.action === "build") {
+    const retry = await retryChoice(context, input, state);
+    if (retry) return retry;
+  }
+  // Preview runs the tagged code, yet a platform may still miss it, such as a failed submission.
+  if (ship === "shipped" && state.tag && !state.atTag && !state.updatedFromTag) {
+    const retry = await retryChoice(context, input, state, { seenShipped: true });
+    if (retry) return retry;
+  }
+  if (
+    state.atTag &&
+    (ship === "build" || (ship === "shipped" && analysis.plan.action === "submit"))
+  ) {
+    const finished = await finishFromTag(context, input, state);
+    if (finished) return finished;
+  }
   // Main moved past the tag: GitHub Actions still ships the tag, this machine only its checkout.
   const movedPast = ship === "moved-past";
   const kind = analysis.plan.action === "build" ? "build" : "update";

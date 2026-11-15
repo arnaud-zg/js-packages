@@ -52,6 +52,14 @@ const build = (platform: string, profile: string, overrides: Partial<Build> = {}
   ...overrides,
 });
 
+interface Submission {
+  id: string;
+  platform: "IOS" | "ANDROID";
+  status: string;
+  createdAt: string;
+  submittedBuild: { id: string };
+}
+
 interface Update {
   group: string;
   gitCommitHash: string;
@@ -71,8 +79,14 @@ const setUp = ({
   builds = {},
   versions = { preview: "0.1.115", production: "0.1.114" },
   updates = {},
+  platformBuilds = {},
+  submissions = {},
 }: {
   local?: string;
+  /** One platform's preview builds, newest first, in place of `builds.preview`. */
+  platformBuilds?: Partial<Record<"ios" | "android", Build[]>>;
+  /** Each platform's submissions, newest first, as `eas submit:list` prints them. */
+  submissions?: Partial<Record<"ios" | "android", Submission[]>>;
   expoOptions?: Record<string, unknown>;
   builds?: Partial<Record<"preview" | "production", Build[]>>;
   versions?: { preview: string; production: string };
@@ -110,11 +124,16 @@ const setUp = ({
     });
     world.shell.seed(`pnpm exec eas build:list --platform ${platform}`, {
       stdout: JSON.stringify([
-        ...(builds.preview ?? [build(platform, "preview")]),
+        ...(platformBuilds[platform] ?? builds.preview ?? [build(platform, "preview")]),
         ...(builds.production ?? [build(platform, "production", { appVersion: "0.1.114" })]),
       ]),
     });
   });
+  Object.entries(submissions).forEach(([platform, list]) =>
+    world.shell.seed(`pnpm exec eas submit:list --platform ${platform}`, {
+      stdout: JSON.stringify(list),
+    }),
+  );
   world.shell.seed("pnpm exec eas fingerprint:compare", {
     stdout: JSON.stringify({
       fingerprint1: {
@@ -794,6 +813,17 @@ describe("guiding a production rollout", () => {
     expect(output.text).toContain("stays at 10% of people");
   });
 
+  it("given --ci from a terminal, when production ships a partial rollout, then it still asks how far it goes", async () => {
+    const { context, shell, prompter } = onProduction({ rolloutPercentage: 10 });
+    context.options.ci = true;
+    prompter.answer("25", true);
+
+    await shipTo(context, "production", { scope: new Set(["expo"]) });
+
+    expect(prompter.initials[ROLLOUT]).toBe("25");
+    expect(easCalls(shell, "update:edit")[0]?.args).toContain("25");
+  });
+
   it("given production's update of this release reaches everyone, when production ships, then it is live and nothing is asked", async () => {
     const { context, shell, prompter, output } = onProduction();
     prompter.answer("production");
@@ -875,5 +905,387 @@ describe("the mobile app's status", () => {
     });
 
     expect(await expoChoice(world)).toMatchObject({ pending: false });
+  });
+});
+
+describe("retrying a mobile release that never reached preview", () => {
+  const TAG = "expo@0.1.115";
+  const RETRY = "What should ship?";
+  const NO_TRACE = "Did the last attempt to ship 0.1.115 fail before it got this far?";
+  const HOW = "How should expo@0.1.115 ship to preview?";
+  const OLDER = (platform: string) =>
+    build(platform, "preview", { appVersion: "0.1.114", id: `${platform}-114` });
+  const IOS_FAILED = build("ios", "preview", {
+    status: "ERRORED",
+    id: "ios-failed",
+    gitCommitHash: "tag-expo",
+    createdAt: "2026-10-12T07:00:00.000Z",
+  });
+  const ANDROID_BUILT = build("android", "preview", {
+    id: "android-42",
+    appBuildVersion: "42",
+    gitCommitHash: "tag-expo",
+  });
+  const submitted = (platform: "IOS" | "ANDROID", buildId: string, status = "FINISHED") => ({
+    id: `${buildId}-submission`,
+    platform,
+    status,
+    createdAt: "2026-10-12T08:00:00.000Z",
+    submittedBuild: { id: buildId },
+  });
+
+  /** expo@0.1.115 tagged on tag-expo, and main three commits on with the app's own code changed. */
+  const movedOn = (options: Parameters<typeof setUp>[0] = {}) => {
+    const world = setUp({ local: "fp-new", ...options });
+    world.versioning.seed({
+      dependencies: { "@acme/expo": ["@acme/app"], "@acme/app": [], "@acme/api": [] },
+      folders: { "@acme/expo": "apps/expo", "@acme/app": "packages/app", "@acme/api": "apps/api" },
+    });
+    world.source.seed({
+      tags: { [TAG]: "tag-expo" },
+      diffs: { "tag-expo..head-1": ["packages/app/src/home.tsx", "apps/api/src/main.ts"] },
+      commits: {
+        "tag-expo..head-1": [
+          { subject: "feat(app): home", files: ["packages/app/src/home.tsx"] },
+          { subject: "fix(api): main", files: ["apps/api/src/main.ts"] },
+          { subject: "chore: lint", files: ["package.json"] },
+        ],
+      },
+    });
+    world.host.seed({ releasedTags: [TAG] });
+    return world;
+  };
+
+  /** The iOS build of 0.1.115 failed two hours ago; Android built and submitted it. */
+  const iosFailed = () =>
+    movedOn({
+      platformBuilds: { ios: [IOS_FAILED, OLDER("ios")], android: [ANDROID_BUILT] },
+      submissions: { android: [submitted("ANDROID", "android-42")] },
+    });
+
+  it("given the iOS build failed and main moved on, when shipped, then it says why, offers the retry preselected and ships the tag through GitHub Actions without asking again", async () => {
+    const { context, ci, shell, prompter, output } = iosFailed();
+    prompter.answer("retry", "github");
+
+    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
+
+    expect(output.text).toContain(
+      "expo 0.1.115 didn't reach preview: the iOS build failed 2h ago.",
+    );
+    expect(output.text).toContain("main has 3 commits since its tag (packages/app/src/home.tsx).");
+    expect(prompter.initials[RETRY]).toBe("retry");
+    expect(prompter.choices[RETRY]?.map(({ label }) => label)).toEqual([
+      "Retry 0.1.115 exactly as released",
+      "Release the new code instead (pnpm changeset, then shiplane)",
+      "Cancel",
+    ]);
+    expect(output.text).toContain(
+      "tag ✓, release notes ✓, Android ✓ build 42, iOS ✗ failed → build iOS, then submit",
+    );
+    expect(prompter.asked).toEqual([RETRY, HOW]);
+    expect(easCalls(shell, "build")).toEqual([]);
+    expect(ci.received).toEqual([
+      {
+        type: "dispatch",
+        workflow: "ship.yml",
+        ref: TAG,
+        inputs: { units: "expo", environment: "preview" },
+      },
+    ]);
+  });
+
+  it("given the iOS build failed and main moved on, when retried from this machine, then only iOS builds, from a worktree at the tag with the env files copied, and the worktree goes", async () => {
+    const { context, shell, source, prompter, workspace: ws } = iosFailed();
+    source.seed({ ignored: [".env", "apps/expo/.env.local"] });
+    prompter.answer("retry", "local");
+
+    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
+
+    const added = source.received.find((event) => event.type === "worktree-add");
+    expect(added).toMatchObject({ type: "worktree-add", ref: TAG });
+    const dir = added?.type === "worktree-add" ? added.dir : "";
+    expect(shell.calls.filter(({ command }) => command === "cp").map(({ args }) => args)).toEqual([
+      [`${ws.root}/.env`, `${dir}/.env`],
+      [`${ws.root}/apps/expo/.env.local`, `${dir}/apps/expo/.env.local`],
+    ]);
+    expect(shell.calls).toContainEqual({
+      command: "pnpm",
+      args: ["install", "--frozen-lockfile"],
+      cwd: dir,
+      env: undefined,
+    });
+    expect(easCalls(shell, "build")).toEqual([
+      {
+        command: "pnpm",
+        args: [
+          "exec",
+          "eas",
+          "build",
+          "--profile",
+          "preview",
+          "--platform",
+          "ios",
+          "--auto-submit",
+          "--no-wait",
+        ],
+        cwd: `${dir}/apps/expo`,
+        env: { EXPO_ATLAS: "false", APP_VARIANT: "preview" },
+      },
+    ]);
+    expect(source.received.at(-1)).toEqual({ type: "worktree-remove", dir });
+  });
+
+  it("given the build from the worktree fails, when retried from this machine, then the worktree is still removed and the run fails", async () => {
+    const { context, shell, source, prompter } = iosFailed();
+    shell.seedOnce("pnpm exec eas build --profile", { status: 1 });
+    prompter.answer("retry", "local");
+
+    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(false);
+
+    const added = source.received.find((event) => event.type === "worktree-add");
+    expect(added).toBeDefined();
+    expect(source.received.at(-1)).toEqual({
+      type: "worktree-remove",
+      dir: added?.type === "worktree-add" ? added.dir : "",
+    });
+  });
+
+  it("given the tag and its notes exist and the build failed, when retried, then only the build runs: no tag, no release notes, no comment", async () => {
+    const { context, host, source, shell, prompter } = iosFailed();
+    prompter.answer("retry", "local");
+
+    await shipTo(context, "preview", { scope: new Set(["expo"]) });
+
+    expect(easCalls(shell, "build")).toHaveLength(1);
+    expect(easCalls(shell, "submit")).toEqual([]);
+    expect(source.received.filter(({ type }) => type === "tag" || type === "push-tags")).toEqual(
+      [],
+    );
+    expect(host.received.filter(({ type }) => type !== "record")).toEqual([]);
+  });
+
+  it("given nothing for the version reached EAS, when shipped, then it asks whether the last attempt failed and a yes builds both platforms from the tag", async () => {
+    const { context, ci, prompter, output } = movedOn({
+      platformBuilds: { ios: [OLDER("ios")], android: [OLDER("android")] },
+    });
+    prompter.answer("retry", "github");
+
+    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
+
+    expect(output.text).toContain("expo 0.1.115 is tagged, but nothing for it reached preview.");
+    expect(prompter.initials[NO_TRACE]).toBe("retry");
+    expect(prompter.choices[NO_TRACE]?.map(({ label }) => label)).toEqual([
+      "Yes, retry 0.1.115 exactly as released",
+      "No, release the new code instead (pnpm changeset, then shiplane)",
+      "Cancel",
+    ]);
+    expect(output.text).toContain("→ build iOS and Android, then submit");
+    expect(ci.received).toEqual([
+      {
+        type: "dispatch",
+        workflow: "ship.yml",
+        ref: TAG,
+        inputs: { units: "expo", environment: "preview" },
+      },
+    ]);
+  });
+
+  it("given nothing for the version reached EAS, when the person says the last attempt did not fail, then nothing ships and it names the changeset commands", async () => {
+    const { context, ci, shell, prompter, output } = movedOn({
+      platformBuilds: { ios: [OLDER("ios")], android: [OLDER("android")] },
+    });
+    prompter.answer("new-code");
+
+    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
+
+    expect(ci.received).toEqual([]);
+    expect(easCalls(shell, "build")).toEqual([]);
+    expect(output.text).toContain("pnpm changeset");
+    expect(output.text).toContain("pnpm shiplane");
+  });
+
+  it("given the build finished but its submission failed, when retried, then only the submit runs, for that build", async () => {
+    const { context, shell, prompter, output } = movedOn({
+      platformBuilds: {
+        ios: [build("ios", "preview", { id: "ios-7", gitCommitHash: "tag-expo" })],
+        android: [ANDROID_BUILT],
+      },
+      submissions: {
+        ios: [submitted("IOS", "ios-7", "ERRORED")],
+        android: [submitted("ANDROID", "android-42")],
+      },
+    });
+    prompter.answer("retry", "local");
+
+    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
+
+    expect(output.text).toContain("the iOS submission failed 1h ago.");
+    expect(easCalls(shell, "build")).toEqual([]);
+    expect(easCalls(shell, "submit").map(({ args }) => args)).toEqual([
+      [
+        "exec",
+        "eas",
+        "submit",
+        "--platform",
+        "ios",
+        "--id",
+        "ios-7",
+        "--profile",
+        "preview",
+        "--non-interactive",
+      ],
+    ]);
+  });
+
+  it("given iOS to build and Android to submit again, when retried through GitHub Actions, then both jobs name the tag and one run ships them", async () => {
+    const { context, ci, prompter } = movedOn({
+      platformBuilds: {
+        ios: [IOS_FAILED, OLDER("ios")],
+        android: [ANDROID_BUILT],
+      },
+      submissions: { android: [submitted("ANDROID", "android-42", "ERRORED")] },
+    });
+    prompter.answer("retry", "github");
+
+    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
+
+    expect(ci.received).toEqual([
+      {
+        type: "dispatch",
+        workflow: "ship.yml",
+        ref: TAG,
+        inputs: { units: "expo", environment: "preview" },
+      },
+    ]);
+  });
+
+  it("given both platforms built from the tag with the same native layer, the iOS submission failed and main got JS-only commits, when shipped, then the retry is offered and only iOS is submitted", async () => {
+    const { context, shell, prompter, output } = movedOn({
+      local: "fp-shipped",
+      platformBuilds: {
+        ios: [build("ios", "preview", { id: "ios-7", gitCommitHash: "tag-expo" })],
+        android: [ANDROID_BUILT],
+      },
+      submissions: {
+        ios: [submitted("IOS", "ios-7", "ERRORED")],
+        android: [submitted("ANDROID", "android-42")],
+      },
+    });
+    prompter.answer("retry", "local");
+
+    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
+
+    expect(output.text).toContain("expo 0.1.115 didn't reach preview: the iOS submission failed");
+    expect(output.text).not.toContain("expo 0.1.115 is on preview");
+    expect(easCalls(shell, "build")).toEqual([]);
+    expect(easCalls(shell, "submit").map(({ args }) => args.slice(3, 7))).toEqual([
+      ["--platform", "ios", "--id", "ios-7"],
+    ]);
+  });
+
+  it("given the tag released an update that went out from it, and main then changed native code, when shipped, then it is on preview and nothing is offered or republished", async () => {
+    const { context, shell, source, prompter, output } = movedOn({
+      versions: { preview: "0.1.114", production: "0.1.114" },
+      platformBuilds: { ios: [OLDER("ios")], android: [OLDER("android")] },
+      updates: { preview: [{ group: "group-115", gitCommitHash: "tag-expo" }] },
+    });
+    source.seed({
+      files: {
+        "expo@0.1.115:.github/workflows/ship.yml": "on: workflow_dispatch",
+        "main:.github/workflows/ship.yml": "on: workflow_dispatch",
+        "expo@0.1.115:apps/expo/app-version.json": JSON.stringify({
+          preview: { version: "0.1.114" },
+          production: { version: "0.1.114" },
+        }),
+      },
+    });
+
+    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
+
+    expect(prompter.asked).toEqual([]);
+    expect(output.text).toContain("expo 0.1.115 is on preview");
+    expect(shell.calls.filter(({ args }) => args.includes("eas:update:preview"))).toEqual([]);
+  });
+
+  it("given the worktree cannot be made, when retried from this machine, then what was made of it is removed and the run fails", async () => {
+    const { context, source, prompter } = iosFailed();
+    source.failAt("worktree-add", 1, new Error("no space left"));
+    prompter.answer("retry", "local");
+
+    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(false);
+
+    expect(source.received.at(-1)?.type).toBe("worktree-remove");
+  });
+
+  it("given the build fails and the worktree then cannot be removed, when retried from this machine, then the build's failure is reported and the leftover worktree is said", async () => {
+    const { context, shell, source, prompter, output } = iosFailed();
+    shell.seedOnce("pnpm exec eas build --profile", { status: 1 });
+    source.failAt("worktree-remove", 1, new Error("worktree locked"));
+    prompter.answer("retry", "local");
+
+    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(false);
+
+    expect(output.text).toContain("pnpm exited with 1, nothing after it ran");
+    expect(output.text).toContain("could not remove the worktree");
+    expect(output.text).toContain("worktree locked");
+  });
+
+  it("given the iOS build failed with no terminal, when shipped, then it refuses and says a terminal run offers the retry", async () => {
+    const world = iosFailed();
+    const { context, ci, shell, output } = world;
+    Object.defineProperty(world.prompter, "interactive", { value: false });
+
+    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(false);
+
+    expect(output.text).toContain(
+      "The last iOS build of 0.1.115 failed 2h ago: run it from a terminal to retry 0.1.115 as released.",
+    );
+    expect(output.text).toContain("pnpm shiplane ship expo");
+    expect(ci.received).toEqual([]);
+    expect(easCalls(shell, "build")).toEqual([]);
+  });
+
+  it("given the iOS build failed on a CI runner, when shipped, then it refuses and asks nothing", async () => {
+    const { context, prompter, output } = iosFailed();
+    context.options.ci = true;
+    context.options.yes = true;
+
+    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(false);
+
+    expect(prompter.asked).toEqual([]);
+    expect(output.text).toContain("run it from a terminal to retry 0.1.115 as released");
+  });
+
+  it("given a newer version built on preview, when shipped, then main is behind and no retry is offered", async () => {
+    const { context, prompter, output } = movedOn({
+      platformBuilds: {
+        ios: [build("ios", "preview", { appVersion: "0.1.116" })],
+        android: [build("android", "preview", { appVersion: "0.1.116" })],
+      },
+    });
+
+    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(false);
+
+    expect(prompter.asked).toEqual([]);
+    expect(output.text).toContain("main is behind");
+  });
+
+  it("given the runner checked out at the tag, Android built and iOS failed, when it ships, then it builds only iOS from that detached commit", async () => {
+    const { context, shell, source } = setUp({
+      platformBuilds: { ios: [IOS_FAILED, OLDER("ios")], android: [ANDROID_BUILT] },
+      submissions: { android: [submitted("ANDROID", "android-42")] },
+    });
+    source.seed({
+      position: { branch: "HEAD", head: "tag-expo", originMain: "head-1" },
+      tags: { [TAG]: "tag-expo" },
+    });
+    context.options.ci = true;
+    context.options.yes = true;
+
+    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
+
+    expect(easCalls(shell, "build").map(({ args }) => args.slice(5, 7))).toEqual([
+      ["--platform", "ios"],
+    ]);
   });
 });

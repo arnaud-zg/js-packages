@@ -18,6 +18,22 @@ export interface RunningBuild {
   buildNumber: string | null;
 }
 
+/** A store build that errored or was canceled: it left no binary. */
+export interface FailedBuild {
+  id: string;
+  status: "errored" | "canceled";
+  createdAt: string;
+  gitCommit: string | null;
+}
+
+/** A store submission, its status as `eas submit:list --status` names it (`in-queue`, `errored`). */
+export interface Submission {
+  id: string;
+  status: string;
+  createdAt: string | null;
+  buildId: string | null;
+}
+
 export interface PlatformState {
   platform: Platform;
   /** This commit: its native fingerprint (the runtime version updates target), app version and sha. */
@@ -335,4 +351,128 @@ export const rolloutAdvice = ({
     suggested: ROLLOUT_STEPS.find((step) => step > percentage) ?? 100,
     why: `healthy for ${timeOut(hoursOut)}: widen it`,
   };
+};
+
+/** What one platform still needs for a version a release tagged, from its builds on EAS. */
+export type RetryStep =
+  | { platform: Platform; action: "done"; build: ShippedBuild }
+  | { platform: Platform; action: "running"; running: RunningBuild }
+  | { platform: Platform; action: "submit"; build: ShippedBuild; submission: Submission | null }
+  | { platform: Platform; action: "build"; failed: FailedBuild | null };
+
+const SUBMIT_FAILED = new Set(["errored", "canceled"]);
+
+/**
+ * A running build of the version is left to finish; a finished one from the tagged code is left
+ * alone once submitted, or submitted again when its submission failed or never started; anything
+ * else builds. Unreadable submissions count as submitted: nothing ships twice on a guess.
+ */
+export const retryStep = (
+  platform: Platform,
+  {
+    finished,
+    finishedFromTag,
+    running,
+    failed,
+    submissions,
+  }: {
+    finished: ShippedBuild | null;
+    /** The finished build carries the tagged code. */
+    finishedFromTag: boolean;
+    running: RunningBuild | null;
+    failed: FailedBuild | null;
+    submissions: Submission[] | null;
+  },
+): RetryStep => {
+  if (running) return { platform, action: "running", running };
+  if (!finished || !finishedFromTag) return { platform, action: "build", failed };
+  if (submissions === null) return { platform, action: "done", build: finished };
+  const submission = submissions.find(({ buildId }) => buildId === finished.id) ?? null;
+  return submission && !SUBMIT_FAILED.has(submission.status)
+    ? { platform, action: "done", build: finished }
+    : { platform, action: "submit", build: finished, submission };
+};
+
+const NAME: Record<Platform, string> = { ios: "iOS", android: "Android" };
+
+/** How long ago, as a person says it: minutes, hours under two days, then days. */
+export const ago = (from: string, now: Date) => {
+  const minutes = Math.max(1, Math.floor((now.getTime() - new Date(from).getTime()) / 60_000));
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  return hours < 48 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
+};
+
+/** The failure EAS shows for a version, as a person reads it, or null when it shows none. */
+export const retryFailure = (steps: readonly RetryStep[], now: Date) => {
+  for (const step of steps) {
+    if (step.action === "build" && step.failed) {
+      const verb = step.failed.status === "canceled" ? "was canceled" : "failed";
+      const when = ago(step.failed.createdAt, now);
+      return {
+        short: `the ${NAME[step.platform]} build ${verb} ${when}`,
+        what: `build`,
+        platform: NAME[step.platform],
+        verb,
+        when,
+      };
+    }
+    if (step.action === "submit" && step.submission?.createdAt) {
+      const verb = step.submission.status === "canceled" ? "was canceled" : "failed";
+      const when = ago(step.submission.createdAt, now);
+      return {
+        short: `the ${NAME[step.platform]} submission ${verb} ${when}`,
+        what: "submission",
+        platform: NAME[step.platform],
+        verb,
+        when,
+      };
+    }
+  }
+  return null;
+};
+
+const ORDER: Record<RetryStep["action"], number> = { done: 0, running: 1, submit: 2, build: 3 };
+
+const found = (step: RetryStep) => {
+  const name = NAME[step.platform];
+  switch (step.action) {
+    case "done":
+      return `${name} ✓ build ${step.build.buildNumber ?? step.build.id}`;
+    case "running":
+      return `${name} … building`;
+    case "submit":
+      return `${name} ✓ build ${step.build.buildNumber ?? step.build.id}, submit ✗ ${step.submission ? step.submission.status.replace("errored", "failed") : "missing"}`;
+    case "build":
+      return step.failed
+        ? `${name} ✗ ${step.failed.status === "canceled" ? "canceled" : "failed"}`
+        : `${name} – no build`;
+  }
+};
+
+const joined = (names: string[]) => names.join(" and ");
+
+/**
+ * One line: what a retry found, then what runs, such as
+ * `tag ✓, release notes ✓, Android ✓ build 42, iOS ✗ failed → build iOS, then submit`.
+ */
+export const retryLine = (steps: readonly RetryStep[], notes: boolean | null) => {
+  const sorted = [...steps].sort((left, right) => ORDER[left.action] - ORDER[right.action]);
+  const builds = steps
+    .filter(({ action }) => action === "build")
+    .map(({ platform }) => NAME[platform]);
+  const submits = steps
+    .filter(({ action }) => action === "submit")
+    .map(({ platform }) => NAME[platform]);
+  const runs = [
+    ...(builds.length > 0 ? [`build ${joined(builds)}, then submit`] : []),
+    ...(submits.length > 0 ? [`submit ${joined(submits)}`] : []),
+  ];
+  return [
+    "tag ✓",
+    ...(notes === null ? [] : [`release notes ${notes ? "✓" : "✗"}`]),
+    ...sorted.map(found),
+  ]
+    .join(", ")
+    .concat(` → ${runs.join("; ")}`);
 };

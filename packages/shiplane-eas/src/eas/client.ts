@@ -1,7 +1,7 @@
 import type { Environment, Shell } from "shiplane/plugin";
 import { z } from "shiplane/plugin";
 
-import type { Platform, RunningBuild, ShippedBuild } from "./policy";
+import type { FailedBuild, Platform, RunningBuild, ShippedBuild, Submission } from "./policy";
 
 // eas-cli prints notices around its JSON: keep the outermost JSON value only.
 const parseEasJson = (output: string): unknown => {
@@ -46,7 +46,39 @@ const UpdateInsightsSchema = z.object({
   ),
 });
 
+// The shape `eas submit:list --json` prints is not documented: read the few fields a retry needs,
+// whichever of the names eas-cli's submission fragment carries, and skip what does not parse.
+const SubmissionSchema = z
+  .object({
+    id: z.string(),
+    status: z.string(),
+    createdAt: z.string().nullish(),
+    submittedBuild: z.object({ id: z.string() }).loose().nullish(),
+    buildId: z.string().nullish(),
+  })
+  .loose();
+const SubmissionListSchema = z.union([
+  z.array(z.unknown()),
+  z.object({ currentPage: z.array(z.unknown()) }).transform(({ currentPage }) => currentPage),
+]);
+
 const RUNNING = new Set(["NEW", "IN_QUEUE", "IN_PROGRESS"]);
+const FAILED = new Set(["ERRORED", "CANCELED"]);
+
+const shippedBuild = (build: z.infer<typeof EasBuildSchema>): ShippedBuild => ({
+  id: build.id,
+  appVersion: build.appVersion ?? null,
+  buildNumber: build.appBuildVersion ?? null,
+  fingerprint: build.fingerprint?.hash ?? null,
+  gitCommit: build.gitCommitHash ?? null,
+  createdAt: build.createdAt,
+});
+
+const runningBuild = (build: z.infer<typeof EasBuildSchema>): RunningBuild => ({
+  id: build.id,
+  appVersion: build.appVersion ?? null,
+  buildNumber: build.appBuildVersion ?? null,
+});
 
 // eas-cli rejects --non-interactive on these commands as a nonexistent flag.
 const WITHOUT_NON_INTERACTIVE_FLAG = new Set(["update:view"]);
@@ -81,6 +113,22 @@ export const easClient = (shell: Shell, cwd: string) => {
     return parseEasJson(stdout);
   };
 
+  // Read once per client: the channel and a retry look at the same list.
+  const lists = new Map<string, Promise<z.infer<typeof EasBuildSchema>[]>>();
+  const storeBuilds = (platform: Platform, environment: Environment) => {
+    const key = `${platform} ${environment}`;
+    const list =
+      lists.get(key) ??
+      eas(["build:list", "--platform", platform, "--limit", "30"], environment).then((output) =>
+        z
+          .array(EasBuildSchema)
+          .parse(output)
+          .filter((build) => build.buildProfile === environment && !build.isForIosSimulator),
+      );
+    lists.set(key, list);
+    return list;
+  };
+
   return {
     localFingerprint: async (platform: Platform, environment: Environment) =>
       FingerprintSchema.parse(
@@ -89,31 +137,64 @@ export const easClient = (shell: Shell, cwd: string) => {
 
     // The simulator profile shares the preview channel: only the channel's own store profile counts.
     channelBuilds: async (platform: Platform, environment: Environment) => {
-      const builds = z
-        .array(EasBuildSchema)
-        .parse(await eas(["build:list", "--platform", platform, "--limit", "30"], environment))
-        .filter((build) => build.buildProfile === environment && !build.isForIosSimulator);
+      const builds = await storeBuilds(platform, environment);
       const finished = builds.find((build) => build.status === "FINISHED");
       const running = builds.find((build) => RUNNING.has(build.status));
       return {
-        shipped: finished
-          ? ({
-              id: finished.id,
-              appVersion: finished.appVersion ?? null,
-              buildNumber: finished.appBuildVersion ?? null,
-              fingerprint: finished.fingerprint?.hash ?? null,
-              gitCommit: finished.gitCommitHash ?? null,
-              createdAt: finished.createdAt,
-            } satisfies ShippedBuild)
-          : null,
-        running: running
-          ? ({
-              id: running.id,
-              appVersion: running.appVersion ?? null,
-              buildNumber: running.appBuildVersion ?? null,
-            } satisfies RunningBuild)
-          : null,
+        shipped: finished ? shippedBuild(finished) : null,
+        running: running ? runningBuild(running) : null,
       };
+    },
+
+    /**
+     * One version's newest finished and running store builds, and its newest errored or canceled
+     * one when no finished build came after it.
+     */
+    versionBuilds: async (platform: Platform, environment: Environment, version: string) => {
+      const builds = (await storeBuilds(platform, environment)).filter(
+        (build) => build.appVersion === version,
+      );
+      const finished = builds.findIndex((build) => build.status === "FINISHED");
+      const failed = builds.findIndex((build) => FAILED.has(build.status));
+      const running = builds.find((build) => RUNNING.has(build.status));
+      const failure = builds[failed];
+      return {
+        finished: finished >= 0 && builds[finished] ? shippedBuild(builds[finished]) : null,
+        running: running ? runningBuild(running) : null,
+        failed:
+          failure && (finished < 0 || failed < finished)
+            ? ({
+                id: failure.id,
+                status: failure.status === "CANCELED" ? "canceled" : "errored",
+                createdAt: failure.createdAt,
+                gitCommit: failure.gitCommitHash ?? null,
+              } satisfies FailedBuild)
+            : null,
+      };
+    },
+
+    /** The platform's recent submissions, newest first; null when eas-cli's answer cannot be read. */
+    submissions: async (platform: Platform, environment: Environment) => {
+      try {
+        const list = SubmissionListSchema.parse(
+          await eas(["submit:list", "--platform", platform, "--limit", "10"], environment),
+        );
+        return list.flatMap((entry): Submission[] => {
+          const parsed = SubmissionSchema.safeParse(entry);
+          if (!parsed.success) return [];
+          const { id, status, createdAt, submittedBuild, buildId } = parsed.data;
+          return [
+            {
+              id,
+              status: status.toLowerCase().replaceAll("_", "-"),
+              createdAt: createdAt ?? null,
+              buildId: submittedBuild?.id ?? buildId ?? null,
+            },
+          ];
+        });
+      } catch {
+        return null;
+      }
     },
 
     // What differs between the last build's native layer and this commit's, for a "native changed".

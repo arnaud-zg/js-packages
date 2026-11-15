@@ -20,6 +20,12 @@ export interface SourceControlPort {
   diffNames: (from: string, to: string) => Promise<string[]>;
   fileAt: (ref: string, file: string) => Promise<string | null>;
   tags: () => Promise<Set<string>>;
+  /** Untracked files git ignores that match a pattern (`*` stays in its folder), relative to the root. */
+  ignoredFiles: (patterns: readonly string[]) => Promise<string[]>;
+  /** Checks a ref out, detached, in a new folder outside the repository. */
+  addWorktree: (dir: string, ref: string) => Promise<void>;
+  /** Removes a worktree `addWorktree` made, whatever it holds. */
+  removeWorktree: (dir: string) => Promise<void>;
   createBranch: (name: string) => Promise<void>;
   switchTo: (branch: string) => Promise<void>;
   /** `skipHooks` commits without the repository's hooks: a release title longer than they allow. */

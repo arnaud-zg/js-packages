@@ -3,7 +3,7 @@ import type { Environment } from "../domain/environment";
 import type { ReleaseUnit } from "../domain/unit";
 import type { AppInput, ReleaseModule } from "../modules/module";
 import type { Deploy } from "../ports/code-host.port";
-import type { Decision, Job } from "../ports/delivery.port";
+import type { Decision, Job, ShipKind } from "../ports/delivery.port";
 import type { Shipment } from "./askPath";
 import type { ReleaseContext } from "./context";
 import { onlyVersionFiles, shipsFrom, webShip } from "../domain/deploys";
@@ -28,23 +28,27 @@ import {
   versionFiles,
 } from "./targets";
 
-type Kind = Extract<Decision, { action: "ship" }>["kind"];
-
 interface Ready {
   unit: ReleaseUnit;
   module: ReleaseModule;
   input: AppInput;
-  kind: Kind;
+  kind: ShipKind;
   jobs: Job[];
   /** Its module decided for itself: the moved-past check is already its own. */
   decided: boolean;
   /** Why this machine cannot ship it, as its module decided. */
   notLocal: string | null;
+  /** The person already said go for it. */
+  confirmed: boolean;
 }
 
-/** Builds and submits run on their own platform: a build asks only when a workflow can start it. */
+/**
+ * Builds and submits run on their own platform: they ask only when a workflow can start them too.
+ */
 const choosesPath = ({ kind, jobs }: Ready) =>
-  kind === "update" || kind === "deploy" || (kind === "build" && jobs.every(({ ci }) => ci));
+  kind === "update" ||
+  kind === "deploy" ||
+  ((kind === "build" || kind === "submit") && jobs.every(({ ci }) => ci));
 
 const WEB_STATUS: Record<Exclude<WebShip, "deploy">, string> = {
   deploying: "deploying already",
@@ -70,12 +74,19 @@ const webDecision = (
     : { action: "none", status: WEB_STATUS[ship] };
 };
 
-/** Where a choice stands, then the person's pick: its jobs ship, or nothing does and it is held. */
+/**
+ * Where a choice stands, then the person's pick: its jobs ship, or nothing does and it is held.
+ * With nobody to answer, a choice that says so fails instead.
+ */
 const chosen = async (
   context: ReleaseContext,
   choice: Extract<Decision, { action: "choose" }>,
-): Promise<Extract<Decision, { action: "ship" | "none" }>> => {
-  const { output, prompter } = context;
+): Promise<Extract<Decision, { action: "ship" | "none" | "fail" }>> => {
+  const { output, prompter, options } = context;
+  // Only a choice that names what to say refuses unattended; any other is asked whenever it can be.
+  if (choice.unattended && (!prompter.interactive || options.ci)) {
+    return { action: "fail", ...choice.unattended };
+  }
   output.line();
   choice.lines.forEach((line) => output.line(`  ${line}`));
   output.line();
@@ -91,9 +102,17 @@ const chosen = async (
         choice.suggested,
       )
     : null;
-  const jobs = choice.options.find((option) => option.value === value)?.jobs ?? [];
+  const picked = choice.options.find((option) => option.value === value);
+  picked?.then?.forEach((line) => output.line(`  ${line}`));
+  const jobs = picked?.jobs ?? [];
   return jobs.length > 0
-    ? { action: "ship", kind: "update", jobs }
+    ? {
+        action: "ship",
+        kind: choice.kind ?? "update",
+        jobs,
+        ...(choice.notLocal ? { notLocal: choice.notLocal } : {}),
+        ...(choice.confirmed ? { confirmed: true } : {}),
+      }
     : { action: "none", status: choice.held };
 };
 
@@ -198,6 +217,7 @@ const decideAll = async (
       jobs: decision.jobs,
       decided: module.decide !== undefined,
       notLocal: decision.notLocal ?? null,
+      confirmed: decision.confirmed === true,
     });
   }
   return ready;
@@ -411,7 +431,10 @@ export const shipTo = async (
   }
   const going = ready.filter((entry) => !choosesPath(entry) || paths.has(entry));
   if (going.length === 0) return !stuck;
-  const runsHere = going.some((entry) => paths.get(entry) === "local");
+  // A job run from its tag's worktree leaves this checkout alone.
+  const runsHere = going.some(
+    (entry) => paths.get(entry) === "local" && entry.jobs.some(({ from }) => !from),
+  );
   if (runsHere && !(await services.sourceControl.isClean())) {
     fail(
       context,
@@ -421,6 +444,7 @@ export const shipTo = async (
     return false;
   }
   if (
+    going.some(({ confirmed }) => !confirmed) &&
     !(await confirm(
       context,
       shipQuestion(going, paths, environment, context),
