@@ -1,11 +1,3 @@
-/**
- * expo-pnpm-catalog check
- *
- * Mirrors what `expo-doctor` would see in CI: temporarily resolves all
- * `catalog:*` references to concrete versions — across every workspace
- * package, not just the Expo app — so that `npx expo-doctor` can read the
- * full dependency surface correctly, then restores the original file.
- */
 import { execSync } from "child_process";
 import path from "path";
 

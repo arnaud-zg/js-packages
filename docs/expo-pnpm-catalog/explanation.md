@@ -28,8 +28,11 @@ Both `check` and `sync` temporarily rewrite the Expo app's `package.json`, repla
 `catalog:*` reference with its resolved concrete version, because `expo-doctor` and
 `expo install --fix` can't read a catalog reference directly. Leaving that rewritten file in place
 would silently convert catalog references into hardcoded pins, defeating the point of using a
-catalog. `SIGINT`/`SIGTERM` handlers plus a `finally` block around the mutation guarantee the
-original file comes back even if the process is interrupted mid-run, not just on a clean exit.
+catalog. A `finally` block around the mutation puts the original file back on a clean exit or an
+error. `expo-doctor` runs synchronously, so a `finally` never runs on `Ctrl-C`: the CLI also wraps
+`check`'s run in `SIGINT`/`SIGTERM` handlers that restore the file before exiting. The handlers live
+in `cli.ts`, not in `runCheck`, so a program calling `runCheck` keeps control of its own signals
+(see [Reference § Programmatic](./reference.md#programmatic)).
 
 ## Why `pnpm-workspace.yaml` updates are a targeted string replace, not a full YAML round-trip
 
@@ -40,3 +43,22 @@ library's own formatting rules, dropping comments and reordering keys in the pro
 version portion, leaving everything else in the file, comments included, byte-for-byte unchanged.
 `js-yaml` is still used to _read_ the file (parsing structure needs a real parser); only the write
 path avoids it.
+
+## How the code is laid out
+
+The rules work on values, not files. `CatalogWorkspace` (`pnpm-workspace.yaml`) and
+`ExpoAppManifest` (the Expo app's `package.json`) are built with `fromText()`, turned back into text
+with `toText()`, and never touch the disk. Each file is read and written by an adapter
+(`catalogWorkspace.adapter.ts`, `expoAppManifest.adapter.ts`) behind a port (`*.ports.ts`), and each
+text is checked against a zod schema (`schemas.ts`) as it is read, so a malformed file stops the run
+with its path instead of failing later. Every line of terminal output goes through `printer.ts`, and
+`cli.ts` is the one place that touches the process (signals, exit codes).
+
+`check` and `sync` prepare the manifest that Expo tooling reads in the same three steps:
+
+```ts
+const resolved = ExpoManifestResolver.from(manifest) // the Expo app's own package.json
+  .withCatalogResolution(workspace) // catalog:* references become concrete versions
+  .mergeExtraPackages(extra.versions) // catalog deps that only sibling packages declare
+  .build();
+```

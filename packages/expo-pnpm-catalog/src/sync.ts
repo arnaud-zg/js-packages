@@ -1,12 +1,3 @@
-/**
- * expo-pnpm-catalog sync
- *
- * Uses `expo install --fix` (same engine as expo-doctor) to determine the
- * correct dependency versions for the current Expo SDK across the entire
- * workspace, then writes those versions back into the matching `catalogs.*`
- * section of pnpm-workspace.yaml while preserving all `catalog:*` references
- * in every package.json.
- */
 import { execSync } from "child_process";
 
 import type { CatalogPaths } from "./catalogUtils";
@@ -39,8 +30,6 @@ export type SyncOptions = {
   yes: boolean;
 };
 
-// ── expo install --fix runner ─────────────────────────────────────────────────
-
 type InstallFixRun = {
   manifestFile: ExpoAppManifestFile;
   resolved: ExpoAppManifest;
@@ -68,8 +57,6 @@ function runExpoInstallFix({ manifestFile, resolved, appDir }: InstallFixRun): E
     manifestFile.restore();
   }
 }
-
-// ── Update computation ────────────────────────────────────────────────────────
 
 type UpdateInputs = {
   catalogPackages: ReadonlySet<string>;
@@ -100,8 +87,6 @@ function computeUpdates({
   return updates;
 }
 
-// ── Apply updates ─────────────────────────────────────────────────────────────
-
 type YamlUpdate = {
   workspaceFile: CatalogWorkspaceFile;
   workspace: CatalogWorkspace;
@@ -123,8 +108,6 @@ function runPnpmInstall(rootDir: string): void {
   execSync("pnpm install", { cwd: rootDir, stdio: "inherit" });
   printSeparator();
 }
-
-// ── Entry point ───────────────────────────────────────────────────────────────
 
 export async function runSync(paths: CatalogPaths, options: SyncOptions): Promise<void> {
   printSyncHeader(options.dryRun);

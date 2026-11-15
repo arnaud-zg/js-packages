@@ -1,6 +1,3 @@
-/**
- * Value object representing a single version change in catalogs.expo.
- */
 export type VersionChange = {
   name: string;
   from: string;

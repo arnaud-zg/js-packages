@@ -1,7 +1,4 @@
-/**
- * Represents pnpm-workspace.yaml — reads, resolves catalog references,
- * and writes version updates in place (preserving comments).
- */
+// Keeps the raw text so a version update patches it in place and comments survive.
 import { load } from "js-yaml";
 
 import type { WorkspaceYaml } from "./schemas";
@@ -41,10 +38,7 @@ export class CatalogWorkspace {
     return getAllCatalogVersions(this.data);
   }
 
-  /**
-   * Top-level workspace directories declared by `packages:` (e.g. `apps/*`
-   * → `apps`). Falls back to the monorepo defaults when none are declared.
-   */
+  /** `packages: [apps/*]` gives `apps`; with no globs, the monorepo defaults. */
   getWorkspaceDirs(): string[] {
     const dirs = new Set<string>();
     for (const pattern of this.data.packages ?? []) {

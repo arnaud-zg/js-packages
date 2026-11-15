@@ -1,7 +1,4 @@
-/**
- * Scans every workspace package for catalog: references (any catalog),
- * excluding a given package.json path (typically the Expo app itself).
- */
+// Sibling packages count too: expo-doctor would otherwise miss drift in a shared package.
 import fs from "fs";
 import path from "path";
 

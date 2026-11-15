@@ -1,6 +1,3 @@
-/**
- * Shared types, constants, and pure functions used across expo-pnpm-catalog.
- */
 import type { WorkspaceYaml } from "./schemas";
 
 /** Fallback top-level workspace directories when pnpm-workspace.yaml declares none. */
@@ -27,22 +24,11 @@ export type ExtraPackages = {
   versions: Record<string, string>;
 };
 
-// ── isCatalogRef ─────────────────────────────────────────────────────────────
-
-/**
- * Returns true for any pnpm catalog reference (`catalog:`, `catalog:expo`, etc.)
- */
 export function isCatalogRef(version: string): boolean {
   return version.startsWith("catalog:");
 }
 
-// ── getAllCatalogVersions ─────────────────────────────────────────────────────
-
-/**
- * Flattens all catalog sections (root `catalog:` and every named `catalogs.*`)
- * into a single package→version map.  Named catalogs are merged first; the
- * root catalog wins on collision so that explicit overrides are respected.
- */
+/** The root `catalog:` is merged last so it wins over a named catalog on collision. */
 export function getAllCatalogVersions(workspace: WorkspaceYaml): Record<string, string> {
   const result: Record<string, string> = {};
   for (const catalog of Object.values(workspace.catalogs ?? {})) {
@@ -51,8 +37,6 @@ export function getAllCatalogVersions(workspace: WorkspaceYaml): Record<string, 
   Object.assign(result, workspace.catalog ?? {});
   return result;
 }
-
-// ── resolveCatalogRefs ───────────────────────────────────────────────────────
 
 type CatalogEntry = {
   name: string;
@@ -69,10 +53,6 @@ function resolveVersion({ name, version, workspace }: CatalogEntry): string {
   return version;
 }
 
-/**
- * Resolves all `catalog:*` version references in a deps map to their
- * concrete versions from pnpm-workspace.yaml.
- */
 export function resolveCatalogRefs(
   deps: Record<string, string>,
   workspace: WorkspaceYaml,
@@ -84,18 +64,13 @@ export function resolveCatalogRefs(
   return resolved;
 }
 
-// ── updateVersionInYaml ──────────────────────────────────────────────────────
-
-/**
- * Updates a single package version in pnpm-workspace.yaml content in place,
- * preserving all comments and formatting.
- */
 export type YamlVersionUpdate = {
   content: string;
   packageName: string;
   newVersion: string;
 };
 
+/** A line-level replace rather than a YAML round trip, so comments and formatting survive. */
 export function updateVersionInYaml({
   content,
   packageName,

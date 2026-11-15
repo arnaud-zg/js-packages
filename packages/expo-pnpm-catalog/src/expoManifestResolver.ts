@@ -1,14 +1,3 @@
-/**
- * Builder that constructs a fully resolved ExpoAppManifest by applying
- * catalog version resolution and merging extra workspace dependencies.
- *
- * Usage:
- *   const resolved = ExpoManifestResolver
- *     .from(manifest)
- *     .withCatalogResolution(workspace)
- *     .mergeExtraPackages(extra.versions)
- *     .build();
- */
 import type { CatalogWorkspace } from "./catalogWorkspace";
 import type { ExpoAppManifest } from "./expoAppManifest";
 

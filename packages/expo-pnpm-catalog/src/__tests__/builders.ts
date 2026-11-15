@@ -1,7 +1,4 @@
-/**
- * Test data builders for expo-pnpm-catalog types.
- * Each export is a factory returning a fresh builder to avoid state leakage.
- */
+// Factories, so each test gets a fresh builder and no state leaks between tests.
 import { Builder } from "builder-pattern";
 
 import type { PackageJson, WorkspaceYaml } from "../catalogUtils";

@@ -1,8 +1,3 @@
-/**
- * Represents the Expo app's package.json — provides resolved copies for tools
- * that cannot understand catalog: references (expo-doctor, expo install --fix),
- * and always restores the original file.
- */
 import type { PackageJson } from "./schemas";
 import { isCatalogRef } from "./catalogUtils";
 import { PackageJsonSchema, parseOrThrow } from "./schemas";
