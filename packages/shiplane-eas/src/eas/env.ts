@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { AdapterContext, PlatformEnvPort } from "shiplane/plugin";
 import { isEnvVarName } from "shiplane/plugin";
 
@@ -10,13 +11,13 @@ const firstLine = (text: string) =>
     ?.trim();
 
 /** The names of an EAS environment's variables; only names are kept, never values. */
-export const easEnv = ({ shell }: AdapterContext): PlatformEnvPort => ({
+export const easEnv = ({ root, shell }: AdapterContext): PlatformEnvPort => ({
   listNames: async ({ unit, environment }) => {
     const result = await shell.capture(
       "pnpm",
       ["exec", "eas", "env:list", environment, "--format", "short"],
       // eas reads app.config, which may branch on APP_VARIANT, from the app's folder.
-      { cwd: unit.dir, env: { APP_VARIANT: environment } },
+      { cwd: path.join(root, unit.dir), env: { APP_VARIANT: environment } },
     );
     if (result.status !== 0) {
       const reason = firstLine(result.stderr) ?? `exit ${result.status}`;
