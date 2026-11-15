@@ -18,9 +18,13 @@ export type TagFormatName = keyof typeof TAG_FORMATS;
 /** How a tag names a unit's version unless the config says otherwise. */
 export const DEFAULT_TAG_FORMAT = TAG_FORMATS.package;
 
+/** Whether a config names one of the tag formats instead of writing one out. */
+export const isTagFormatName = (format: string): format is TagFormatName =>
+  Object.hasOwn(TAG_FORMATS, format);
+
 /** A format's name resolved to the format; anything else is a format already. */
 export const tagFormatNamed = (format: string): string =>
-  Object.hasOwn(TAG_FORMATS, format) ? TAG_FORMATS[format as TagFormatName] : format;
+  isTagFormatName(format) ? TAG_FORMATS[format] : format;
 
 /** A unit's tag for a version, through a format like `v{version}` or `{name}--v{version}`. */
 export const tagName = (app: string, version: string, format: string = DEFAULT_TAG_FORMAT) =>

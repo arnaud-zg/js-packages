@@ -1,8 +1,9 @@
 import type { ReleaseContext } from "../application/context";
 import type { Environment } from "../domain/environment";
 import { readStatus } from "../application/readStatus";
+import { paint } from "../application/say";
 import { environmentLabel } from "../application/targets";
-import { out, paint } from "./output";
+import { out } from "./output";
 
 const NEXT: Record<string, string> = {
   "release-pr": "open the release PR: shiplane",

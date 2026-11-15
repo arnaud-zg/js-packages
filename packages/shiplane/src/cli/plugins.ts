@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import type { AnyDeliveryAdapter } from "../modules/suggest";
 import { shellServerHosting } from "../adapters/server-hosting/shell-server-hosting.adapter";
+import { isRecord } from "../application/config/values";
 import { PackageJsonSchema } from "../application/manifest";
 
 /** A plugin's own word on what init may offer: `"shiplane": { "adapters": ["flyServerHosting"] }`. */
@@ -14,9 +15,6 @@ const PluginManifestSchema = z.object({
 });
 
 const readJson = (file: string): unknown => JSON.parse(fs.readFileSync(file, "utf8"));
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
 
 /**
  * The delivery adapters init can offer: the built-in shell adapter, then each one a plugin this

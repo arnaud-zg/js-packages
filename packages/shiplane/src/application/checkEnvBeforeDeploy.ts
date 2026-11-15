@@ -6,7 +6,7 @@ import type { Shell } from "../ports/shell.port";
 import type { Release } from "./config/loadRelease";
 import type { ReleaseContext } from "./context";
 import { findUnset } from "../domain/checkEnvBeforeDeploy";
-import { paint } from "./say";
+import { paint, reasonOf } from "./say";
 import { resolvedOptions } from "./targets";
 import { unattended } from "./unattended";
 
@@ -60,7 +60,7 @@ const readNames = async (
   try {
     return await port.listNames(input);
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
+    const reason = reasonOf(error);
     line(context, paint("red", "✗"), `${input.unit.name} on ${input.environment}: ${reason}`);
     const retry = !unattended(context) && (await context.prompter.confirm(READ_AGAIN, true));
     return retry ? readNames(context, port, input) : null;

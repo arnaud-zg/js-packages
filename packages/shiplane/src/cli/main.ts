@@ -15,6 +15,7 @@ import { planShips } from "../application/planShips";
 import { prepareRelease } from "../application/prepareRelease";
 import { promote } from "../application/promote";
 import { releaseToPreview } from "../application/releaseToPreview";
+import { paint } from "../application/say";
 import { setup } from "../application/setup";
 import { CONFIG_FILE, refreshEditorSchema } from "../application/setupFiles";
 import { shipTo } from "../application/ship";
@@ -22,7 +23,7 @@ import { missingTags, tagRelease } from "../application/tagRelease";
 import { ENVIRONMENTS } from "../domain/environment";
 import { composeContext, composeSetup, loadReleaseOnDisk } from "./compose";
 import { findRoot } from "./findRoot";
-import { out, paint, printProblems } from "./output";
+import { out, printProblems } from "./output";
 import { pluginsCommand } from "./pluginsCommand";
 import { statusCommand } from "./statusCommand";
 

@@ -4,7 +4,7 @@ import type { ReleaseUnit } from "../domain/unit";
 import type { SetupContext } from "./setupContext";
 import { readManifest } from "./manifest";
 import { checkStatus, requirementsOf } from "./requirements";
-import { paint } from "./say";
+import { paint, reasonOf } from "./say";
 import { commandLine, shipPlanOf, unitTarget } from "./targets";
 
 class StepFailed extends Error {}
@@ -14,9 +14,7 @@ const sayFailed = (context: SetupContext, { label, error }: { label: string; err
   if (error instanceof StepFailed && context.progress) return;
   context.output.line(`  ${paint("red", "✗")} ${label}`);
   if (error instanceof StepFailed) return;
-  context.output.line(
-    `     ${paint("dim", error instanceof Error ? error.message : String(error))}`,
-  );
+  context.output.line(`     ${paint("dim", reasonOf(error))}`);
 };
 
 /** One rehearsal check under a spinner when there is one: true when `work` says it passed. */

@@ -2,6 +2,7 @@ import type { OpenPr, ReleaseStep } from "../domain/releasePr";
 import type { ReleaseTag } from "../domain/tags";
 import type { ReleaseContext } from "./context";
 import { nextStep, RELEASE_BRANCH_PREFIX } from "../domain/releasePr";
+import { plural } from "../domain/words";
 import { checkEnvBeforeDeploy } from "./checkEnvBeforeDeploy";
 import { openReleasePr, printSummary } from "./openReleasePr";
 import { pickScope } from "./pickScope";
@@ -13,8 +14,6 @@ import { runSteps } from "./steps";
 import { missingTags, tagRelease } from "./tagRelease";
 import { destination } from "./targets";
 import { waitForMerge } from "./waitForMerge";
-
-const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
 
 /** The commits main gained since a release PR's branch, or none when the host did not say. */
 const movedPast = async (context: ReleaseContext, pr: OpenPr, originMain: string) => {

@@ -17,7 +17,7 @@ import { mapLimit } from "./mapLimit";
 import { pullRequestFirst } from "./pullRequestFirst";
 import { deployedOn } from "./readScope";
 import { signIn, signInsOf } from "./requirements";
-import { confirm, fail, listed, paint } from "./say";
+import { confirm, fail, listed, paint, reasonOf } from "./say";
 import {
   decideContext,
   destination,
@@ -417,7 +417,7 @@ const runShipSteps = async (context: ReleaseContext, steps: readonly ShipStep[])
     try {
       await context.progress.during(label, "working", run, { index, total: steps.length });
     } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
+      const reason = reasonOf(error);
       fail(context, `${label} failed`, `${reason}, nothing after it ran.`);
       offerAgain(context, tags);
       return false;

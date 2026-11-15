@@ -12,6 +12,7 @@ import type { ConfigProblem } from "./problem";
 import type { UnitFile } from "./readUnitFile";
 import { DEFAULT_TAG_FORMAT, TAG_FORMATS, tagFormatNamed } from "../../domain/tags";
 import { releaseFlow } from "../releaseFlow";
+import { reasonOf } from "../say";
 import { sortProblems } from "./problem";
 import { readUnitFile, UNIT_FILE, UNIT_FILES } from "./readUnitFile";
 import { isRecord, referencesIn, valueAt } from "./values";
@@ -284,7 +285,7 @@ export const loadRelease = async (root: string, options: LoadOptions): Promise<R
   try {
     config = await readConfig(configFile, options.aliases ?? selfAliases());
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
+    const reason = reasonOf(error);
     return empty([
       { file: path.basename(configFile), message: `it did not load: ${reason.split("\n")[0]}` },
     ]);

@@ -18,7 +18,10 @@ interface Inspectable {
   description?: string;
 }
 
-const definition = (schema: z.ZodType) => (schema as unknown as Inspectable).def;
+// A config loads its own copy of zod, so a schema is read by its shape, never by its class.
+const inspect = (schema: z.ZodType): Inspectable => schema;
+
+const definition = (schema: z.ZodType) => inspect(schema).def;
 
 const mapShape = (shape: Record<string, z.ZodType>, map: (schema: z.ZodType) => z.ZodType) =>
   Object.fromEntries(Object.entries(shape).map(([key, value]) => [key, map(value)]));
@@ -52,7 +55,7 @@ export const deepStrict = (schema: z.ZodType): z.ZodType => {
     }
   };
   const result = strict();
-  const { description } = schema as unknown as Inspectable;
+  const { description } = inspect(schema);
   return description && result !== schema ? result.describe(description) : result;
 };
 

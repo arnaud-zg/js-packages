@@ -6,6 +6,7 @@ import { nextStep, RELEASE_BRANCH_PREFIX } from "../domain/releasePr";
 import { scopeChoices } from "../domain/scope";
 import { tagName } from "../domain/tags";
 import { readScope } from "./readScope";
+import { reasonOf } from "./say";
 import { missingTags } from "./tagRelease";
 import { decideContext, moduleOf, unitTarget } from "./targets";
 
@@ -50,7 +51,7 @@ export const readStatus = async (
     const inspected = await target.module
       .inspect(decideContext(context), target.input)
       .catch((error: unknown) => ({
-        error: error instanceof Error ? error.message : String(error),
+        error: reasonOf(error),
       }));
     return { live: inspected };
   };

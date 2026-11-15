@@ -1,7 +1,7 @@
 import type { OpenPr } from "../domain/releasePr";
 import type { ReleaseContext } from "./context";
 import { CommandFailed } from "../ports/shell.port";
-import { fail, paint } from "./say";
+import { fail, paint, reasonOf } from "./say";
 
 /** How a step takes back what it did, and what a person runs when that fails too. */
 export interface Undo {
@@ -27,8 +27,6 @@ export interface Step {
 }
 
 const MAX_OUTPUT_LINES = 40;
-
-const reasonOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /** What the failed command printed, so the person reads why without running it again. */
 const printOutput = ({ output }: ReleaseContext, error: unknown) => {

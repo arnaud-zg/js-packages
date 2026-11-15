@@ -1,10 +1,5 @@
-import { styleText } from "node:util";
-
 import type { ConfigProblem } from "../application/config/problem";
-
-type Style = Parameters<typeof styleText>[0];
-
-export const paint = (style: Style, text: string) => styleText(style, text);
+import { paint } from "../application/say";
 
 export const out = (line = "") => process.stdout.write(`${line}\n`);
 

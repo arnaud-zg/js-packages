@@ -9,6 +9,7 @@ import type { ReleaseContext } from "./context";
 import { changesReaching, codeFolders } from "../domain/codeScope";
 import { tagName } from "../domain/tags";
 import { optionsFor } from "./config/optionsFor";
+import { reasonOf } from "./say";
 
 /** The module that ships an app: the one its unit file names. */
 export const moduleOf = ({ release }: ReleaseContext, unit: ReleaseUnit) =>
@@ -121,7 +122,7 @@ const runFromTag = async (context: ReleaseContext, job: Job, tag: string) => {
   let removing: Promise<void> | null = null;
   const remove = () => {
     removing ??= services.sourceControl.removeWorktree(dir).catch((error: unknown) => {
-      const reason = error instanceof Error ? error.message : String(error);
+      const reason = reasonOf(error);
       output.line(`  ! could not remove the worktree ${dir}: ${reason}`);
       output.line(`    git worktree remove --force ${dir}`);
     });
