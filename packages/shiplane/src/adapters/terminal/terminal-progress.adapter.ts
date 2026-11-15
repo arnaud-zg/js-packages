@@ -1,7 +1,7 @@
 import { styleText } from "node:util";
 
 import type { Display, MascotDrawing, MascotMoment, Mood } from "../../domain/display";
-import type { Progress, StepPlace } from "../../ports/terminal.port";
+import type { BatchPlace, Progress, StepPlace } from "../../ports/terminal.port";
 import { progressBar } from "../../domain/display";
 import { liveLine } from "./live-line";
 
@@ -32,7 +32,12 @@ const fit = (text: string, taken: number) => {
   return text.length > room ? `${text.slice(0, room - 1)}…` : text;
 };
 
-const counterOf = (step?: StepPlace) => (step ? `${step.index + 1}/${step.total}  ` : "");
+type Place = StepPlace | BatchPlace;
+
+const counterOf = (step?: Place) =>
+  step && "index" in step ? `${step.index + 1}/${step.total}  ` : "";
+
+const batchOf = (step?: Place) => (step && "done" in step ? step : null);
 
 /**
  * Progress in a terminal. Verbose: the journey bar, what it reads, each step redrawn in place with
@@ -44,18 +49,23 @@ export const terminalProgress = (display: Display, inPlace: boolean): Progress =
     display.mascot
       ? `${paintMascot(display.mascot, { mood, tick: display.motion ? tick : 0, label })} `
       : "";
-  const taken = (step?: StepPlace) =>
-    2 + (display.mascot ? display.mascot.width + 1 : 0) + counterOf(step).length + 8;
+  const taken = (step?: Place) =>
+    2 +
+    (display.mascot ? display.mascot.width + 1 : 0) +
+    counterOf(step).length +
+    (batchOf(step) ? 8 : 0) +
+    8;
 
   const during = async <T>(
     label: string,
     mood: Mood,
     work: () => Promise<T>,
-    step?: StepPlace,
+    step?: Place,
   ): Promise<T> => {
     const counter = styleText("dim", counterOf(step));
+    const batch = batchOf(step);
     if (!display.verbose) {
-      if (step) {
+      if (step && !batch) {
         liveLine.above("");
         liveLine.above(styleText(["bold", "cyan"], `▶ ${label}`));
       }
@@ -67,7 +77,8 @@ export const terminalProgress = (display: Display, inPlace: boolean): Progress =
       return work();
     }
     const started = Date.now();
-    const time = () => styleText("dim", elapsed(started));
+    const time = () =>
+      styleText("dim", `${batch ? `${batch.done()}/${batch.total}  ` : ""}${elapsed(started)}`);
     const drawing = display.mascot;
     liveLine.show(
       {
