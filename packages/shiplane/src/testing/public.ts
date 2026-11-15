@@ -23,7 +23,7 @@ export { MemoryOutput, ScriptedPrompter } from "../adapters/terminal/__fakes__/t
 export { nodeFiles } from "../adapters/files/node-files.adapter";
 export { systemShell } from "../adapters/shell/system-shell.adapter";
 export { addUnit, removeUnit } from "../application/addUnit";
-export { loadRelease } from "../application/config/loadRelease";
+export { loadReleaseOnDisk as loadRelease } from "../cli/compose";
 export { docsFor } from "../application/docsFor";
 export { doctor } from "../application/doctor";
 export { initRelease } from "../application/initRelease";

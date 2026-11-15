@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { Workspace } from "../../../testing/workspace";
+import { loadReleaseOnDisk as loadRelease } from "../../../cli/compose";
 import { MODULE_CONFIG, SERVER_UNIT } from "../../../testing/moduleConfig";
 import { createWorkspace, packageJson, SOURCE_ALIASES } from "../../../testing/workspace";
-import { loadRelease } from "../loadRelease";
 
 let workspace: Workspace | undefined;
 

@@ -1,4 +1,4 @@
-import type { Release } from "../application/config/loadRelease";
+import type { LoadOptions, Release } from "../application/config/loadRelease";
 import type { ReleaseContext, Services } from "../application/context";
 import type { SetupContext } from "../application/setupContext";
 import type { DisplayChoice } from "../domain/display";
@@ -6,6 +6,7 @@ import type { Open } from "../modules/module";
 import type { Shell } from "../ports/shell.port";
 import type { Output, Progress, Prompter } from "../ports/terminal.port";
 import { nodeFiles } from "../adapters/files/node-files.adapter";
+import { packageJsonManifest } from "../adapters/manifest/package-json-manifest.adapter";
 import { systemShell } from "../adapters/shell/system-shell.adapter";
 import { terminalProgress } from "../adapters/terminal/terminal-progress.adapter";
 import {
@@ -17,6 +18,10 @@ import {
 import { loadRelease } from "../application/config/loadRelease";
 import { resolveDisplay } from "../domain/display";
 import { installedAdapters } from "./plugins";
+
+/** The release as written on disk, each unit's name and version read from its package.json. */
+export const loadReleaseOnDisk = (root: string, options: Partial<LoadOptions> = {}) =>
+  loadRelease(root, { ...options, manifests: options.manifests ?? packageJsonManifest });
 
 /** Creates each port the flow runs on, for this repository. */
 export const composeServices = (release: Release, open: Open): Services => ({
@@ -62,7 +67,7 @@ export const composeContext = (
   const open = opener(release.root, shell);
   return {
     release,
-    load: () => loadRelease(release.root, { aliases: io.aliases }),
+    load: () => loadReleaseOnDisk(release.root, { aliases: io.aliases }),
     services: composeServices(release, open),
     open,
     prompter: io.prompter ?? terminalPrompter(display),
@@ -97,7 +102,7 @@ export const composeSetup = async (
     prompter: terminalPrompter(),
     output: terminalOutput,
     adapters: io.adapters ?? (await installedAdapters(root)),
-    load: () => loadRelease(root),
+    load: () => loadReleaseOnDisk(root),
     progress: terminalProgress(display, tty && !ci),
     compose: (release) => composeContext(release, { yes: true, display: { mascot: false } }),
     ...io,

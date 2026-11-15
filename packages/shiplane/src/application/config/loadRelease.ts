@@ -10,7 +10,6 @@ import type { ServiceAdapter } from "../../ports/adapter.port";
 import type { ManifestReader } from "../../ports/manifest.port";
 import type { ConfigProblem } from "./problem";
 import type { UnitFile } from "./readUnitFile";
-import { packageJsonManifest } from "../../adapters/manifest/package-json-manifest.adapter";
 import { DEFAULT_TAG_FORMAT, TAG_FORMATS, tagFormatNamed } from "../../domain/tags";
 import { releaseFlow } from "../releaseFlow";
 import { sortProblems } from "./problem";
@@ -63,7 +62,8 @@ type Composed = Pick<Release, "flow" | "modules" | "features" | "display" | "tag
 export interface LoadOptions {
   /** Where `shiplane` resolves from inside the config; by default, this very package. */
   aliases?: Record<string, string>;
-  manifests?: ManifestReader;
+  /** Where each unit's name and version come from: its package.json, as `cli/compose` wires it. */
+  manifests: ManifestReader;
 }
 
 export const findConfig = (root: string) =>
@@ -260,7 +260,7 @@ const referenceProblems = ({ unit, file }: Read, ordered: readonly Read[]): Conf
  * The release as written: what `shiplane.config.ts` composes, and one app per folder that holds a
  * `shiplane.unit.yml`, in release order. Every problem is collected, never thrown.
  */
-export const loadRelease = async (root: string, options: LoadOptions = {}): Promise<Release> => {
+export const loadRelease = async (root: string, options: LoadOptions): Promise<Release> => {
   const empty = (problems: ConfigProblem[]): Release => ({
     root,
     flow: unsetFlow(),
@@ -289,7 +289,7 @@ export const loadRelease = async (root: string, options: LoadOptions = {}): Prom
       { file: path.basename(configFile), message: `it did not load: ${reason.split("\n")[0]}` },
     ]);
   }
-  const manifests = options.manifests ?? packageJsonManifest;
+  const { manifests } = options;
   const problems: ConfigProblem[] = [];
   const features = config.features.map(({ name }) => name);
   const read: Read[] = expandPatterns(root, config.units ?? workspacePatterns(root)).flatMap(

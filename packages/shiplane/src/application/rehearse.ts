@@ -3,6 +3,7 @@ import path from "node:path";
 import type { ReleaseUnit } from "../domain/unit";
 import type { SetupContext } from "./setupContext";
 import { tagName } from "../domain/tags";
+import { readManifest } from "./manifest";
 import { checkStatus, requirementsOf } from "./requirements";
 import { paint } from "./say";
 import { commandLine, jobInput, moduleOf, shipPlanOf } from "./targets";
@@ -46,10 +47,7 @@ export const runner = (context: SetupContext) =>
 export const buildCommandOf = (context: SetupContext, unit: ReleaseUnit) => {
   if (unit.buildCommand)
     return { command: "sh", args: ["-c", unit.buildCommand], shown: unit.buildCommand };
-  const manifest = JSON.parse(
-    context.files.read(path.posix.join(unit.dir, "package.json")) ?? "{}",
-  ) as { scripts?: Record<string, string> };
-  if (!manifest.scripts?.build) return null;
+  if (!readManifest({ files: context.files, dir: unit.dir })?.scripts?.build) return null;
   const pm = runner(context);
   return { command: pm, args: ["run", "build"], shown: `${pm} run build` };
 };

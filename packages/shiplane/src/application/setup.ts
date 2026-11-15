@@ -18,6 +18,7 @@ import {
   suggestedName,
 } from "./customAdapter";
 import { askOptions } from "./initRelease";
+import { readManifest } from "./manifest";
 import { rehearse, runner } from "./rehearse";
 import { paint } from "./say";
 import {
@@ -134,9 +135,8 @@ const customWrites = (port: CustomPortKey, name: string, pkg: string): Write[] =
 
 /** What both ways of versioning need: the changesets config, and its CLI when it is missing. */
 const changesetsWrites = ({ files }: SetupContext): Write[] => {
-  const manifest = files.read("package.json");
-  const parsed = JSON.parse(manifest ?? "{}") as Record<string, Record<string, string> | undefined>;
-  const present = { ...parsed.dependencies, ...parsed.devDependencies }[CHANGESETS_CLI.name];
+  const manifest = readManifest({ files, dir: "." });
+  const present = { ...manifest?.dependencies, ...manifest?.devDependencies }[CHANGESETS_CLI.name];
   return [
     { file: CHANGESETS_CONFIG_FILE, text: CHANGESETS_CONFIG, created: true },
     ...(manifest === null || present
@@ -146,9 +146,9 @@ const changesetsWrites = ({ files }: SetupContext): Write[] => {
             file: "package.json",
             text: `${JSON.stringify(
               {
-                ...parsed,
+                ...manifest,
                 devDependencies: {
-                  ...parsed.devDependencies,
+                  ...manifest.devDependencies,
                   [CHANGESETS_CLI.name]: CHANGESETS_CLI.version,
                 },
               },
@@ -427,12 +427,7 @@ const buildFor = async (
   folder: FolderView,
   yes: boolean,
 ): Promise<string | null> => {
-  const manifest = JSON.parse(
-    context.files.read(path.posix.join(folder.dir, "package.json")) ?? "{}",
-  ) as {
-    scripts?: Record<string, string>;
-  };
-  if (manifest.scripts?.build) return null;
+  if (readManifest({ files: context.files, dir: folder.dir })?.scripts?.build) return null;
   if (yes) return null;
   const typed = await context.prompter.text(
     `${folder.dir} has no "build" script. Command to build it? (empty: nothing to build)`,

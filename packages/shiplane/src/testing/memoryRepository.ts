@@ -16,6 +16,7 @@ import { MemoryOutput, ScriptedPrompter } from "../adapters/terminal/__fakes__/t
 import { versioningFake } from "../adapters/versioning/__fakes__/versioning.fake";
 import { readUnitFile, UNIT_FILES } from "../application/config/readUnitFile";
 import { expandPatterns, workspacePatterns } from "../application/config/workspaceFolders";
+import { readManifest } from "../application/manifest";
 import { releaseFlow } from "../application/releaseFlow";
 import { CONFIG_FILE } from "../application/setupFiles";
 import { DEFAULT_TAG_FORMAT } from "../domain/tags";
@@ -66,10 +67,7 @@ export const memoryLoad =
       );
       if (!file) return [];
       const result = readUnitFile(file, files.read(file) ?? "", modules);
-      const manifest = JSON.parse(files.read(path.posix.join(dir, "package.json")) ?? "{}") as {
-        name?: string;
-        version?: string;
-      };
+      const manifest = readManifest({ files, dir });
       return [{ dir, file, result, manifest }];
     });
     return Promise.resolve({
@@ -83,8 +81,8 @@ export const memoryLoad =
                 name: path.posix.basename(dir),
                 dir,
                 file,
-                packageName: manifest.name ?? dir,
-                version: manifest.version ?? "0.0.0",
+                packageName: manifest?.name ?? dir,
+                version: manifest?.version ?? "0.0.0",
                 module: result.unit.module,
                 ...(result.unit.buildCommand ? { buildCommand: result.unit.buildCommand } : {}),
                 options: result.unit.options,

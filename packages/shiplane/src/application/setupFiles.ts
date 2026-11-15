@@ -10,6 +10,7 @@ import type { Release } from "./config/loadRelease";
 import { suggestedModule } from "../modules/suggest";
 import { UNIT_FILE } from "./config/readUnitFile";
 import { unitJsonSchema } from "./config/unitSchema";
+import { readManifest } from "./manifest";
 
 export const CONFIG_FILE = "shiplane.config.ts";
 // Generated for the editor, never edited or committed: kept out of the repository's own folders.
@@ -78,11 +79,8 @@ export const pluginPackage = (plugin: string) => `@shiplane/${plugin}`;
 
 /** What a written config imports the CLI as. */
 export const releasePackage = (files: Files) => {
-  const manifest = JSON.parse(files.read("package.json") ?? "{}") as {
-    dependencies?: Record<string, string>;
-    devDependencies?: Record<string, string>;
-  };
-  const deps = { ...manifest.dependencies, ...manifest.devDependencies };
+  const manifest = readManifest({ files, dir: "." });
+  const deps = { ...manifest?.dependencies, ...manifest?.devDependencies };
   return "shiplane" in deps ? "shiplane" : INSTALLED;
 };
 
@@ -363,8 +361,6 @@ export const folderView = (files: Files, dir: string): FolderView => ({
 
 /** The repository's short name: its package name without scope, else its folder's. */
 export const repositoryName = (files: Files, root: string) => {
-  const parsed = z
-    .object({ name: z.string() })
-    .safeParse(JSON.parse(files.read("package.json") ?? "{}"));
-  return parsed.success ? parsed.data.name.replace(/^@[^/]+\//, "") : path.basename(root);
+  const name = readManifest({ files, dir: "." })?.name;
+  return name === undefined ? path.basename(root) : name.replace(/^@[^/]+\//, "");
 };

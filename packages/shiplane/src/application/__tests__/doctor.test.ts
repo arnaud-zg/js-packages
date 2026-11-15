@@ -5,9 +5,9 @@ import type { SetupContext } from "../setupContext";
 import { nodeFiles } from "../../adapters/files/node-files.adapter";
 import { RecordingShell } from "../../adapters/shell/__fakes__/shell.fake";
 import { MemoryOutput, ScriptedPrompter } from "../../adapters/terminal/__fakes__/terminal.fake";
+import { loadReleaseOnDisk as loadRelease } from "../../cli/compose";
 import { MODULE_CONFIG, SERVER_UNIT } from "../../testing/moduleConfig";
 import { createWorkspace, packageJson, SOURCE_ALIASES } from "../../testing/workspace";
-import { loadRelease } from "../config/loadRelease";
 import { doctor } from "../doctor";
 
 let workspace: Workspace | undefined;
