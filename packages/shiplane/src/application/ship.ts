@@ -83,12 +83,14 @@ const chosen = async (
   choice: Extract<Decision, { action: "choose" }>,
 ): Promise<Extract<Decision, { action: "ship" | "none" | "fail" }>> => {
   const { output, prompter, options } = context;
-  const unattended = !prompter.interactive || options.ci;
-  if (unattended && choice.unattended) return { action: "fail", ...choice.unattended };
+  // Only a choice that names what to say refuses unattended; any other is asked whenever it can be.
+  if (choice.unattended && (!prompter.interactive || options.ci)) {
+    return { action: "fail", ...choice.unattended };
+  }
   output.line();
   choice.lines.forEach((line) => output.line(`  ${line}`));
   output.line();
-  const value = !unattended
+  const value = prompter.interactive
     ? await prompter.select(
         choice.question,
         choice.options.map(({ value, label, hint, disabled }) => ({

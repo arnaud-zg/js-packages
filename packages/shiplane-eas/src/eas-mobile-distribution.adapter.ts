@@ -282,20 +282,23 @@ const previewState = async (context: DecideContext, input: JobInput<Options>) =>
   const lastBuildCommit = builtFrom.every((commit) => commit === builtFrom[0])
     ? (builtFrom[0] ?? null)
     : null;
+  const atTag = await sinceTag(analysis.git.head);
+  // Once main moved on, whether the tag's update already went out decides a retry too.
   const lastUpdate =
-    tag && analysis.plan.action === "update" ? await client.lastUpdate("preview") : null;
+    tag && (analysis.plan.action === "update" || !atTag)
+      ? await client.lastUpdate("preview")
+      : null;
   const lastUpdateCommit = lastUpdate
     ? (await client.updateOrigin(lastUpdate.group, "preview")).commit
     : null;
-  const atTag = await sinceTag(analysis.git.head);
+  const updatedFromTag = await sinceTag(lastUpdateCommit);
   const ship = mobileShip(analysis.plan.action, {
     tagged: tag !== null,
     codeSinceTag: tag !== null && !atTag,
     codeShipped:
-      analysis.plan.action === "update" &&
-      ((await sinceTag(lastBuildCommit)) || (await sinceTag(lastUpdateCommit))),
+      analysis.plan.action === "update" && ((await sinceTag(lastBuildCommit)) || updatedFromTag),
   });
-  return { analysis, client, codeSince, sinceTag, ship, tag, atTag };
+  return { analysis, client, codeSince, sinceTag, ship, tag, atTag, updatedFromTag };
 };
 
 /**
@@ -429,14 +432,24 @@ const retryChoice = async (
   context: DecideContext,
   input: JobInput<Options>,
   state: Awaited<ReturnType<typeof previewState>>,
-): Promise<Decision> => {
+  {
+    seenShipped = false,
+  }: {
+    /** Preview already runs the tagged code: offer a retry only when a platform still misses it. */
+    seenShipped?: boolean;
+  } = {},
+): Promise<Decision | null> => {
   const { unit, tag } = input;
   const version = unit.version;
   const { client, codeSince, sinceTag, analysis } = state;
   const named = await namedAtTag(context, input);
+  // An update the tag named is checked by preview's last update, which a retry would repeat.
+  if (named.ships === "update" && (seenShipped || state.updatedFromTag)) {
+    return seenShipped ? null : { action: "none", status: `${unit.name} ${version} is on preview` };
+  }
   const steps = named.ships === "build" ? await retrySteps(client, sinceTag, named.binary) : [];
   const done = named.ships === "build" ? settled(unit, steps) : null;
-  if (done) return done;
+  if (done) return seenShipped ? null : done;
   const [changed, commits, notes] = await Promise.all([
     codeSince(analysis.git.head),
     context.sourceControl.commitsBetween(state.tag ?? tag, analysis.git.head),
@@ -531,9 +544,15 @@ const previewDecision = async (
   const version = unit.version;
   const state = await previewState(context, input);
   const { analysis, codeSince, ship } = state;
-  // Main moved past a build no platform finished: retry the tag, or release the new code.
+  // Main moved past a version preview never fully got: retry the tag, or release the new code.
   if (ship === "moved-past" && analysis.plan.action === "build") {
-    return retryChoice(context, input, state);
+    const retry = await retryChoice(context, input, state);
+    if (retry) return retry;
+  }
+  // Preview runs the tagged code, yet a platform may still miss it, such as a failed submission.
+  if (ship === "shipped" && state.tag && !state.atTag && !state.updatedFromTag) {
+    const retry = await retryChoice(context, input, state, { seenShipped: true });
+    if (retry) return retry;
   }
   if (
     state.atTag &&

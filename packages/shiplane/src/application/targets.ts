@@ -84,19 +84,39 @@ const runIn = async ({ shell, output }: ReleaseContext, job: Job, root: string) 
   }
 };
 
+const SIGNALS = ["SIGINT", "SIGTERM"] as const;
+
 /**
  * Runs a job from a worktree detached at its tag: installed, given the checkout's ignored `.env*`
- * files at the root and in each folder a command runs in, and always removed after.
+ * files at the root and in each folder a command runs in, and always removed after, also when it
+ * was half made or the run is interrupted. A removal that fails is said, never in place of the
+ * run's own failure.
  */
 const runFromTag = async (context: ReleaseContext, job: Job, tag: string) => {
-  const { shell, release, services, clock } = context;
+  const { shell, release, services, clock, output } = context;
   const dir = path.join(
     os.tmpdir(),
     `shiplane-${tag.replace(/[^\w.-]/g, "-")}-${clock.now().getTime()}`,
   );
   const folders = [...new Set(job.local.flatMap(({ cwd }) => (cwd ? [cwd] : [])))];
-  await services.sourceControl.addWorktree(dir, tag);
+  let removing: Promise<void> | null = null;
+  const remove = () => {
+    removing ??= services.sourceControl.removeWorktree(dir).catch((error: unknown) => {
+      const reason = error instanceof Error ? error.message : String(error);
+      output.line(`  ! could not remove the worktree ${dir}: ${reason}`);
+      output.line(`    git worktree remove --force ${dir}`);
+    });
+    return removing;
+  };
+  // Interrupted, the worktree goes first, then the signal does what it would have.
+  const onSignal = (signal: NodeJS.Signals) => {
+    detach();
+    void remove().finally(() => process.kill(process.pid, signal));
+  };
+  const detach = () => SIGNALS.forEach((signal) => process.off(signal, onSignal));
+  SIGNALS.forEach((signal) => process.once(signal, onSignal));
   try {
+    await services.sourceControl.addWorktree(dir, tag);
     const envFiles = await services.sourceControl.ignoredFiles([
       ".env*",
       ...folders.map((folder) => path.posix.join(folder, ".env*")),
@@ -112,7 +132,8 @@ const runFromTag = async (context: ReleaseContext, job: Job, tag: string) => {
     if (installed !== 0) throw new Error(`pnpm install exited with ${installed}`);
     await runIn(context, job, dir);
   } finally {
-    await services.sourceControl.removeWorktree(dir);
+    detach();
+    await remove();
   }
 };
 

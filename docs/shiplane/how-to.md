@@ -211,7 +211,9 @@ GitHub Actions or this machine question follows.
 Each platform gets only what it misses, read from EAS:
 `tag ✓, release notes ✓, Android ✓ build 42, iOS ✗ failed → build iOS, then submit`. A platform
 whose build finished but whose submission failed is only submitted again; one still building is left
-to finish. Tags, release notes and PR comments already made are not made twice.
+to finish. A failed submission is offered even when main only changed JavaScript. An update the tag
+released that already went out counts as done: it is on preview, nothing is offered. Tags, release
+notes and PR comments already made are not made twice.
 
 With no terminal, or on CI, it refuses and says the retry is there in a terminal. Preview only, and
 never when main is behind the last preview build.
