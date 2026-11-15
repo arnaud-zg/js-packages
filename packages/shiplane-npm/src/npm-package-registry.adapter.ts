@@ -38,11 +38,20 @@ const published = async (context: DecideContext, name: string, version: string) 
   return result.status === 0 && result.stdout.trim() === version;
 };
 
+/** The JSON npm printed, or nothing when a notice or warning took its place. */
+const jsonOrNothing = (text: string): unknown => {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return {};
+  }
+};
+
 const distTags = async (context: DecideContext, name: string) => {
   const result = await context.shell.capture("npm", ["view", name, "dist-tags", "--json"]);
   const parsed = z
     .record(z.string(), z.string())
-    .safeParse(result.status === 0 ? JSON.parse(result.stdout || "{}") : {});
+    .safeParse(result.status === 0 ? jsonOrNothing(result.stdout || "{}") : {});
   return parsed.success ? parsed.data : {};
 };
 
