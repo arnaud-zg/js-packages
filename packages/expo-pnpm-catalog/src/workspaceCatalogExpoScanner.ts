@@ -5,8 +5,9 @@
 import fs from "fs";
 import path from "path";
 
-import type { ExtraPackages, PackageJson } from "./catalogUtils";
+import type { ExtraPackages } from "./catalogUtils";
 import { DEFAULT_WORKSPACE_DIRS, isCatalogRef } from "./catalogUtils";
+import { PackageJsonSchema, parseOrThrow } from "./schemas";
 
 export class WorkspaceCatalogExpoScanner {
   constructor(
@@ -41,7 +42,11 @@ export class WorkspaceCatalogExpoScanner {
     allCatalogVersions: Record<string, string>,
     result: ExtraPackages,
   ): void {
-    const pkg = JSON.parse(fs.readFileSync(packageJsonPath, "utf-8")) as PackageJson;
+    const pkg = parseOrThrow({
+      schema: PackageJsonSchema,
+      value: JSON.parse(fs.readFileSync(packageJsonPath, "utf-8")),
+      source: packageJsonPath,
+    });
     const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
     const sourceName = pkg.name ?? path.basename(path.dirname(packageJsonPath));
 

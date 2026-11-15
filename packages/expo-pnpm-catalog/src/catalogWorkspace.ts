@@ -5,15 +5,20 @@
 import fs from "fs";
 import { load } from "js-yaml";
 
-import type { WorkspaceYaml } from "./catalogUtils";
+import type { WorkspaceYaml } from "./schemas";
 import {
   DEFAULT_WORKSPACE_DIRS,
   getAllCatalogVersions,
   resolveCatalogRefs,
   updateVersionInYaml,
 } from "./catalogUtils";
+import { parseOrThrow, WorkspaceYamlSchema } from "./schemas";
 
 export type { WorkspaceYaml };
+
+function parseWorkspaceYaml(raw: string, source: string): WorkspaceYaml {
+  return parseOrThrow({ schema: WorkspaceYamlSchema, value: load(raw) ?? {}, source });
+}
 
 export class CatalogWorkspace {
   private constructor(
@@ -24,8 +29,7 @@ export class CatalogWorkspace {
 
   static load(path: string): CatalogWorkspace {
     const raw = fs.readFileSync(path, "utf-8");
-    const data = load(raw) as WorkspaceYaml;
-    return new CatalogWorkspace(path, raw, data);
+    return new CatalogWorkspace(path, raw, parseWorkspaceYaml(raw, path));
   }
 
   getAllCatalogVersions(): Record<string, string> {
@@ -51,7 +55,7 @@ export class CatalogWorkspace {
 
   writeVersion(packageName: string, newVersion: string): CatalogWorkspace {
     const updatedRaw = updateVersionInYaml(this.raw, packageName, newVersion);
-    return new CatalogWorkspace(this.path, updatedRaw, load(updatedRaw) as WorkspaceYaml);
+    return new CatalogWorkspace(this.path, updatedRaw, parseWorkspaceYaml(updatedRaw, this.path));
   }
 
   save(): void {

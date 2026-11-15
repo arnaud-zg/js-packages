@@ -5,10 +5,15 @@
  */
 import fs from "fs";
 
-import type { PackageJson } from "./catalogUtils";
+import type { PackageJson } from "./schemas";
 import { isCatalogRef } from "./catalogUtils";
+import { PackageJsonSchema, parseOrThrow } from "./schemas";
 
 export type { PackageJson };
+
+function parsePackageJson(text: string, source: string): PackageJson {
+  return parseOrThrow({ schema: PackageJsonSchema, value: JSON.parse(text), source });
+}
 
 export class ExpoAppManifest {
   private constructor(
@@ -19,7 +24,7 @@ export class ExpoAppManifest {
 
   static load(filePath: string): ExpoAppManifest {
     const original = fs.readFileSync(filePath, "utf-8");
-    return new ExpoAppManifest(filePath, original, JSON.parse(original) as PackageJson);
+    return new ExpoAppManifest(filePath, original, parsePackageJson(original, filePath));
   }
 
   withDeps(
@@ -39,7 +44,7 @@ export class ExpoAppManifest {
   }
 
   readFixed(): PackageJson {
-    return JSON.parse(fs.readFileSync(this.filePath, "utf-8")) as PackageJson;
+    return parsePackageJson(fs.readFileSync(this.filePath, "utf-8"), this.filePath);
   }
 
   excludedPackages(): Set<string> {

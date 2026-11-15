@@ -6,10 +6,10 @@
 
 ## Exports
 
-| Package             | Subpath                 | Resolves to     | Needs                                                          |
-| ------------------- | ----------------------- | --------------- | -------------------------------------------------------------- |
-| `expo-pnpm-catalog` | `.`                     | `dist/index.js` | nothing extra (bundles `chalk`, `commander`, `js-yaml`, `ora`) |
-| `expo-pnpm-catalog` | bin `expo-pnpm-catalog` | `dist/cli.js`   | same                                                           |
+| Package             | Subpath                 | Resolves to     | Needs                                                                 |
+| ------------------- | ----------------------- | --------------- | --------------------------------------------------------------------- |
+| `expo-pnpm-catalog` | `.`                     | `dist/index.js` | nothing extra (bundles `chalk`, `commander`, `js-yaml`, `ora`, `zod`) |
+| `expo-pnpm-catalog` | bin `expo-pnpm-catalog` | `dist/cli.js`   | same                                                                  |
 
 ## API
 
@@ -64,3 +64,11 @@ function runSync(paths: CatalogPaths, options: SyncOptions): Promise<void>;
 Top-level workspace directories to scan (e.g. `apps`, `packages`) come from the `packages:` globs
 declared in `pnpm-workspace.yaml`. If none are declared, it falls back to `apps`, `packages`,
 `tooling`.
+
+## Malformed input
+
+`check` and `sync` validate `pnpm-workspace.yaml`, the Expo app's `package.json` and every scanned
+workspace `package.json` before using them. A file whose `packages`, `catalog`, `catalogs`,
+`dependencies`, `devDependencies` or `expo.install.exclude` has the wrong shape stops the run with
+`<path> is malformed:` and the offending field, and the command exits with code 1. A catalog version
+written as a bare YAML number (`react: 19`) is read as the string `"19"`.
