@@ -190,7 +190,9 @@ pnpm shiplane ship --via github     # or --via local
 ```
 
 Without `--via`, it asks per app and shows this month's Actions minutes. An app only one way can
-ship is not asked, and it says why.
+ship is not asked, and it says why. Through GitHub Actions, each run goes on a release tag, so a
+merge to `main` while it waits cannot change what ships; see
+[Explanation](./explanation.md#ci-and-your-laptop-run-the-same-jobs).
 
 ## Ship with no laptop
 

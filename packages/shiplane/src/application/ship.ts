@@ -280,23 +280,23 @@ const shipmentOf =
   });
 
 /**
- * The ship workflow's runs: one per ref, each naming its units. A tag on main's commit runs from
- * main, so a release whose tags all sit there costs one run.
+ * The ship workflow's runs: one per commit, each naming its units, so tags on one commit cost one
+ * run. A run goes on the first unit's tag, never on main: a runner checks out its ref when it
+ * starts, and main may have moved by then. Only a job that ships main on purpose runs from main.
  */
 const shipRuns = async ({ services }: ReleaseContext, entries: readonly Ready[]) => {
-  const { originMain } = await services.sourceControl.position();
-  const runs = new Map<string, string[]>();
+  const runs = new Map<string, { ref: string; units: string[] }>();
   for (const { unit, jobs } of entries) {
     for (const { ci } of jobs) {
       if (!ci) continue;
-      const commit =
-        ci.ref === "main" ? originMain : await services.sourceControl.tagCommit(ci.ref);
-      const ref = commit === originMain ? "main" : ci.ref;
-      const units = runs.get(ref) ?? [];
-      if (!units.includes(unit.name)) runs.set(ref, [...units, unit.name]);
+      const commit = ci.ref === "main" ? null : await services.sourceControl.tagCommit(ci.ref);
+      const key = commit === null ? `ref:${ci.ref}` : `commit:${commit}`;
+      const run = runs.get(key) ?? { ref: ci.ref, units: [] };
+      if (!run.units.includes(unit.name)) run.units.push(unit.name);
+      runs.set(key, run);
     }
   }
-  return [...runs.entries()].map(([ref, units]) => ({ ref, units }));
+  return [...runs.values()];
 };
 
 /** A failed ship left its tag unshipped: the next run's first question offers it again. */

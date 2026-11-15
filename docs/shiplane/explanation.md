@@ -85,6 +85,15 @@ which is why production first opens a PR moving its version to the one preview v
 Through GitHub Actions, shiplane dispatches one workflow, `ship.yml`, which runs `shiplane ship` on
 the runner. Same jobs, same unit files: a url changed once reaches both paths.
 
+Each run goes on a release tag, never on `main`, even when the tag is main's last commit. A runner
+checks out its ref when the job starts, not when it is dispatched: a run queued behind another one
+on `main` would ship whatever was merged in between. Units tagged on the same commit still share one
+run, on the first one's tag, and the Actions run and its GitHub deployment show that tag. Only a job
+that ships `main` on purpose, like an Expo production update, runs on `main`.
+
+Your ship workflow needs no change for this: a `workflow_dispatch` workflow that checks out
+`github.ref` already accepts a tag.
+
 ## Production makes you type its name
 
 It reaches every user, so it cannot start by reflex or by `--yes`.

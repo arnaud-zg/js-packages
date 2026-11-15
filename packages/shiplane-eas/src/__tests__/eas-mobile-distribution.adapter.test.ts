@@ -357,7 +357,7 @@ describe("shipping the mobile app to preview", () => {
     expect(prompter.asked).not.toContain("How should expo@0.1.115 ship to preview?");
   });
 
-  it("given the same native layer and its tag on main, when shipped through GitHub Actions, then the ship workflow publishes the update from main", async () => {
+  it("given the same native layer and its tag on main, when shipped through GitHub Actions, then the ship workflow publishes the update from its tag", async () => {
     const { context, ci, source, prompter } = setUp();
     source.seed({
       tags: { "expo@0.1.115": "head-1" },
@@ -371,7 +371,7 @@ describe("shipping the mobile app to preview", () => {
       {
         type: "dispatch",
         workflow: "ship.yml",
-        ref: "main",
+        ref: "expo@0.1.115",
         inputs: { units: "expo", environment: "preview" },
       },
     ]);
@@ -571,6 +571,26 @@ describe("promoting the mobile app after main moved on", () => {
         "tag-expo..head-1": ["apps/api/src/main.ts", "docs/ci.md"],
         "tag-expo..built-from": ["packages/app/src/home.tsx"],
       },
+    });
+    prompter.answer("production", "github", true);
+
+    expect(await shipTo(context, "production", { scope: new Set(["expo"]) })).toBe(true);
+
+    expect(ci.received).toEqual([
+      {
+        type: "dispatch",
+        workflow: "ship.yml",
+        ref: "main",
+        inputs: { units: "expo", environment: "production" },
+      },
+    ]);
+  });
+
+  it("given a unit that ships main and its tag is the tip of main, when production ships through GitHub Actions, then it is still dispatched on main", async () => {
+    const { context, ci, source, prompter } = promotable();
+    source.seed({
+      tags: { "expo@0.1.115": "head-1" },
+      diffs: { "head-1..built-from": ["packages/app/src/home.tsx"] },
     });
     prompter.answer("production", "github", true);
 
