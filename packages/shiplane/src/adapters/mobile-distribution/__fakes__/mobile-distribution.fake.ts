@@ -82,6 +82,9 @@ export class MobileDistributionFake implements MobileDistributionPort {
     return Promise.resolve(decision);
   };
 
+  live = (_context: DecideContext, { unit, environment }: JobInput<Record<string, unknown>>) =>
+    Promise.resolve(this.state.live[environment] === unit.version);
+
   health = (_context: DecideContext, input: JobInput<Record<string, unknown>>) => {
     this.ask("health", input);
     return Promise.resolve(this.state.health[input.tag] ?? null);

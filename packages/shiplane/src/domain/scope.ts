@@ -64,10 +64,12 @@ const previewChoice = ({
   if (releaseOnly) return { pending: false, hint: `${version} released, nothing deploys it` };
   // Its builds and updates live on its platform, not in GitHub Deployments: the check reads them.
   if (decidedBy) {
-    return {
-      pending: false,
-      hint: `${version} released, nothing new (${decidedBy.check} shows its builds)`,
-    };
+    return onChannel
+      ? {
+          pending: false,
+          hint: `${version} released, nothing new (${decidedBy.check} shows its builds)`,
+        }
+      : { pending: true, hint: `${version} tagged, never reached preview: retry` };
   }
   const where = noEnvironment ? "live" : "on preview";
   return onChannel

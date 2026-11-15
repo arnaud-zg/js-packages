@@ -14,7 +14,7 @@ import { runFollowUps } from "./followUps";
 import { pullRequestFirst } from "./pullRequestFirst";
 import { deployedOn } from "./readScope";
 import { signIn, signInsOf } from "./requirements";
-import { confirm, fail, paint } from "./say";
+import { confirm, fail, listed, paint } from "./say";
 import {
   decideContext,
   destination,
@@ -257,6 +257,10 @@ const shipRuns = async ({ services }: ReleaseContext, entries: readonly Ready[])
   return [...runs.entries()].map(([ref, units]) => ({ ref, units }));
 };
 
+/** A failed ship left its tag unshipped: the next run's first question offers it again. */
+const offerAgain = ({ output }: ReleaseContext, tags: string[]) =>
+  output.line(`    ${paint("dim", `Run shiplane again: it offers ${listed(tags)} again`)}`);
+
 /** `Ship a through GitHub Actions`, or each tag with its way when they differ. */
 const shipQuestion = (
   going: Ready[],
@@ -410,6 +414,7 @@ export const shipTo = async (
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       fail(context, `${job.label} failed`, `${reason}, nothing after it ran.`);
+      offerAgain(context, [entry.input.tag]);
       return false;
     }
   }
@@ -426,6 +431,10 @@ export const shipTo = async (
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
       fail(context, `${label} failed`, `${reason}, nothing after it ran.`);
+      offerAgain(
+        context,
+        going.filter(({ unit }) => run.units.includes(unit.name)).map(({ input }) => input.tag),
+      );
       return false;
     }
   }

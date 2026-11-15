@@ -33,6 +33,8 @@ export interface MobileDistributionPort<
       chosen?: string;
     },
   ): Promise<VersionContribution>;
+  /** The channel carries the tagged version, or a build of it is running. */
+  live?(context: DecideContext, input: JobInput<Options>): Promise<boolean>;
   /** What `status --json` shows for the app, read from its platform. */
   inspect?(context: DecideContext, input: JobInput<Options>): Promise<unknown>;
   /** How the tagged version does on preview, read before promoting it. Null when nothing says. */

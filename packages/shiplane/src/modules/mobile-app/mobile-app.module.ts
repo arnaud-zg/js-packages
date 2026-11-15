@@ -21,6 +21,11 @@ export const mobileApp = ({
       : { added: [], writes: [], summary: [], onMerge: "" };
   },
   decide: (context, input) => context.open(mobileDistribution).decide(context, input),
+  // A platform that cannot tell keeps the unit greyed, as before.
+  live: async (context, input) => {
+    const port = context.open(mobileDistribution);
+    return port.live ? port.live(context, input) : true;
+  },
   health: async (context, input) => {
     const port = context.open(mobileDistribution);
     return port.health ? port.health(context, input) : null;
