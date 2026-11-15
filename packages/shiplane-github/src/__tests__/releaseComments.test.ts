@@ -1,5 +1,5 @@
 import type { HostEvent } from "shiplane/testing";
-import { backendService } from "shiplane/plugin";
+import { backendService, tagName } from "shiplane/plugin";
 import { planShips, serverHostingFake, shipTo, testContext, testUnit } from "shiplane/testing";
 import { describe, expect, it } from "vitest";
 
@@ -15,18 +15,25 @@ const EXPO = testUnit("expo", {
 
 const ticket = (text: string) => `<!-- Ticket: ${text} -->\n\n## What & why\n\nSomething.`;
 
-const setUp = (options: { apps?: string[] } = {}) => {
+const setUp = ({ tagFormat, ...options }: { apps?: string[]; tagFormat?: string } = {}) => {
+  const tag = (unit: string, version: string) => tagName(unit, version, tagFormat);
   const world = testContext({
     units: [EXPO],
+    tagFormat,
     modules: [backendService({ serverHosting: serverHostingFake() })],
     features: ({ codeHost, sourceControl }) => [
       releaseComments({ codeHost, sourceControl, ...options }),
     ],
   });
   world.source.seed({
-    tags: { "expo@0.4.0": "t40", "expo@0.4.1": "t41", "expo@0.4.2": "t42", "api@0.0.10": "a10" },
+    tags: {
+      [tag("expo", "0.4.0")]: "t40",
+      [tag("expo", "0.4.1")]: "t41",
+      [tag("expo", "0.4.2")]: "t42",
+      [tag("api", "0.0.10")]: "a10",
+    },
     commits: {
-      "expo@0.4.1..expo@0.4.2": [
+      [`${tag("expo", "0.4.1")}..${tag("expo", "0.4.2")}`]: [
         {
           subject: "chore(expo): release v0.4.2 (#1920)",
           files: ["apps/expo/package.json", "apps/expo/CHANGELOG.md"],
@@ -149,11 +156,23 @@ describe("telling PRs and issues a release shipped them", () => {
     expect(host.reads).toEqual(["pull-requests", "comments"]);
   });
 
-  it("given the same ship run twice, when it ships again, then no PR or issue is commented twice", async () => {
+  it("given the same ship run twice, when it ships again with its deploy record gone, then no PR or issue is commented twice", async () => {
     const { context, host, prompter } = setUp();
     prompter.answer(true, true);
 
     await shipTo(context, "preview", {});
+    host.seed({ deployments: [] });
+    await shipTo(context, "preview", {});
+
+    expect(posted(host.received)).toHaveLength(5);
+  });
+
+  it("given a custom tag format, when the same ship runs again with its deploy record gone, then no PR or issue is commented twice", async () => {
+    const { context, host, prompter } = setUp({ tagFormat: "{name}--v{version}" });
+    prompter.answer(true, true);
+
+    await shipTo(context, "preview", {});
+    host.seed({ deployments: [] });
     await shipTo(context, "preview", {});
 
     expect(posted(host.received)).toHaveLength(5);
