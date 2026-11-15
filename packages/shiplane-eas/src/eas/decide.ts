@@ -1,5 +1,7 @@
-import type { AppBump, Environment, PlannedChangeset, VersionChoice } from "shiplane/plugin";
+import type { AppBump, Environment, PlannedChangeset } from "shiplane/plugin";
 import { compareVersions, nextPatch } from "shiplane/plugin";
+
+import { count, timeOut } from "./wording";
 
 export type Platform = "ios" | "android";
 
@@ -149,20 +151,20 @@ export type MobileRelease =
  */
 export const mobileRelease = (
   action: ReleaseAction,
-  expo: AppBump | undefined,
+  bump: AppBump | undefined,
   currentVersion: string,
 ): MobileRelease => {
   if (action === "wait") return { ships: "blocked", why: "build-running" };
   if (action === "pull") return { ships: "blocked", why: "behind" };
   if (action === "build") {
-    return expo
-      ? { ships: "build", version: expo.to, nativeChangeset: false }
+    return bump
+      ? { ships: "build", version: bump.to, nativeChangeset: false }
       : { ships: "build", version: nextPatch(currentVersion), nativeChangeset: true };
   }
-  return expo ? { ships: "update", version: expo.to } : { ships: "nothing" };
+  return bump ? { ships: "update", version: bump.to } : { ships: "nothing" };
 };
 
-/** The changeset the release writes itself: a build gets a version even with no expo changeset. */
+/** The changeset the release writes itself: a build gets a version even with no changeset of its own. */
 export const releaseChangesets = (
   mobile: MobileRelease,
   changes: string[],
@@ -181,60 +183,17 @@ export const releaseChangesets = (
       ]
     : [];
 
-const BUILD_LABEL = "New build, iOS and Android";
-const UPDATE_LABEL = "Over-the-air update";
-
-/**
- * What the person may pick once detection spoke, the suggestion first: a build is always possible,
- * an update only on the native layer the installed binaries carry.
- */
-export const mobileChoice = (
-  action: ReleaseAction,
-  why: string,
-  app: string,
-): VersionChoice | undefined => {
-  if (action === "wait" || action === "pull") return undefined;
-  const question = `What should ${app} ship to preview?`;
-  if (action === "build") {
-    return {
-      question,
-      suggested: "build",
-      options: [
-        { value: "build", label: `${BUILD_LABEL} (suggested)`, hint: why },
-        {
-          value: "update",
-          label: UPDATE_LABEL,
-          hint: "not safe: installed binaries lack this native layer",
-          disabled: true,
-        },
-      ],
-    };
-  }
-  return {
-    question,
-    suggested: "update",
-    options: [
-      { value: "update", label: `${UPDATE_LABEL} (suggested)`, hint: why },
-      {
-        value: "build",
-        label: BUILD_LABEL,
-        hint: "not needed: a new binary anyway, under its own version",
-      },
-    ],
-  };
-};
-
 export type MobileShip =
   "build" | "update" | "wait" | "shipped" | "moved-past" | "behind" | "nothing";
 
 /**
- * What mobile still needs for the expo version a release tagged. A binary or an update ships its
+ * What mobile still needs for the app version a release tagged. A binary or an update ships its
  * commit: once the app's code moved past the release, it would carry code no release named.
  */
 export const mobileShip = (
   action: ReleaseAction,
   state: {
-    /** The current expo version has a release tag. */
+    /** The current app version has a release tag. */
     tagged: boolean;
     /** Code reaching the app changed between that tag and main. */
     codeSinceTag: boolean;
@@ -263,18 +222,19 @@ export type ProductionMobile =
   | "nothing";
 
 /**
- * What production still needs to run the expo version preview validated. A new native layer needs
+ * What production still needs to run the app version preview validated. A new native layer needs
  * production's version moved first (the promotion PR).
  */
 export const productionMobile = (
   action: ReleaseAction,
   state: {
-    /** The current expo version has a release tag. */
+    /** The current app version has a release tag. */
     tagged: boolean;
     /** Main differs from that tag by version files at most. */
     sinceTagOnlyVersionFiles: boolean;
+    /** The app's version, the one its tag names. */
     expoVersion: string;
-    /** apps/expo/app-version.json production: the binary version production builds carry. */
+    /** The version file's production entry: the binary version production builds carry. */
     productionVersion: string;
     /** The last production build or update shipped the tagged code. */
     codeShipped: boolean;
@@ -297,29 +257,8 @@ export const productionMobile = (
   return "update";
 };
 
-const MOBILE_SHIPS: Partial<Record<MobileRelease["ships"], string>> = {
-  build: "Build iOS and Android, submitted when done",
-  update: "Over-the-air update",
-};
-
-/** What happens to each unit once the release pull request is merged, the mobile app's from EAS. */
-export const onMerge = (mobile: MobileRelease, mobileApp: string) => (bump: AppBump) => {
-  if (bump.app === mobileApp) return MOBILE_SHIPS[mobile.ships] ?? "Nothing ships";
-  const reason = bump.movedWith.length > 0 ? ` (moved with ${bump.movedWith.join(", ")})` : "";
-  return `Deploy preview${reason}`;
-};
-
 /** The shares of people a production rollout widens through, in order. */
 export const ROLLOUT_STEPS = [10, 25, 50, 100] as const;
-
-const counted = (total: number, one: string, many: string) =>
-  `${total} ${total === 1 ? one : many}`;
-
-/** How long an update has been out, as a person says it: hours under two days, then days. */
-export const timeOut = (hours: number) =>
-  hours < 48
-    ? counted(Math.max(1, Math.floor(hours)), "hour", "hours")
-    : counted(Math.floor(hours / 24), "day", "days");
 
 /**
  * The next move for an update reaching part of production: hold while it crashed, nobody ran it or
@@ -339,7 +278,7 @@ export const rolloutAdvice = ({
   if (crashes > 0) {
     return {
       suggested: "stay",
-      why: `${counted(crashes, "crash", "crashes")} since it went out: look before widening, or roll back`,
+      why: `${count({ total: crashes, one: "crash", many: "crashes" })} since it went out: look before widening, or roll back`,
     };
   }
   if (launches === 0) {
@@ -367,23 +306,22 @@ const SUBMIT_FAILED = new Set(["errored", "canceled"]);
  * alone once submitted, or submitted again when its submission failed or never started; anything
  * else builds. Unreadable submissions count as submitted: nothing ships twice on a guess.
  */
-export const retryStep = (
-  platform: Platform,
-  {
-    finished,
-    finishedFromTag,
-    running,
-    failed,
-    submissions,
-  }: {
-    finished: ShippedBuild | null;
-    /** The finished build carries the tagged code. */
-    finishedFromTag: boolean;
-    running: RunningBuild | null;
-    failed: FailedBuild | null;
-    submissions: Submission[] | null;
-  },
-): RetryStep => {
+export const retryStep = ({
+  platform,
+  finished,
+  finishedFromTag,
+  running,
+  failed,
+  submissions,
+}: {
+  platform: Platform;
+  finished: ShippedBuild | null;
+  /** The finished build carries the tagged code. */
+  finishedFromTag: boolean;
+  running: RunningBuild | null;
+  failed: FailedBuild | null;
+  submissions: Submission[] | null;
+}): RetryStep => {
   if (running) return { platform, action: "running", running };
   if (!finished || !finishedFromTag) return { platform, action: "build", failed };
   if (submissions === null) return { platform, action: "done", build: finished };
@@ -391,88 +329,4 @@ export const retryStep = (
   return submission && !SUBMIT_FAILED.has(submission.status)
     ? { platform, action: "done", build: finished }
     : { platform, action: "submit", build: finished, submission };
-};
-
-const NAME: Record<Platform, string> = { ios: "iOS", android: "Android" };
-
-/** How long ago, as a person says it: minutes, hours under two days, then days. */
-export const ago = (from: string, now: Date) => {
-  const minutes = Math.max(1, Math.floor((now.getTime() - new Date(from).getTime()) / 60_000));
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  return hours < 48 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
-};
-
-/** The failure EAS shows for a version, as a person reads it, or null when it shows none. */
-export const retryFailure = (steps: readonly RetryStep[], now: Date) => {
-  for (const step of steps) {
-    if (step.action === "build" && step.failed) {
-      const verb = step.failed.status === "canceled" ? "was canceled" : "failed";
-      const when = ago(step.failed.createdAt, now);
-      return {
-        short: `the ${NAME[step.platform]} build ${verb} ${when}`,
-        what: `build`,
-        platform: NAME[step.platform],
-        verb,
-        when,
-      };
-    }
-    if (step.action === "submit" && step.submission?.createdAt) {
-      const verb = step.submission.status === "canceled" ? "was canceled" : "failed";
-      const when = ago(step.submission.createdAt, now);
-      return {
-        short: `the ${NAME[step.platform]} submission ${verb} ${when}`,
-        what: "submission",
-        platform: NAME[step.platform],
-        verb,
-        when,
-      };
-    }
-  }
-  return null;
-};
-
-const ORDER: Record<RetryStep["action"], number> = { done: 0, running: 1, submit: 2, build: 3 };
-
-const found = (step: RetryStep) => {
-  const name = NAME[step.platform];
-  switch (step.action) {
-    case "done":
-      return `${name} ✓ build ${step.build.buildNumber ?? step.build.id}`;
-    case "running":
-      return `${name} … building`;
-    case "submit":
-      return `${name} ✓ build ${step.build.buildNumber ?? step.build.id}, submit ✗ ${step.submission ? step.submission.status.replace("errored", "failed") : "missing"}`;
-    case "build":
-      return step.failed
-        ? `${name} ✗ ${step.failed.status === "canceled" ? "canceled" : "failed"}`
-        : `${name} – no build`;
-  }
-};
-
-const joined = (names: string[]) => names.join(" and ");
-
-/**
- * One line: what a retry found, then what runs, such as
- * `tag ✓, release notes ✓, Android ✓ build 42, iOS ✗ failed → build iOS, then submit`.
- */
-export const retryLine = (steps: readonly RetryStep[], notes: boolean | null) => {
-  const sorted = [...steps].sort((left, right) => ORDER[left.action] - ORDER[right.action]);
-  const builds = steps
-    .filter(({ action }) => action === "build")
-    .map(({ platform }) => NAME[platform]);
-  const submits = steps
-    .filter(({ action }) => action === "submit")
-    .map(({ platform }) => NAME[platform]);
-  const runs = [
-    ...(builds.length > 0 ? [`build ${joined(builds)}, then submit`] : []),
-    ...(submits.length > 0 ? [`submit ${joined(submits)}`] : []),
-  ];
-  return [
-    "tag ✓",
-    ...(notes === null ? [] : [`release notes ${notes ? "✓" : "✗"}`]),
-    ...sorted.map(found),
-  ]
-    .join(", ")
-    .concat(` → ${runs.join("; ")}`);
 };

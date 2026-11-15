@@ -2,19 +2,18 @@ import { styleText } from "node:util";
 import type { Environment, GitPosition, Health, SourceControlPort } from "shiplane/plugin";
 import { progressBar } from "shiplane/plugin";
 
-import type { easClient } from "./client";
+import type { EasClient } from "./client";
 import type {
   Platform,
   PlatformState,
   PlatformVerdict,
   ReleaseAction,
   ReleasePlan,
-} from "./policy";
-import { platformVerdict, releasePlan, timeOut } from "./policy";
+} from "./decide";
+import { platformVerdict, releasePlan } from "./decide";
+import { count, PLATFORM_NAME, timeOut } from "./wording";
 
 export const PLATFORMS: Platform[] = ["ios", "android"];
-
-export const PLATFORM_NAME: Record<Platform, string> = { ios: "iOS", android: "Android" };
 
 export interface Analysis {
   channel: Environment;
@@ -26,19 +25,25 @@ export interface Analysis {
 }
 
 /** Each platform's last store build on the channel against this commit's native fingerprint. */
-export const analyse = async (
-  client: ReturnType<typeof easClient>,
-  source: SourceControlPort,
-  environment: Environment,
-  version: string,
-  unit: string,
-): Promise<Analysis> => {
+export const analyse = async ({
+  client,
+  source,
+  environment,
+  version,
+  unit,
+}: {
+  client: EasClient;
+  source: SourceControlPort;
+  environment: Environment;
+  version: string;
+  unit: string;
+}): Promise<Analysis> => {
   const position = await source.position();
   const checked = await Promise.all(
     PLATFORMS.map(async (platform) => {
       const [fingerprint, builds] = await Promise.all([
-        client.localFingerprint(platform, environment),
-        client.channelBuilds(platform, environment),
+        client.localFingerprint({ platform, environment }),
+        client.channelBuilds({ platform, environment }),
       ]);
       const state: PlatformState = {
         platform,
@@ -48,7 +53,7 @@ export const analyse = async (
       const verdict = platformVerdict(state);
       const changes =
         verdict.action === "build" && verdict.why === "native-changed" && verdict.shipped
-          ? await client.nativeChanges(verdict.shipped.id, environment)
+          ? await client.nativeChanges({ buildId: verdict.shipped.id, environment })
           : [];
       return { state, verdict, changes };
     }),
@@ -125,8 +130,6 @@ export const analysisJson = ({ channel, version, commit, plan, checked }: Analys
   platforms: checked.map(({ verdict, changes }) => ({ ...verdict, changes })),
 });
 
-const count = (total: number, one: string, many: string) => `${total} ${total === 1 ? one : many}`;
-
 /** An update's health from its launches: unwell once it crashed, or while nobody has run it. */
 export const updateHealth = (
   launches: { platform: Platform; installs: number; failedInstalls: number }[],
@@ -134,12 +137,16 @@ export const updateHealth = (
   const summary = launches
     .map(
       ({ platform, installs, failedInstalls }) =>
-        `${PLATFORM_NAME[platform]} ${count(installs, "launch", "launches")}, ${count(failedInstalls, "crash", "crashes")}`,
+        `${PLATFORM_NAME[platform]} ${count({ total: installs, one: "launch", many: "launches" })}, ${count({ total: failedInstalls, one: "crash", many: "crashes" })}`,
     )
     .join(" · ");
   const crashes = launches.reduce((sum, { failedInstalls }) => sum + failedInstalls, 0);
   if (crashes > 0) {
-    return { ok: false, summary, why: `${count(crashes, "crash", "crashes")} on preview` };
+    return {
+      ok: false,
+      summary,
+      why: `${count({ total: crashes, one: "crash", many: "crashes" })} on preview`,
+    };
   }
   if (launches.every(({ installs }) => installs === 0)) {
     return { ok: false, summary, why: "nobody has launched it on preview yet" };
