@@ -1,10 +1,17 @@
-import type { Shell } from "shiplane/plugin";
+import type { Requirement, Shell } from "shiplane/plugin";
 import { firstLine, retrying } from "shiplane/plugin";
 
 // Primary and secondary limits both say "rate limit"; 429 is the plain HTTP form.
 const RATE_LIMITED = /rate limit|HTTP 429/i;
 // Four more tries, waiting twice as long each time.
 const RATE_LIMIT_WAITS_MS = [2_000, 4_000, 8_000, 16_000];
+
+/** What every adapter driving gh needs: gh signed in. */
+export const GH_REQUIREMENT: Requirement = {
+  label: "gh",
+  check: { command: "gh", args: ["auth", "status"] },
+  fix: { command: "gh", args: ["auth", "login"] },
+};
 
 export const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 

@@ -1,7 +1,7 @@
 import type { CodeHostPort, ServiceAdapter, Shell } from "shiplane/plugin";
 import { deployRunTitle, deployState, z } from "shiplane/plugin";
 
-import { ghCli, sleep } from "./gh-cli";
+import { GH_REQUIREMENT, ghCli, sleep } from "./gh-cli";
 
 const OpenPrsSchema = z.array(
   z.object({
@@ -282,12 +282,6 @@ export type GitHubCodeHostAdapter = ServiceAdapter<CodeHostPort>;
 /** Pull requests, comments, release notes and deploy records through the gh CLI. */
 export const gitHubCodeHost = (): GitHubCodeHostAdapter => ({
   name: "github",
-  requirements: () => [
-    {
-      label: "gh",
-      check: { command: "gh", args: ["auth", "status"] },
-      fix: { command: "gh", args: ["auth", "login"] },
-    },
-  ],
+  requirements: () => [GH_REQUIREMENT],
   create: ({ root, shell }) => githubHost(root, shell),
 });

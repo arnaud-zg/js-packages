@@ -9,16 +9,10 @@ import type {
   Shipped,
   SourceControlPort,
 } from "shiplane/plugin";
-import { issueName } from "shiplane/plugin";
+import { issueName, previousTag } from "shiplane/plugin";
 
 import type { Release } from "./issues";
-import {
-  previousTag,
-  pullRequestNumbers,
-  relatedIssues,
-  releaseComment,
-  releaseMarker,
-} from "./issues";
+import { pullRequestNumbers, relatedIssues, releaseComment, releaseMarker } from "./issues";
 
 export interface ReleaseCommentsOptions {
   /** Where the pull requests and issues live, and where the comments go. */
@@ -82,7 +76,12 @@ const followUpsOf = async (
   const reached = await Promise.all(
     picked.map(async (shipped) => {
       const { unit, tag } = shipped;
-      const from = previousTag(tags, unit.name, unit.version, context.tagFormat);
+      const from = previousTag({
+        tags,
+        unit: unit.name,
+        version: unit.version,
+        format: context.tagFormat,
+      });
       const numbers = from
         ? pullRequestNumbers(await context.subjectsReaching(unit, from, tag))
         : [];

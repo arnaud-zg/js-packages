@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { changelogSection, releaseTags, tagName } from "../tags";
+import { changelogSection, previousTag, releaseTags, tagName } from "../tags";
 
 const RELEASE_COMMIT = {
   sha: "8c1d2e3",
@@ -151,5 +151,18 @@ describe("a repository's own tag format", () => {
 
   it("given no format, when the tag is named, then it stays <name>@<version>", () => {
     expect(tagName("expo", "0.4.8")).toBe("expo@0.4.8");
+  });
+});
+
+describe("the tag before a version", () => {
+  it("given v<version> tags, when the version before 0.4.0 is read, then it is v0.3.1", () => {
+    expect(
+      previousTag({
+        tags: new Set(["v0.3.0", "v0.3.1", "v0.4.0"]),
+        unit: "configs",
+        version: "0.4.0",
+        format: "v{version}",
+      }),
+    ).toBe("v0.3.1");
   });
 });

@@ -30,8 +30,16 @@ export type { IssueRef, LinkedPr } from "./domain/issues";
 export { issueName } from "./domain/issues";
 export { actionsMinutes, billedMinutes } from "./domain/budget";
 export { deployRunTitle, deployState, onlyVersionFiles } from "./domain/deploys";
+export type { RegistryFacts, RegistryShip } from "./domain/registry";
+export { registryDecision } from "./domain/registry";
 export { progressBar } from "./domain/display";
-export { DEFAULT_TAG_FORMAT, isReleaseSubject, TAG_FORMATS, tagName } from "./domain/tags";
+export {
+  DEFAULT_TAG_FORMAT,
+  isReleaseSubject,
+  previousTag,
+  TAG_FORMATS,
+  tagName,
+} from "./domain/tags";
 export type { TagFormatName } from "./domain/tags";
 export { compareVersions, nextPatch } from "./domain/versions";
 export { expandPatterns, workspacePatterns } from "./application/config/workspaceFolders";

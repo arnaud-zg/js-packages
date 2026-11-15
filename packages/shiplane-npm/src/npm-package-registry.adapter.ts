@@ -5,9 +5,18 @@ import type {
   Job,
   JobInput,
   PackageRegistryPort,
+  RegistryFacts,
+  RegistryShip,
   Resolved,
 } from "shiplane/plugin";
-import { definePackageRegistry, onlyVersionFiles, parseJson, perEnv, z } from "shiplane/plugin";
+import {
+  definePackageRegistry,
+  onlyVersionFiles,
+  parseJson,
+  perEnv,
+  registryDecision,
+  z,
+} from "shiplane/plugin";
 
 const NpmOptions = z.object({
   publishAs: z
@@ -81,31 +90,44 @@ const moveTagJob = (input: JobInput<Options>): Job => ({
   ],
 });
 
-const decide = async (context: DecideContext, input: JobInput<Options>): Promise<Decision> => {
-  const { unit, tag, environment, options } = input;
+/** Each fact the decision may read, each read at most once and only when it is asked for. */
+const registryFacts = (context: DecideContext, input: JobInput<Options>): RegistryFacts => {
+  const { unit, tag, options } = input;
   const name = nameOf(input);
-  const tagged = await context.sourceControl.tagCommit(tag);
-  if (!tagged) return { action: "none", status: "not released yet" };
-  if (!(await published(context, name, unit.version))) {
-    if (environment === "production") {
-      return { action: "none", status: "not on npm yet: ship it to preview first" };
-    }
+  const tagged = context.sourceControl.tagCommit(tag);
+  return {
+    tagged: async () => (await tagged) !== null,
+    published: () => published(context, name, unit.version),
     // npm publishes this checkout: it has to be the code the tag named.
-    const changed = await context.sourceControl.diffNames(tagged, input.commit);
-    if (!onlyVersionFiles(changed, context.versionFiles)) {
-      return {
-        action: "fail",
-        title: `main moved past ${tag}`,
-        detail: "npm publishes this checkout, which now holds code no release named.",
-        commands: [`git switch --detach ${tag}`, "shiplane ship"],
-      };
-    }
-    return { action: "ship", kind: "publish", jobs: [publishJob(input)] };
-  }
-  const tags = await distTags(context, name);
-  return tags[options.tag] === unit.version
-    ? { action: "none", status: `on npm under ${options.tag}` }
-    : { action: "ship", kind: "publish", jobs: [moveTagJob(input)] };
+    sinceTagOnlyVersionFiles: async () =>
+      onlyVersionFiles(
+        await context.sourceControl.diffNames((await tagged) ?? tag, input.commit),
+        context.versionFiles,
+      ),
+    onDistTag: async () => (await distTags(context, name))[options.tag] === unit.version,
+  };
+};
+
+const decide = async (context: DecideContext, input: JobInput<Options>): Promise<Decision> => {
+  const { tag, environment, options } = input;
+  const ship = await registryDecision({ environment, facts: registryFacts(context, input) });
+  const decisions: Record<RegistryShip, () => Decision> = {
+    "not-released": () => ({ action: "none", status: "not released yet" }),
+    "not-on-preview": () => ({
+      action: "none",
+      status: "not on npm yet: ship it to preview first",
+    }),
+    "moved-past": () => ({
+      action: "fail",
+      title: `main moved past ${tag}`,
+      detail: "npm publishes this checkout, which now holds code no release named.",
+      commands: [`git switch --detach ${tag}`, "shiplane ship"],
+    }),
+    publish: () => ({ action: "ship", kind: "publish", jobs: [publishJob(input)] }),
+    "on-tag": () => ({ action: "none", status: `on npm under ${options.tag}` }),
+    "move-tag": () => ({ action: "ship", kind: "publish", jobs: [moveTagJob(input)] }),
+  };
+  return decisions[ship]();
 };
 
 const live = async (context: DecideContext, input: JobInput<Options>) => {
