@@ -1,14 +1,8 @@
 import path from "node:path";
 import type { AdapterContext, PlatformEnvPort } from "shiplane/plugin";
-import { isEnvVarName } from "shiplane/plugin";
+import { firstLine, isEnvVarName } from "shiplane/plugin";
 
 const NAME_LINE = /^([A-Za-z_][A-Za-z0-9_]*)=/;
-
-const firstLine = (text: string) =>
-  text
-    .split("\n")
-    .find((line) => line.trim())
-    ?.trim();
 
 /** The names of an EAS environment's variables; only names are kept, never values. */
 export const easEnv = ({ root, shell }: AdapterContext): PlatformEnvPort => ({

@@ -7,7 +7,7 @@ import type {
   PackageRegistryPort,
   Resolved,
 } from "shiplane/plugin";
-import { definePackageRegistry, onlyVersionFiles, perEnv, z } from "shiplane/plugin";
+import { definePackageRegistry, onlyVersionFiles, parseJson, perEnv, z } from "shiplane/plugin";
 
 const NpmOptions = z.object({
   publishAs: z
@@ -38,20 +38,13 @@ const published = async (context: DecideContext, name: string, version: string) 
   return result.status === 0 && result.stdout.trim() === version;
 };
 
-/** The JSON npm printed, or nothing when a notice or warning took its place. */
-const jsonOrNothing = (text: string): unknown => {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return {};
-  }
-};
+const DistTags = z.record(z.string(), z.string());
 
+/** The package's dist-tags, or none when npm failed or a notice took the JSON's place. */
 const distTags = async (context: DecideContext, name: string) => {
   const result = await context.shell.capture("npm", ["view", name, "dist-tags", "--json"]);
-  const parsed = z
-    .record(z.string(), z.string())
-    .safeParse(result.status === 0 ? jsonOrNothing(result.stdout || "{}") : {});
+  if (result.status !== 0) return {};
+  const parsed = parseJson({ text: result.stdout || "{}", schema: DistTags });
   return parsed.success ? parsed.data : {};
 };
 

@@ -17,6 +17,10 @@ export type {
 export type { Deploy } from "./ports/code-host.port";
 export type { Shell, ShellResult } from "./ports/shell.port";
 export { CommandFailed } from "./ports/shell.port";
+export { commandFailed, firstLine, mustCapture } from "./adapters/shell/must-capture";
+export { retrying } from "./adapters/shell/retrying";
+export type { ParsedJson } from "./adapters/parse-json";
+export { parseJson } from "./adapters/parse-json";
 export type { AfterShipContext, FollowUp, Shipped } from "./modules/module";
 export type { AppBump, BumpLevel, PlannedChangeset, StatusPlan } from "./domain/changes";
 export { appBumps } from "./domain/changes";

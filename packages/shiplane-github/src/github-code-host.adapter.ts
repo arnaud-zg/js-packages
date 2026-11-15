@@ -87,7 +87,7 @@ const DEPLOYMENTS_QUERY = `query($owner: String!, $name: String!) {
 }`;
 
 export const githubHost = (root: string, shell: Shell): CodeHostPort => {
-  const { must, json } = ghCli(root, shell);
+  const { must, json } = ghCli({ root, shell });
   const graphql = (query: string, variables: string[] = []) =>
     json(["api", "graphql", ...variables, "-f", `query=${query}`]);
   let lastPost = 0;

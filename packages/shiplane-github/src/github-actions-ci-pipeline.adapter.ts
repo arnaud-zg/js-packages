@@ -17,7 +17,7 @@ const JobsSchema = z.array(
 
 /** Workflow runs, dispatches and the Actions minutes budget through the gh CLI. */
 const githubActions = (root: string, shell: Shell, shipWorkflow: string): CiPipelinePort => {
-  const { must, json } = ghCli(root, shell);
+  const { must, json } = ghCli({ root, shell });
   const runs = async (workflow: string): Promise<Deploy[]> => {
     // A workflow not on the default branch yet has no runs, which gh reports as an error.
     const listed = await json([

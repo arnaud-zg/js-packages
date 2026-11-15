@@ -5,7 +5,7 @@ import type {
   PlatformEnvPort,
   StaticHostingPort,
 } from "shiplane/plugin";
-import { defineStaticHosting, isEnvVarName, perEnv, z } from "shiplane/plugin";
+import { defineStaticHosting, firstLine, isEnvVarName, perEnv, z } from "shiplane/plugin";
 
 const WRANGLER = "wrangler@4.141.0";
 
@@ -50,11 +50,7 @@ const pagesEnv = ({ shell }: AdapterContext): PlatformEnvPort => ({
       environment,
     ]);
     if (result.status !== 0) {
-      const reason =
-        result.stderr
-          .split("\n")
-          .find((line) => line.trim())
-          ?.trim() ?? `exit ${result.status}`;
+      const reason = firstLine(result.stderr) ?? `exit ${result.status}`;
       throw new Error(`wrangler pages secret list --env ${environment}: ${reason}`);
     }
     const secrets = result.stdout.split("\n").flatMap((line) => {
