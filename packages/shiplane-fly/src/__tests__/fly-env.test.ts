@@ -43,6 +43,30 @@ describe("the env Fly holds for an app", () => {
     expect([...listed]).toEqual(["SENTRY_DSN", "CLOUDFLARE_R2_BUCKET_NAME", "NODE_ENV"]);
   });
 
+  it("given flyctl prints a notice before its JSON, when listed, then the secrets still come back as names", async () => {
+    const shell = new RecordingShell().seed("flyctl secrets list -a acme-api-preview --json", {
+      stdout: `A new release of flyctl is available: v0.3.1 -> v0.3.2\n${JSON.stringify([{ name: "SENTRY_DSN" }])}\n`,
+    });
+
+    const listed = await envOf(shell, repository()).listNames({
+      unit,
+      environment: "preview",
+      options,
+    });
+
+    expect([...listed]).toEqual(["SENTRY_DSN"]);
+  });
+
+  it("given flyctl answers with no JSON at all, when listed, then it fails naming the command", async () => {
+    const shell = new RecordingShell().seed("flyctl secrets list", {
+      stdout: "Upgrade flyctl to list secrets as JSON\n",
+    });
+
+    await expect(
+      envOf(shell, repository()).listNames({ unit, environment: "preview", options }),
+    ).rejects.toThrow("flyctl secrets list -a acme-api-preview: no secrets list in its output");
+  });
+
   it("given flyctl is not signed in, when listed, then it fails naming the command and Fly's reason", async () => {
     const shell = new RecordingShell().seed("flyctl secrets list", {
       status: 1,
