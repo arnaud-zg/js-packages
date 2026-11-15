@@ -52,11 +52,19 @@ describe("what the release covers, asked before anything runs", () => {
     expect(scopeChoices([package_], "preview")[0]?.hint).toBe("1.0.0 released, not live yet");
   });
 
-  it("given expo released with nothing new, when asked, then it is greyed out and points to its build check", () => {
-    expect(choose({ app: "expo", version: "0.1.115", tagged: true })).toEqual({
+  it("given expo released and on preview with nothing new, when asked, then it is greyed out and points to its build check", () => {
+    expect(choose({ app: "expo", version: "0.1.115", tagged: true, onChannel: true })).toEqual({
       app: "expo",
       pending: false,
       hint: "0.1.115 released, nothing new (shiplane status shows its builds)",
+    });
+  });
+
+  it("given expo 0.6.0 tagged but its build never reached preview, when asked, then it is offered again to retry", () => {
+    expect(choose({ app: "expo", version: "0.6.0", tagged: true })).toEqual({
+      app: "expo",
+      pending: true,
+      hint: "0.6.0 tagged, never reached preview: retry",
     });
   });
 

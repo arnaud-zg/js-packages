@@ -253,10 +253,8 @@ const buildRefusal = async (
   return null;
 };
 
-const previewDecision = async (
-  context: DecideContext,
-  input: JobInput<Options>,
-): Promise<Decision> => {
+/** What preview still needs for the tagged version, from its builds and last update. */
+const previewState = async (context: DecideContext, input: JobInput<Options>) => {
   const { unit, options } = input;
   const client = easClient(context.shell, path.join(context.root, unit.dir));
   const analysis = await analyse(
@@ -287,6 +285,16 @@ const previewDecision = async (
       analysis.plan.action === "update" &&
       ((await sinceTag(lastBuildCommit)) || (await sinceTag(lastUpdateCommit))),
   });
+  return { analysis, codeSince, ship };
+};
+
+const previewDecision = async (
+  context: DecideContext,
+  input: JobInput<Options>,
+): Promise<Decision> => {
+  const { unit } = input;
+  const version = unit.version;
+  const { analysis, codeSince, ship } = await previewState(context, input);
   // Main moved past the tag: GitHub Actions still ships the tag, this machine only its checkout.
   const movedPast = ship === "moved-past";
   const kind = analysis.plan.action === "build" ? "build" : "update";
@@ -336,10 +344,8 @@ const previewDecision = async (
   }
 };
 
-const productionDecision = async (
-  context: DecideContext,
-  input: JobInput<Options>,
-): Promise<Decision> => {
+/** What production still needs to run the version preview validated. */
+const productionState = async (context: DecideContext, input: JobInput<Options>) => {
   const { unit, options } = input;
   const client = easClient(context.shell, path.join(context.root, unit.dir));
   const productionVersion = binaryVersion(context.root, unit, options, "production");
@@ -375,6 +381,36 @@ const productionDecision = async (
     builtVersion,
     partialRollout: rollout < 100 && (await sinceTag(updateCommit)),
   });
+  return {
+    analysis,
+    client,
+    codeSince,
+    productionVersion,
+    builtVersion,
+    lastUpdate,
+    origin,
+    rollout,
+    decision,
+  };
+};
+
+const productionDecision = async (
+  context: DecideContext,
+  input: JobInput<Options>,
+): Promise<Decision> => {
+  const { unit, options } = input;
+  const version = unit.version;
+  const {
+    analysis,
+    client,
+    codeSince,
+    productionVersion,
+    builtVersion,
+    lastUpdate,
+    origin,
+    rollout,
+    decision,
+  } = await productionState(context, input);
   switch (decision) {
     case "finish-rollout":
       return lastUpdate
@@ -502,6 +538,13 @@ export const easMobileDistribution = (): EasMobileDistributionAdapter =>
       input.environment === "preview"
         ? previewDecision(context, input)
         : productionDecision(context, input),
+    // A running build counts: a retry would start a second one.
+    live: async (context, input) =>
+      input.environment === "preview"
+        ? ["shipped", "wait"].includes((await previewState(context, input)).ship)
+        : ["shipped", "finish-rollout", "wait"].includes(
+            (await productionState(context, input)).decision,
+          ),
     inspect: async (context, input) => {
       const { unit, environment, options } = input;
       const client = easClient(context.shell, path.join(context.root, unit.dir));

@@ -813,4 +813,47 @@ describe("the mobile app's status", () => {
       ],
     });
   });
+
+  const expoChoice = async (world: ReturnType<typeof setUp>) => {
+    world.source.seed({ tags: { "expo@0.1.115": "head-1" } });
+    const status = await readStatus(world.context, "preview");
+    return status.units.find(({ unit }) => unit === "expo");
+  };
+
+  it("given expo@0.1.115 tagged and its only preview build of 0.1.115 errored, when the status is read, then expo is not live and offered as a retry", async () => {
+    const world = setUp({
+      builds: {
+        preview: [
+          build("ios", "preview", { status: "ERRORED", id: "ios-errored" }),
+          build("ios", "preview", { appVersion: "0.1.114" }),
+        ],
+      },
+    });
+
+    expect(await expoChoice(world)).toMatchObject({
+      pending: true,
+      hint: "0.1.115 tagged, never reached preview: retry",
+    });
+  });
+
+  it("given a finished preview build of 0.1.115 made from its tag, when the status is read, then expo is live and greyed out", async () => {
+    const world = setUp({
+      builds: { preview: [build("ios", "preview", { gitCommitHash: "head-1" })] },
+    });
+
+    expect(await expoChoice(world)).toMatchObject({ pending: false });
+  });
+
+  it("given a preview build of 0.1.115 still running, when the status is read, then no retry is offered", async () => {
+    const world = setUp({
+      builds: {
+        preview: [
+          build("ios", "preview", { status: "IN_PROGRESS", id: "ios-run" }),
+          build("ios", "preview", { appVersion: "0.1.114" }),
+        ],
+      },
+    });
+
+    expect(await expoChoice(world)).toMatchObject({ pending: false });
+  });
 });

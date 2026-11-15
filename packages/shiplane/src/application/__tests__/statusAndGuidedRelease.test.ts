@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import type { PlannedChangeset } from "../../domain/changes";
+import { mobileDistributionFake } from "../../adapters/mobile-distribution/__fakes__/mobile-distribution.fake";
+import { mobileApp } from "../../modules/mobile-app/mobile-app.module";
 import { planFrom } from "../../testing/plans";
 import { changesetText, testContext, testUnit } from "../../testing/releaseContext";
 import { readStatus } from "../readStatus";
 import { releaseToPreview } from "../releaseToPreview";
+import { shipTo } from "../ship";
 import { waitForMerge } from "../waitForMerge";
 
 const PLANT: PlannedChangeset = {
@@ -204,5 +207,48 @@ describe("a release to preview, from the top", () => {
     expect(source.received).toContainEqual(
       expect.objectContaining({ type: "tag", name: "api@0.0.2", sha: "r2" }),
     );
+  });
+});
+
+describe("resuming a mobile release whose build never shipped", () => {
+  const setUpExpo = (options: { yes?: boolean; interactive?: boolean } = {}) => {
+    const mobile = mobileDistributionFake();
+    const world = testContext({
+      units: [
+        testUnit("expo", { version: "0.6.0", module: "mobile-app", options: { app: "expo" } }),
+      ],
+      modules: [mobileApp({ mobileDistribution: mobile })],
+      ...options,
+    });
+    world.source.seed({ tags: { "expo@0.5.0": "t0", "expo@0.6.0": "t1" } });
+    world.host.seed({ releasedTags: ["expo@0.5.0", "expo@0.6.0"] });
+    mobile.fake.seed({ live: { preview: "0.5.0" } });
+    return world;
+  };
+
+  it("given expo@0.6.0 tagged with its notes out but preview still on 0.5.0, when release runs again, then expo is offered and preselected as a retry", async () => {
+    const { context, prompter } = setUpExpo();
+    prompter.answer(null);
+
+    await releaseToPreview(context);
+
+    const [question = ""] = prompter.asked;
+    expect(prompter.choices[question]).toEqual([
+      {
+        value: "expo",
+        label: "expo",
+        hint: "0.6.0 tagged, never reached preview: retry",
+        disabled: false,
+      },
+    ]);
+    expect(prompter.initials[question]).toEqual(["expo"]);
+  });
+
+  it("given expo@0.6.0 tagged and its ship job fails, when shipped, then it says a rerun offers expo@0.6.0 again", async () => {
+    const { context, shell, output } = setUpExpo({ yes: true, interactive: false });
+    shell.seed("echo update", { status: 1 });
+
+    expect(await shipTo(context, "preview", { via: "local" })).toBe(false);
+    expect(output.text).toContain("Run shiplane again: it offers expo@0.6.0 again");
   });
 });

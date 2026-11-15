@@ -51,8 +51,15 @@ export class ScriptedPrompter implements Prompter {
     return Promise.resolve(this.next(message) as Value | null);
   };
 
-  multiselect = <Value extends string>(message: string, _choices: Choice<Value>[]) =>
-    Promise.resolve(this.next(message) as Value[] | null);
+  multiselect = <Value extends string>(
+    message: string,
+    choices: Choice<Value>[],
+    initial: Value[],
+  ) => {
+    this.initials[message] = initial;
+    this.choices[message] = choices;
+    return Promise.resolve(this.next(message) as Value[] | null);
+  };
 
   text = (message: string) => Promise.resolve(this.next(message) as string | null);
 
