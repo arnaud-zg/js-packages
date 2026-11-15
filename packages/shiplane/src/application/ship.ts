@@ -8,7 +8,6 @@ import type { Shipment } from "./askPath";
 import type { ReleaseContext } from "./context";
 import { onlyVersionFiles, shipsFrom, webShip } from "../domain/deploys";
 import { yesAllowed } from "../domain/governance";
-import { tagName } from "../domain/tags";
 import { askPaths, PATH_LABEL } from "./askPath";
 import { checkEnvBeforeDeploy } from "./checkEnvBeforeDeploy";
 import { runFollowUps } from "./followUps";
@@ -23,9 +22,9 @@ import {
   dispatchShip,
   environmentLabel,
   jobInput,
-  moduleOf,
   runHere,
   shipPlanOf,
+  unitTag,
   versionFiles,
 } from "./targets";
 
@@ -134,9 +133,9 @@ const decideAll = async (
   const { release, services, output } = context;
   const recorded = await services.codeHost.deployments().catch(() => []);
   const picked = release.units.flatMap((unit) => {
-    const module = moduleOf(context, unit);
-    if ((scope && !scope.has(unit.name)) || !module) return [];
-    return [{ unit, module, tag: tagName(unit.name, unit.version, context.release.tagFormat) }];
+    const found = unitTag(context, unit);
+    if ((scope && !scope.has(unit.name)) || !found) return [];
+    return [{ unit, ...found }];
   });
   const tagged = await mapLimit(
     picked,

@@ -7,6 +7,7 @@ import type { AfterShipContext, AppInput, ReleaseModule } from "../modules/modul
 import type { Command, DecideContext, Job } from "../ports/delivery.port";
 import type { ReleaseContext } from "./context";
 import { changesReaching, codeFolders } from "../domain/codeScope";
+import { tagName } from "../domain/tags";
 import { optionsFor } from "./config/optionsFor";
 
 /** The module that ships an app: the one its unit file names. */
@@ -37,6 +38,24 @@ export const jobInput = (
   commit,
   options: resolvedOptions(module, unit, environment, context.release.units),
 });
+
+/** The module that ships a unit and the tag it ships, or null when no module claims it. */
+export const unitTag = (context: ReleaseContext, unit: ReleaseUnit) => {
+  const module = moduleOf(context, unit);
+  if (!module) return null;
+  return { module, tag: tagName(unit.name, unit.version, context.release.tagFormat) };
+};
+
+/** One unit aimed at an environment at a commit: its module, its tag, and what its stages are told. */
+export const unitTarget = (
+  context: ReleaseContext,
+  { unit, environment, commit }: { unit: ReleaseUnit; environment: Environment; commit: string },
+) => {
+  const found = unitTag(context, unit);
+  if (!found) return null;
+  const input = jobInput(context, found.module, unit, { tag: found.tag, environment, commit });
+  return { ...found, input };
+};
 
 /** Where a tag lands and the jobs that ship it, as its module says. */
 export const shipPlanOf = (context: ReleaseContext, module: ReleaseModule, input: AppInput) =>

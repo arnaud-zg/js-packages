@@ -2,11 +2,10 @@ import path from "node:path";
 
 import type { ReleaseUnit } from "../domain/unit";
 import type { SetupContext } from "./setupContext";
-import { tagName } from "../domain/tags";
 import { readManifest } from "./manifest";
 import { checkStatus, requirementsOf } from "./requirements";
 import { paint } from "./say";
-import { commandLine, jobInput, moduleOf, shipPlanOf } from "./targets";
+import { commandLine, shipPlanOf, unitTarget } from "./targets";
 
 class StepFailed extends Error {}
 
@@ -124,14 +123,8 @@ export const rehearse = async (context: SetupContext): Promise<boolean> => {
     (await check(context, `plan  ${release.units.length} apps, nothing runs`, async () => {
       const { head } = await releaseContext.services.sourceControl.position();
       for (const unit of release.units) {
-        const module = moduleOf(releaseContext, unit);
-        if (!module) continue;
-        const tag = tagName(unit.name, unit.version, release.tagFormat);
-        shipPlanOf(
-          releaseContext,
-          module,
-          jobInput(releaseContext, module, unit, { tag, environment: "preview", commit: head }),
-        );
+        const target = unitTarget(releaseContext, { unit, environment: "preview", commit: head });
+        if (target) shipPlanOf(releaseContext, target.module, target.input);
       }
       return true;
     }));

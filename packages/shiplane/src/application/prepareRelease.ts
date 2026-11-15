@@ -5,9 +5,8 @@ import type { VersionChoice, VersionContribution } from "../ports/delivery.port"
 import type { ReleaseContext } from "./context";
 import { appBumps, packageBumps, splitChangesets } from "../domain/changes";
 import { draggedUnits } from "../domain/companions";
-import { tagName } from "../domain/tags";
 import { namedUnits, unitRefs } from "./readScope";
-import { decideContext, jobInput, moduleOf } from "./targets";
+import { decideContext, unitTarget } from "./targets";
 import { unattended } from "./unattended";
 
 export type Split = ReturnType<typeof splitChangesets>;
@@ -60,14 +59,10 @@ const contributionsOf = async (
       contributions[unit.name] = answered;
       continue;
     }
-    const module = moduleOf(context, unit);
-    const version = module?.version?.bind(module);
-    if (!module || !version) continue;
-    const input = jobInput(context, module, unit, {
-      tag: tagName(unit.name, unit.version, context.release.tagFormat),
-      environment: "preview",
-      commit: head,
-    });
+    const target = unitTarget(context, { unit, environment: "preview", commit: head });
+    const version = target?.module.version?.bind(target.module);
+    if (!target || !version) continue;
+    const { input } = target;
     const bump = bumps.find(({ app }) => app === unit.name);
     const contribute = (chosen?: string) =>
       version(decideContext(context), { ...input, bump, chosen });
