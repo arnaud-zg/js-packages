@@ -1,5 +1,6 @@
 import type { DeployPath, WebShip } from "../domain/deploys";
 import type { Environment } from "../domain/environment";
+import type { WorkflowJob } from "../domain/shipRoute";
 import type { ReleaseUnit } from "../domain/unit";
 import type { AppInput, ReleaseModule } from "../modules/module";
 import type { Deploy } from "../ports/code-host.port";
@@ -8,6 +9,7 @@ import type { Shipment } from "./askPath";
 import type { ReleaseContext } from "./context";
 import { onlyVersionFiles, shipsFrom, webShip } from "../domain/deploys";
 import { yesAllowed } from "../domain/governance";
+import { choosesPath, forcedPath, routeChoice, shipRuns } from "../domain/shipRoute";
 import { askPaths, PATH_LABEL } from "./askPath";
 import { checkEnvBeforeDeploy } from "./checkEnvBeforeDeploy";
 import { runFollowUps } from "./followUps";
@@ -41,14 +43,6 @@ interface Ready {
   /** The person already said go for it. */
   confirmed: boolean;
 }
-
-/**
- * Builds and submits run on their own platform: they ask only when a workflow can start them too.
- */
-const choosesPath = ({ kind, jobs }: Ready) =>
-  kind === "update" ||
-  kind === "deploy" ||
-  ((kind === "build" || kind === "submit") && jobs.every(({ ci }) => ci));
 
 const WEB_STATUS: Record<Exclude<WebShip, "deploy">, string> = {
   deploying: "deploying already",
@@ -249,8 +243,6 @@ const blockedOn = async (
   return shipsFrom(path, { sinceTagOnlyVersionFiles }) ? null : "main moved past it";
 };
 
-const OTHER_PATH: Record<DeployPath, DeployPath> = { github: "local", local: "github" };
-
 /** What to do instead, when the path a person forced cannot ship a unit. */
 const INSTEAD: Record<DeployPath, string> = {
   github: "ship it from this machine",
@@ -281,14 +273,14 @@ const routeOf = async (
   }
   const github = await blockedOn(context, "github", entry);
   const local = await blockedOn(context, "local", entry);
-  if (github && local) {
+  const choice = routeChoice({ github, local });
+  if (choice.route === "ask") return "ask";
+  if (choice.route === "stuck") {
     say(paint("red", "✗"), `${github}, and ${local}: nothing can ship it`);
     return "stuck";
   }
-  const blocked = github ? "github" : local ? "local" : null;
-  if (!blocked) return "ask";
-  say(paint("dim", "·"), `${github ?? local}: ${TAKES[OTHER_PATH[blocked]]}`);
-  return OTHER_PATH[blocked];
+  say(paint("dim", "·"), `${choice.blocked}: ${TAKES[choice.route]}`);
+  return choice.route;
 };
 
 const shipmentOf =
@@ -299,24 +291,17 @@ const shipmentOf =
     typicalMinutes: module.typicalMinutes,
   });
 
-/**
- * The ship workflow's runs: one per commit, each naming its units, so tags on one commit cost one
- * run. A run goes on the first unit's tag, never on main: a runner checks out its ref when it
- * starts, and main may have moved by then. Only a job that ships main on purpose runs from main.
- */
-const shipRuns = async ({ services }: ReleaseContext, entries: readonly Ready[]) => {
-  const runs = new Map<string, { ref: string; units: string[] }>();
-  for (const { unit, jobs } of entries) {
-    for (const { ci } of jobs) {
-      if (!ci) continue;
-      const commit = ci.ref === "main" ? null : await services.sourceControl.tagCommit(ci.ref);
-      const key = commit === null ? `ref:${ci.ref}` : `commit:${commit}`;
-      const run = runs.get(key) ?? { ref: ci.ref, units: [] };
-      if (!run.units.includes(unit.name)) run.units.push(unit.name);
-      runs.set(key, run);
-    }
+/** Each job the workflow ships, in order, with the commit its ref tags: main moves, so it has none. */
+const workflowJobs = async ({ services }: ReleaseContext, entries: readonly Ready[]) => {
+  const refs = entries.flatMap(({ unit, jobs }) =>
+    jobs.flatMap(({ ci }) => (ci ? [{ unit: unit.name, ref: ci.ref }] : [])),
+  );
+  const jobs: WorkflowJob[] = [];
+  for (const { unit, ref } of refs) {
+    const commit = ref === "main" ? null : await services.sourceControl.tagCommit(ref);
+    jobs.push({ unit, ref, commit });
   }
-  return [...runs.values()];
+  return jobs;
 };
 
 /** A failed ship left its tag unshipped: the next run's first question offers it again. */
@@ -364,6 +349,84 @@ const mayStart = async (context: ReleaseContext, environment: Environment) => {
 };
 
 /**
+ * The path each unit that chooses one takes: said when only one can, else asked. Null when the
+ * person was asked and gave no answer. A picked unit nothing can ship fails the run, after the
+ * others shipped.
+ */
+const pathsOf = async (
+  context: ReleaseContext,
+  {
+    environment,
+    ready,
+    forced,
+  }: { environment: Environment; ready: readonly Ready[]; forced: DeployPath | undefined },
+) => {
+  const paths = new Map<Ready, DeployPath>();
+  const unanswered: Ready[] = [];
+  let stuck = false;
+  for (const entry of ready.filter(choosesPath)) {
+    const route = await routeOf(context, entry, forced);
+    if (route === "ask") unanswered.push(entry);
+    if (route === "stuck") stuck = true;
+    if (route === "github" || route === "local") paths.set(entry, route);
+  }
+  if (unanswered.length === 0) return { paths, stuck };
+  const answers = await askPaths(
+    context,
+    environment,
+    unanswered.map(shipmentOf(context.services.ciPipeline.shipWorkflow)),
+  );
+  if (!answers) return null;
+  unanswered.forEach((entry, index) => {
+    const answer = answers[index];
+    if (answer) paths.set(entry, answer);
+  });
+  return { paths, stuck };
+};
+
+/** The person said no: preview offers production instead, which asks for its name on its own rules. */
+const declined = async (
+  context: ReleaseContext,
+  {
+    environment,
+    scope,
+    via,
+  }: { environment: Environment; scope?: ReadonlySet<string>; via?: DeployPath },
+): Promise<boolean> => {
+  const { prompter } = context;
+  const instead =
+    environment === "preview" &&
+    prompter.interactive &&
+    (await prompter.confirm("Ship to production instead?"));
+  if (instead) return shipTo(context, "production", { scope, via });
+  context.progress.say("resting", paint("dim", "Nothing shipped."));
+  return true;
+};
+
+/** One thing a ship runs: a job from this machine, or a workflow run dispatched. */
+interface ShipStep {
+  label: string;
+  run: () => Promise<unknown>;
+  /** The tags left unshipped when it fails. */
+  tags: string[];
+}
+
+/** Each step under its progress line, in order: the first failure is said and stops the rest. */
+const runShipSteps = async (context: ReleaseContext, steps: readonly ShipStep[]) => {
+  for (const [index, { label, run, tags }] of steps.entries()) {
+    try {
+      await context.progress.during(label, "working", run, { index, total: steps.length });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      fail(context, `${label} failed`, `${reason}, nothing after it ran.`);
+      offerAgain(context, tags);
+      return false;
+    }
+  }
+  return true;
+};
+
+/**
  * Ships every picked unit its environment does not run yet, and returns once each one is
  * triggered: EAS builds and workflows go on on their own, a Fly deploy from here once rolled out.
  * Production asks for its name first. False on a failure.
@@ -405,34 +468,17 @@ export const shipTo = async (
     }));
   if (!signedIn) return false;
   if (!(await checkEnvBeforeDeploy(context, { environment, units: toCheck }))) return false;
-  // On a CI runner, dispatching another workflow would pay for two: this runner ships.
-  const forced = options.ci ? "local" : via;
-  const paths = new Map<Ready, DeployPath>();
-  const unanswered: Ready[] = [];
-  // A picked unit nothing can ship fails the run, after the others shipped.
-  let stuck = false;
-  for (const entry of ready.filter(choosesPath)) {
-    const route = await routeOf(context, entry, forced);
-    if (route === "ask") unanswered.push(entry);
-    else if (route === "stuck") stuck = true;
-    else if (route !== "skip") paths.set(entry, route);
+  const routed = await pathsOf(context, {
+    environment,
+    ready,
+    forced: forcedPath({ ci: options.ci, via }),
+  });
+  if (!routed) {
+    output.line(paint("dim", "  Nothing shipped."));
+    // Cancelled by the person is fine; no terminal to ask is a failure a script should see.
+    return prompter.interactive;
   }
-  if (unanswered.length > 0) {
-    const answers = await askPaths(
-      context,
-      environment,
-      unanswered.map(shipmentOf(services.ciPipeline.shipWorkflow)),
-    );
-    if (!answers) {
-      output.line(paint("dim", "  Nothing shipped."));
-      // Cancelled by the person is fine; no terminal to ask is a failure a script should see.
-      return prompter.interactive;
-    }
-    unanswered.forEach((entry, index) => {
-      const answer = answers[index];
-      if (answer) paths.set(entry, answer);
-    });
-  }
+  const { paths, stuck } = routed;
   const going = ready.filter((entry) => !choosesPath(entry) || paths.has(entry));
   if (going.length === 0) return !stuck;
   // A job run from its tag's worktree leaves this checkout alone.
@@ -455,59 +501,31 @@ export const shipTo = async (
       environment === "preview",
     ))
   ) {
-    // Production still asks for its name and decides each unit on its own rules.
-    if (
-      environment === "preview" &&
-      prompter.interactive &&
-      (await prompter.confirm("Ship to production instead?"))
-    ) {
-      return shipTo(context, "production", { scope, via });
-    }
-    context.progress.say("resting", paint("dim", "Nothing shipped."));
-    return true;
+    return declined(context, { environment, scope, via });
   }
   const here = going.filter((entry) => paths.get(entry) !== "github");
-  const jobs = here.flatMap((entry) => entry.jobs.map((job) => ({ entry, job })));
-  const runs = await shipRuns(
-    context,
-    going.filter((entry) => paths.get(entry) === "github"),
+  const runs = shipRuns(
+    await workflowJobs(
+      context,
+      going.filter((entry) => paths.get(entry) === "github"),
+    ),
   );
-  const total = jobs.length + runs.length;
-  for (const [index, { entry, job }] of jobs.entries()) {
-    try {
-      await context.progress.during(
-        job.label,
-        "working",
-        () => runHere(context, job, entry.input),
-        { index, total },
-      );
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      fail(context, `${job.label} failed`, `${reason}, nothing after it ran.`);
-      offerAgain(context, [entry.input.tag]);
-      return false;
-    }
-  }
   const workflow = services.ciPipeline.shipWorkflow;
-  for (const [index, run] of runs.entries()) {
-    const label = `ship ${run.units.join(", ")} from ${run.ref} (${workflow})`;
-    try {
-      await context.progress.during(
-        label,
-        "working",
-        () => dispatchShip(context, run, environment),
-        { index: jobs.length + index, total },
-      );
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error);
-      fail(context, `${label} failed`, `${reason}, nothing after it ran.`);
-      offerAgain(
-        context,
-        going.filter(({ unit }) => run.units.includes(unit.name)).map(({ input }) => input.tag),
-      );
-      return false;
-    }
-  }
+  const steps: ShipStep[] = [
+    ...here.flatMap(({ input, jobs }) =>
+      jobs.map((job) => ({
+        label: job.label,
+        run: () => runHere(context, job, input),
+        tags: [input.tag],
+      })),
+    ),
+    ...runs.map((run) => ({
+      label: `ship ${run.units.join(", ")} from ${run.ref} (${workflow})`,
+      run: () => dispatchShip(context, run, environment),
+      tags: going.filter(({ unit }) => run.units.includes(unit.name)).map(({ input }) => input.tag),
+    })),
+  ];
+  if (!(await runShipSteps(context, steps))) return false;
   const names = going.map(({ input }) => input.tag).join(", ");
   const where = destination(
     context,

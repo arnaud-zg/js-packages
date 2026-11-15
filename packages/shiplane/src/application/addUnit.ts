@@ -1,6 +1,7 @@
 import path from "node:path";
 
 import type { SetupContext } from "./setupContext";
+import type { ModuleEntry } from "./setupFiles";
 import { moduleFor } from "../modules/suggest";
 import { UNIT_FILE } from "./config/readUnitFile";
 import { askOptions, scanFolders } from "./initRelease";
@@ -15,6 +16,19 @@ import {
   SCHEMA_FILE,
   schemaText,
 } from "./setupFiles";
+
+/** A new module joins the config's modules, or the person is told where to add it. */
+const addModule = (
+  { files, output }: SetupContext,
+  { entry, pkg }: { entry: ModuleEntry; pkg: string },
+) => {
+  const config = addToConfig(files.read(CONFIG_FILE) ?? "", entry, pkg);
+  if (config) {
+    files.write(CONFIG_FILE, config);
+    return;
+  }
+  output.line(`${paint("yellow", "!")}  add ${moduleCall(entry)} to the modules in ${CONFIG_FILE}`);
+};
 
 /** `shiplane add <folder>`: init's questions for one folder, its unit file written. */
 export const addUnit = async (context: SetupContext, dir: string): Promise<boolean> => {
@@ -56,14 +70,7 @@ export const addUnit = async (context: SetupContext, dir: string): Promise<boole
   const pkg = releasePackage(files);
   const placed = placeModule(adapter, release.modules, pkg);
   files.write(file, renderUnit(placed.name, options, { reason: guess?.detection.reason }));
-  if (placed.entry) {
-    const config = addToConfig(files.read(CONFIG_FILE) ?? "", placed.entry, pkg);
-    if (config) files.write(CONFIG_FILE, config);
-    else
-      output.line(
-        `${paint("yellow", "!")}  add ${moduleCall(placed.entry)} to the modules in ${CONFIG_FILE}`,
-      );
-  }
+  if (placed.entry) addModule(context, { entry: placed.entry, pkg });
   const modules = placed.entry
     ? [...release.modules, moduleFor(adapter, placed.name)]
     : release.modules;

@@ -9,25 +9,30 @@ import { commandLine, shipPlanOf, unitTarget } from "./targets";
 
 class StepFailed extends Error {}
 
+/** A failed check, said: a spinner already said a check that did not pass; one that broke says why. */
+const sayFailed = (context: SetupContext, { label, error }: { label: string; error: unknown }) => {
+  if (error instanceof StepFailed && context.progress) return;
+  context.output.line(`  ${paint("red", "✗")} ${label}`);
+  if (error instanceof StepFailed) return;
+  context.output.line(
+    `     ${paint("dim", error instanceof Error ? error.message : String(error))}`,
+  );
+};
+
 /** One rehearsal check under a spinner when there is one: true when `work` says it passed. */
 const check = async (context: SetupContext, label: string, work: () => Promise<boolean>) => {
   const run = async () => {
     if (!(await work())) throw new StepFailed();
   };
+  const runPlain = async () => {
+    await run();
+    context.output.line(`  ${paint("green", "✓")} ${label}`);
+  };
   try {
-    if (context.progress) await context.progress.during(label, "working", run);
-    else {
-      await run();
-      context.output.line(`  ${paint("green", "✓")} ${label}`);
-    }
+    await (context.progress ? context.progress.during(label, "working", run) : runPlain());
     return true;
   } catch (error) {
-    if (!(error instanceof StepFailed)) {
-      context.output.line(`  ${paint("red", "✗")} ${label}`);
-      context.output.line(
-        `     ${paint("dim", error instanceof Error ? error.message : String(error))}`,
-      );
-    } else if (!context.progress) context.output.line(`  ${paint("red", "✗")} ${label}`);
+    sayFailed(context, { label, error });
     return false;
   }
 };

@@ -29,7 +29,6 @@ export const ciPipelineContract = (name: string, subject: () => Promise<CiPipeli
 
       const minutes = await port.minutes();
 
-      if (minutes) expect(minutes.left).toBeLessThanOrEqual(minutes.included);
-      else expect(minutes).toBeNull();
+      expect(minutes === null || minutes.left <= minutes.included).toBe(true);
     });
   });

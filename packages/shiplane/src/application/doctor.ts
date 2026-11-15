@@ -54,19 +54,19 @@ export const doctor = async (context: SetupContext): Promise<boolean> => {
     const status = await checkStatus(shell, root, requirement);
     if (status === 0) {
       output.line(`${paint("dim", "│")}  ${paint("green", "✓")} ${requirement.label}`);
-    } else {
-      failing.push(requirement);
-      if (status === 127) missing.add(check.command);
-      const fix =
-        status === 127
-          ? `not installed: ${check.command}`
-          : requirement.fix
-            ? `fix: ${commandLine(requirement.fix)}`
-            : "not available here";
-      output.line(
-        `${paint("dim", "│")}  ${paint("red", "✗")} ${requirement.label}  ${paint("dim", fix)}`,
-      );
+      continue;
     }
+    failing.push(requirement);
+    if (status === 127) missing.add(check.command);
+    const fix =
+      status === 127
+        ? `not installed: ${check.command}`
+        : requirement.fix
+          ? `fix: ${commandLine(requirement.fix)}`
+          : "not available here";
+    output.line(
+      `${paint("dim", "│")}  ${paint("red", "✗")} ${requirement.label}  ${paint("dim", fix)}`,
+    );
   }
   for (const { fix } of failing) {
     if (!fix || !prompter.interactive || missing.has(fix.command)) continue;

@@ -165,8 +165,7 @@ export const runHere = async (
   job: Job,
   { tag, environment }: { tag: string; environment: Environment },
 ) => {
-  if (job.from) await runFromTag(context, job, job.from);
-  else await runIn(context, job, context.release.root);
+  await (job.from ? runFromTag(context, job, job.from) : runIn(context, job, context.release.root));
   if (job.record) await context.services.codeHost.recordDeployment(tag, environment);
 };
 

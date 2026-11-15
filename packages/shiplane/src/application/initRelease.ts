@@ -136,6 +136,34 @@ const review = async (context: SetupContext, writes: Write[], yes: boolean) => {
   }
 };
 
+/** The config: written whole the first time, else each new module added to the one there. */
+const configWrites = (
+  { files }: SetupContext,
+  { existing, entries, pkg }: { existing: boolean; entries: readonly ModuleEntry[]; pkg: string },
+): Write[] => {
+  if (!existing) return [{ file: CONFIG_FILE, text: renderConfig(entries, pkg), created: true }];
+  const before = files.read(CONFIG_FILE) ?? "";
+  const config = entries.reduce((text, entry) => addToConfig(text, entry, pkg) ?? text, before);
+  if (config === files.read(CONFIG_FILE)) return [];
+  return [{ file: CONFIG_FILE, text: config, created: false }];
+};
+
+/** The editor's settings mapping unit files to the schema, unless an earlier init mapped them. */
+const editorWrites = ({ files, output }: SetupContext): Write[] => {
+  const current = files.read(editorSettingsFile);
+  if (current?.includes(`./${SCHEMA_FILE}`)) return [];
+  const settings = withEditorSchema(current);
+  if (settings) {
+    return [
+      { file: editorSettingsFile, text: settings, created: !files.exists(editorSettingsFile) },
+    ];
+  }
+  output.line(
+    `${bar}  ${paint("dim", `${editorSettingsFile} already maps yaml.schemas: add ./${SCHEMA_FILE} for **/${UNIT_FILE}`)}`,
+  );
+  return [];
+};
+
 /**
  * `shiplane init`: finds every workspace folder, guesses how each ships from what it holds, asks only
  * what it cannot tell, shows every file, writes them, then runs doctor. Run again, it offers the
@@ -256,15 +284,7 @@ export const initRelease = async (
     }
     return { ...entry, module: name };
   });
-  const writes: Write[] = [];
-  if (!existing) {
-    writes.push({ file: CONFIG_FILE, text: renderConfig(entries, pkg), created: true });
-  } else {
-    let config = files.read(CONFIG_FILE) ?? "";
-    for (const entry of entries) config = addToConfig(config, entry, pkg) ?? config;
-    if (config !== files.read(CONFIG_FILE))
-      writes.push({ file: CONFIG_FILE, text: config, created: false });
-  }
+  const writes: Write[] = configWrites(context, { existing: existing !== null, entries, pkg });
   named.forEach(({ folder, adapter, module, options, reason }) => {
     const schemaLine = editor ? undefined : schemaLineFor(folder.dir);
     writes.push({
@@ -280,22 +300,7 @@ export const initRelease = async (
     text: schemaText(modules),
     created: !files.exists(SCHEMA_FILE),
   });
-  if (editor) {
-    const current = files.read(editorSettingsFile);
-    const settings = withEditorSchema(current);
-    if (current?.includes(`./${SCHEMA_FILE}`)) {
-      // Mapped already, by an earlier init.
-    } else if (settings)
-      writes.push({
-        file: editorSettingsFile,
-        text: settings,
-        created: !files.exists(editorSettingsFile),
-      });
-    else
-      output.line(
-        `${bar}  ${paint("dim", `${editorSettingsFile} already maps yaml.schemas: add ./${SCHEMA_FILE} for **/${UNIT_FILE}`)}`,
-      );
-  }
+  if (editor) writes.push(...editorWrites(context));
   if (!(await review(context, writes, yes))) {
     output.line(paint("dim", "Nothing written."));
     return true;

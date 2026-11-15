@@ -1,4 +1,5 @@
-import type { OpenPr } from "../domain/releasePr";
+import type { OpenPr, ReleaseStep } from "../domain/releasePr";
+import type { ReleaseTag } from "../domain/tags";
 import type { ReleaseContext } from "./context";
 import { nextStep, RELEASE_BRANCH_PREFIX } from "../domain/releasePr";
 import { checkEnvBeforeDeploy } from "./checkEnvBeforeDeploy";
@@ -63,6 +64,80 @@ const refreshStale = async (
 
 const STAGES = ["What to release", "Versions", "Release PR", "Merge", "Tags", "Ship"] as const;
 
+type Stage = (name: (typeof STAGES)[number]) => void;
+
+/** A new release PR for the picked units: the open ones, or the run's result when it ends here. */
+const openRelease = async (
+  context: ReleaseContext,
+  { scope, stage }: { scope: ReadonlySet<string>; stage: Stage },
+): Promise<OpenPr[] | boolean> => {
+  const { output, progress } = context;
+  stage("Versions");
+  const prepared = await progress.during(
+    "Planning each app's version with changesets, and what its target ships",
+    "thinking",
+    () => prepareRelease(context, scope),
+  );
+  if (prepared.bumps.length === 0 && prepared.packages === 0) {
+    printSummary(context, prepared);
+    output.line(
+      paint("dim", "  Nothing to version for these units: the others wait for a later release."),
+    );
+    return true;
+  }
+  stage("Release PR");
+  return (await openReleasePr(context, prepared)) ?? false;
+};
+
+/** The open release PRs, replaced when main moved past them; false when that failed. */
+const pickUpRelease = async (
+  context: ReleaseContext,
+  { prs, scope }: { prs: OpenPr[]; scope: ReadonlySet<string> },
+): Promise<OpenPr[] | false> => {
+  const fresh = await refreshStale(context, prs, scope);
+  if (!fresh) return false;
+  if (fresh !== prs) return fresh;
+  const waiting = context.release.flow.approval === "required" ? "approval" : "a merge";
+  context.progress.say(
+    "thinking",
+    `↻ Picking up release ${listed(fresh.map(({ number }) => `#${number}`))}: still waiting for ${waiting}`,
+  );
+  context.output.line(paint("dim", "    To cancel it, close it on GitHub."));
+  return fresh;
+};
+
+/** The release PRs this run waits on, said as it picks up; the run's result when it ends here. */
+const releasePrsOf = async (
+  context: ReleaseContext,
+  {
+    step,
+    scope,
+    missing,
+    stage,
+  }: {
+    step: ReleaseStep;
+    scope: ReadonlySet<string>;
+    missing: readonly ReleaseTag[];
+    stage: Stage;
+  },
+): Promise<OpenPr[] | boolean> => {
+  if (step.step === "release-pr") return openRelease(context, { scope, stage });
+  if (step.step === "wait-merge") return pickUpRelease(context, { prs: step.prs, scope });
+  if (missing.length === 0) return [];
+  context.progress.say("thinking", `↻ Picking up a merged release`);
+  context.output.line(
+    paint(
+      "dim",
+      `    Left to do: tag ${plural(missing.length, "version")} → ship ${destination(
+        context,
+        missing.map(({ app }) => app),
+        "preview",
+      )}`,
+    ),
+  );
+  return [];
+};
+
 /**
  * `release` on preview: the release PR, the wait for its merge, the tags, then the ship. It reads where things
  * stand first, so a run stopped anywhere picks up where it left off. False when something failed.
@@ -92,51 +167,9 @@ export const releaseToPreview = async (context: ReleaseContext): Promise<boolean
     releasePrs,
     untagged: missing.length,
   });
-  let prs: OpenPr[] = [];
+  const prs = await releasePrsOf(context, { step, scope: picked.scope, missing, stage });
+  if (typeof prs === "boolean") return prs;
   let current = context;
-  if (step.step === "release-pr") {
-    stage("Versions");
-    const prepared = await progress.during(
-      "Planning each app's version with changesets, and what its target ships",
-      "thinking",
-      () => prepareRelease(context, picked.scope),
-    );
-    if (prepared.bumps.length === 0 && prepared.packages === 0) {
-      printSummary(context, prepared);
-      output.line(
-        paint("dim", "  Nothing to version for these units: the others wait for a later release."),
-      );
-      return true;
-    }
-    stage("Release PR");
-    const opened = await openReleasePr(context, prepared);
-    if (!opened) return false;
-    prs = opened;
-  } else if (step.step === "wait-merge") {
-    const fresh = await refreshStale(context, step.prs, picked.scope);
-    if (!fresh) return false;
-    if (fresh === step.prs) {
-      const waiting = context.release.flow.approval === "required" ? "approval" : "a merge";
-      progress.say(
-        "thinking",
-        `↻ Picking up release ${listed(fresh.map(({ number }) => `#${number}`))}: still waiting for ${waiting}`,
-      );
-      output.line(paint("dim", "    To cancel it, close it on GitHub."));
-    }
-    prs = fresh;
-  } else if (missing.length > 0) {
-    progress.say("thinking", `↻ Picking up a merged release`);
-    output.line(
-      paint(
-        "dim",
-        `    Left to do: tag ${plural(missing.length, "version")} → ship ${destination(
-          context,
-          missing.map(({ app }) => app),
-          "preview",
-        )}`,
-      ),
-    );
-  }
   if (prs.length > 0) stage("Merge");
   for (const pr of prs) {
     output.line();

@@ -275,20 +275,19 @@ const chooseFolders = async (
   const found = expandPatterns(files, known).filter((dir) => dir !== ".");
   output.line();
   output.line(paint("bold", "  Apps"));
-  if (found.length > 0) {
-    const patterns = known.filter((pattern) => !pattern.startsWith("!")).join(", ");
-    if (
-      yes ||
-      (await prompter.confirm(
-        `Your apps and packages are in ${patterns} (${found.length} folders)?`,
-        true,
-      ))
-    )
-      return known;
-  } else if (yes) {
+  if (found.length === 0 && yes) {
     needsPerson.push("where the apps are (no workspace folders found)");
     return null;
   }
+  const listed = known.filter((pattern) => !pattern.startsWith("!")).join(", ");
+  const taken =
+    found.length > 0 &&
+    (yes ||
+      (await prompter.confirm(
+        `Your apps and packages are in ${listed} (${found.length} folders)?`,
+        true,
+      )));
+  if (taken) return known;
   for (;;) {
     const typed = await prompter.text("Where are your apps and packages? (e.g. apps/*, web)");
     if (typed === null) return null;
@@ -421,6 +420,35 @@ const placeFolder = async (
   return { folder, module, options: {} };
 };
 
+/** The config: written whole the first time, else the new modules added to the one there. */
+const configWrites = (
+  { files }: SetupContext,
+  {
+    existing,
+    entries,
+    pkg,
+    flow,
+    patterns,
+  }: {
+    existing: boolean;
+    entries: readonly ModuleEntry[];
+    pkg: string;
+    flow: Record<FlowPort, FlowChoice> | null;
+    patterns: string[] | null;
+  },
+): Write[] => {
+  if (!existing) {
+    const units =
+      patterns && patterns.join() !== workspacePatterns(files).join() ? patterns : undefined;
+    const text = renderConfig(entries, pkg, flow ?? DEFAULT_FLOW, units);
+    return [{ file: CONFIG_FILE, text, created: true }];
+  }
+  if (entries.length === 0) return [];
+  const before = files.read(CONFIG_FILE) ?? "";
+  const config = entries.reduce((text, entry) => addToConfig(text, entry, pkg) ?? text, before);
+  return [{ file: CONFIG_FILE, text: config, created: false }];
+};
+
 /** The command that builds a folder: its unit's, its package.json script's, or one asked once. */
 const buildFor = async (
   context: SetupContext,
@@ -464,7 +492,7 @@ export const setup = async (context: SetupContext, { yes }: { yes: boolean }): P
 
   const flow = existing ? null : await chooseFlow(context, yes, needsPerson, writes, pkg);
   if (existing) output.line(`  ${ok} flow  ${paint("dim", CONFIG_FILE)}`);
-  else if (!flow && needsPerson.length === 0) return cancelled(context);
+  if (!existing && !flow && needsPerson.length === 0) return cancelled(context);
 
   const patterns = existing
     ? existing.units.length > 0
@@ -509,19 +537,9 @@ export const setup = async (context: SetupContext, { yes }: { yes: boolean }): P
     return false;
   }
 
-  if (!existing) {
-    const units =
-      patterns && patterns.join() !== workspacePatterns(files).join() ? patterns : undefined;
-    writes.unshift({
-      file: CONFIG_FILE,
-      text: renderConfig(entries, pkg, flow ?? DEFAULT_FLOW, units),
-      created: true,
-    });
-  } else if (entries.length > 0) {
-    let config = files.read(CONFIG_FILE) ?? "";
-    for (const entry of entries) config = addToConfig(config, entry, pkg) ?? config;
-    writes.unshift({ file: CONFIG_FILE, text: config, created: false });
-  }
+  writes.unshift(
+    ...configWrites(context, { existing: existing !== null, entries, pkg, flow, patterns }),
+  );
   placed.forEach(({ folder, module, options, reason }) =>
     writes.push({
       file: path.posix.join(folder.dir, UNIT_FILE),
