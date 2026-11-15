@@ -25,7 +25,7 @@ describe("the env EAS holds for an app", () => {
     expect([...listed]).toEqual(["EXPO_PUBLIC_API_URL", "SENTRY_DSN"]);
     expect(shell.calls[0]).toMatchObject({
       args: ["exec", "eas", "env:list", "preview", "--format", "short"],
-      cwd: "apps/expo",
+      cwd: "/repo/apps/expo",
       env: { APP_VARIANT: "preview" },
     });
   });
