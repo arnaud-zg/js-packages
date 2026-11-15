@@ -81,7 +81,7 @@ export function analyzeFile(content: string, opts: AnalyzeFileOptions): FileResu
   const maxEntropy = Math.log2(Math.max(content.split(/\s+/).length, 2));
   const redundancyScore = computeRedundancyScore(gzip, ttr, entropy, maxEntropy);
 
-  return {
+  return FileResultSchema.parse({
     path: "",
     tokens,
     threshold,
@@ -95,5 +95,5 @@ export function analyzeFile(content: string, opts: AnalyzeFileOptions): FileResu
     noiseFlagged: noise.flagged,
     ttr: Math.round(ttr * 1000) / 1000,
     redundancyScore: Math.round(redundancyScore * 1000) / 1000,
-  };
+  });
 }
