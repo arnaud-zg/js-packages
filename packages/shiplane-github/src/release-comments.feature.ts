@@ -83,7 +83,14 @@ const followUps = async (
     run: () =>
       codeHost.comment(
         about,
-        releaseComment({ about, unit: unit.name, version: unit.version, environment, mention }),
+        releaseComment({
+          about,
+          unit: unit.name,
+          version: unit.version,
+          tag,
+          environment,
+          mention,
+        }),
       ),
   }));
 };

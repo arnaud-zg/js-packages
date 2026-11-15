@@ -76,13 +76,15 @@ export const releaseComment = ({
   about,
   unit,
   version,
+  tag,
   environment,
   mention,
 }: {
   about: IssueRef;
   unit: string;
   version: string;
+  tag: string;
   environment: Environment;
   mention: { kind: "pr" | "issue"; refs: readonly IssueRef[] };
 }) =>
-  `🚀 Released to **${environment}** in version **${version}** (${unit}${mentions(about, mention.kind, mention.refs)}).\n\n${releaseMarker(tagName(unit, version), environment)}`;
+  `🚀 Released to **${environment}** in version **${version}** (${unit}${mentions(about, mention.kind, mention.refs)}).\n\n${releaseMarker(tag, environment)}`;
