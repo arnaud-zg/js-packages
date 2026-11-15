@@ -42,7 +42,8 @@ yet, not a sign this package needs new options.
 
 ## Why the indicator uses only `react-native`
 
-`withExpoGoIndicator` uses `StyleSheet.create` and nothing else: no UI or styling library beyond
+`withExpoGoIndicator` wraps the fallback in an internal `ExpoGoIndicator` component (the frame and
+the badge) styled with `StyleSheet.create` and nothing else: no UI or styling library beyond
 `react-native`. Tests render real `react-native` primitives via `react-native-web` (dev-only, see
 `vitest.config.ts`), not a hand-rolled stub, so its coverage exercises the same component tree shape
 a consumer would actually get. The package is published standalone (`tsdown` to `dist/`) because the
