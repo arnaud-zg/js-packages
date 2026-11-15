@@ -48,7 +48,25 @@ const HOW_API = "How should api@0.0.3 ship to preview?";
 const HOW_ADMIN = "How should admin@0.1.3 ship to preview?";
 
 describe("shipping to an environment, fire and forget", () => {
-  it("given api and admin tagged on main's commit, when shipped through GitHub Actions, then one ship run covers both, from main", async () => {
+  it("given a release whose tag is the tip of main, when shipped through GitHub Actions, then it is dispatched on its tag", async () => {
+    const { context, ci, source, prompter, progress } = setUp();
+    source.seed({ tags: { "api@0.0.3": "c0ffee1" } });
+    prompter.answer("github", true);
+
+    expect(await shipTo(context, "preview", { scope: new Set(["api"]) })).toBe(true);
+
+    expect(ci.received).toEqual([
+      {
+        type: "dispatch",
+        workflow: "ship.yml",
+        ref: "api@0.0.3",
+        inputs: { units: "api", environment: "preview" },
+      },
+    ]);
+    expect(progress.events.map(({ text }) => text)).toContain("ship api from api@0.0.3 (ship.yml)");
+  });
+
+  it("given two units tagged on the same commit, when shipped through GitHub Actions, then they ship in one run on one tag", async () => {
     const { context, ci, source, prompter } = setUp();
     source.seed({ tags: { "api@0.0.3": "c0ffee1", "admin@0.1.3": "c0ffee1" } });
     prompter.answer("github", "github", true);
@@ -59,7 +77,7 @@ describe("shipping to an environment, fire and forget", () => {
       {
         type: "dispatch",
         workflow: "ship.yml",
-        ref: "main",
+        ref: "api@0.0.3",
         inputs: { units: "api admin", environment: "preview" },
       },
     ]);
