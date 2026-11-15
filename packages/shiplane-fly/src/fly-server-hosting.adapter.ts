@@ -32,6 +32,17 @@ const FlySecrets = z.array(
   z.union([z.object({ name: z.string() }), z.object({ Name: z.string() })]),
 );
 
+// flyctl may print a notice before its JSON: read from the first line that opens an array.
+const jsonArrayIn = (output: string): unknown => {
+  const start = output.search(/^\s*\[/m);
+  if (start === -1) return undefined;
+  try {
+    return JSON.parse(output.slice(start, output.lastIndexOf("]") + 1));
+  } catch {
+    return undefined;
+  }
+};
+
 /** Keys of a fly.toml's `[env]` block: variables Fly sets next to its secrets. */
 const tomlEnvKeys = (toml: string): string[] => {
   const lines = toml.split("\n");
@@ -58,9 +69,11 @@ const flyEnv = ({ root, shell }: AdapterContext): PlatformEnvPort => ({
         result.stderr.split("\n").find((line) => line.trim()) ?? `exit ${result.status}`;
       throw new Error(`flyctl secrets list -a ${app}: ${reason.trim()}`);
     }
-    const secrets = FlySecrets.parse(JSON.parse(result.stdout)).map((secret) =>
-      "name" in secret ? secret.name : secret.Name,
-    );
+    const listed = FlySecrets.safeParse(jsonArrayIn(result.stdout));
+    if (!listed.success) {
+      throw new Error(`flyctl secrets list -a ${app}: no secrets list in its output`);
+    }
+    const secrets = listed.data.map((secret) => ("name" in secret ? secret.name : secret.Name));
     const toml = tomlEnvKeys(readToml(path.join(root, unit.dir, config)));
     return new Set([...secrets, ...toml].filter(isEnvVarName));
   },
