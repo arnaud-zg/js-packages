@@ -8,6 +8,7 @@ import { draggedUnits } from "../domain/companions";
 import { tagName } from "../domain/tags";
 import { namedUnits, unitRefs } from "./readScope";
 import { decideContext, jobInput, moduleOf } from "./targets";
+import { unattended } from "./unattended";
 
 export type Split = ReturnType<typeof splitChangesets>;
 
@@ -37,10 +38,10 @@ export interface Prepared {
 }
 
 /** The person's answer to a plugin's choice; the suggestion without a terminal or with --yes. */
-const choose = async ({ prompter, options }: ReleaseContext, choice: VersionChoice | undefined) => {
+const choose = async (context: ReleaseContext, choice: VersionChoice | undefined) => {
   if (!choice) return null;
-  if (options.yes || !prompter.interactive) return choice.suggested;
-  return prompter.select(choice.question, choice.options, choice.suggested);
+  if (unattended(context)) return choice.suggested;
+  return context.prompter.select(choice.question, choice.options, choice.suggested);
 };
 
 /** What each picked unit's plugin adds, given the unit's bump so far. One at a time: it may ask. */

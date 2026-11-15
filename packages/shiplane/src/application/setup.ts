@@ -37,6 +37,7 @@ import {
   schemaLineFor,
   schemaText,
 } from "./setupFiles";
+import { unattended } from "./unattended";
 
 /** A file setup writes: its text, and whether it is new. */
 export interface Write {
@@ -168,26 +169,25 @@ const chooseVersioning = async (
   pkg: string,
 ): Promise<FlowChoice | null> => {
   const { prompter } = context;
-  const picked =
-    yes || !prompter.interactive
-      ? "commits"
-      : await prompter.select(
-          "How do you want to release?",
-          [
-            {
-              value: "commits",
-              label: "From commits",
-              hint: "feat, fix and ! set the version, nothing to write",
-            },
-            {
-              value: "changesets",
-              label: "From changesets",
-              hint: "you write what ships, and when",
-            },
-            { value: "custom", label: "Custom", hint: "a no-op in memory you implement" },
-          ],
-          "commits",
-        );
+  const picked = unattended({ prompter, options: { yes } })
+    ? "commits"
+    : await prompter.select(
+        "How do you want to release?",
+        [
+          {
+            value: "commits",
+            label: "From commits",
+            hint: "feat, fix and ! set the version, nothing to write",
+          },
+          {
+            value: "changesets",
+            label: "From changesets",
+            hint: "you write what ships, and when",
+          },
+          { value: "custom", label: "Custom", hint: "a no-op in memory you implement" },
+        ],
+        "commits",
+      );
   if (picked === null) return null;
   if (picked === "custom") {
     const name = await askName(context, "versioning", suggestedName("versioning"));

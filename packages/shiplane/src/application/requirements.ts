@@ -6,6 +6,7 @@ import type { Release } from "./config/loadRelease";
 import type { ReleaseContext } from "./context";
 import { fail } from "./say";
 import { commandLine } from "./targets";
+import { unattended } from "./unattended";
 
 /**
  * Every tool and sign-in the flow, the features and the modules need, once each. With `apps`, only
@@ -66,14 +67,14 @@ export const signIn = async (
   context: ReleaseContext,
   { requirements, again }: { requirements: readonly Requirement[]; again: string },
 ): Promise<boolean> => {
-  const { shell, prompter, options, release } = context;
+  const { shell, prompter, release } = context;
   const failing: Requirement[] = [];
   for (const requirement of requirements) {
     const status = await checkStatus(shell, release.root, requirement);
     if (status === 0) continue;
     const { fix } = requirement;
     const offered =
-      fix !== undefined && status !== 127 && prompter.interactive && !options.yes
+      fix !== undefined && status !== 127 && !unattended(context)
         ? await prompter.confirm(`Run ${commandLine(fix)} now?`, true)
         : false;
     if (offered && fix) {

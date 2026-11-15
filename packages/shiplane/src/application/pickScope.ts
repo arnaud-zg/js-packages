@@ -5,6 +5,7 @@ import { scopeChoices } from "../domain/scope";
 import { readScope } from "./readScope";
 import { paint } from "./say";
 import { destination } from "./targets";
+import { unattended } from "./unattended";
 
 /** Every unit with something to release here: what --yes and a run without a terminal cover. */
 export const defaultScope = (info: ScopeInfo[], environment: Environment) =>
@@ -22,7 +23,7 @@ export const pickScope = async (
   context: ReleaseContext,
   environment: Environment,
 ): Promise<{ scope: Set<string>; info: ScopeInfo[] } | null> => {
-  const { output, prompter, options, progress } = context;
+  const { output, prompter, progress } = context;
   const info = await progress.during(
     "Reading what changed: changesets, tags and GitHub deployments",
     "thinking",
@@ -52,7 +53,7 @@ export const pickScope = async (
     output.line();
     return null;
   }
-  if (options.yes || !prompter.interactive) return { scope: defaultScope(info, environment), info };
+  if (unattended(context)) return { scope: defaultScope(info, environment), info };
   const picked = await prompter.multiselect(
     `What do you want to release ${where}? Greyed units have nothing to release.`,
     choices.map(({ app, pending, hint }) => ({ value: app, label: app, hint, disabled: !pending })),

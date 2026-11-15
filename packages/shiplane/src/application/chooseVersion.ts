@@ -5,6 +5,7 @@ import type { Prepared } from "./prepareRelease";
 import { forcedVersion, LEVELS, versionChoices } from "../domain/versionChoice";
 import { prepareRelease } from "./prepareRelease";
 import { confirm, fail, paint } from "./say";
+import { unattended } from "./unattended";
 
 /** The release again at `level`, or null with why when versioning cannot land there. */
 const forceVersion = async (
@@ -44,9 +45,9 @@ export const chooseVersion = async (
   prepared: Prepared,
   where: string,
 ): Promise<Prepared | null> => {
-  const { prompter, options } = context;
+  const { prompter } = context;
   const choices = versionChoices(prepared.bumps);
-  if (!choices || options.yes || !prompter.interactive) {
+  if (!choices || unattended(context)) {
     return (await confirm(context, `Release these ${where}?`, true)) ? prepared : null;
   }
   const { computed, versions } = choices;

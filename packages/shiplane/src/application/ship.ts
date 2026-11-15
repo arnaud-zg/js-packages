@@ -7,6 +7,7 @@ import type { Decision, Job, ShipKind } from "../ports/delivery.port";
 import type { Shipment } from "./askPath";
 import type { ReleaseContext } from "./context";
 import { onlyVersionFiles, shipsFrom, webShip } from "../domain/deploys";
+import { yesAllowed } from "../domain/governance";
 import { tagName } from "../domain/tags";
 import { askPaths, PATH_LABEL } from "./askPath";
 import { checkEnvBeforeDeploy } from "./checkEnvBeforeDeploy";
@@ -347,6 +348,22 @@ const shipQuestion = (
   return `Ship ${names} ${label === "live" ? "live" : `to ${label}`}${how}?`;
 };
 
+/** Production refuses --yes and asks for its name; on a runner, the person typed it before the dispatch. */
+const mayStart = async (context: ReleaseContext, environment: Environment) => {
+  const { output, prompter, options } = context;
+  if (options.ci) return true;
+  if (!yesAllowed(environment, options.yes)) {
+    fail(context, "No --yes on production", "every production step asks a person.", [
+      "shiplane ship --channel production",
+    ]);
+    return false;
+  }
+  if (environment !== "production") return true;
+  if (await prompter.typed('Type "production" to start:', "production")) return true;
+  output.line(paint("dim", "Nothing ran."));
+  return false;
+};
+
 /**
  * Ships every picked unit its environment does not run yet, and returns once each one is
  * triggered: EAS builds and workflows go on on their own, a Fly deploy from here once rolled out.
@@ -367,19 +384,7 @@ export const shipTo = async (
   },
 ): Promise<boolean> => {
   const { output, prompter, options, services } = context;
-  // On a runner, the person typed production before the dispatch that started it.
-  if (environment === "production" && !options.ci) {
-    if (options.yes) {
-      fail(context, "No --yes on production", "every production step asks a person.", [
-        "shiplane ship --channel production",
-      ]);
-      return false;
-    }
-    if (!(await prompter.typed('Type "production" to start:', "production"))) {
-      output.line(paint("dim", "Nothing ran."));
-      return false;
-    }
-  }
+  if (!(await mayStart(context, environment))) return false;
   const ready = await decideAll(context, environment, scope);
   if (!ready) return false;
   if (ready.length === 0) {
