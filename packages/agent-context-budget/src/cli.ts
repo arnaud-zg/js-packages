@@ -5,17 +5,12 @@ import { Command } from "commander";
 
 import type { FileResult, Health } from "./analyzeFile";
 import type { Config } from "./config";
-import type { SimilarityPair } from "./helpers";
+import type { SimilarityPair } from "./similarity";
 import { analyzeFile, toHealth } from "./analyzeFile";
 import { defaultConfigPath, loadConfig } from "./config";
-import {
-  adaptiveThreshold,
-  coefficientOfVariation,
-  computePareto,
-  findSimilarFiles,
-  parseSections,
-  percentile,
-} from "./helpers";
+import { adaptiveThreshold, coefficientOfVariation, percentile } from "./robustStats";
+import { computePareto, parseSections } from "./sections";
+import { findSimilarFiles } from "./similarity";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

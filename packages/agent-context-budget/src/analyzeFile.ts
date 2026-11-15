@@ -6,9 +6,9 @@ import {
   computeShannonEntropy,
   computeTTR,
   detectStructuralNoise,
-  estimateTokens,
   redundancyLevelFromGzip,
-} from "./helpers";
+} from "./redundancy";
+import { estimateTokens } from "./tokenEstimate";
 
 const HealthSchema = z.enum(["good", "normal", "warning", "bad"]);
 export type Health = z.infer<typeof HealthSchema>;
