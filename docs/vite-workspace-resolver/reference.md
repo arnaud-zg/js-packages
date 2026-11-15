@@ -23,3 +23,6 @@ workspaceExports(root, { groups: ["packages", "tooling", "apps"] });
 Every directory with a named `package.json` under one of the groups is a workspace package, whatever
 its scope. Specifiers that don't name one (`react`, relative paths) return `null` and fall through
 to Vite's default resolver.
+
+A `package.json` that is not valid JSON makes `workspaceExports` throw
+`Malformed package.json at <path>`, naming the file; the parse error is kept as its `cause`.
