@@ -1,7 +1,4 @@
-// Empirically derived coefficients per content type.
-// Prose merges well under BPE (4 chars → 1 token on average English).
-// Code/identifiers and symbols are less compressible (~2.8 chars/token).
-// Markdown structure (pipes, dashes, hashes) tokenizes poorly (~2.2 chars/token).
+// BPE merges prose best, code less, and markdown structure (pipes, dashes) worst.
 export const CHARS_PER_TOKEN = {
   prose: 4.0,
   code: 2.8,

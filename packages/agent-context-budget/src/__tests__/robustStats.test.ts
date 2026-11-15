@@ -73,15 +73,12 @@ describe("adaptiveThreshold", () => {
   });
 
   it("returns median + 1.5*MAD", () => {
-    // median([100, 200, 300]) = 200, MAD = median([100, 0, 100]) = 100
-    // adaptive = 200 + 1.5 * 100 = 350
+    // Median 200 and MAD 100 give 200 + 1.5 * 100.
     expect(adaptiveThreshold([100, 200, 300])).toBe(350);
   });
 
   it("is resistant to outliers", () => {
-    // Without outlier: [100, 110, 120, 130] → median=115, MAD=15 → 115+22.5=137.5
-    // With outlier: [100, 110, 120, 130, 10000] → median=120, MAD=20 → 120+30=150
-    // The adaptive threshold stays low despite the outlier (unlike mean+stddev which would spike)
+    // Median and MAD barely move with the outlier, unlike mean plus stddev.
     const withOutlier = adaptiveThreshold([100, 110, 120, 130, 10000]);
     const meanPlusStddev = (() => {
       const vals = [100, 110, 120, 130, 10000];

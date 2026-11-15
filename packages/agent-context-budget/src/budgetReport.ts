@@ -35,7 +35,13 @@ interface Budget {
   failOnExceed: boolean;
 }
 
-function extractReferences(content: string, referencePattern: string): string[] {
+function extractReferences({
+  content,
+  referencePattern,
+}: {
+  content: string;
+  referencePattern: string;
+}): string[] {
   const pattern = new RegExp(referencePattern, "g");
   const refs = [...content.matchAll(pattern)]
     .map((m) => m[1])
@@ -43,19 +49,25 @@ function extractReferences(content: string, referencePattern: string): string[] 
   return [...new Set(refs)];
 }
 
-function readable(files: ContextFiles, group: Group, paths: string[], budget: Budget): Candidate[] {
+function readable({
+  files,
+  group,
+  paths,
+  budget,
+}: {
+  files: ContextFiles;
+  group: Group;
+  paths: string[];
+  budget: Budget;
+}): Candidate[] {
+  const { threshold, failOnExceed } = budget;
   return paths
-    .map((path) => ({ group, path, content: files.read(path) ?? "", ...budget }))
+    .map((path) => ({ group, path, content: files.read(path) ?? "", threshold, failOnExceed }))
     .filter((candidate) => candidate.content !== "");
 }
 
-function checkFile(
-  path: string,
-  content: string,
-  threshold: number,
-  failOnExceed: boolean,
-  config: Config,
-): FileResult {
+function checkFile({ candidate, config }: { candidate: Candidate; config: Config }): FileResult {
+  const { path, content, threshold, failOnExceed } = candidate;
   const metrics = analyzeFile(content, {
     threshold,
     goodBelow: config.health.goodBelow,
@@ -65,43 +77,84 @@ function checkFile(
   return { ...metrics, path, status };
 }
 
-function similarityFlagsFor(
-  pairs: SimilarityPair[],
-  path: string,
-): NonNullable<FileResult["similarityFlags"]> {
+function similarityFlagsFor({
+  pairs,
+  path,
+}: {
+  pairs: SimilarityPair[];
+  path: string;
+}): NonNullable<FileResult["similarityFlags"]> {
   return pairs.flatMap((pair) => [
     ...(pair.fileA === path ? [{ other: pair.fileB, jaccard: pair.jaccard, flag: pair.flag }] : []),
     ...(pair.fileB === path ? [{ other: pair.fileA, jaccard: pair.jaccard, flag: pair.flag }] : []),
   ]);
 }
 
-// A path listed twice keeps one result per path, the last, as the original Map lookup did.
-function withSimilarityFlags(entries: CheckedFile[], pairs: SimilarityPair[]): CheckedFile[] {
+// Flags land on the last entry for a path, the one `--explain` shows.
+function withSimilarityFlags({
+  entries,
+  pairs,
+}: {
+  entries: CheckedFile[];
+  pairs: SimilarityPair[];
+}): CheckedFile[] {
   const lastIndexByPath = new Map(entries.map((entry, index) => [entry.result.path, index]));
   return entries.map((entry, index) => {
-    const flags = similarityFlagsFor(pairs, entry.result.path);
+    const flags = similarityFlagsFor({ pairs, path: entry.result.path });
     if (lastIndexByPath.get(entry.result.path) !== index || flags.length === 0) return entry;
     return { ...entry, result: { ...entry.result, similarityFlags: flags } };
   });
 }
 
-function exitCodeFor(
-  results: FileResult[],
-  similarPairs: SimilarityPair[],
-  orphans: string[],
-  deadRefs: string[],
-): ExitCode {
+function exitCodeFor({
+  results,
+  pairs,
+  orphans,
+  deadRefs,
+}: {
+  results: FileResult[];
+  pairs: SimilarityPair[];
+  orphans: string[];
+  deadRefs: string[];
+}): ExitCode {
   if (results.some((r) => r.status === "error")) return 1;
   const hasAdvisory =
     results.some((r) => r.noiseFlagged || r.redundancyLevel === "shrink") ||
-    similarPairs.some((p) => p.flag === "duplication") ||
+    pairs.some((p) => p.flag === "duplication") ||
     orphans.length > 0 ||
     deadRefs.length > 0;
   return hasAdvisory ? 2 : 0;
 }
 
-function inGroup(entries: CheckedFile[], group: Group): CheckedFile[] {
-  return entries.filter((entry) => entry.group === group);
+function byGroup(entries: CheckedFile[]): Record<Group, CheckedFile[]> {
+  const inGroup = (group: Group) => entries.filter((entry) => entry.group === group);
+  return { root: inGroup("root"), reference: inGroup("reference"), subdir: inGroup("subdir") };
+}
+
+function candidatesFor({
+  config,
+  rootContent,
+  refs,
+  files,
+}: {
+  config: Config;
+  rootContent: string;
+  refs: string[];
+  files: ContextFiles;
+}): Candidate[] {
+  const { root, references, subdir } = config;
+  const subdirPaths = files.claudeMdUnder(subdir.dirs);
+  return [
+    {
+      group: "root",
+      path: root.file,
+      content: rootContent,
+      threshold: root.threshold,
+      failOnExceed: true,
+    },
+    ...readable({ files, group: "reference", paths: refs, budget: references }),
+    ...readable({ files, group: "subdir", paths: subdirPaths, budget: subdir }),
+  ];
 }
 
 export function budgetReport({
@@ -113,47 +166,36 @@ export function budgetReport({
   rootContent: string;
   files: ContextFiles;
 }): BudgetReport {
-  const refs = extractReferences(rootContent, config.root.referencePattern).sort();
-  const candidates: Candidate[] = [
-    {
-      group: "root",
-      path: config.root.file,
-      content: rootContent,
-      threshold: config.root.threshold,
-      failOnExceed: true,
-    },
-    ...readable(files, "reference", refs, config.references),
-    ...readable(files, "subdir", files.claudeMdUnder(config.subdir.dirs), config.subdir),
-  ];
+  const { referencePattern } = config.root;
+  const refs = extractReferences({ content: rootContent, referencePattern }).sort();
+  const candidates = candidatesFor({ config, rootContent, refs, files });
   const deadRefs = refs.filter((ref) => !files.exists(ref));
   const orphans = files.markdownIn(config.planningDir).filter((file) => !refs.includes(file));
   const pairs = findSimilarFiles(candidates.map(({ path, content }) => ({ path, content })));
-  const checked = candidates.map(({ group, path, content, threshold, failOnExceed }) => ({
-    group,
-    result: checkFile(path, content, threshold, failOnExceed, config),
-    content,
+  const checked = candidates.map((candidate) => ({
+    group: candidate.group,
+    result: checkFile({ candidate, config }),
+    content: candidate.content,
   }));
-  const entries = withSimilarityFlags(checked, pairs);
+  const entries = withSimilarityFlags({ entries: checked, pairs });
+  const results = entries.map(({ result }) => result);
   return {
-    groups: {
-      root: inGroup(entries, "root"),
-      reference: inGroup(entries, "reference"),
-      subdir: inGroup(entries, "subdir"),
-    },
+    groups: byGroup(entries),
     pairs,
     orphans,
     deadRefs,
-    exitCode: exitCodeFor(
-      entries.map(({ result }) => result),
-      pairs,
-      orphans,
-      deadRefs,
-    ),
+    exitCode: exitCodeFor({ results, pairs, orphans, deadRefs }),
   };
 }
 
-/** The file `--explain` names; the last one when a path was listed twice. */
-export function checkedFileAt(report: BudgetReport, path: string): CheckedFile | undefined {
-  const entries = [...report.groups.root, ...report.groups.reference, ...report.groups.subdir];
-  return entries.reverse().find((entry) => entry.result.path === path);
+// The last match, as when a path was listed twice its last entry carries the similarity flags.
+export function checkedFileAt({
+  report,
+  path,
+}: {
+  report: BudgetReport;
+  path: string;
+}): CheckedFile | undefined {
+  const { root, reference, subdir } = report.groups;
+  return [...root, ...reference, ...subdir].reverse().find((entry) => entry.result.path === path);
 }

@@ -42,16 +42,18 @@ const SUBDIR_VIEW: GroupView = {
   summaryLabel: "Subdir:",
 };
 
-function bar(ratio: number, width = 10): string {
-  const filled = Math.min(Math.round(ratio * width), width);
-  return "█".repeat(filled) + "░".repeat(width - filled);
+const BAR_WIDTH = 10;
+
+function bar(ratio: number): string {
+  const filled = Math.min(Math.round(ratio * BAR_WIDTH), BAR_WIDTH);
+  return "█".repeat(filled) + "░".repeat(BAR_WIDTH - filled);
 }
 
 function resultsOf(entries: CheckedFile[]): FileResult[] {
   return entries.map(({ result }) => result);
 }
 
-function printSection(title: string, results: FileResult[]): void {
+function printSection({ title, results }: { title: string; results: FileResult[] }): void {
   console.info(`\n${title}`);
   for (const r of results) {
     const pct = Math.round(r.ratio * 100);
@@ -63,7 +65,7 @@ function printSection(title: string, results: FileResult[]): void {
   }
 }
 
-function printPareto(result: FileResult, content: string): void {
+function printPareto({ result, content }: Omit<CheckedFile, "group">): void {
   const pareto = computePareto(parseSections(content), result.tokens, result.ratio);
   if (pareto.length === 0) return;
 
@@ -106,10 +108,18 @@ export function printExplain({ result, content }: CheckedFile): void {
   );
   console.info(`  Redundancy Score: ${result.redundancyScore}`);
   printSimilarityFlags(result);
-  printPareto(result, content);
+  printPareto({ result, content });
 }
 
-function printAdaptiveAdvisory(label: string, results: FileResult[], hardThreshold: number): void {
+function printAdaptiveAdvisory({
+  label,
+  results,
+  hardThreshold,
+}: {
+  label: string;
+  results: FileResult[];
+  hardThreshold: number;
+}): void {
   if (results.length < 3) return;
   const tokenCounts = results.map((r) => r.tokens);
   const adaptive = adaptiveThreshold(tokenCounts);
@@ -122,16 +132,23 @@ function printAdaptiveAdvisory(label: string, results: FileResult[], hardThresho
   );
 }
 
-function printGroup(view: GroupView, entries: CheckedFile[], threshold: number): void {
-  if (entries.length === 0) return;
-  printSection(view.title, resultsOf(entries));
-  printAdaptiveAdvisory(view.advisoryLabel, resultsOf(entries), threshold);
+interface GroupInReport {
+  view: GroupView;
+  entries: CheckedFile[];
+  threshold: number;
 }
 
-function printRoot(root: CheckedFile | undefined, normalBelow: number): void {
+function printGroup({ view, entries, threshold }: GroupInReport): void {
+  if (entries.length === 0) return;
+  const results = resultsOf(entries);
+  printSection({ title: view.title, results });
+  printAdaptiveAdvisory({ label: view.advisoryLabel, results, hardThreshold: threshold });
+}
+
+function printRoot({ root, normalBelow }: { root?: CheckedFile; normalBelow: number }): void {
   if (!root) return;
-  printSection("Root (always loaded):", [root.result]);
-  if (root.result.ratio >= normalBelow) printPareto(root.result, root.content);
+  printSection({ title: "Root (always loaded):", results: [root.result] });
+  if (root.result.ratio >= normalBelow) printPareto(root);
 }
 
 function printDeadRefs(deadRefs: string[]): void {
@@ -140,7 +157,7 @@ function printDeadRefs(deadRefs: string[]): void {
   for (const r of deadRefs) console.info(`  × ${r}`);
 }
 
-function printOrphans(orphans: string[], rootFile: string): void {
+function printOrphans({ orphans, rootFile }: { orphans: string[]; rootFile: string }): void {
   if (orphans.length === 0) return;
   console.info(`\n⚠ Orphaned planning files not referenced in ${rootFile} (${orphans.length}):`);
   for (const o of orphans) console.info(`  ? ${o}`);
@@ -166,19 +183,19 @@ function printRootSummary(root: CheckedFile | undefined): void {
   );
 }
 
-function printGroupSummary(
-  view: GroupView,
-  entries: CheckedFile[],
-  threshold: number,
-  health: Config["health"],
-): void {
+function printGroupSummary({
+  view,
+  entries,
+  threshold,
+  health,
+}: GroupInReport & { health: Config["health"] }): void {
   if (entries.length === 0) return;
   const tokenCounts = resultsOf(entries).map((r) => r.tokens);
   const p95val = percentile(tokenCounts, 95);
   const p95ratio = p95val / threshold;
   const pct = Math.round(p95ratio * 100);
   const cv = coefficientOfVariation(tokenCounts);
-  const label = HEALTH_LABEL[toHealth(p95ratio, health.goodBelow, health.normalBelow)];
+  const label = HEALTH_LABEL[toHealth({ ratio: p95ratio, ...health })];
   console.info(
     `  ${view.summaryLabel.padEnd(12)}p95 ${p95val} / ${threshold} tokens  ${bar(p95ratio)}  ${pct}%  ${label}  CV=${cv.toFixed(2)}`,
   );
@@ -192,13 +209,19 @@ function printThresholds(health: Config["health"]): void {
   );
 }
 
-export function printDeadRefWarnings(deadRefs: string[], rootFile: string): void {
+export function printDeadRefWarnings({
+  deadRefs,
+  rootFile,
+}: {
+  deadRefs: string[];
+  rootFile: string;
+}): void {
   for (const ref of deadRefs) {
     console.warn(`⚠ ${ref}: not found (dead reference in ${rootFile})`);
   }
 }
 
-export function printJson(report: BudgetReport): void {
+export function printJson({ report }: { report: BudgetReport }): void {
   const payload = {
     root: report.groups.root[0]?.result,
     references: resultsOf(report.groups.reference),
@@ -210,25 +233,37 @@ export function printJson(report: BudgetReport): void {
   console.info(JSON.stringify(payload, null, 2));
 }
 
-export function printHumanReport(report: BudgetReport, config: Config): void {
+export function printHumanReport({
+  report,
+  config,
+}: {
+  report: BudgetReport;
+  config: Config;
+}): void {
+  const { health } = config;
   const [root] = report.groups.root;
+  const references = {
+    view: REFERENCE_VIEW,
+    entries: report.groups.reference,
+    threshold: config.references.threshold,
+  };
+  const subdir = {
+    view: SUBDIR_VIEW,
+    entries: report.groups.subdir,
+    threshold: config.subdir.threshold,
+  };
   console.info("=== CLAUDE.md Token Budget ===");
-  printRoot(root, config.health.normalBelow);
-  printGroup(REFERENCE_VIEW, report.groups.reference, config.references.threshold);
-  printGroup(SUBDIR_VIEW, report.groups.subdir, config.subdir.threshold);
+  printRoot({ root, normalBelow: health.normalBelow });
+  printGroup(references);
+  printGroup(subdir);
   printDeadRefs(report.deadRefs);
-  printOrphans(report.orphans, config.root.file);
+  printOrphans({ orphans: report.orphans, rootFile: config.root.file });
   printSimilarity(report.pairs);
 
   console.info("\n=== Health Summary ===");
   printRootSummary(root);
-  printGroupSummary(
-    REFERENCE_VIEW,
-    report.groups.reference,
-    config.references.threshold,
-    config.health,
-  );
-  printGroupSummary(SUBDIR_VIEW, report.groups.subdir, config.subdir.threshold, config.health);
-  printThresholds(config.health);
+  printGroupSummary({ ...references, health });
+  printGroupSummary({ ...subdir, health });
+  printThresholds(health);
   console.info(VERDICT[report.exitCode]);
 }

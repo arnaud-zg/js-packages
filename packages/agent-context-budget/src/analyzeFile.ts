@@ -44,7 +44,15 @@ export type FileResult = z.infer<typeof FileResultSchema>;
 const DEFAULT_GOOD_BELOW = 0.6;
 const DEFAULT_NORMAL_BELOW = 0.85;
 
-export function toHealth(ratio: number, goodBelow: number, normalBelow: number): Health {
+export function toHealth({
+  ratio,
+  goodBelow,
+  normalBelow,
+}: {
+  ratio: number;
+  goodBelow: number;
+  normalBelow: number;
+}): Health {
   if (ratio <= goodBelow) return "good";
   if (ratio <= normalBelow) return "normal";
   if (ratio <= 1) return "warning";
@@ -58,18 +66,13 @@ export interface AnalyzeFileOptions {
   normalBelow?: number;
 }
 
-/**
- * Pure per-file analysis: calibrated token estimate, gzip-ratio redundancy, structural noise, and
- * the TTR/Shannon-entropy redundancy score. Returns `path: ""` and `status: "ok" | "warn"` —
- * attaching a real path and upgrading `warn` to `error` for a hard-failing file is the caller's
- * policy decision (see cli.ts's checkFile).
- */
+// Path-agnostic: the caller attaches the path and decides whether `warn` becomes `error`.
 export function analyzeFile(content: string, opts: AnalyzeFileOptions): FileResult {
   const { threshold, goodBelow = DEFAULT_GOOD_BELOW, normalBelow = DEFAULT_NORMAL_BELOW } = opts;
 
   const tokens = estimateTokens(content);
   const ratio = tokens / threshold;
-  const health = toHealth(ratio, goodBelow, normalBelow);
+  const health = toHealth({ ratio, goodBelow, normalBelow });
   const status = health === "bad" ? "warn" : "ok";
   const gzip = computeGzipRatio(content);
   const noise = detectStructuralNoise(content);

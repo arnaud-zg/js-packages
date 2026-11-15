@@ -40,10 +40,10 @@ function runCheck(opts: CheckOptions): void {
     return;
   }
   const report = budgetReport({ config, rootContent, files });
-  printDeadRefWarnings(report.deadRefs, config.root.file);
+  printDeadRefWarnings({ deadRefs: report.deadRefs, rootFile: config.root.file });
 
   if (opts.explain) {
-    const target = checkedFileAt(report, opts.explain);
+    const target = checkedFileAt({ report, path: opts.explain });
     if (!target) {
       fail(`✗ File not found in results: ${opts.explain}`);
       return;
@@ -52,8 +52,8 @@ function runCheck(opts: CheckOptions): void {
     return;
   }
 
-  if (opts.json) printJson(report);
-  if (!opts.json) printHumanReport(report, config);
+  const printReport = opts.json ? printJson : printHumanReport;
+  printReport({ report, config });
   if (report.exitCode !== 0) process.exitCode = report.exitCode;
 }
 

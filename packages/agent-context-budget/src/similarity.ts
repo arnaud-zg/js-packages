@@ -1,10 +1,10 @@
 import { stripMarkdown } from "./redundancy";
 
 // Deterministic multiplicative hash — no external deps required
-function hashStr(s: string, seed: number): number {
+function hashStr({ text, seed }: { text: string; seed: number }): number {
   let h = (seed >>> 0) ^ 0x811c9dc5;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
     h = Math.imul(h, 0x01000193) >>> 0;
   }
   return h;
@@ -27,7 +27,7 @@ export function minHash(shingles: Set<string>, numHashes = NUM_HASHES): number[]
   const sig = new Array<number>(numHashes).fill(Infinity);
   for (const s of shingles) {
     for (let i = 0; i < numHashes; i++) {
-      const h = hashStr(s, SEEDS[i] ?? 0);
+      const h = hashStr({ text: s, seed: SEEDS[i] ?? 0 });
       if (h < (sig[i] ?? Infinity)) sig[i] = h;
     }
   }
