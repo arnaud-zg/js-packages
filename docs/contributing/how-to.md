@@ -34,7 +34,7 @@ pnpm changeset --patch @shiplane/fly -m "What now works."     # fix, perf, …
 
 A breaking change (`!`) is `--minor` below `1.0.0`. Before merging,
 `pnpm changeset status --verbose` lists the version each package gets. See
-[Choose how versions are bumped](../shiplane/how-to.md#choose-how-versions-are-bumped).
+[Choose how versions are bumped](../shiplane/how-to-hosts.md#choose-how-versions-are-bumped).
 
 Each merged PR carries its own changeset; they pile up on `main` until step 2 cuts a release. Commit
 the generated `.changeset/*.md` file and merge the PR as usual.

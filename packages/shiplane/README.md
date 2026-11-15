@@ -95,15 +95,15 @@ export default defineRelease({
 
 Swap any piece:
 
-| Want                                                    | Use                                                                                                                                |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| To write the changelog yourself                         | [`changesetsVersioning()`](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to.md#choose-how-versions-are-bumped) |
-| Any host with a deploy command                          | [`shellServerHosting()`](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/plugins.md#built-in-shellserverhosting)     |
-| To release Claude Code, Codex, Cursor or Gemini plugins | [`agentPlugin()`](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to.md#release-claude-code-plugins)             |
-| To comment on each PR when it ships                     | [`releaseComments()`](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to.md#comment-on-what-shipped)             |
-| Your own host                                           | [Write a plugin](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to.md#write-a-plugin)                           |
-| To ship from this machine, not Actions                  | [`--via local`](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to.md#choose-github-actions-or-this-machine)     |
-| A quieter terminal                                      | [`display: { mascot: false }`](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to.md#turn-the-mascot-off)        |
+| Want                                                    | Use                                                                                                                                      |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| To write the changelog yourself                         | [`changesetsVersioning()`](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to-hosts.md#choose-how-versions-are-bumped) |
+| Any host with a deploy command                          | [`shellServerHosting()`](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/plugins.md#built-in-shellserverhosting)           |
+| To release Claude Code, Codex, Cursor or Gemini plugins | [`agentPlugin()`](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to-hosts.md#release-claude-code-plugins)             |
+| To comment on each PR when it ships                     | [`releaseComments()`](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to-hosts.md#comment-on-what-shipped)             |
+| Your own host                                           | [Write a plugin](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to-hosts.md#write-a-plugin)                           |
+| To ship from this machine, not Actions                  | [`--via local`](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to.md#choose-github-actions-or-this-machine)           |
+| A quieter terminal                                      | [`display: { mascot: false }`](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to.md#turn-the-mascot-off)              |
 
 `pnpm shiplane plugins` in that repository shows what got injected where:
 

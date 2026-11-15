@@ -84,7 +84,7 @@ Put your text before `{changes}` to thank people first. Without `{changes}`, the
 changes. Leave `thanks` out to keep changesets' own `Thanks @x!` on each line. It reads the thanks
 `@changesets/changelog-github` writes, only in the section a release just wrote, and
 `commitsVersioning()` takes it too. Every preset rendered on a real release:
-[How-to](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to.md#thank-contributors-in-release-notes).
+[How-to](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to-hosts.md#thank-contributors-in-release-notes).
 Source: `src/thanks.ts`.
 
 ## 🔁 Release from commits
@@ -92,7 +92,7 @@ Source: `src/thanks.ts`.
 `commitsVersioning()` takes the same options and needs no changeset written: the commits since each
 package's version become the release's changesets, and the changesets CLI does the rest. `feat` is a
 minor, a subject marked `!` a major (a minor below 1.0), and anything else a patch.
-[How-to](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to.md#release-from-commits).
+[How-to](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to-hosts.md#release-from-commits).
 Source: `src/commits-versioning.adapter.ts`.
 
 ## ⏫ Force another version
