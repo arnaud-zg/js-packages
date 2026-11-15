@@ -12,6 +12,7 @@
 **Release:** [Force another version](#force-another-version) ·
 [Preview every command](#preview-every-command) · [Promote to production](#promote-to-production) ·
 [Widen a production rollout](#widen-a-production-rollout) ·
+[Retry a failed release](#retry-a-failed-release) ·
 [Choose GitHub Actions or this machine](#choose-github-actions-or-this-machine) ·
 [Ship with no laptop](#ship-with-no-laptop) · [Use it from a script](#use-it-from-a-script)
 
@@ -158,6 +159,29 @@ a PR moving its production version, then build after you merge it.
 
 Run `pnpm shiplane promote` again and pick the mobile app. It shows the rollout, its launches and
 crashes, and suggests the next step: 25%, 50%, everyone, stay, or roll back.
+
+## Retry a failed release
+
+```sh
+pnpm shiplane
+```
+
+Run the same command again. It reads what is already done and skips it: an open release PR is picked
+up, a pushed tag is not made twice, notes already published are kept. Only the step that failed runs
+again.
+
+A unit whose ship failed comes back ticked in the first question, as `released, not on preview yet`
+(`not live yet` for a package, `never reached preview: retry` for a mobile app). Press Enter and it
+goes straight to the ship.
+
+To redeploy one unit without the questions:
+
+```sh
+pnpm shiplane ship my-api                      # add --channel production for production
+```
+
+If the unit is greyed out as `deploying already`, a GitHub deployment is still marked in progress.
+Find its run with `gh run list --limit 5` and rerun it from GitHub.
 
 ## Choose GitHub Actions or this machine
 
