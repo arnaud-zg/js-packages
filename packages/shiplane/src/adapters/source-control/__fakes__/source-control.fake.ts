@@ -16,6 +16,8 @@ interface SourceState {
   /** `<from>..<to>` → the commits after `from` up to `to`, newest first. */
   commits: Record<string, { subject: string; files: string[] }[]>;
   changed: string[];
+  /** Untracked files git ignores, relative to the root. */
+  ignored: string[];
 }
 
 export type SourceEvent =
@@ -29,7 +31,9 @@ export type SourceEvent =
   | { type: "discard"; files: string[] }
   | { type: "delete-branch"; name: string }
   | { type: "delete-remote"; branch: string }
-  | { type: "delete-tag"; name: string };
+  | { type: "delete-tag"; name: string }
+  | { type: "worktree-add"; dir: string; ref: string }
+  | { type: "worktree-remove"; dir: string };
 
 /** A repository held in memory: seed what it contains, read back what it received. */
 export class SourceControlFake implements SourceControlPort {
@@ -42,6 +46,7 @@ export class SourceControlFake implements SourceControlPort {
     diffs: {},
     commits: {},
     changed: [],
+    ignored: [],
   };
 
   readonly received: SourceEvent[] = [];
@@ -78,6 +83,19 @@ export class SourceControlFake implements SourceControlPort {
   fileAt = (ref: string, file: string) =>
     Promise.resolve(this.state.files[`${ref}:${file}`] ?? null);
   tags = () => Promise.resolve(new Set(Object.keys(this.state.tags)));
+  ignoredFiles = (patterns: readonly string[]) => {
+    const matchers = patterns.map(
+      (pattern) =>
+        new RegExp(`^${pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]*")}$`),
+    );
+    return Promise.resolve(
+      this.state.ignored.filter((file) => matchers.some((matcher) => matcher.test(file))),
+    );
+  };
+
+  addWorktree = (dir: string, ref: string) => this.record({ type: "worktree-add", dir, ref });
+
+  removeWorktree = (dir: string) => this.record({ type: "worktree-remove", dir });
 
   createBranch = async (name: string) => {
     await this.record({ type: "branch", name });
