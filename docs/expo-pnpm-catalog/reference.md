@@ -42,7 +42,10 @@ type CatalogPaths = {
   packageJsonPath: string; // absolute path to the Expo app's package.json
 };
 
-type CheckOptions = { dryRun: boolean };
+type CheckOptions = { dryRun: boolean; interrupts?: InterruptGuard };
+type InterruptGuard = {
+  run<Result>(task: { work: () => Result; onInterrupt: () => void }): Result;
+};
 type SyncOptions = { dryRun: boolean; yes: boolean };
 
 function findWorkspaceRoot(startDir: string): string;
@@ -54,6 +57,10 @@ function runSync(paths: CatalogPaths, options: SyncOptions): Promise<void>;
   reaches the filesystem root without finding one.
 - `runCheck`: returns `true` if `expo-doctor` passed against the resolved manifest (`dryRun: true`
   always returns `true` without running it).
+- `CheckOptions.interrupts`: wraps the `expo-doctor` run, so `onInterrupt` can put the Expo app's
+  `package.json` back if the process is killed mid-run. The CLI passes one that listens for `SIGINT`
+  and `SIGTERM`, restores the file and exits with code 1. Without it, `runCheck` installs no signal
+  handler and leaves your process's signals to you.
 - `runSync`: writes to `pnpm-workspace.yaml` and runs `pnpm install` unless `dryRun: true`.
 - Packages under `expo.install.exclude` in the Expo app's `package.json` are skipped by `runSync`,
   matching `expo install --fix`'s own exclusion behavior. See

@@ -3,48 +3,38 @@
  * that cannot understand catalog: references (expo-doctor, expo install --fix),
  * and always restores the original file.
  */
-import fs from "fs";
-
 import type { PackageJson } from "./schemas";
 import { isCatalogRef } from "./catalogUtils";
 import { PackageJsonSchema, parseOrThrow } from "./schemas";
 
 export type { PackageJson };
 
-function parsePackageJson(text: string, source: string): PackageJson {
-  return parseOrThrow({ schema: PackageJsonSchema, value: JSON.parse(text), source });
-}
+export type ManifestText = {
+  text: string;
+  /** Names the file in a parse error. */
+  source?: string;
+};
+
+export type ManifestDeps = {
+  dependencies: Record<string, string>;
+  devDependencies: Record<string, string>;
+};
 
 export class ExpoAppManifest {
-  private constructor(
-    private readonly filePath: string,
-    private readonly original: string,
-    readonly data: PackageJson,
-  ) {}
+  private constructor(readonly data: PackageJson) {}
 
-  static load(filePath: string): ExpoAppManifest {
-    const original = fs.readFileSync(filePath, "utf-8");
-    return new ExpoAppManifest(filePath, original, parsePackageJson(original, filePath));
+  static fromText({ text, source = "package.json" }: ManifestText): ExpoAppManifest {
+    return new ExpoAppManifest(
+      parseOrThrow({ schema: PackageJsonSchema, value: JSON.parse(text), source }),
+    );
   }
 
-  withDeps(
-    dependencies: Record<string, string>,
-    devDependencies: Record<string, string>,
-  ): ExpoAppManifest {
-    const updated: PackageJson = { ...this.data, dependencies, devDependencies };
-    return new ExpoAppManifest(this.filePath, this.original, updated);
+  toText(): string {
+    return JSON.stringify(this.data, null, 2) + "\n";
   }
 
-  write(): void {
-    fs.writeFileSync(this.filePath, JSON.stringify(this.data, null, 2) + "\n");
-  }
-
-  restore(): void {
-    fs.writeFileSync(this.filePath, this.original);
-  }
-
-  readFixed(): PackageJson {
-    return parsePackageJson(fs.readFileSync(this.filePath, "utf-8"), this.filePath);
+  withDeps({ dependencies, devDependencies }: ManifestDeps): ExpoAppManifest {
+    return new ExpoAppManifest({ ...this.data, dependencies, devDependencies });
   }
 
   excludedPackages(): Set<string> {

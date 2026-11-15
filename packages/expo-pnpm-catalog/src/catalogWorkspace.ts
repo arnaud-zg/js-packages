@@ -2,7 +2,6 @@
  * Represents pnpm-workspace.yaml — reads, resolves catalog references,
  * and writes version updates in place (preserving comments).
  */
-import fs from "fs";
 import { load } from "js-yaml";
 
 import type { WorkspaceYaml } from "./schemas";
@@ -16,20 +15,26 @@ import { parseOrThrow, WorkspaceYamlSchema } from "./schemas";
 
 export type { WorkspaceYaml };
 
-function parseWorkspaceYaml(raw: string, source: string): WorkspaceYaml {
-  return parseOrThrow({ schema: WorkspaceYamlSchema, value: load(raw) ?? {}, source });
-}
+export type WorkspaceText = {
+  text: string;
+  /** Names the file in a parse error. */
+  source?: string;
+};
 
 export class CatalogWorkspace {
   private constructor(
-    private readonly path: string,
     private readonly raw: string,
+    private readonly source: string,
     private readonly data: WorkspaceYaml,
   ) {}
 
-  static load(path: string): CatalogWorkspace {
-    const raw = fs.readFileSync(path, "utf-8");
-    return new CatalogWorkspace(path, raw, parseWorkspaceYaml(raw, path));
+  static fromText({ text, source = "pnpm-workspace.yaml" }: WorkspaceText): CatalogWorkspace {
+    const data = parseOrThrow({ schema: WorkspaceYamlSchema, value: load(text), source });
+    return new CatalogWorkspace(text, source, data);
+  }
+
+  toText(): string {
+    return this.raw;
   }
 
   getAllCatalogVersions(): Record<string, string> {
@@ -54,11 +59,7 @@ export class CatalogWorkspace {
   }
 
   writeVersion(packageName: string, newVersion: string): CatalogWorkspace {
-    const updatedRaw = updateVersionInYaml(this.raw, packageName, newVersion);
-    return new CatalogWorkspace(this.path, updatedRaw, parseWorkspaceYaml(updatedRaw, this.path));
-  }
-
-  save(): void {
-    fs.writeFileSync(this.path, this.raw);
+    const text = updateVersionInYaml(this.raw, packageName, newVersion);
+    return CatalogWorkspace.fromText({ text, source: this.source });
   }
 }

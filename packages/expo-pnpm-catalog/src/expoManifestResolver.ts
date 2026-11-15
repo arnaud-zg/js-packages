@@ -44,6 +44,6 @@ export class ExpoManifestResolver {
   }
 
   build(): ExpoAppManifest {
-    return this.manifest.withDeps(this.deps, this.devDeps);
+    return this.manifest.withDeps({ dependencies: this.deps, devDependencies: this.devDeps });
   }
 }

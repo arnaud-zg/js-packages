@@ -1,11 +1,7 @@
 /**
  * Shared types, constants, and pure functions used across expo-pnpm-catalog.
  */
-import chalk from "chalk";
-
 import type { WorkspaceYaml } from "./schemas";
-
-export const SEPARATOR = chalk.dim("─".repeat(60));
 
 /** Fallback top-level workspace directories when pnpm-workspace.yaml declares none. */
 export const DEFAULT_WORKSPACE_DIRS = ["apps", "packages", "tooling"] as const;
