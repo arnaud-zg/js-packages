@@ -183,6 +183,39 @@ pnpm shiplane ship my-api                      # add --channel production for pr
 If the unit is greyed out as `deploying already`, a GitHub deployment is still marked in progress.
 Find its run with `gh run list --limit 5` and rerun it from GitHub.
 
+### A mobile build failed and main moved on
+
+```sh
+pnpm shiplane ship expo
+```
+
+When a version never reached preview and main has moved since its tag, it offers that version again,
+exactly as released:
+
+```
+  expo 0.6.0 didn't reach preview: the iOS build failed 2h ago.
+  main has 3 commits since its tag (apps/expo/app.config.ts, packages/app/src/home.tsx).
+◆  What should ship?
+│  ● Retry 0.6.0 exactly as released
+│  ○ Release the new code instead (pnpm changeset, then shiplane)
+│  ○ Cancel
+```
+
+With nothing for the version on EAS, it asks
+`Did the last attempt to ship 0.6.0 fail before it got this far?` instead. A retry ships the tag's
+commit, never main: through GitHub Actions, the ship workflow runs on the tag; from this machine, it
+runs in a temporary `git worktree` at the tag, with `pnpm install` and your ignored `.env*` files
+copied in, removed afterwards even when the build fails. Picking Retry is the go-ahead: only the
+GitHub Actions or this machine question follows.
+
+Each platform gets only what it misses, read from EAS:
+`tag ✓, release notes ✓, Android ✓ build 42, iOS ✗ failed → build iOS, then submit`. A platform
+whose build finished but whose submission failed is only submitted again; one still building is left
+to finish. Tags, release notes and PR comments already made are not made twice.
+
+With no terminal, or on CI, it refuses and says the retry is there in a terminal. Preview only, and
+never when main is behind the last preview build.
+
 ## Choose GitHub Actions or this machine
 
 ```sh

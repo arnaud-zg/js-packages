@@ -31,6 +31,11 @@ export interface Job {
   record?: boolean;
   /** Runs after `local` whether it failed or not, such as putting a manifest back. */
   cleanup?: Command[];
+  /**
+   * A tag this machine ships instead of its checkout: `local` runs in a worktree detached at it,
+   * installed and given the checkout's ignored `.env*` files, then removed.
+   */
+  from?: string;
 }
 
 /** What an adapter is told when asked for its jobs. */
@@ -80,6 +85,9 @@ export interface Refusal {
   commands: string[];
 }
 
+/** What a ship runs: a build, a submit or a publish from here; an update or a deploy asks how. */
+export type ShipKind = "build" | "submit" | "publish" | "update" | "deploy";
+
 /** What a unit needs on an environment, as its adapter decides. */
 export type Decision =
   /**
@@ -88,23 +96,33 @@ export type Decision =
    */
   | {
       action: "ship";
-      kind: "build" | "submit" | "publish" | "update" | "deploy";
+      kind: ShipKind;
       jobs: Job[];
       notLocal?: string;
+      /** A person already said go, such as by picking a retry: no "Ship …?" follows. */
+      confirmed?: boolean;
     }
   /** Nothing to do; the status says why. */
   | { action: "none"; status: string }
   /**
    * A move only a person picks, such as how far a rollout goes: `lines` say where it stands, then
-   * the question; an option with no jobs ships nothing and says `held`.
+   * the question; an option with no jobs ships nothing and says `held`. A picked option's `then`
+   * lines are said right after it.
    */
   | {
       action: "choose";
       lines: string[];
       question: string;
       suggested: string;
-      options: (Choice<string> & { jobs: Job[] })[];
+      options: (Choice<string> & { jobs: Job[]; then?: string[] })[];
       held: string;
+      /** What an option with jobs ships; an update when absent. */
+      kind?: ShipKind;
+      notLocal?: string;
+      /** Picking an option with jobs is the go-ahead: no "Ship …?" follows. */
+      confirmed?: boolean;
+      /** Said as a failure when nobody can answer (no terminal, or CI); held when absent. */
+      unattended?: Refusal;
     }
   | ({ action: "fail" } & Refusal)
   /** A small PR has to merge first, such as moving a version; the adapter decides again after it. */

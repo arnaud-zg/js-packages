@@ -31,6 +31,18 @@ describe("where a release may start from", () => {
     });
   });
 
+  it("given a detached checkout at exactly the release's tag, when building, then it may start", () => {
+    const atTag = { branch: "HEAD", head: "tagged", originMain: "abc" };
+
+    expect(releaseSource("build", "preview", atTag, { tagCommit: "tagged" })).toEqual({
+      allowed: true,
+    });
+    expect(releaseSource("build", "preview", atTag, { tagCommit: "other" })).toEqual({
+      allowed: false,
+      why: "not-main",
+    });
+  });
+
   it("given main behind origin, when building, then it is refused until pulled", () => {
     expect(releaseSource("build", "preview", { ...main, originMain: "def" })).toEqual({
       allowed: false,

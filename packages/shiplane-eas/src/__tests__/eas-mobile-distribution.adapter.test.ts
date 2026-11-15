@@ -1126,6 +1126,28 @@ describe("retrying a mobile release that never reached preview", () => {
     ]);
   });
 
+  it("given iOS to build and Android to submit again, when retried through GitHub Actions, then both jobs name the tag and one run ships them", async () => {
+    const { context, ci, prompter } = movedOn({
+      platformBuilds: {
+        ios: [IOS_FAILED, OLDER("ios")],
+        android: [ANDROID_BUILT],
+      },
+      submissions: { android: [submitted("ANDROID", "android-42", "ERRORED")] },
+    });
+    prompter.answer("retry", "github");
+
+    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
+
+    expect(ci.received).toEqual([
+      {
+        type: "dispatch",
+        workflow: "ship.yml",
+        ref: TAG,
+        inputs: { units: "expo", environment: "preview" },
+      },
+    ]);
+  });
+
   it("given the iOS build failed with no terminal, when shipped, then it refuses and says a terminal run offers the retry", async () => {
     const world = iosFailed();
     const { context, ci, shell, output } = world;

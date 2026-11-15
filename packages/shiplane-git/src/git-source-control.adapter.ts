@@ -97,6 +97,23 @@ const gitSource = (root: string, shell: Shell, options: GitOptions): SourceContr
       await run(["fetch", "--quiet", "--tags", "origin"]);
       return new Set(lines(await maybe(["tag", "--list"])));
     },
+    ignoredFiles: async (patterns) =>
+      lines(
+        await maybe([
+          "ls-files",
+          "--others",
+          "--ignored",
+          "--exclude-standard",
+          "--",
+          ...patterns.map((pattern) => `:(glob)${pattern}`),
+        ]),
+      ),
+    addWorktree: async (dir, ref) => {
+      await must(["worktree", "add", "--quiet", "--detach", dir, ref]);
+    },
+    removeWorktree: async (dir) => {
+      await must(["worktree", "remove", "--force", dir]);
+    },
     createBranch: async (name) => {
       await must(["switch", "--quiet", "-c", name]);
     },

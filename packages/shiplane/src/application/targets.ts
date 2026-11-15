@@ -1,3 +1,4 @@
+import os from "node:os";
 import path from "node:path";
 
 import type { Environment } from "../domain/environment";
@@ -59,12 +60,8 @@ export const commandLine = ({ command, args, env, secrets }: Command) =>
     ...(secrets ?? []).flatMap(({ flag, name }) => [flag, `${name}=$${name}`]),
   ].join(" ");
 
-/** Runs a job's commands here in order, then records the deploy. Throws on the first failure. */
-export const runHere = async (
-  { shell, services, release, output }: ReleaseContext,
-  job: Job,
-  { tag, environment }: { tag: string; environment: Environment },
-) => {
+/** Runs a job's commands in a checkout in order. Throws on the first failure. */
+const runIn = async ({ shell, output }: ReleaseContext, job: Job, root: string) => {
   const secretArgs = (step: Command) =>
     (step.secrets ?? []).flatMap(({ flag, name }) => {
       const value = shell.env(name);
@@ -74,7 +71,7 @@ export const runHere = async (
     });
   const run = (step: Command) =>
     shell.attach(step.command, [...step.args, ...secretArgs(step)], {
-      cwd: path.join(release.root, step.cwd ?? ""),
+      cwd: path.join(root, step.cwd ?? ""),
       env: step.env,
     });
   try {
@@ -85,7 +82,52 @@ export const runHere = async (
   } finally {
     for (const step of job.cleanup ?? []) await run(step);
   }
-  if (job.record) await services.codeHost.recordDeployment(tag, environment);
+};
+
+/**
+ * Runs a job from a worktree detached at its tag: installed, given the checkout's ignored `.env*`
+ * files at the root and in each folder a command runs in, and always removed after.
+ */
+const runFromTag = async (context: ReleaseContext, job: Job, tag: string) => {
+  const { shell, release, services, clock } = context;
+  const dir = path.join(
+    os.tmpdir(),
+    `shiplane-${tag.replace(/[^\w.-]/g, "-")}-${clock.now().getTime()}`,
+  );
+  const folders = [...new Set(job.local.flatMap(({ cwd }) => (cwd ? [cwd] : [])))];
+  await services.sourceControl.addWorktree(dir, tag);
+  try {
+    const envFiles = await services.sourceControl.ignoredFiles([
+      ".env*",
+      ...folders.map((folder) => path.posix.join(folder, ".env*")),
+    ]);
+    for (const file of envFiles) {
+      const { status, stderr } = await shell.capture("cp", [
+        path.join(release.root, file),
+        path.join(dir, file),
+      ]);
+      if (status !== 0) throw new Error(`copying ${file} failed: ${stderr.trim()}`);
+    }
+    const installed = await shell.attach("pnpm", ["install", "--frozen-lockfile"], { cwd: dir });
+    if (installed !== 0) throw new Error(`pnpm install exited with ${installed}`);
+    await runIn(context, job, dir);
+  } finally {
+    await services.sourceControl.removeWorktree(dir);
+  }
+};
+
+/**
+ * Runs a job's commands here in order, from its tag when it names one, then records the deploy.
+ * Throws on the first failure.
+ */
+export const runHere = async (
+  context: ReleaseContext,
+  job: Job,
+  { tag, environment }: { tag: string; environment: Environment },
+) => {
+  if (job.from) await runFromTag(context, job, job.from);
+  else await runIn(context, job, context.release.root);
+  if (job.record) await context.services.codeHost.recordDeployment(tag, environment);
 };
 
 /** Dispatches the ship workflow on a ref for its units and returns at once: the runner ships them. */

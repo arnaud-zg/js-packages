@@ -11,6 +11,7 @@ export type {
   Refusal,
   Requirement,
   Resolved,
+  ShipKind,
   VersionChoice,
 } from "./ports/delivery.port";
 export type { Deploy } from "./ports/code-host.port";
