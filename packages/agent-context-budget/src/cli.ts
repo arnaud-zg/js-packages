@@ -16,12 +16,24 @@ import { findSimilarFiles } from "./similarity";
 
 type Group = "root" | "reference" | "subdir";
 
+const HEALTH_ICON = { good: "✓", normal: "~", warning: "⚠", bad: "✗" } satisfies Record<
+  Health,
+  string
+>;
+
+const HEALTH_LABEL = {
+  good: "GOOD",
+  normal: "NORMAL",
+  warning: "WARNING",
+  bad: "BAD",
+} satisfies Record<Health, string>;
+
 function healthIcon(health: Health): string {
-  return { good: "✓", normal: "~", warning: "⚠", bad: "✗" }[health];
+  return HEALTH_ICON[health];
 }
 
 function healthLabel(health: Health): string {
-  return { good: "GOOD", normal: "NORMAL", warning: "WARNING", bad: "BAD" }[health];
+  return HEALTH_LABEL[health];
 }
 
 function bar(ratio: number, width = 10): string {
@@ -283,17 +295,16 @@ function runCheck(opts: CheckOptions): void {
   for (const pair of similarPairs) {
     const a = resultMap.get(pair.fileA);
     const b = resultMap.get(pair.fileB);
-    const flagValue = pair.flag as "duplication" | "merge-candidate";
     if (a) {
       a.result.similarityFlags = [
         ...(a.result.similarityFlags ?? []),
-        { other: pair.fileB, jaccard: pair.jaccard, flag: flagValue },
+        { other: pair.fileB, jaccard: pair.jaccard, flag: pair.flag },
       ];
     }
     if (b) {
       b.result.similarityFlags = [
         ...(b.result.similarityFlags ?? []),
-        { other: pair.fileA, jaccard: pair.jaccard, flag: flagValue },
+        { other: pair.fileA, jaccard: pair.jaccard, flag: pair.flag },
       ];
     }
   }
@@ -379,8 +390,7 @@ function runCheck(opts: CheckOptions): void {
     for (const p of similarPairs) {
       const icon = p.flag === "duplication" ? "✗" : "~";
       console.info(
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        `  ${icon} ${p.flag!.toUpperCase().padEnd(16)} J=${p.jaccard.toFixed(2)}  ${p.fileA}  ↔  ${p.fileB}`,
+        `  ${icon} ${p.flag.toUpperCase().padEnd(16)} J=${p.jaccard.toFixed(2)}  ${p.fileA}  ↔  ${p.fileB}`,
       );
     }
   }

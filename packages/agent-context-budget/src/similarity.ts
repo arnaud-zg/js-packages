@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { stripMarkdown } from "./redundancy";
 
 // Deterministic multiplicative hash — no external deps required
@@ -28,8 +27,8 @@ export function minHash(shingles: Set<string>, numHashes = NUM_HASHES): number[]
   const sig = new Array<number>(numHashes).fill(Infinity);
   for (const s of shingles) {
     for (let i = 0; i < numHashes; i++) {
-      const h = hashStr(s, SEEDS[i]!);
-      if (h < sig[i]!) sig[i] = h;
+      const h = hashStr(s, SEEDS[i] ?? 0);
+      if (h < (sig[i] ?? Infinity)) sig[i] = h;
     }
   }
   return sig;
@@ -51,7 +50,7 @@ export interface SimilarityPair {
   fileA: string;
   fileB: string;
   jaccard: number;
-  flag: SimilarityFlag;
+  flag: Exclude<SimilarityFlag, null>;
 }
 
 export function findSimilarFiles(
@@ -62,16 +61,14 @@ export function findSimilarFiles(
   const sigs = files.map((f) => ({ path: f.path, sig: minHash(extractShingles(f.content)) }));
   const pairs: SimilarityPair[] = [];
 
-  for (let i = 0; i < sigs.length; i++) {
-    for (let j = i + 1; j < sigs.length; j++) {
-      const jaccard = jaccardFromMinHash(sigs[i]!.sig, sigs[j]!.sig);
+  sigs.forEach((a, i) => {
+    for (const b of sigs.slice(i + 1)) {
+      const jaccard = jaccardFromMinHash(a.sig, b.sig);
       const flag: SimilarityFlag =
         jaccard >= jDup ? "duplication" : jaccard >= jMerge ? "merge-candidate" : null;
-      if (flag !== null) {
-        pairs.push({ fileA: sigs[i]!.path, fileB: sigs[j]!.path, jaccard, flag });
-      }
+      if (flag !== null) pairs.push({ fileA: a.path, fileB: b.path, jaccard, flag });
     }
-  }
+  });
 
   return pairs.sort((a, b) => b.jaccard - a.jaccard);
 }

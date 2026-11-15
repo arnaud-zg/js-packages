@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { estimateTokens } from "./tokenEstimate";
 
 export interface Section {
@@ -29,11 +28,11 @@ export function parseSections(content: string): Section[] {
     }
 
     if (!inCodeFence) {
-      const m = /^(#{1,6})\s+(.+)/.exec(trimmed);
-      if (m) {
+      const [, hashes, title] = /^(#{1,6})\s+(.+)/.exec(trimmed) ?? [];
+      if (hashes && title) {
         flush();
-        level = m[1]!.length;
-        heading = m[2]!.trim();
+        level = hashes.length;
+        heading = title.trim();
         continue;
       }
     }
