@@ -4,9 +4,9 @@ import chalk from "chalk";
 import { Command } from "commander";
 
 import type { CatalogPaths } from "./catalogUtils";
-import type { InterruptGuard } from "./interruptGuard";
 import { runCheck } from "./check";
 import { findWorkspaceRoot } from "./findWorkspaceRoot";
+import { processSignals } from "./processSignals.adapter";
 import { runSync } from "./sync";
 
 function resolvePaths(appDirOption: string | undefined): CatalogPaths {
@@ -19,24 +19,6 @@ function resolvePaths(appDirOption: string | undefined): CatalogPaths {
     packageJsonPath: path.join(appDir, "package.json"),
   };
 }
-
-// expo-doctor runs synchronously, so a `finally` never runs on Ctrl-C: restore the app's package.json here.
-const processSignals: InterruptGuard = {
-  run({ work, onInterrupt }) {
-    const restoreAndExit = () => {
-      onInterrupt();
-      process.exit(1);
-    };
-    process.on("SIGINT", restoreAndExit);
-    process.on("SIGTERM", restoreAndExit);
-    try {
-      return work();
-    } finally {
-      process.off("SIGINT", restoreAndExit);
-      process.off("SIGTERM", restoreAndExit);
-    }
-  },
-};
 
 const program = new Command()
   .name("expo-pnpm-catalog")

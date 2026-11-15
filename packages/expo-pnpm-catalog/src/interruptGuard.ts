@@ -7,8 +7,3 @@ export type GuardedTask<Result> = {
 export type InterruptGuard = {
   run<Result>(task: GuardedTask<Result>): Result;
 };
-
-// A library caller owns its process signals, so by default nothing is installed.
-export const noInterruptGuard: InterruptGuard = {
-  run: ({ work }) => work(),
-};

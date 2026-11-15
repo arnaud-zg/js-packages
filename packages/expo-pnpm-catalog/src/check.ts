@@ -10,7 +10,6 @@ import { isCatalogRef } from "./catalogUtils";
 import { createCatalogWorkspaceFile } from "./catalogWorkspace.adapter";
 import { createExpoAppManifestFile } from "./expoAppManifest.adapter";
 import { ExpoManifestResolver } from "./expoManifestResolver";
-import { noInterruptGuard } from "./interruptGuard";
 import {
   printBlankLine,
   printDoctorResult,
@@ -19,11 +18,12 @@ import {
   printSeparator,
   startDimSpinner,
 } from "./printer";
+import { processSignals } from "./processSignals.adapter";
 import { WorkspaceCatalogScanner } from "./workspaceCatalogScanner";
 
 export type CheckOptions = {
   dryRun: boolean;
-  /** Restores the Expo app's package.json if the run is interrupted; the CLI wires process signals. */
+  /** Restores the Expo app's package.json if the run is interrupted; process signals by default. */
   interrupts?: InterruptGuard;
 };
 
@@ -144,7 +144,7 @@ export function runCheck(paths: CatalogPaths, options: CheckOptions): boolean {
     manifestFile,
     resolved,
     appDir: paths.appDir,
-    interrupts: options.interrupts ?? noInterruptGuard,
+    interrupts: options.interrupts ?? processSignals,
   });
   printDoctorResult(passed);
   printBlankLine();
