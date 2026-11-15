@@ -1,5 +1,17 @@
 # shiplane
 
+## 0.5.2
+
+### Patch Changes
+
+- [#63](https://github.com/arnaud-zg/packages/pull/63) [`db97ed6`](https://github.com/arnaud-zg/packages/commit/db97ed691c25430fc092605ec076595e266f3b19) - Rerunning shiplane offers again a tagged mobile version that never reached preview, preselected as a
+  retry, and a failed ship says so.
+
+- [#64](https://github.com/arnaud-zg/packages/pull/64) [`44f95e6`](https://github.com/arnaud-zg/packages/commit/44f95e68b21bd5439bec2db70c1e49a90adda705) - A ship checks what every unit needs four at a time on one live line with a counter, instead of one
+  unit after another; results and questions still come in unit order.
+
+🙏 Thanks to [@arnaud-zg](https://github.com/arnaud-zg) for this release!
+
 ## 0.5.1
 
 ### Patch Changes

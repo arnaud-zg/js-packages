@@ -1,6 +1,6 @@
 {
   "name": "@shiplane/cloudflare-pages",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Cloudflare Pages plugin for shiplane: deploy a static site per environment with wrangler.",
   "keywords": [
     "shiplane",
