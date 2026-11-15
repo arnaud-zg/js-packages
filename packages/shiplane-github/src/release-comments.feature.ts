@@ -1,6 +1,7 @@
 import type {
   AfterShipContext,
   CodeHostPort,
+  Environment,
   Feature,
   FollowUp,
   IssueRef,
@@ -10,6 +11,7 @@ import type {
 } from "shiplane/plugin";
 import { issueName } from "shiplane/plugin";
 
+import type { Release } from "./issues";
 import {
   previousTag,
   pullRequestNumbers,
@@ -27,75 +29,104 @@ export interface ReleaseCommentsOptions {
   apps?: string[];
 }
 
-/** Each merged PR with the issues it relates to, all read in one go. */
-const linkedPrs = async (codeHost: CodeHostPort, prs: readonly number[]) =>
-  prs.length === 0
-    ? []
-    : (await codeHost.pullRequests(prs)).map((pr) => ({
-        pr: { repository: pr.repository, number: pr.number },
-        issues: relatedIssues(pr),
-      }));
+interface Target {
+  about: IssueRef;
+  environment: Environment;
+  kind: "pr" | "issue";
+  releases: (Release & { refs: IssueRef[] })[];
+}
 
-/** Each issue those PRs relate to, with its PRs, in the order they were found. */
-const issuesOf = (linked: readonly { pr: IssueRef; issues: IssueRef[] }[]) => {
-  const found = new Map<string, { issue: IssueRef; prs: IssueRef[] }>();
-  for (const { pr, issues } of linked) {
-    for (const issue of issues) {
-      const entry = found.get(issueName(issue)) ?? { issue, prs: [] };
-      entry.prs.push(pr);
-      found.set(issueName(issue), entry);
+const targetsOf = (
+  linked: ReadonlyMap<number, { pr: IssueRef; issues: IssueRef[] }>,
+  reached: readonly { shipped: Shipped; numbers: number[] }[],
+) => {
+  const prs = new Map<string, Target>();
+  const issues = new Map<string, Target>();
+  const add = (
+    into: Map<string, Target>,
+    kind: Target["kind"],
+    about: IssueRef,
+    { unit, tag, environment }: Shipped,
+    refs: IssueRef[],
+  ) => {
+    const key = `${environment} ${issueName(about)}`;
+    const target = into.get(key) ?? { about, environment, kind, releases: [] };
+    const release = target.releases.find((entry) => entry.tag === tag);
+    if (release) release.refs.push(...refs);
+    else target.releases.push({ unit: unit.name, version: unit.version, tag, refs: [...refs] });
+    into.set(key, target);
+  };
+  for (const { shipped, numbers } of reached) {
+    for (const number of numbers) {
+      const entry = linked.get(number);
+      if (!entry) continue;
+      add(prs, "pr", entry.pr, shipped, entry.issues);
+      for (const issue of entry.issues) add(issues, "issue", issue, shipped, [entry.pr]);
     }
   }
-  return [...found.values()];
+  const sorted = [...prs.values()].sort((left, right) => left.about.number - right.about.number);
+  return [...sorted, ...issues.values()];
 };
 
-const followUps = async (
+const uniqueRefs = (refs: readonly IssueRef[]) => {
+  const seen = new Map(refs.map((ref) => [issueName(ref), ref]));
+  return [...seen.values()];
+};
+
+const followUpsOf = async (
   codeHost: CodeHostPort,
   context: AfterShipContext,
   tags: ReadonlySet<string>,
-  { unit, tag, environment }: Shipped,
+  picked: readonly Shipped[],
 ): Promise<FollowUp[]> => {
-  const from = previousTag(tags, unit.name, unit.version, context.tagFormat);
-  if (!from) return [];
-  const numbers = pullRequestNumbers(await context.subjectsReaching(unit, from, tag));
-  const linked = await linkedPrs(
-    codeHost,
-    numbers.sort((left, right) => left - right),
+  const reached = await Promise.all(
+    picked.map(async (shipped) => {
+      const { unit, tag } = shipped;
+      const from = previousTag(tags, unit.name, unit.version, context.tagFormat);
+      const numbers = from
+        ? pullRequestNumbers(await context.subjectsReaching(unit, from, tag))
+        : [];
+      return { shipped, numbers: numbers.sort((left, right) => left - right) };
+    }),
   );
-  const targets = [
-    ...linked.map(({ pr, issues }) => ({
-      about: pr,
-      mention: { kind: "issue" as const, refs: issues },
-    })),
-    ...issuesOf(linked).map(({ issue, prs }) => ({
-      about: issue,
-      mention: { kind: "pr" as const, refs: prs },
-    })),
-  ];
-  const marker = releaseMarker(tag, environment);
-  const existing =
-    targets.length === 0 ? [] : await codeHost.comments(targets.map(({ about }) => about));
-  const pending = targets.filter(
-    (_, index) => !existing[index]?.some((comment) => comment.includes(marker)),
+  const numbers = [...new Set(reached.flatMap(({ numbers: found }) => found))].sort(
+    (left, right) => left - right,
   );
-  return pending.map(({ about, mention }) => ({
-    label: `comment on ${issueName(about)}: ${tag} on ${environment}`,
-    run: () =>
-      codeHost.comment(
-        about,
-        releaseComment({
-          about,
-          unit: unit.name,
-          version: unit.version,
-          tag,
-          environment,
-          mention,
-        }),
-      ),
-  }));
+  if (numbers.length === 0) return [];
+  const prs = await codeHost.pullRequests(numbers);
+  const linked = new Map(
+    prs.map((pr, index) => [
+      numbers[index] ?? pr.number,
+      { pr: { repository: pr.repository, number: pr.number }, issues: relatedIssues(pr) },
+    ]),
+  );
+  const targets = targetsOf(linked, reached);
+  if (targets.length === 0) return [];
+  const existing = await codeHost.comments(targets.map(({ about }) => about));
+  return targets.flatMap(({ about, environment, kind, releases }, index) => {
+    const pending = releases.filter(
+      ({ tag }) =>
+        !existing[index]?.some((comment) => comment.includes(releaseMarker(tag, environment))),
+    );
+    if (pending.length === 0) return [];
+    const mention = {
+      kind: kind === "pr" ? ("issue" as const) : ("pr" as const),
+      refs: uniqueRefs(pending.flatMap(({ refs }) => refs)),
+    };
+    return [
+      {
+        label: `comment on ${issueName(about)}: ${pending.map(({ tag }) => tag).join(", ")} on ${environment}`,
+        run: () =>
+          codeHost.comment(
+            about,
+            releaseComment({ about, releases: pending, environment, mention }),
+          ),
+      },
+    ];
+  });
 };
 
-/** Tells every PR a shipped version holds, and every issue they relate to, that it is out: once per tag and environment. */
+/** Tells every PR the shipped versions hold, and every issue they relate to, that they are out: one comment per PR or issue, each tag and environment once. */
 export const releaseComments = ({
   codeHost,
   sourceControl,
@@ -113,8 +144,6 @@ export const releaseComments = ({
     if (picked.length === 0) return [];
     const host = context.open(codeHost);
     const tags = await context.open(sourceControl).tags();
-    const all: FollowUp[] = [];
-    for (const entry of picked) all.push(...(await followUps(host, context, tags, entry)));
-    return all;
+    return followUpsOf(host, context, tags, picked);
   },
 });

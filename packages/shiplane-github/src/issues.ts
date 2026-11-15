@@ -68,23 +68,39 @@ const mentions = (about: IssueRef, kind: "pr" | "issue", refs: readonly IssueRef
   return `, ${word} ${links}`;
 };
 
+export interface Release {
+  unit: string;
+  version: string;
+  tag: string;
+}
+
+const versionsOf = (releases: readonly Release[]) => {
+  const named = releases.map(({ unit, version }) => `**${version}** (${unit})`);
+  const last = named.pop() ?? "";
+  return named.length === 0 ? last : `${named.join(", ")} and ${last}`;
+};
+
 /**
- * What a PR or an issue reads once a release it went into ships: short, in English.
+ * What a PR or an issue reads once releases it went into ship: short, in English.
  * An issue names its PRs, a PR names its issues.
  */
 export const releaseComment = ({
   about,
-  unit,
-  version,
-  tag,
+  releases,
   environment,
   mention,
 }: {
   about: IssueRef;
-  unit: string;
-  version: string;
-  tag: string;
+  releases: readonly Release[];
   environment: Environment;
   mention: { kind: "pr" | "issue"; refs: readonly IssueRef[] };
-}) =>
-  `🚀 Released to **${environment}** in version **${version}** (${unit}${mentions(about, mention.kind, mention.refs)}).\n\n${releaseMarker(tag, environment)}`;
+}) => {
+  const links = mentions(about, mention.kind, mention.refs);
+  const [only] = releases;
+  const line =
+    releases.length === 1 && only
+      ? `in version **${only.version}** (${only.unit}${links}).`
+      : `in versions ${versionsOf(releases)}${links}.`;
+  const markers = releases.map(({ tag }) => releaseMarker(tag, environment)).join("\n");
+  return `🚀 Released to **${environment}** ${line}\n\n${markers}`;
+};
