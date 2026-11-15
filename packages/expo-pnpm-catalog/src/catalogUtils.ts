@@ -54,7 +54,13 @@ export function getAllCatalogVersions(workspace: WorkspaceYaml): Record<string, 
 
 // ── resolveCatalogRefs ───────────────────────────────────────────────────────
 
-function resolveVersion(name: string, version: string, workspace: WorkspaceYaml): string {
+type CatalogEntry = {
+  name: string;
+  version: string;
+  workspace: WorkspaceYaml;
+};
+
+function resolveVersion({ name, version, workspace }: CatalogEntry): string {
   if (version === "catalog:") return workspace.catalog?.[name] ?? version;
   if (version.startsWith("catalog:")) {
     const catalogName = version.slice("catalog:".length);
@@ -73,7 +79,7 @@ export function resolveCatalogRefs(
 ): Record<string, string> {
   const resolved: Record<string, string> = {};
   for (const [name, version] of Object.entries(deps)) {
-    resolved[name] = resolveVersion(name, version, workspace);
+    resolved[name] = resolveVersion({ name, version, workspace });
   }
   return resolved;
 }
@@ -84,11 +90,17 @@ export function resolveCatalogRefs(
  * Updates a single package version in pnpm-workspace.yaml content in place,
  * preserving all comments and formatting.
  */
-export function updateVersionInYaml(
-  content: string,
-  packageName: string,
-  newVersion: string,
-): string {
+export type YamlVersionUpdate = {
+  content: string;
+  packageName: string;
+  newVersion: string;
+};
+
+export function updateVersionInYaml({
+  content,
+  packageName,
+  newVersion,
+}: YamlVersionUpdate): string {
   const escapedName = packageName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const pattern = new RegExp(`^([ \\t]+(?:"${escapedName}"|${escapedName}):\\s*)(.+)$`);
 

@@ -59,7 +59,7 @@ export class CatalogWorkspace {
   }
 
   writeVersion(packageName: string, newVersion: string): CatalogWorkspace {
-    const text = updateVersionInYaml(this.raw, packageName, newVersion);
+    const text = updateVersionInYaml({ content: this.raw, packageName, newVersion });
     return CatalogWorkspace.fromText({ text, source: this.source });
   }
 }

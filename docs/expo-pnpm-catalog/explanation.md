@@ -10,9 +10,9 @@ Explanation**
 (`catalog:expo`) isn't a version it understands. Resolving only the Expo app's own manifest would
 miss drift in a shared package elsewhere in the workspace (a UI kit, a shared hooks package) that
 also depends on the same Expo-managed package through the same catalog: `expo-doctor` would pass
-locally while that sibling package quietly drifts. `WorkspaceCatalogExpoScanner` scans every
-top-level workspace directory for other `package.json` files referencing the same catalog entries,
-so `check`'s pass/fail reflects the whole workspace's dependency surface, not just one app's.
+locally while that sibling package quietly drifts. `WorkspaceCatalogScanner` scans every top-level
+workspace directory for other `package.json` files referencing the same catalog entries, so
+`check`'s pass/fail reflects the whole workspace's dependency surface, not just one app's.
 
 ## Why `sync` runs `expo install --fix` instead of hand-computing versions
 

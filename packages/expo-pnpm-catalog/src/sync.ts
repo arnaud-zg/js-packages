@@ -32,7 +32,7 @@ import {
   startDimSpinner,
   withYamlUpdateSpinner,
 } from "./printer";
-import { WorkspaceCatalogExpoScanner } from "./workspaceCatalogExpoScanner";
+import { WorkspaceCatalogScanner } from "./workspaceCatalogScanner";
 
 export type SyncOptions = {
   dryRun: boolean;
@@ -41,11 +41,13 @@ export type SyncOptions = {
 
 // ── expo install --fix runner ─────────────────────────────────────────────────
 
-function runExpoInstallFix(
-  manifestFile: ExpoAppManifestFile,
-  resolved: ExpoAppManifest,
-  appDir: string,
-): ExpoAppManifest {
+type InstallFixRun = {
+  manifestFile: ExpoAppManifestFile;
+  resolved: ExpoAppManifest;
+  appDir: string;
+};
+
+function runExpoInstallFix({ manifestFile, resolved, appDir }: InstallFixRun): ExpoAppManifest {
   const spinner = startDimSpinner("Running expo install --fix...");
 
   try {
@@ -69,12 +71,19 @@ function runExpoInstallFix(
 
 // ── Update computation ────────────────────────────────────────────────────────
 
-function computeUpdates(
-  catalogPackages: Set<string>,
-  excludedPackages: Set<string>,
-  allCatalogVersions: Record<string, string>,
-  fixedManifest: ExpoAppManifest,
-): CatalogUpdate[] {
+type UpdateInputs = {
+  catalogPackages: ReadonlySet<string>;
+  excludedPackages: ReadonlySet<string>;
+  allCatalogVersions: Record<string, string>;
+  fixedManifest: ExpoAppManifest;
+};
+
+function computeUpdates({
+  catalogPackages,
+  excludedPackages,
+  allCatalogVersions,
+  fixedManifest,
+}: UpdateInputs): CatalogUpdate[] {
   const fixedDeps = {
     ...fixedManifest.data.dependencies,
     ...fixedManifest.data.devDependencies,
@@ -84,7 +93,7 @@ function computeUpdates(
   for (const name of catalogPackages) {
     const current = allCatalogVersions[name];
     if (excludedPackages.has(name) || current === undefined) continue;
-    const update = CatalogUpdate.between(name, current, fixedDeps[name] ?? "");
+    const update = CatalogUpdate.between({ name, from: current, to: fixedDeps[name] ?? "" });
     if (update) updates.push(update);
   }
 
@@ -93,11 +102,13 @@ function computeUpdates(
 
 // ── Apply updates ─────────────────────────────────────────────────────────────
 
-function applyUpdatesToYaml(
-  workspaceFile: CatalogWorkspaceFile,
-  workspace: CatalogWorkspace,
-  updates: CatalogUpdate[],
-): void {
+type YamlUpdate = {
+  workspaceFile: CatalogWorkspaceFile;
+  workspace: CatalogWorkspace;
+  updates: CatalogUpdate[];
+};
+
+function applyUpdatesToYaml({ workspaceFile, workspace, updates }: YamlUpdate): void {
   withYamlUpdateSpinner(() => {
     let updated = workspace;
     for (const { name, to } of updates) {
@@ -122,32 +133,29 @@ export async function runSync(paths: CatalogPaths, options: SyncOptions): Promis
   const workspace = workspaceFile.load();
   const manifestFile = createExpoAppManifestFile(paths.packageJsonPath);
   const manifest = manifestFile.load();
-  const scanner = new WorkspaceCatalogExpoScanner(paths.rootDir, workspace.getWorkspaceDirs());
+  const scanner = new WorkspaceCatalogScanner(paths.rootDir, workspace.getWorkspaceDirs());
 
-  const catalogPackages = manifest.catalogPackages();
+  const appPackages = manifest.catalogPackages();
   const extraPackages = scanner.scan(workspace.getAllCatalogVersions(), paths.packageJsonPath);
-  const extraOnlyCount = Object.keys(extraPackages.versions).filter(
-    (name) => !catalogPackages.has(name),
-  ).length;
+  const catalogPackages = new Set([...appPackages, ...Object.keys(extraPackages.versions)]);
 
-  for (const name of Object.keys(extraPackages.versions)) {
-    catalogPackages.add(name);
-  }
-
-  printSyncScope({ packageCount: catalogPackages.size, extraOnlyCount });
+  printSyncScope({
+    packageCount: catalogPackages.size,
+    extraOnlyCount: catalogPackages.size - appPackages.size,
+  });
 
   const resolved = ExpoManifestResolver.from(manifest)
     .withCatalogResolution(workspace)
     .mergeExtraPackages(extraPackages.versions)
     .build();
 
-  const fixedManifest = runExpoInstallFix(manifestFile, resolved, paths.appDir);
-  const updates = computeUpdates(
+  const fixedManifest = runExpoInstallFix({ manifestFile, resolved, appDir: paths.appDir });
+  const updates = computeUpdates({
     catalogPackages,
-    manifest.excludedPackages(),
-    workspace.getAllCatalogVersions(),
+    excludedPackages: manifest.excludedPackages(),
+    allCatalogVersions: workspace.getAllCatalogVersions(),
     fixedManifest,
-  );
+  });
 
   if (updates.length === 0) {
     printAlreadyInSync();
@@ -167,7 +175,7 @@ export async function runSync(paths: CatalogPaths, options: SyncOptions): Promis
   }
 
   printBlankLine();
-  applyUpdatesToYaml(workspaceFile, workspace, updates);
+  applyUpdatesToYaml({ workspaceFile, workspace, updates });
   runPnpmInstall(paths.rootDir);
   printSyncDone();
 }

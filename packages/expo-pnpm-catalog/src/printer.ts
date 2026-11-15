@@ -4,9 +4,6 @@ import chalk from "chalk";
 import ora from "ora";
 
 import type { CatalogUpdate } from "./catalogUpdate";
-import type { ExtraPackages } from "./catalogUtils";
-import type { ExpoAppManifest } from "./expoAppManifest";
-import { isCatalogRef } from "./catalogUtils";
 
 const SEPARATOR = chalk.dim("─".repeat(60));
 
@@ -22,41 +19,11 @@ export function startDimSpinner(text: string): Ora {
   return ora(chalk.dim(text)).start();
 }
 
-// ── check ─────────────────────────────────────────────────────────────────────
+export type DryRunRow = { name: string; version: string; source: string };
 
-function isExtraOnly(
-  packageName: string,
-  extra: ExtraPackages,
-  manifest: ExpoAppManifest,
-): boolean {
-  const allDeps = { ...manifest.data.dependencies, ...manifest.data.devDependencies };
-  const isDeclaredInApp = packageName in allDeps && isCatalogRef(allDeps[packageName] ?? "");
-  return packageName in extra.versions && !isDeclaredInApp;
-}
-
-function resolveSource(
-  packageName: string,
-  extra: ExtraPackages,
-  manifest: ExpoAppManifest,
-  appLabel: string,
-): string {
-  return isExtraOnly(packageName, extra, manifest)
-    ? (extra.byPackage[packageName] ?? []).join(", ")
-    : appLabel;
-}
-
-export function printDryRunTable(
-  manifest: ExpoAppManifest,
-  extra: ExtraPackages,
-  resolvedDeps: Record<string, string>,
-  appLabel: string,
-): void {
-  const entries = Object.entries(resolvedDeps)
-    .filter(([, version]) => !version.startsWith("catalog:"))
-    .sort(([a], [b]) => a.localeCompare(b));
-
-  const nameWidth = Math.max(...entries.map(([name]) => name.length), 20);
-  const versionWidth = Math.max(...entries.map(([, version]) => version.length), 10);
+export function printDryRunTable(rows: DryRunRow[]): void {
+  const nameWidth = Math.max(...rows.map(({ name }) => name.length), 20);
+  const versionWidth = Math.max(...rows.map(({ version }) => version.length), 10);
 
   console.info(
     "  " +
@@ -66,12 +33,12 @@ export function printDryRunTable(
   );
   console.info("  " + chalk.dim("─".repeat(nameWidth + versionWidth + 20)));
 
-  for (const [packageName, version] of entries) {
+  for (const { name, version, source } of rows) {
     console.info(
       "  " +
-        chalk.white(packageName.padEnd(nameWidth + 2)) +
+        chalk.white(name.padEnd(nameWidth + 2)) +
         chalk.cyan(version.padEnd(versionWidth + 4)) +
-        chalk.dim(resolveSource(packageName, extra, manifest, appLabel)),
+        chalk.dim(source),
     );
   }
 
@@ -79,17 +46,17 @@ export function printDryRunTable(
   console.info(chalk.yellow("  [dry run]") + chalk.dim(" — nothing was written or run"));
 }
 
-export function printScanHeader(
-  appCount: number,
-  extra: ExtraPackages,
-  manifest: ExpoAppManifest,
-  isDryRun: boolean,
-  appLabel: string,
-): void {
-  const extraOnlyNames = Object.keys(extra.byPackage).filter((name) =>
-    isExtraOnly(name, extra, manifest),
-  );
-  const totalCount = appCount + extraOnlyNames.length;
+export type ExtraOnlyPackage = { name: string; usedBy: string[] };
+
+export type ScanHeader = {
+  appCount: number;
+  extraOnly: ExtraOnlyPackage[];
+  isDryRun: boolean;
+  appLabel: string;
+};
+
+export function printScanHeader({ appCount, extraOnly, isDryRun, appLabel }: ScanHeader): void {
+  const totalCount = appCount + extraOnly.length;
 
   console.info(
     chalk.bold("  Expo catalog check") +
@@ -97,18 +64,15 @@ export function printScanHeader(
       (isDryRun ? chalk.yellow("  [dry run]") : ""),
   );
 
-  if (extraOnlyNames.length === 0) return;
+  if (extraOnly.length === 0) return;
 
   console.info(
     chalk.dim(
-      `  ${appCount} from ${appLabel} · ${extraOnlyNames.length} additional from other workspace packages`,
+      `  ${appCount} from ${appLabel} · ${extraOnly.length} additional from other workspace packages`,
     ),
   );
-  for (const name of extraOnlyNames) {
-    console.info(
-      chalk.dim(`    + ${name}`) +
-        chalk.dim.italic(` (${(extra.byPackage[name] ?? []).join(", ")})`),
-    );
+  for (const { name, usedBy } of extraOnly) {
+    console.info(chalk.dim(`    + ${name}`) + chalk.dim.italic(` (${usedBy.join(", ")})`));
   }
 }
 
@@ -128,8 +92,6 @@ export function printDoctorResult(passed: boolean): void {
       chalk.yellow(" to fix version drift"),
   );
 }
-
-// ── sync ──────────────────────────────────────────────────────────────────────
 
 function plural(count: number): string {
   return count === 1 ? "" : "s";

@@ -1,15 +1,25 @@
 /**
  * Value object representing a single version change in catalogs.expo.
  */
-export class CatalogUpdate {
-  constructor(
-    readonly name: string,
-    readonly from: string,
-    readonly to: string,
-  ) {}
+export type VersionChange = {
+  name: string;
+  from: string;
+  to: string;
+};
 
-  static between(name: string, from: string, to: string): CatalogUpdate | null {
-    if (!from || !to || from === to) return null;
-    return new CatalogUpdate(name, from, to);
+export class CatalogUpdate {
+  readonly name: string;
+  readonly from: string;
+  readonly to: string;
+
+  constructor({ name, from, to }: VersionChange) {
+    this.name = name;
+    this.from = from;
+    this.to = to;
+  }
+
+  static between(change: VersionChange): CatalogUpdate | null {
+    if (!change.from || !change.to || change.from === change.to) return null;
+    return new CatalogUpdate(change);
   }
 }

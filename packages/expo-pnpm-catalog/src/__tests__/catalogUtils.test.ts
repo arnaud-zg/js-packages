@@ -63,7 +63,11 @@ describe("patching versions in pnpm-workspace.yaml", () => {
   describe("given a package key is unquoted in the yaml", () => {
     it("when patched, then the new version is written with quotes", () => {
       const content = `  expo-camera: "~17.0.8"`;
-      const result = updateVersionInYaml(content, "expo-camera", "~17.0.10");
+      const result = updateVersionInYaml({
+        content,
+        packageName: "expo-camera",
+        newVersion: "~17.0.10",
+      });
       expect(result).toBe(`  expo-camera: "~17.0.10"`);
     });
   });
@@ -71,7 +75,11 @@ describe("patching versions in pnpm-workspace.yaml", () => {
   describe("given a scoped package has a quoted key", () => {
     it("when patched, then the scoped package version is updated correctly", () => {
       const content = `  "@expo/vector-icons": "^15.0.1"`;
-      const result = updateVersionInYaml(content, "@expo/vector-icons", "^15.0.3");
+      const result = updateVersionInYaml({
+        content,
+        packageName: "@expo/vector-icons",
+        newVersion: "^15.0.3",
+      });
       expect(result).toBe(`  "@expo/vector-icons": "^15.0.3"`);
     });
   });
@@ -84,7 +92,11 @@ describe("patching versions in pnpm-workspace.yaml", () => {
         `  expo-font: "~14.0.0"`,
       ].join("\n");
 
-      const result = updateVersionInYaml(content, "expo-camera", "~17.0.10");
+      const result = updateVersionInYaml({
+        content,
+        packageName: "expo-camera",
+        newVersion: "~17.0.10",
+      });
 
       expect(result).toContain("# Expo-managed dependencies");
       expect(result).toContain(`expo-camera: "~17.0.10"`);
@@ -95,7 +107,11 @@ describe("patching versions in pnpm-workspace.yaml", () => {
   describe("given the package is not present in the yaml", () => {
     it("when patched, then the file is left untouched", () => {
       const content = `  expo-font: "~14.0.0"`;
-      const result = updateVersionInYaml(content, "expo-camera", "~17.0.10");
+      const result = updateVersionInYaml({
+        content,
+        packageName: "expo-camera",
+        newVersion: "~17.0.10",
+      });
       expect(result).toBe(content);
     });
   });
