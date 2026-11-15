@@ -813,6 +813,17 @@ describe("guiding a production rollout", () => {
     expect(output.text).toContain("stays at 10% of people");
   });
 
+  it("given --ci from a terminal, when production ships a partial rollout, then it still asks how far it goes", async () => {
+    const { context, shell, prompter } = onProduction({ rolloutPercentage: 10 });
+    context.options.ci = true;
+    prompter.answer("25", true);
+
+    await shipTo(context, "production", { scope: new Set(["expo"]) });
+
+    expect(prompter.initials[ROLLOUT]).toBe("25");
+    expect(easCalls(shell, "update:edit")[0]?.args).toContain("25");
+  });
+
   it("given production's update of this release reaches everyone, when production ships, then it is live and nothing is asked", async () => {
     const { context, shell, prompter, output } = onProduction();
     prompter.answer("production");
@@ -1146,6 +1157,77 @@ describe("retrying a mobile release that never reached preview", () => {
         inputs: { units: "expo", environment: "preview" },
       },
     ]);
+  });
+
+  it("given both platforms built from the tag with the same native layer, the iOS submission failed and main got JS-only commits, when shipped, then the retry is offered and only iOS is submitted", async () => {
+    const { context, shell, prompter, output } = movedOn({
+      local: "fp-shipped",
+      platformBuilds: {
+        ios: [build("ios", "preview", { id: "ios-7", gitCommitHash: "tag-expo" })],
+        android: [ANDROID_BUILT],
+      },
+      submissions: {
+        ios: [submitted("IOS", "ios-7", "ERRORED")],
+        android: [submitted("ANDROID", "android-42")],
+      },
+    });
+    prompter.answer("retry", "local");
+
+    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
+
+    expect(output.text).toContain("expo 0.1.115 didn't reach preview: the iOS submission failed");
+    expect(output.text).not.toContain("expo 0.1.115 is on preview");
+    expect(easCalls(shell, "build")).toEqual([]);
+    expect(easCalls(shell, "submit").map(({ args }) => args.slice(3, 7))).toEqual([
+      ["--platform", "ios", "--id", "ios-7"],
+    ]);
+  });
+
+  it("given the tag released an update that went out from it, and main then changed native code, when shipped, then it is on preview and nothing is offered or republished", async () => {
+    const { context, shell, source, prompter, output } = movedOn({
+      versions: { preview: "0.1.114", production: "0.1.114" },
+      platformBuilds: { ios: [OLDER("ios")], android: [OLDER("android")] },
+      updates: { preview: [{ group: "group-115", gitCommitHash: "tag-expo" }] },
+    });
+    source.seed({
+      files: {
+        "expo@0.1.115:.github/workflows/ship.yml": "on: workflow_dispatch",
+        "main:.github/workflows/ship.yml": "on: workflow_dispatch",
+        "expo@0.1.115:apps/expo/app-version.json": JSON.stringify({
+          preview: { version: "0.1.114" },
+          production: { version: "0.1.114" },
+        }),
+      },
+    });
+
+    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
+
+    expect(prompter.asked).toEqual([]);
+    expect(output.text).toContain("expo 0.1.115 is on preview");
+    expect(shell.calls.filter(({ args }) => args.includes("eas:update:preview"))).toEqual([]);
+  });
+
+  it("given the worktree cannot be made, when retried from this machine, then what was made of it is removed and the run fails", async () => {
+    const { context, source, prompter } = iosFailed();
+    source.failAt("worktree-add", 1, new Error("no space left"));
+    prompter.answer("retry", "local");
+
+    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(false);
+
+    expect(source.received.at(-1)?.type).toBe("worktree-remove");
+  });
+
+  it("given the build fails and the worktree then cannot be removed, when retried from this machine, then the build's failure is reported and the leftover worktree is said", async () => {
+    const { context, shell, source, prompter, output } = iosFailed();
+    shell.seedOnce("pnpm exec eas build --profile", { status: 1 });
+    source.failAt("worktree-remove", 1, new Error("worktree locked"));
+    prompter.answer("retry", "local");
+
+    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(false);
+
+    expect(output.text).toContain("pnpm exited with 1, nothing after it ran");
+    expect(output.text).toContain("could not remove the worktree");
+    expect(output.text).toContain("worktree locked");
   });
 
   it("given the iOS build failed with no terminal, when shipped, then it refuses and says a terminal run offers the retry", async () => {
