@@ -7,6 +7,8 @@ export { sourceControlContract } from "../adapters/source-control/source-control
 export { codeHostContract } from "../adapters/code-host/code-host.contract";
 export { ciPipelineContract } from "../adapters/ci-pipeline/ci-pipeline.contract";
 export { versioningContract } from "../adapters/versioning/versioning.contract";
+export type { PlatformEnvCase } from "./platformEnvContract";
+export { platformEnvContract } from "./platformEnvContract";
 export { serverHostingFake } from "../adapters/server-hosting/__fakes__/server-hosting.fake";
 export { staticHostingFake } from "../adapters/static-hosting/__fakes__/static-hosting.fake";
 export { mobileDistributionFake } from "../adapters/mobile-distribution/__fakes__/mobile-distribution.fake";

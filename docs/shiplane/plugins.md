@@ -91,9 +91,40 @@ Source: `src/ports/delivery.port.ts`. `defineStaticHosting`, `defineMobileDistri
 plugin's `package.json` so `init` offers them:
 `"shiplane": { "adapters": ["renderServerHosting"] }`.
 
+**Helpers** that `shiplane/plugin` also exports, so an adapter drives its vendor CLI the way the
+built-in ones do:
+
+| Helper                                                   | Does                                                                                                       |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `mustCapture({ shell, command, args, cwd, env, label })` | Runs a command and returns its output; a non-zero exit throws `CommandFailed` with all it printed          |
+| `commandFailed({ label, result })`, `firstLine(text)`    | The same failure from a result you hold, and the first line of output with text on it                      |
+| `retrying({ run, retryable, delays })`                   | Runs again after each delay while the result is retryable, such as a push the network dropped              |
+| `parseJson({ text, schema })`                            | Reads a tool's JSON against a zod schema, `{ success, data }` or `{ success: false, error }`, never throws |
+| `registryDecision({ environment, facts })`               | A package registry's rule: production only moves its tag to what preview published                         |
+| `previousTag({ tags, unit, version, format })`           | The tag a unit had before a version                                                                        |
+
 **Test it** with `shiplane/testing`: run the port's contract suite on your adapter, as
 `packages/shiplane-integration` does for this one:
 
 ```ts
 serverHostingContract([{ adapter: renderServerHosting(), settings: { service: "acme-api" } }]);
+```
+
+A port that decides from its own platform (`decide`, `live`) is also run on a repository with
+nothing tagged; pass `decide: false` when its decision reads what the empty fakes cannot answer. An
+adapter with `env` runs `platformEnvContract`, given a shell that lists names and one that fails:
+
+```ts
+platformEnvContract([
+  {
+    adapter: renderServerHosting(),
+    settings: { service: "acme-api" },
+    environment: "preview",
+    listing: {
+      shell: new RecordingShell().seed("render env list", { stdout: "API_KEY\n" }),
+      names: ["API_KEY"],
+    },
+    failing: new RecordingShell().seed("render env list", { status: 1, stderr: "not signed in\n" }),
+  },
+]);
 ```

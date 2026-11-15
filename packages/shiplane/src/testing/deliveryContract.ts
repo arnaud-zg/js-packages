@@ -6,12 +6,15 @@ import type { Delivery, FolderView } from "../ports/delivery.port";
 import { RecordingShell } from "../adapters/shell/__fakes__/shell.fake";
 import { optionsFor } from "../application/config/optionsFor";
 import { ENVIRONMENTS } from "../domain/environment";
+import { decideContract, decides } from "./decideContract";
 import { testUnit } from "./releaseContext";
 
 /** One adapter of a port, with settings an app's unit file could hold for it. */
 export interface ContractCase<Port extends Delivery & { capability: string }> {
   adapter: DeliveryAdapter<Port>;
   settings: Record<string, unknown>;
+  /** False when its decision reads a platform the contract's empty fakes cannot answer. */
+  decide?: boolean;
 }
 
 const EMPTY_FOLDER: FolderView = {
@@ -30,7 +33,7 @@ export const deliveryContract = <Port extends Delivery & { capability: string }>
 ) =>
   describe.each(cases.map((entry) => [entry.adapter.name, entry] as const))(
     `%s, as ${kind}`,
-    (_name, { adapter, settings }) => {
+    (_name, { adapter, settings, decide = true }) => {
       const port = adapter.create({ root: "/repo", shell: new RecordingShell() });
       const unit = testUnit("app", { module: "app", options: settings });
       const inputFor = (environment: Environment) => ({
@@ -73,6 +76,8 @@ export const deliveryContract = <Port extends Delivery & { capability: string }>
           expect(check.command.trim()).not.toBe("");
         });
       });
+
+      if (decide && decides(port)) decideContract({ port, unit, input: inputFor("preview") });
 
       more(adapter, port);
     },
