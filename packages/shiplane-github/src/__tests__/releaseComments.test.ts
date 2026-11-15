@@ -13,12 +13,22 @@ const EXPO = testUnit("expo", {
   options: { service: "expo" },
 });
 
+const API = testUnit("api", {
+  version: "0.0.11",
+  module: "backend-service",
+  options: { service: "api" },
+});
+
 const ticket = (text: string) => `<!-- Ticket: ${text} -->\n\n## What & why\n\nSomething.`;
 
-const setUp = ({ tagFormat, ...options }: { apps?: string[]; tagFormat?: string } = {}) => {
+const setUp = ({
+  tagFormat,
+  units = [EXPO],
+  ...options
+}: { apps?: string[]; tagFormat?: string; units?: ReturnType<typeof testUnit>[] } = {}) => {
   const tag = (unit: string, version: string) => tagName(unit, version, tagFormat);
   const world = testContext({
-    units: [EXPO],
+    units,
     tagFormat,
     modules: [backendService({ serverHosting: serverHostingFake() })],
     features: ({ codeHost, sourceControl }) => [
@@ -31,6 +41,7 @@ const setUp = ({ tagFormat, ...options }: { apps?: string[]; tagFormat?: string 
       [tag("expo", "0.4.1")]: "t41",
       [tag("expo", "0.4.2")]: "t42",
       [tag("api", "0.0.10")]: "a10",
+      [tag("api", "0.0.11")]: "a11",
     },
     commits: {
       [`${tag("expo", "0.4.1")}..${tag("expo", "0.4.2")}`]: [
@@ -50,10 +61,17 @@ const setUp = ({ tagFormat, ...options }: { apps?: string[]; tagFormat?: string 
         },
         { subject: "fix(app): a typo in the yard (#1915)", files: ["packages/app/src/yard.ts"] },
       ],
+      [`${tag("api", "0.0.10")}..${tag("api", "0.0.11")}`]: [
+        { subject: "feat(api): plants load faster (#1914)", files: ["apps/api/src/plants.ts"] },
+        {
+          subject: "fix(build): iOS preview builds bundle without running out of memory (#1912)",
+          files: ["packages/app/src/index.ts"],
+        },
+      ],
     },
   });
   world.versioning.seed({
-    dependencies: { "@acme/expo": ["@acme/app"] },
+    dependencies: { "@acme/expo": ["@acme/app"], "@acme/api": ["@acme/app"] },
     folders: { "@acme/expo": "apps/expo", "@acme/app": "packages/app", "@acme/api": "apps/api" },
   });
   world.host.seed({
@@ -251,5 +269,69 @@ describe("telling PRs and issues a release shipped them", () => {
     expect(output.text).toContain(`comment on ${REPO}#1549: expo@0.4.2 on preview`);
     expect(output.text).toContain(`comment on ${REPO}#1550: expo@0.4.2 on preview`);
     expect(host.received).toEqual([]);
+  });
+});
+
+describe("one comment per PR or issue, whatever the units that ship it", () => {
+  it("given two units shipping the same PR and issue, when they ship, then each gets one comment naming both versions and carrying both markers", async () => {
+    const { context, host, prompter } = setUp({ units: [EXPO, API] });
+    prompter.answer(true, true);
+
+    await shipTo(context, "preview", {});
+
+    const on = (issue: string) => posted(host.received).filter((event) => event.issue === issue);
+    expect(on(`${REPO}#1912`)).toEqual([
+      {
+        type: "comment",
+        issue: `${REPO}#1912`,
+        body: "🚀 Released to **preview** in versions **0.4.2** (expo) and **0.0.11** (api), issue #1549.\n\n<!-- shiplane-release: expo@0.4.2 preview -->\n<!-- shiplane-release: api@0.0.11 preview -->",
+      },
+    ]);
+    expect(on(`${REPO}#1549`)).toEqual([
+      {
+        type: "comment",
+        issue: `${REPO}#1549`,
+        body: "🚀 Released to **preview** in versions **0.4.2** (expo) and **0.0.11** (api), PR #1912, #1913.\n\n<!-- shiplane-release: expo@0.4.2 preview -->\n<!-- shiplane-release: api@0.0.11 preview -->",
+      },
+    ]);
+    expect(host.reads).toEqual(["pull-requests", "comments"]);
+  });
+
+  it("given a PR already told about one unit, when both ship, then its comment names only the other", async () => {
+    const { context, host, prompter } = setUp({ units: [EXPO, API] });
+    host.seed({
+      comments: { [`${REPO}#1912`]: ["<!-- shiplane-release: expo@0.4.2 preview -->"] },
+    });
+    prompter.answer(true, true);
+
+    await shipTo(context, "preview", {});
+
+    expect(posted(host.received).filter(({ issue }) => issue === `${REPO}#1912`)).toEqual([
+      {
+        type: "comment",
+        issue: `${REPO}#1912`,
+        body: "🚀 Released to **preview** in version **0.0.11** (api, issue #1549).\n\n<!-- shiplane-release: api@0.0.11 preview -->",
+      },
+    ]);
+  });
+
+  it("given two units already shipped and commented, when the ship runs again, then nothing is commented", async () => {
+    const { context, host, prompter } = setUp({ units: [EXPO, API] });
+    prompter.answer(true, true, true, true);
+
+    await shipTo(context, "preview", {});
+    const first = posted(host.received).length;
+    host.seed({ deployments: [] });
+    await shipTo(context, "preview", {});
+
+    expect(posted(host.received)).toHaveLength(first);
+  });
+
+  it("given two units shipping the same PR, when the plan runs, then its one comment lists both tags", async () => {
+    const { context, output } = setUp({ units: [EXPO, API] });
+
+    await planShips(context, "preview");
+
+    expect(output.text).toContain(`comment on ${REPO}#1912: expo@0.4.2, api@0.0.11 on preview`);
   });
 });
