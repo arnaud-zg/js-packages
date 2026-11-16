@@ -30,8 +30,8 @@ import { statusCommand } from "./statusCommand";
 const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, trigger each app's deploy.
 
   shiplane                        the next step to preview: release PR, merge, tags, ship
-                                  (on a branch with a PR: a branch release, asked first)
-  shiplane branch                 publish a temporary npm version of this branch for testers
+                                  (on a branch: a test release, asked first)
+  shiplane test-release           publish a temporary npm version for testers, from any branch
   shiplane promote                production, from what preview runs (--channel production too)
   shiplane status [--json]        where every unit stands, and what to run next
   shiplane version                open the release PR for what is pending
@@ -83,7 +83,9 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
       environment === "preview"
         ? branchRelease(context, { onDefault: "release" })
         : promote(context, via),
-    branch: (context) => branchRelease(context, { onDefault: "refuse" }),
+    "test-release": (context) => branchRelease(context, { onDefault: "publish" }),
+    // The command's first name, kept working, left out of the help.
+    branch: (context) => branchRelease(context, { onDefault: "publish" }),
     promote: (context) => promote(context, via),
     status: (context) => statusCommand(context, { environment, json: values.json }),
     version: async (context) => {

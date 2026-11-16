@@ -1,5 +1,3 @@
-import type { OpenPr } from "./releasePr";
-
 const MAX_SLUG = 40;
 const SHORT_SHA = 7;
 // npm refuses a dist-tag it can read as a semver range; from [a-z0-9-] only these parse as one.
@@ -35,25 +33,28 @@ export const branchVersion = ({
 export const branchTag = (slug: string) =>
   SEMVER_RANGE.test(slug) || slug === "latest" ? `branch-${slug}` : slug;
 
-export type BranchChoice = "release" | "ask" | "publish" | "no-pr";
+/** What `shiplane` does on the default branch: the real release, or (`shiplane branch`) a test version. */
+export type OnDefault = "release" | "publish";
+
+export type BranchChoice = "release" | "ask" | "publish";
 
 /**
- * What `shiplane` does where it runs: the real release on the default branch; elsewhere, a branch
- * release once the branch has a pull request, asked in a terminal unless --yes.
+ * What `shiplane` does where it runs. On the default branch: the real release, or a test version
+ * without asking, since you are there on purpose. Elsewhere: a test version, asked in a terminal
+ * unless --yes. A pull request is never required.
  */
 export const branchChoice = ({
+  onDefaultBranch,
   onDefault,
-  pr,
   yes,
   interactive,
 }: {
-  onDefault: boolean;
-  pr: OpenPr | null;
+  onDefaultBranch: boolean;
+  onDefault: OnDefault;
   yes: boolean;
   interactive: boolean;
 }): BranchChoice => {
-  if (onDefault) return "release";
-  if (!pr) return "no-pr";
+  if (onDefaultBranch) return onDefault;
   return yes || !interactive ? "publish" : "ask";
 };
 
@@ -89,34 +90,31 @@ const notPublished = (others: readonly string[]) => {
   if (others.length === 0) return [];
   const names = others.map((name) => `\`${name}\``).join(", ");
   const why = others.length === 1 ? "not an npm package" : "not npm packages";
-  return [`Not published here: ${names} (${why}).`, ""];
+  return ["", `Not published here: ${names} (${why}).`];
 };
 
-/** The comment a branch release keeps on its pull request, one per pull request. */
-export const branchComment = ({
-  sha,
-  branch,
-  repository,
-  published,
-  others,
-}: {
-  sha: string;
-  branch: string;
-  /** The repository's web address, to link the commit; null names it plainly. */
-  repository: string | null;
-  published: readonly BranchPublished[];
-  /** The changed units that are not npm packages. */
-  others: readonly string[];
-}) => {
-  const short = `\`${sha.slice(0, SHORT_SHA)}\``;
-  const commit = repository ? `[${short}](${repository}/commit/${sha})` : short;
+/**
+ * The pull request comment presets: `table`, the install table with its notes (the default), and
+ * `compact`, one line. Each is a template, as is any text of your own.
+ */
+export const comments = {
+  table: [
+    "### 📦 Published on npm for testing",
+    "Built from {commit} on `{branch}`. These are temporary test versions, not a release; pending changesets are untouched.",
+    "",
+    "{table}",
+    "",
+    "<sub>Updated by shiplane on each run, same comment.</sub>",
+    "",
+  ].join("\n"),
+  compact: "📦 Test version of `{branch}` ({commit}): {install}\n",
+} as const;
+
+/** The install table, the pin line, the pnpm and yarn lines, and the changed units left out. */
+const installTable = (published: readonly BranchPublished[], others: readonly string[]) => {
   const [first] = published;
   const tags = published.map(({ name, tag }) => `${name}@${tag}`).join(" ");
   return [
-    BRANCH_COMMENT_MARKER,
-    "### 📦 Published on npm for testing",
-    `Built from ${commit} on \`${branch}\`. These are temporary test versions, not a release; pending changesets are untouched.`,
-    "",
     "| Package | Version | Install |",
     "| --- | --- | --- |",
     ...published.map(row),
@@ -134,9 +132,42 @@ export const branchComment = ({
     `yarn add ${tags}`,
     FENCE,
     "</details>",
-    "",
     ...notPublished(others),
-    "<sub>Updated by shiplane on each run, same comment.</sub>",
-    "",
   ].join("\n");
+};
+
+const PLACEHOLDER = /\{(branch|commit|table|install)\}/g;
+
+/**
+ * The comment a test version keeps on its pull request, one per pull request: the template with
+ * `{branch}`, `{commit}`, `{table}` and `{install}` filled in, always under the marker that finds
+ * it again.
+ */
+export const branchComment = ({
+  sha,
+  branch,
+  repository,
+  published,
+  others,
+  template = comments.table,
+}: {
+  sha: string;
+  branch: string;
+  /** The repository's web address, to link the commit; null names it plainly. */
+  repository: string | null;
+  published: readonly BranchPublished[];
+  /** The changed units that are not npm packages. */
+  others: readonly string[];
+  /** A preset from `comments`, or text of your own. */
+  template?: string;
+}) => {
+  const short = `\`${sha.slice(0, SHORT_SHA)}\``;
+  const values: Record<string, string> = {
+    branch,
+    commit: repository ? `[${short}](${repository}/commit/${sha})` : short,
+    table: installTable(published, others),
+    install: `\`npm i ${published.map(({ name, tag }) => `${name}@${tag}`).join(" ")}\``,
+  };
+  const body = template.replace(PLACEHOLDER, (_, key: string) => values[key] ?? "");
+  return `${BRANCH_COMMENT_MARKER}\n${body}`;
 };

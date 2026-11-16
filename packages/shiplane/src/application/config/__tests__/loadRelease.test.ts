@@ -266,6 +266,31 @@ describe("how tags are named", () => {
   });
 });
 
+describe("the test version's pull request comment", () => {
+  it("given a testComment in the config, when the release loads, then it is the comment's template", async () => {
+    const { root } = setUp({
+      "shiplane.config.ts": MODULE_CONFIG.replace(
+        "modules: [",
+        'testComment: "Try it: {install}",\n  modules: [',
+      ),
+    });
+
+    const release = await load(root);
+
+    expect(release.testComment).toBe("Try it: {install}");
+  });
+
+  it("given a testComment that is not text, when the release loads, then it says what it takes", async () => {
+    const { root } = setUp({
+      "shiplane.config.ts": MODULE_CONFIG.replace("modules: [", "testComment: 1,\n  modules: ["),
+    });
+
+    const release = await load(root);
+
+    expect(release.problems[0]?.message).toContain("testComment is a template");
+  });
+});
+
 describe("tags that would collide", () => {
   it("given a tag format without the name and two units, when the release loads, then it says their tags would collide", async () => {
     const { root } = setUp({

@@ -1,5 +1,6 @@
 import { flyServerHosting } from "@shiplane/fly";
 import { npmPackageRegistry } from "@shiplane/npm";
+import { comments } from "shiplane";
 import { backendService, publishedPackage } from "shiplane/plugin";
 import {
   branchRelease,
@@ -106,7 +107,7 @@ describe("Feature: a branch release for testers", () => {
     expect(world.files.all).toEqual(before);
     expect(world.versioning.applied).toEqual([]);
     expect(world.source.received).toEqual([]);
-    expect(world.output.text).toContain("api  not part of a branch release");
+    expect(world.output.text).toContain("api  not part of a test release");
     expect(world.output.text).toContain("@acme/kit  0.5.2-feat-x.ae08284  npm i @acme/kit@feat-x");
     expect(await branchComments(world)).toEqual([
       expect.stringContaining(
@@ -190,7 +191,7 @@ describe("Feature: a branch release for testers", () => {
     expect(world.prompter.choices["You're on feat/x, not main."]).toEqual([
       {
         value: "publish",
-        label: "Publish a branch release",
+        label: "Publish a test release",
         hint: "0.5.2-feat-x.ae08284 → npm tag feat-x",
       },
       {
@@ -201,7 +202,7 @@ describe("Feature: a branch release for testers", () => {
     ]);
   });
 
-  it("given a branch with no pull request, when shiplane runs, then it asks for one and publishes nothing", async () => {
+  it("given a branch with no pull request, when shiplane runs, then it publishes, prints the install table and comments nowhere", async () => {
     // given
     const world = setUp({ pr: false });
 
@@ -209,10 +210,53 @@ describe("Feature: a branch release for testers", () => {
     const done = await branchRelease(world.context, { onDefault: "release" });
 
     // then
-    expect(done).toBe(false);
-    expect(world.output.text).toContain("open a pull request for feat/x first, or switch to main");
-    expect(world.output.text).toContain("git switch main");
-    expect(world.shell.calls).toEqual([]);
+    expect(done).toBe(true);
+    expect(world.published).toEqual([expect.stringContaining('"version": "0.5.2-feat-x.ae08284"')]);
+    expect(world.output.text).toContain("@acme/kit  0.5.2-feat-x.ae08284  npm i @acme/kit@feat-x");
+    expect(world.output.text).not.toContain("The install lines are on");
+    expect(world.host.received).not.toContainEqual(
+      expect.objectContaining({ type: "upsert-comment" }),
+    );
+  });
+
+  it("given a branch with no pull request in a terminal, when shiplane runs, then the person is still asked first", async () => {
+    // given
+    const world = setUp({ pr: false, yes: false });
+    world.prompter.answer("publish");
+
+    // when
+    const done = await branchRelease(world.context, { onDefault: "release" });
+
+    // then
+    expect(done).toBe(true);
+    expect(world.prompter.asked).toEqual(["You're on feat/x, not main."]);
+    expect(world.published).toHaveLength(1);
+  });
+
+  it("given a compact comment in the config, when the branch release is out, then the pull request gets one line under the marker", async () => {
+    // given
+    const world = setUp();
+    world.context.release.testComment = comments.compact;
+
+    // when
+    await branchRelease(world.context, { onDefault: "release" });
+
+    // then
+    expect(await branchComments(world)).toEqual([
+      `${MARKER}\n📦 Test version of \`feat/x\` ([\`ae08284\`](https://github.com/acme/repo/commit/ae08284f00d1)): \`npm i @acme/kit@feat-x\`\n`,
+    ]);
+  });
+
+  it("given a comment of its own in the config, when the branch release is out, then its placeholders are filled", async () => {
+    // given
+    const world = setUp();
+    world.context.release.testComment = "Try it: {install}";
+
+    // when
+    await branchRelease(world.context, { onDefault: "release" });
+
+    // then
+    expect(await branchComments(world)).toEqual([`${MARKER}\nTry it: \`npm i @acme/kit@feat-x\``]);
   });
 
   it("given a repository whose default branch is master, when shiplane runs on master, then the real release runs from it", async () => {
@@ -324,16 +368,42 @@ describe("Feature: a branch release for testers", () => {
     expect(world.shell.calls).toEqual([]);
   });
 
-  it("given the branch command on the default branch, when it runs, then it refuses: a branch release needs a branch", async () => {
+  it("given the branch command on the default branch, when it runs in a terminal, then it publishes what the next release ships at its next version, as a main test version, without asking", async () => {
+    // given
+    const world = setUp({ yes: false, pr: false });
+    world.source.seed({ position: { branch: "main", head: "c0ffee1d", originMain: "c0ffee1d" } });
+
+    // when
+    const done = await branchRelease(world.context, { onDefault: "publish" });
+
+    // then
+    expect(done).toBe(true);
+    expect(world.prompter.asked).toEqual([]);
+    expect(world.shell.calls).toContainEqual(
+      expect.objectContaining({ args: [...PUBLISH.slice(0, -1), "main"] }),
+    );
+    expect(world.published).toEqual([expect.stringContaining('"version": "0.6.0-main.c0ffee1"')]);
+    expect(world.output.text).toContain("api  not part of a test release");
+    expect(world.output.text).toContain("@acme/kit  0.6.0-main.c0ffee1  npm i @acme/kit@main");
+    expect(world.versioning.applied).toEqual([]);
+    expect(world.source.received).toEqual([]);
+    expect(world.host.received).not.toContainEqual(
+      expect.objectContaining({ type: "upsert-comment" }),
+    );
+  });
+
+  it("given the branch command on the default branch with no pending change, when it runs, then it says so and publishes nothing", async () => {
     // given
     const world = setUp();
+    world.versioning.seed({ pending: [], plan: planFrom([], {}) });
     world.source.seed({ position: { branch: "main", head: "c0ffee1", originMain: "c0ffee1" } });
 
     // when
-    const done = await branchRelease(world.context, { onDefault: "refuse" });
+    const done = await branchRelease(world.context, { onDefault: "publish" });
 
     // then
-    expect(done).toBe(false);
+    expect(done).toBe(true);
+    expect(world.output.text).toContain("the next release ships no change");
     expect(world.shell.calls).toEqual([]);
   });
 });

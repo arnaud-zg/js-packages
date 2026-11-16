@@ -7,10 +7,9 @@ import {
   branchSlug,
   branchTag,
   branchVersion,
+  comments,
   repositoryOfPr,
 } from "../branchRelease";
-
-const PR = { number: 42, url: "https://github.com/acme/repo/pull/42" };
 
 describe("a branch's name, as a version and an npm tag read it", () => {
   it("given slashes, capitals and underscores, when slugged, then each run of them is one dash", () => {
@@ -68,29 +67,32 @@ describe("a branch release's npm dist-tag", () => {
 });
 
 describe("what running on a branch does", () => {
-  it("given the default branch, when deciding, then it is the normal release", () => {
-    expect(branchChoice({ onDefault: true, pr: null, yes: false, interactive: true })).toBe(
-      "release",
-    );
+  const choice = (
+    overrides: Partial<Parameters<typeof branchChoice>[0]> = {},
+  ): ReturnType<typeof branchChoice> =>
+    branchChoice({
+      onDefaultBranch: false,
+      onDefault: "release",
+      yes: false,
+      interactive: true,
+      ...overrides,
+    });
+
+  it("given plain shiplane on the default branch, when deciding, then it is the normal release", () => {
+    expect(choice({ onDefaultBranch: true })).toBe("release");
   });
 
-  it("given a branch with no open pull request, when deciding, then nothing is published", () => {
-    expect(branchChoice({ onDefault: false, pr: null, yes: true, interactive: true })).toBe(
-      "no-pr",
-    );
+  it("given shiplane branch on the default branch, when deciding, then it publishes a test version without asking", () => {
+    expect(choice({ onDefaultBranch: true, onDefault: "publish" })).toBe("publish");
   });
 
-  it("given a branch with an open pull request in a terminal, when deciding, then the person is asked", () => {
-    expect(branchChoice({ onDefault: false, pr: PR, yes: false, interactive: true })).toBe("ask");
+  it("given a branch in a terminal, when deciding, then the person is asked", () => {
+    expect(choice()).toBe("ask");
   });
 
   it("given --yes or no terminal, when deciding, then it publishes without asking", () => {
-    expect(branchChoice({ onDefault: false, pr: PR, yes: true, interactive: true })).toBe(
-      "publish",
-    );
-    expect(branchChoice({ onDefault: false, pr: PR, yes: false, interactive: false })).toBe(
-      "publish",
-    );
+    expect(choice({ yes: true })).toBe("publish");
+    expect(choice({ interactive: false })).toBe("publish");
   });
 });
 
@@ -159,6 +161,22 @@ describe("the pull request comment of a branch release", () => {
   it("given the comment, when written, then it ends by saying each run edits it", () => {
     expect(comment().trimEnd().split("\n").at(-1)).toBe(
       "<sub>Updated by shiplane on each run, same comment.</sub>",
+    );
+  });
+
+  it("given the table preset, when written, then it is the default comment", () => {
+    expect(comment({ template: comments.table })).toBe(comment());
+  });
+
+  it("given the compact preset, when written, then it is one line under the marker", () => {
+    expect(comment({ template: comments.compact, published: [KIT] })).toBe(
+      `${BRANCH_COMMENT_MARKER}\n📦 Test version of \`feat/x\` ([\`ae08284\`](https://github.com/acme/repo/commit/ae08284f00d1)): \`npm i @acme/kit@feat-x\`\n`,
+    );
+  });
+
+  it("given text of its own, when written, then its placeholders are filled and the marker is still on top", () => {
+    expect(comment({ template: "Try it: {install}" })).toBe(
+      `${BRANCH_COMMENT_MARKER}\nTry it: \`npm i @acme/kit@feat-x @acme/ui@feat-x\``,
     );
   });
 });

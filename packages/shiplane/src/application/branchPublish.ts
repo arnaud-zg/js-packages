@@ -59,19 +59,39 @@ const branchChanges = async ({ services }: ReleaseContext, here: Here) => {
 const touches = (files: readonly string[], { dir }: ReleaseUnit) =>
   dir === "." || dir === "" ? files.length > 0 : files.some((file) => file.startsWith(`${dir}/`));
 
-/** The units this branch changed, at branch versions: npm packages publish, the rest wait. */
-export const planBranch = async (context: ReleaseContext, here: Here): Promise<BranchPlan> => {
+/**
+ * The units this test version covers, each with the version its test version builds on. On a
+ * branch: what it changed since it left the default branch, at its current version. On the default
+ * branch, where that diff is empty: what the next release ships, at the version it will take.
+ */
+const changedUnits = async (
+  context: ReleaseContext,
+  here: Here,
+): Promise<{ unit: ReleaseUnit; base: string }[]> => {
+  const { units } = context.release;
+  if (here.branch === here.defaultBranch) {
+    const { releases } = await context.services.versioning.plan([], []);
+    return units.flatMap((unit) => {
+      const next = releases.find(({ name }) => name === unit.packageName);
+      return next ? [{ unit, base: next.newVersion }] : [];
+    });
+  }
   const files = await branchChanges(context, here);
-  const changed = context.release.units.filter((unit) => touches(files, unit));
+  return units.filter((unit) => touches(files, unit)).map((unit) => ({ unit, base: unit.version }));
+};
+
+/** The units this test version covers, at test versions: npm packages publish, the rest wait. */
+export const planBranch = async (context: ReleaseContext, here: Here): Promise<BranchPlan> => {
+  const changed = await changedUnits(context, here);
   return {
     tag: branchTag(branchSlug(here.branch)),
     publish: changed
-      .filter((unit) => isRegistry(context, unit))
-      .map((unit) => ({
+      .filter(({ unit }) => isRegistry(context, unit))
+      .map(({ unit, base }) => ({
         unit,
-        version: branchVersion({ current: unit.version, branch: here.branch, sha: here.head }),
+        version: branchVersion({ current: base, branch: here.branch, sha: here.head }),
       })),
-    others: changed.filter((unit) => !isRegistry(context, unit)).map((unit) => unit.name),
+    others: changed.filter(({ unit }) => !isRegistry(context, unit)).map(({ unit }) => unit.name),
   };
 };
 
@@ -174,43 +194,46 @@ const printPublished = ({ output, progress }: ReleaseContext, published: BranchP
   rows.forEach((row) => output.line(`  ${row}`));
 };
 
-/** The pull request's comment, edited each run; a failure is said, never undoes the publish. */
-const commentOn = (
-  { services, output }: ReleaseContext,
+/**
+ * The pull request's comment, from the config's template, edited each run; none without a pull
+ * request. A failure is said, never undoes the publish.
+ */
+const commentOn = async (
+  { services, output, release }: ReleaseContext,
   {
     pr,
     here,
     published,
     others,
-  }: { pr: OpenPr; here: Here; published: BranchPublished[]; others: readonly string[] },
-) =>
-  services.codeHost
-    .upsertComment({
-      on: pr,
-      marker: BRANCH_COMMENT_MARKER,
-      body: branchComment({
-        sha: here.head,
-        branch: here.branch,
-        repository: repositoryOfPr(pr.url),
-        published,
-        others,
-      }),
-    })
+  }: { pr: OpenPr | null; here: Here; published: BranchPublished[]; others: readonly string[] },
+) => {
+  if (!pr) return;
+  const body = branchComment({
+    sha: here.head,
+    branch: here.branch,
+    repository: repositoryOfPr(pr.url),
+    published,
+    others,
+    ...(release.testComment === undefined ? {} : { template: release.testComment }),
+  });
+  await services.codeHost
+    .upsertComment({ on: pr, marker: BRANCH_COMMENT_MARKER, body })
     .then(() => output.line(paint("dim", `  The install lines are on #${pr.number} too.`)))
     .catch((error: unknown) =>
       output.line(
         `  ${paint("yellow", "!")} could not comment on #${pr.number}: ${reasonOf(error)}`,
       ),
     );
+};
 
-/** A branch release ready to go: where it runs, its pull request and what it publishes. */
+/** A test version ready to go: where it runs, its pull request if any, and what it publishes. */
 export interface BranchRun {
   here: Here;
-  pr: OpenPr;
+  pr: OpenPr | null;
   plan: BranchPlan;
 }
 
-/** Publishes the branch release, prints its install lines and keeps them on the pull request. */
+/** Publishes the test version, prints its install lines and keeps them on the pull request, if any. */
 export const publishBranch = async (context: ReleaseContext, run: BranchRun) => {
   const publishing = run.plan.publish.flatMap((candidate) =>
     publishingOf(context, { candidate, here: run.here, tag: run.plan.tag }),
