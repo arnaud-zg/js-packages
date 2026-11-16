@@ -49,9 +49,29 @@ It fills a flow port, so unit files take no key from it. Its factory takes:
 | Option    | Default                                    | Means                                                                |
 | --------- | ------------------------------------------ | -------------------------------------------------------------------- |
 | `version` | `["pnpm", "exec", "changeset", "version"]` | The command that versions the release                                |
+| `line`    | unset: changesets' own line                | A template for each change, such as `lines.whatsChanged`             |
 | `thanks`  | unset: changesets thanks on each line      | A template that thanks contributors once, such as `presets.sentence` |
 
 Source: `ChangesetsOptions` in `src/changesets-versioning.adapter.ts`.
+
+## 📝 Shape each change
+
+`line` writes each change of a release the way you want, such as GitHub's "What's Changed":
+
+```ts
+import { changesetsVersioning, lines } from "@shiplane/changesets";
+
+changesetsVersioning({ line: lines.whatsChanged });
+```
+
+| `line`               | One change becomes                                          |
+| -------------------- | ----------------------------------------------------------- |
+| `lines.whatsChanged` | `* Exit 1 on a bad config by @octocat in https://…/pull/62` |
+| `lines.compact`      | `- Exit 1 on a bad config (https://…/pull/62)`              |
+| `"- {summary} {pr}"` | your own: `{summary}`, `{authors}` (`@a and @b`) and `{pr}` |
+
+It needs `@changesets/changelog-github`. A change with no pull request keeps the line changesets
+wrote. Source: `src/thanks.ts`.
 
 ## 🙏 Thank contributors
 
@@ -84,7 +104,7 @@ Put your text before `{changes}` to thank people first. Without `{changes}`, the
 changes. Leave `thanks` out to keep changesets' own `Thanks @x!` on each line. It reads the thanks
 `@changesets/changelog-github` writes, only in the section a release just wrote, and
 `commitsVersioning()` takes it too. Every preset rendered on a real release:
-[How-to](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to.md#thank-contributors-in-release-notes).
+[How-to](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to.md#shape-release-notes).
 Source: `src/thanks.ts`.
 
 ## 🔁 Release from commits

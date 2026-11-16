@@ -20,8 +20,7 @@
 **Hosts:** [Publish a package to npm](#publish-a-package-to-npm) ·
 [Release Claude Code plugins](#release-claude-code-plugins) ·
 [Choose how versions are bumped](#choose-how-versions-are-bumped) ·
-[Release from commits](#release-from-commits) ·
-[Thank contributors in release notes](#thank-contributors-in-release-notes) ·
+[Release from commits](#release-from-commits) · [Shape release notes](#shape-release-notes) ·
 [Ship a host with no plugin](#ship-a-host-with-no-plugin) · [Swap a provider](#swap-a-provider) ·
 [Write a plugin](#write-a-plugin) · [Comment on what shipped](#comment-on-what-shipped) ·
 [Set up the sign-ins](#set-up-the-sign-ins)
@@ -379,7 +378,45 @@ subject counts: a `BREAKING CHANGE:` footer is not read. A pending changeset nam
 over from its commits. `.changeset/config.json` and `@changesets/cli` stay, as changesets still does
 the versioning, and shiplane's own messages keep saying `changesets`.
 
-## Thank contributors in release notes
+## Shape release notes
+
+Two options shape the section a release writes in each CHANGELOG.md, and so its GitHub release:
+`line` for each change, `thanks` for the people. Both take a preset or your own text, and
+`commitsVersioning()` takes them too. Both read what `@changesets/changelog-github` writes, so they
+need it in `.changeset/config.json`.
+
+```ts
+import { changesetsVersioning, lines, presets } from "@shiplane/changesets";
+
+versioning: changesetsVersioning({ line: lines.whatsChanged, thanks: presets.none }),
+```
+
+This repository's own release notes then read like GitHub's "What's Changed":
+
+> ### Patch Changes
+>
+> - Exit 1 on a bad config by @octocat in https://github.com/arnaud-zg/js-packages/pull/62
+>
+> **Full Changelog**:
+> https://github.com/arnaud-zg/js-packages/compare/shiplane@1.24.0...shiplane@1.24.1
+
+The `**Full Changelog**` link goes in the GitHub release only, whatever the options, when the
+package has a tag before this one.
+
+### Each change: `line`
+
+| `line`                                   | One change becomes                                                         |
+| ---------------------------------------- | -------------------------------------------------------------------------- |
+| unset                                    | `- [#62](…) [`a1b2c3d`](…) Thanks [@octocat](…)! - Exit 1 on a bad config` |
+| `lines.whatsChanged`                     | `* Exit 1 on a bad config by @octocat in https://github.com/…/pull/62`     |
+| `lines.compact`                          | `- Exit 1 on a bad config (https://github.com/…/pull/62)`                  |
+| `"- {summary}, thanks {authors} ({pr})"` | `- Exit 1 on a bad config, thanks @octocat (https://github.com/…/pull/62)` |
+
+`{summary}` is the change as written, `{authors}` `@a and @b`, `{pr}` the pull request's URL, which
+GitHub shows as `#62`. A change with no pull request, such as a direct push, keeps the line
+changesets wrote. With `commitsVersioning()`, a subject ending in `(#62)` names its pull request.
+
+### The people: `thanks`
 
 With `@changesets/changelog-github`, every line says `Thanks @someone!`. To thank everyone once,
 give the versioning adapter a template. The quickest is a preset:
@@ -439,8 +476,7 @@ A template is one string. `{changes}` is the release's changes; `{contributors}`
 
 It rewrites the changelog section the release just wrote, so the release PR shows the result before
 it ships, and the tag's release notes match. `commitsVersioning()` takes the same option. Every
-option is listed in
-[`@shiplane/changesets`](../../packages/shiplane-changesets/README.md#-thank-contributors).
+option is listed in [`@shiplane/changesets`](../../packages/shiplane-changesets/README.md#-options).
 
 ## Ship a host with no plugin
 

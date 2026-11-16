@@ -28,7 +28,8 @@ export interface CodeHostPort {
   openInBrowser: (pr: OpenPr) => Promise<void>;
   /** Tags that already have release notes. */
   releasedTags: () => Promise<Set<string>>;
-  createRelease: (tag: string, notes: string, latest: boolean) => Promise<void>;
+  /** Publishes a tag's notes; with the tag before it, they end on a link comparing the two. */
+  createRelease: (tag: string, notes: string, latest: boolean, previous?: string) => Promise<void>;
   /** Every deploy recorded for a tag, by a workflow or by this machine. */
   deployments: () => Promise<Deploy[]>;
   recordDeployment: (ref: string, environment: Environment) => Promise<void>;

@@ -1,7 +1,7 @@
 import type { ReleaseTag, TagCandidate } from "../domain/tags";
 import type { ReleaseContext } from "./context";
 import type { Step } from "./steps";
-import { changelogSection, firstRelease, releaseTags } from "../domain/tags";
+import { changelogSection, firstRelease, previousTag, releaseTags } from "../domain/tags";
 import { MANIFEST, namedUnits } from "./readScope";
 import { confirm, paint } from "./say";
 import { runSteps } from "./steps";
@@ -82,6 +82,12 @@ export const tagRelease = async (context: ReleaseContext, tags: readonly Release
             tag.tag,
             await notesFor(context, tag),
             tag.app === release.units[0]?.name,
+            previousTag({
+              tags: await services.sourceControl.tags(),
+              unit: tag.app,
+              version: tag.version,
+              format: release.tagFormat,
+            }) ?? undefined,
           ),
       })),
   ];

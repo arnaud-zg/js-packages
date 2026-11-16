@@ -31,6 +31,7 @@ const RepoMergeSchema = z.object({
   }),
 });
 const ReleaseListSchema = z.array(z.object({ tagName: z.string() }));
+const RepoSchema = z.object({ url: z.string() });
 const DeploymentsSchema = z.object({
   data: z.object({
     repository: z.object({
@@ -175,7 +176,10 @@ export const githubHost = (root: string, shell: Shell): CodeHostPort => {
           await json(["release", "list", "--limit", "200", "--json", "tagName"]),
         ).map(({ tagName }) => tagName),
       ),
-    createRelease: async (tag, notes, latest) => {
+    createRelease: async (tag, notes, latest, previous) => {
+      const compare = previous
+        ? `\n\n**Full Changelog**: ${RepoSchema.parse(await json(["repo", "view", "--json", "url"])).url}/compare/${previous}...${tag}`
+        : "";
       await must([
         "release",
         "create",
@@ -184,7 +188,7 @@ export const githubHost = (root: string, shell: Shell): CodeHostPort => {
         "--title",
         tag,
         "--notes",
-        notes,
+        `${notes}${compare}`,
         ...(latest ? [] : ["--latest=false"]),
       ]);
     },

@@ -32,7 +32,7 @@ export type HostEvent =
     }
   | { type: "merge"; pr: OpenPr; method: MergeMethod }
   | { type: "close"; pr: OpenPr; comment: string }
-  | { type: "release"; tag: string; notes: string; latest: boolean }
+  | { type: "release"; tag: string; notes: string; latest: boolean; previous?: string }
   | { type: "record"; ref: string; environment: Environment }
   | { type: "comment"; issue: string; body: string }
   | { type: "upsert-comment"; issue: string; body: string; edited: boolean };
@@ -139,9 +139,9 @@ export class CodeHostFake implements CodeHostPort {
     return this;
   }
 
-  createRelease = (tag: string, notes: string, latest: boolean) => {
+  createRelease = (tag: string, notes: string, latest: boolean, previous?: string) => {
     if (this.releaseError) return Promise.reject(this.releaseError);
-    this.received.push({ type: "release", tag, notes, latest });
+    this.received.push({ type: "release", tag, notes, latest, ...(previous ? { previous } : {}) });
     this.state.releasedTags.push(tag);
     return Promise.resolve();
   };

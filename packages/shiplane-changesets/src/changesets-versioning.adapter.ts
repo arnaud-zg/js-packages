@@ -11,11 +11,17 @@ import type {
 import { expandPatterns, workspacePatterns, z } from "shiplane/plugin";
 
 import { changesetText } from "./changeset-text";
-import { placeThanks } from "./thanks";
+import { placeNotes } from "./thanks";
 
 export interface ChangesetsOptions {
   /** What versions the repository: `changeset version` by default. */
   version?: string[];
+  /**
+   * A template for each change's line, such as `lines.whatsChanged` or `"- {summary} ({pr})"`, with
+   * `{summary}`, `{authors}` and `{pr}`. Needs @changesets/changelog-github: unset, or for a change
+   * with no pull request, the line stays as changesets wrote it.
+   */
+  line?: string;
   /**
    * A template for the release's section that thanks its contributors once, such as
    * `presets.sentence` or `"{changes}\n\nThanks {contributors}!"`. Unset keeps changesets' own
@@ -107,17 +113,17 @@ const changesetsFiles = (
     return () => originals.forEach((text, id) => fs.writeFileSync(fileOf(id), text));
   };
 
-  /** The changelogs as they are; the returned function thanks contributors in those that changed. */
-  const thankContributors = () => {
-    const { thanks } = options;
-    if (thanks === undefined) return () => undefined;
+  /** The changelogs as they are; the returned function shapes the notes in those that changed. */
+  const shapeNotes = () => {
+    const { line, thanks } = options;
+    if (line === undefined && thanks === undefined) return () => undefined;
     const files = workspacePackages().map(({ folder }) => path.join(root, folder, "CHANGELOG.md"));
     const read = (file: string) => (fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "");
     const before = new Map(files.map((file) => [file, read(file)]));
     return () =>
       before.forEach((text, file) => {
         const now = read(file);
-        if (now && now !== text) fs.writeFileSync(file, placeThanks(now, thanks));
+        if (now && now !== text) fs.writeFileSync(file, placeNotes(now, { line, thanks }));
       });
   };
 
@@ -170,13 +176,13 @@ const changesetsFiles = (
         const token = shell.env("GITHUB_TOKEN")
           ? undefined
           : (await shell.capture("gh", ["auth", "token"])).stdout.trim();
-        const thank = thankContributors();
+        const shape = shapeNotes();
         const status = await shell.attach(command, args, {
           cwd: root,
           ...(token ? { env: { GITHUB_TOKEN: token } } : {}),
         });
         if (status !== 0) throw new Error(`${command} ${args.join(" ")} exited with ${status}`);
-        thank();
+        shape();
       } catch (error) {
         // Versioning consumes what it caps; had it failed, the undo goes back to main with these.
         uncap();

@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import type { ChangesetsOptions } from "../changesets-versioning.adapter";
 import { changesetsVersioning } from "../changesets-versioning.adapter";
-import { presets } from "../thanks";
+import { lines, presets } from "../thanks";
 
 const PREVIOUS = `## 1.0.0
 
@@ -36,8 +36,12 @@ afterEach(() => fs.rmSync(root, { recursive: true, force: true }));
 const changelog = () => path.join(root, "packages/kit/CHANGELOG.md");
 
 /** A release whose `changeset version` writes `written` as the kit's changelog. */
-const release = async (thanks: ChangesetsOptions["thanks"], written = RELEASED) => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), "release-thanks-"));
+const release = async (
+  thanks: ChangesetsOptions["thanks"],
+  written = RELEASED,
+  line?: ChangesetsOptions["line"],
+) => {
+  root = fs.mkdtempSync(path.join(os.tmpdir(), "release-notes-"));
   fs.mkdirSync(path.join(root, ".changeset"));
   fs.mkdirSync(path.join(root, "packages/kit"), { recursive: true });
   fs.writeFileSync(path.join(root, "pnpm-workspace.yaml"), "packages:\n  - packages/*\n");
@@ -51,7 +55,7 @@ const release = async (thanks: ChangesetsOptions["thanks"], written = RELEASED) 
       return Promise.resolve(0);
     },
   };
-  await changesetsVersioning({ thanks }).create({ root, shell }).apply([], []);
+  await changesetsVersioning({ thanks, line }).create({ root, shell }).apply([], []);
   return fs.readFileSync(changelog(), "utf8");
 };
 
@@ -121,5 +125,65 @@ describe("thanking contributors in release notes", () => {
     const written = RELEASED.replace(/ Thanks [^!]+!/g, "");
 
     expect(await release(presets.sentence, written)).toBe(written);
+  });
+});
+
+describe("shaping each change's line in release notes", () => {
+  const shaped = (line: string, thanks?: string, written = RELEASED) =>
+    release(thanks, written, line).then(notes);
+
+  it("given the whatsChanged preset, when a release is versioned, then each line reads as GitHub's What's Changed", async () => {
+    expect(await shaped(lines.whatsChanged)).toBe(`### Minor Changes
+
+* Adds a thing. by @ada and @lin in https://github.com/acme/kit/pull/3
+
+### Patch Changes
+
+* Fixes a thing. by @ada in https://github.com/acme/kit/pull/4`);
+  });
+
+  it("given the compact preset, when a release is versioned, then each line ends on its pull request", async () => {
+    expect(await shaped(lines.compact)).toMatch(
+      /^- Fixes a thing\. \(https:\/\/github\.com\/acme\/kit\/pull\/4\)$/m,
+    );
+  });
+
+  it("given a free line, when a release is versioned, then its placeholders are filled", async () => {
+    expect(await shaped("- {summary}, thanks {authors} ({pr})")).toMatch(
+      /^- Fixes a thing\., thanks @ada \(https:\/\/github\.com\/acme\/kit\/pull\/4\)$/m,
+    );
+  });
+
+  it("given a change with no pull request, when a release is versioned, then its line stays as changesets wrote it", async () => {
+    const direct =
+      "- [`def5678`](https://github.com/acme/kit/commit/def5678) Thanks [@ada](https://github.com/ada)! - Fixes a thing.";
+    const written = RELEASED.replace(/^- \[#4\].*$/m, direct);
+
+    const text = await shaped(lines.whatsChanged, undefined, written);
+
+    expect(text).toContain(direct);
+    expect(text).toContain(
+      "* Adds a thing. by @ada and @lin in https://github.com/acme/kit/pull/3",
+    );
+  });
+
+  it("given a line and the sentence preset, when a release is versioned, then each line is shaped and everyone is thanked once below", async () => {
+    expect(await shaped(lines.whatsChanged, presets.sentence)).toMatch(
+      /in https:\/\/github\.com\/acme\/kit\/pull\/4\n\n🙏 Thanks to \[@ada\]\(https:\/\/github\.com\/ada\) and \[@lin\]\(https:\/\/github\.com\/lin\) for this release!$/,
+    );
+  });
+
+  it("given a line and the none preset, when a release is versioned, then a line left as written loses its inline thanks", async () => {
+    const written = RELEASED.replace(/\[#4\]\([^)]+\) /, "");
+
+    expect(await shaped(lines.whatsChanged, presets.none, written)).toContain(
+      "- [`def5678`](https://github.com/acme/kit/commit/def5678) - Fixes a thing.",
+    );
+  });
+
+  it("given the plain changesets changelog, when a release is versioned, then its lines stay as they were", async () => {
+    const written = RELEASED.replace(/^- .* - /gm, "- ");
+
+    expect(await release(undefined, written, lines.whatsChanged)).toBe(written);
   });
 });

@@ -77,6 +77,27 @@ describe("tagging what a release versioned", () => {
     expect(host.received).toEqual([expect.objectContaining({ tag: "api@0.0.2", latest: true })]);
   });
 
+  it("given api was released before, when its notes are published, then they name the tag before, for a link comparing the two", async () => {
+    const { context, source, host, prompter } = setUp();
+    source.seed({ tags: { "expo@0.2.0": "r1", "api@0.0.1": "r0" } });
+    prompter.answer(true);
+
+    await tagRelease(context, await missingTags(context));
+
+    expect(host.received).toEqual([
+      expect.objectContaining({ tag: "api@0.0.2", previous: "api@0.0.1" }),
+    ]);
+  });
+
+  it("given a first release, when its notes are published, then no tag before is named", async () => {
+    const { context, host, prompter } = setUp();
+    prompter.answer(true);
+
+    await tagRelease(context, await missingTags(context));
+
+    expect(host.received[0]).not.toHaveProperty("previous");
+  });
+
   it("given a version that did not come with a release PR, when tags are looked for, then it is not tagged", async () => {
     const { context, source } = setUp();
     source.seed({
