@@ -65,7 +65,7 @@ export type Config = z.infer<typeof ConfigSchema>;
 const CONFIG_FILE = "agent-context-budget.config.json";
 const LEGACY_CONFIG_FILE = "context-budget.config.json";
 
-/** The config file a default load reads: the new name, or the legacy one when it is the only file. */
+// The legacy name is read only while it is the sole config file, so a rename never loses settings.
 export function defaultConfigPath(): string {
   return !existsSync(CONFIG_FILE) && existsSync(LEGACY_CONFIG_FILE)
     ? LEGACY_CONFIG_FILE
@@ -81,11 +81,7 @@ function warnAboutLegacyConfigFile(): void {
   );
 }
 
-/**
- * Loads config overrides from a JSON file (defaulting to ./agent-context-budget.config.json, then
- * the deprecated ./context-budget.config.json), deep-merged over ConfigSchema's own per-field
- * defaults. With no file present, returns the defaults.
- */
+// Per-field schema defaults let a partial file override only the fields it names.
 export function loadConfig(configPath?: string): Config {
   if (configPath === undefined) warnAboutLegacyConfigFile();
   const resolvedPath = configPath ?? defaultConfigPath();
