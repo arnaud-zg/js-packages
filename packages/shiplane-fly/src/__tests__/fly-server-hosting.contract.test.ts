@@ -1,7 +1,25 @@
-import { serverHostingContract } from "shiplane/testing";
+import { platformEnvContract, RecordingShell, serverHostingContract } from "shiplane/testing";
 
 import { flyServerHosting } from "../fly-server-hosting.adapter";
 
-serverHostingContract([
-  { adapter: flyServerHosting(), settings: { app: { preview: "api-preview", production: "api" } } },
+const settings = { app: { preview: "api-preview", production: "api" } };
+
+serverHostingContract([{ adapter: flyServerHosting(), settings }]);
+
+platformEnvContract([
+  {
+    adapter: flyServerHosting(),
+    settings,
+    environment: "preview",
+    listing: {
+      shell: new RecordingShell().seed("flyctl secrets list -a api-preview --json", {
+        stdout: JSON.stringify([{ name: "SENTRY_DSN" }]),
+      }),
+      names: ["SENTRY_DSN"],
+    },
+    failing: new RecordingShell().seed("flyctl secrets list", {
+      status: 1,
+      stderr: "Error: no access token available\n",
+    }),
+  },
 ]);

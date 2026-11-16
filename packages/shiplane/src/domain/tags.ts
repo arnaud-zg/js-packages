@@ -1,3 +1,5 @@
+import { compareVersions } from "./versions";
+
 /** Tag formats a config can name instead of writing one out. */
 export const TAG_FORMATS = {
   /** `api@1.2.0`: one tag per unit, as changesets tags a monorepo. */
@@ -29,6 +31,27 @@ export const tagFormatNamed = (format: string): string =>
 /** A unit's tag for a version, through a format like `v{version}` or `{name}--v{version}`. */
 export const tagName = (app: string, version: string, format: string = DEFAULT_TAG_FORMAT) =>
   format.replaceAll("{name}", app).replaceAll("{version}", version);
+
+/** The tag a unit had before this version, by version order. Null for its first release. */
+export const previousTag = ({
+  tags,
+  unit,
+  version,
+  format = DEFAULT_TAG_FORMAT,
+}: {
+  tags: ReadonlySet<string>;
+  unit: string;
+  version: string;
+  format?: string;
+}) => {
+  const [before = "", after = ""] = tagName(unit, "\0", format).split("\0");
+  const [newest] = [...tags]
+    .filter((tag) => tag.startsWith(before) && tag.endsWith(after))
+    .map((tag) => tag.slice(before.length, tag.length - after.length))
+    .filter((candidate) => /^\d/.test(candidate) && compareVersions(candidate, version) < 0)
+    .sort((left, right) => compareVersions(right, left));
+  return newest === undefined ? null : tagName(unit, newest, format);
+};
 
 export interface TagCandidate {
   /** The unit's name. */

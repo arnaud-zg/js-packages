@@ -1,61 +1,31 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { PlannedChangeset, ServiceAdapter, Shell, VersioningPort } from "shiplane/plugin";
+import type { ServiceAdapter, Shell, VersioningPort } from "shiplane/plugin";
 import { isReleaseSubject, z } from "shiplane/plugin";
 
 import type { ChangesetsOptions } from "./changesets-versioning.adapter";
+import { changesetText } from "./changeset-text";
 import { changesetsVersioning } from "./changesets-versioning.adapter";
+import { changesetsFrom } from "./conventional";
 
-const BREAKING = /^\w+(\(.+?\))?!:/;
-const FEATURE = /^feat(\(.+?\))?:/;
-const USER_FACING = /^(feat|fix|perf)(\(.+?\))?:/;
 const UNIT_FILES = ["shiplane.unit.yml", "release.unit.yml"];
 
 const Manifest = z.object({ version: z.string() });
 const Config = z.object({ ignore: z.array(z.string()).optional() });
 
-/** The Conventional Commits bump: `!` a major (a minor below 1.0), `feat` a minor, else a patch. */
-const bumpOf = (subject: string, version: string): PlannedChangeset["releases"][number]["type"] => {
-  if (BREAKING.test(subject)) return version.startsWith("0.") ? "minor" : "major";
-  return FEATURE.test(subject) ? "minor" : "patch";
-};
-
-// Subjects are written as user value already: drop the type, scope and PR number.
-const asSentence = (subject: string) => {
-  const text = subject
-    .replace(/^\w+(\(.+?\))?!?:\s*/, "")
-    .replace(/\s*\(#\d+\)$/, "")
-    .trim();
-  const sentence = `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
-  return /[.!?]$/.test(sentence) ? sentence : `${sentence}.`;
-};
-
-/**
- * One changeset per feature, fix or breaking commit, or the latest commit when there are none: a
- * commit in a package changed what it ships, whatever its type says.
- */
-const changesetsFrom = (
-  name: string,
-  version: string,
-  subjects: readonly string[],
-): PlannedChangeset[] => {
-  const told = subjects.filter((subject) => USER_FACING.test(subject) || BREAKING.test(subject));
-  const slug = name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
-  return (told.length > 0 ? told : subjects.slice(0, 1)).map((subject, index) => ({
-    id: `commits-${slug}-${index + 1}`,
-    releases: [{ name, type: bumpOf(subject, version) }],
-    summary: asSentence(subject),
-  }));
-};
-
-const textOf = ({ releases, summary }: PlannedChangeset) =>
-  `---\n${releases.map(({ name, type }) => `"${name}": ${type}`).join("\n")}\n---\n\n${summary}\n`;
-
-const readJson = (file: string) =>
-  fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, "utf8")) as unknown) : {};
+const readJson = (file: string): unknown =>
+  fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : {};
 
 /** Changesets versioning fed by commits: what a person would write is written from the history. */
-const commitsFiles = (root: string, shell: Shell, options: ChangesetsOptions): VersioningPort => {
+const commitsFiles = ({
+  root,
+  shell,
+  options,
+}: {
+  root: string;
+  shell: Shell;
+  options: ChangesetsOptions;
+}): VersioningPort => {
   const files = changesetsVersioning(options).create({ root, shell });
   const git = async (args: string[]) => {
     const { status, stdout } = await shell.capture("git", args, { cwd: root });
@@ -103,7 +73,7 @@ const commitsFiles = (root: string, shell: Shell, options: ChangesetsOptions): V
         const manifest = Manifest.safeParse(readJson(path.join(root, folder, "package.json")));
         if (!manifest.success) return [];
         const { version } = manifest.data;
-        return changesetsFrom(name, version, await subjectsSince(folder, version));
+        return changesetsFrom({ name, version, subjects: await subjectsSince(folder, version) });
       }),
     );
     return found.flat();
@@ -116,7 +86,7 @@ const commitsFiles = (root: string, shell: Shell, options: ChangesetsOptions): V
       ...(await files.pending()),
       ...(await fromCommits()).map((changeset) => ({
         id: changeset.id,
-        text: textOf(changeset),
+        text: changesetText(changeset),
       })),
     ],
     plan: async (added, held, ceiling) =>
@@ -141,5 +111,5 @@ export type CommitsVersioningAdapter = ServiceAdapter<VersioningPort>;
  */
 export const commitsVersioning = (options: ChangesetsOptions = {}): CommitsVersioningAdapter => ({
   name: "commits",
-  create: ({ root, shell }) => commitsFiles(root, shell, options),
+  create: ({ root, shell }) => commitsFiles({ root, shell, options }),
 });

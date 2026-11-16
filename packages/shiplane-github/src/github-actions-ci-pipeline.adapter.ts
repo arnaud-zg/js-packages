@@ -1,7 +1,7 @@
 import type { CiPipelinePort, Deploy, ServiceAdapter, Shell } from "shiplane/plugin";
 import { actionsMinutes, billedMinutes, z } from "shiplane/plugin";
 
-import { ghCli } from "./gh-cli";
+import { GH_REQUIREMENT, ghCli } from "./gh-cli";
 
 const RunsSchema = z.array(
   z.object({ displayTitle: z.string(), status: z.string(), conclusion: z.string().nullish() }),
@@ -15,9 +15,17 @@ const JobsSchema = z.array(
   z.object({ startedAt: z.string().nullable(), completedAt: z.string().nullable() }),
 );
 
+type Run = z.infer<typeof RunsSchema>[number];
+
+/** A workflow run as a deploy record: still going, succeeded, or anything else. */
+const runState = ({ status, conclusion }: Pick<Run, "status" | "conclusion">): Deploy["state"] => {
+  if (status !== "completed") return "running";
+  return conclusion === "success" ? "done" : "none";
+};
+
 /** Workflow runs, dispatches and the Actions minutes budget through the gh CLI. */
 const githubActions = (root: string, shell: Shell, shipWorkflow: string): CiPipelinePort => {
-  const { must, json } = ghCli(root, shell);
+  const { must, json } = ghCli({ root, shell });
   const runs = async (workflow: string): Promise<Deploy[]> => {
     // A workflow not on the default branch yet has no runs, which gh reports as an error.
     const listed = await json([
@@ -30,9 +38,9 @@ const githubActions = (root: string, shell: Shell, shipWorkflow: string): CiPipe
       "--json",
       "displayTitle,status,conclusion",
     ]).catch(() => []);
-    return RunsSchema.parse(listed).map(({ displayTitle, status, conclusion }) => ({
-      title: displayTitle,
-      state: status !== "completed" ? "running" : conclusion === "success" ? "done" : "none",
+    return RunsSchema.parse(listed).map((run) => ({
+      title: run.displayTitle,
+      state: runState(run),
     }));
   };
 
@@ -109,12 +117,6 @@ export const gitHubActionsCiPipeline = ({
   shipWorkflow = "ship.yml",
 }: { shipWorkflow?: string } = {}): GitHubActionsCiPipelineAdapter => ({
   name: "github-actions",
-  requirements: () => [
-    {
-      label: "gh",
-      check: { command: "gh", args: ["auth", "status"] },
-      fix: { command: "gh", args: ["auth", "login"] },
-    },
-  ],
+  requirements: () => [GH_REQUIREMENT],
   create: ({ root, shell }) => githubActions(root, shell, shipWorkflow),
 });

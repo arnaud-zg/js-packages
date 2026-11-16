@@ -1,15 +1,13 @@
 import fs from "node:fs";
-import { createRequire } from "node:module";
 import path from "node:path";
 import type { ConsumerRepository } from "shiplane/testing";
 import { consumerRepository } from "shiplane/testing";
 
+import { PLUGINS, resolved } from "./aliases";
+
 export const REPOSITORY_ROOT = path.resolve(import.meta.dirname, "../../..");
 
-const PLUGINS = ["git", "github", "changesets", "fly", "cloudflare-pages", "eas", "npm"];
-
-const resolve = createRequire(import.meta.url).resolve;
-const folderOf = (name: string) => path.dirname(resolve(`${name}/package.json`));
+const folderOf = (name: string) => path.dirname(resolved(`${name}/package.json`));
 
 /** Every plugin, linked as `pnpm add` installs it, and the changesets CLI the versioning runs. */
 const INSTALLED: Record<string, string> = {

@@ -1,27 +1,5 @@
 import type { Environment, IssueRef, LinkedPr } from "shiplane/plugin";
-import {
-  compareVersions,
-  DEFAULT_TAG_FORMAT,
-  isReleaseSubject,
-  issueName,
-  tagName,
-} from "shiplane/plugin";
-
-/** The tag a unit had before this version, by version order. Null for its first release. */
-export const previousTag = (
-  tags: ReadonlySet<string>,
-  unit: string,
-  version: string,
-  format: string = DEFAULT_TAG_FORMAT,
-) => {
-  const [before = "", after = ""] = tagName(unit, "\0", format).split("\0");
-  const [newest] = [...tags]
-    .filter((tag) => tag.startsWith(before) && tag.endsWith(after))
-    .map((tag) => tag.slice(before.length, tag.length - after.length))
-    .filter((candidate) => /^\d/.test(candidate) && compareVersions(candidate, version) < 0)
-    .sort((left, right) => compareVersions(right, left));
-  return newest === undefined ? null : tagName(unit, newest, format);
-};
+import { isReleaseSubject, issueName } from "shiplane/plugin";
 
 /** The pull requests squash-merged as these subjects (`... (#1912)`), release PRs aside. */
 export const pullRequestNumbers = (subjects: readonly string[]): number[] => [

@@ -28,9 +28,13 @@ describe("talking to GitHub under its rate limits", () => {
     const { shell, calls } = replying(LIMITED, LIMITED, OK);
     const waits: number[] = [];
 
-    const result = await ghCli("/repo", shell, (ms) => {
-      waits.push(ms);
-      return Promise.resolve();
+    const result = await ghCli({
+      root: "/repo",
+      shell,
+      wait: (ms) => {
+        waits.push(ms);
+        return Promise.resolve();
+      },
     }).json(["api", "graphql"]);
 
     expect(result).toEqual({ ok: true });
@@ -42,7 +46,7 @@ describe("talking to GitHub under its rate limits", () => {
     const { shell } = replying(LIMITED, LIMITED, LIMITED, LIMITED, LIMITED);
 
     await expect(
-      ghCli("/repo", shell, () => Promise.resolve()).must(["api", "graphql"]),
+      ghCli({ root: "/repo", shell, wait: () => Promise.resolve() }).must(["api", "graphql"]),
     ).rejects.toThrow("rate limit");
   });
 
@@ -50,7 +54,7 @@ describe("talking to GitHub under its rate limits", () => {
     const { shell, calls } = replying({ status: 1, stdout: "", stderr: "HTTP 404: Not Found" });
 
     await expect(
-      ghCli("/repo", shell, () => Promise.resolve()).must(["pr", "view"]),
+      ghCli({ root: "/repo", shell, wait: () => Promise.resolve() }).must(["pr", "view"]),
     ).rejects.toThrow("404");
     expect(calls).toHaveLength(1);
   });

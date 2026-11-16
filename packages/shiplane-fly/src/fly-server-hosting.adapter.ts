@@ -6,7 +6,14 @@ import type {
   PlatformEnvPort,
   ServerHostingPort,
 } from "shiplane/plugin";
-import { defineServerHosting, isEnvVarName, perEnv, z } from "shiplane/plugin";
+import {
+  defineServerHosting,
+  firstLine,
+  isEnvVarName,
+  parseJson,
+  perEnv,
+  z,
+} from "shiplane/plugin";
 
 const FlyOptions = z.object({
   app: perEnv(z.string()).describe("The Fly app, per environment"),
@@ -33,14 +40,9 @@ const FlySecrets = z.array(
 );
 
 // flyctl may print a notice before its JSON: read from the first line that opens an array.
-const jsonArrayIn = (output: string): unknown => {
+const jsonArrayIn = (output: string) => {
   const start = output.search(/^\s*\[/m);
-  if (start === -1) return undefined;
-  try {
-    return JSON.parse(output.slice(start, output.lastIndexOf("]") + 1));
-  } catch {
-    return undefined;
-  }
+  return start === -1 ? "" : output.slice(start, output.lastIndexOf("]") + 1);
 };
 
 /** Keys of a fly.toml's `[env]` block: variables Fly sets next to its secrets. */
@@ -65,11 +67,10 @@ const flyEnv = ({ root, shell }: AdapterContext): PlatformEnvPort => ({
     const args = ["secrets", "list", "-a", app, "--json"];
     const result = await shell.capture("flyctl", args);
     if (result.status !== 0) {
-      const reason =
-        result.stderr.split("\n").find((line) => line.trim()) ?? `exit ${result.status}`;
-      throw new Error(`flyctl secrets list -a ${app}: ${reason.trim()}`);
+      const reason = firstLine(result.stderr) ?? `exit ${result.status}`;
+      throw new Error(`flyctl secrets list -a ${app}: ${reason}`);
     }
-    const listed = FlySecrets.safeParse(jsonArrayIn(result.stdout));
+    const listed = parseJson({ text: jsonArrayIn(result.stdout), schema: FlySecrets });
     if (!listed.success) {
       throw new Error(`flyctl secrets list -a ${app}: no secrets list in its output`);
     }

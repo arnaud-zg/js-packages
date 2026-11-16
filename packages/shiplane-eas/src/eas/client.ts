@@ -1,7 +1,9 @@
-import type { Environment, Shell } from "shiplane/plugin";
+import path from "node:path";
+import type { DecideContext, Environment, ReleaseUnit, Shell } from "shiplane/plugin";
 import { z } from "shiplane/plugin";
 
-import type { FailedBuild, Platform, RunningBuild, ShippedBuild, Submission } from "./policy";
+import type { FailedBuild, Platform, RunningBuild, ShippedBuild, Submission } from "./decide";
+import { easCommand } from "./command";
 
 // eas-cli prints notices around its JSON: keep the outermost JSON value only.
 const parseEasJson = (output: string): unknown => {
@@ -92,21 +94,36 @@ const failureReason = (stderr: string): string => {
   return lines.find((line) => line.startsWith("Error:")) ?? lines.at(-1) ?? "";
 };
 
+/** One platform's builds on one environment's channel. */
+interface OnChannel {
+  platform: Platform;
+  environment: Environment;
+}
+
+/** One update group on one environment's channel. */
+interface UpdateGroup {
+  group: string;
+  environment: Environment;
+}
+
 /** The eas CLI, run in the app's folder with its environment as APP_VARIANT. */
-export const easClient = (shell: Shell, cwd: string) => {
-  const eas = async (args: string[], environment: Environment): Promise<unknown> => {
+export const easClient = ({ shell, cwd }: { shell: Shell; cwd: string }) => {
+  const eas = async ({
+    args,
+    environment,
+  }: {
+    args: string[];
+    environment: Environment;
+  }): Promise<unknown> => {
     const command = args[0] ?? "";
     const flags = WITHOUT_NON_INTERACTIVE_FLAG.has(command)
       ? ["--json"]
       : ["--json", "--non-interactive"];
-    const { status, stdout, stderr } = await shell.capture(
-      "pnpm",
-      ["exec", "eas", ...args, ...flags],
-      {
-        cwd,
-        env: { APP_VARIANT: environment },
-      },
-    );
+    const run = easCommand({ cwd, environment, args: [...args, ...flags] });
+    const { status, stdout, stderr } = await shell.capture(run.command, run.args, {
+      cwd: run.cwd,
+      env: run.env,
+    });
     if (status !== 0) {
       throw new Error(`eas ${command} exited with ${status}: ${failureReason(stderr)}`);
     }
@@ -115,29 +132,30 @@ export const easClient = (shell: Shell, cwd: string) => {
 
   // Read once per client: the channel and a retry look at the same list.
   const lists = new Map<string, Promise<z.infer<typeof EasBuildSchema>[]>>();
-  const storeBuilds = (platform: Platform, environment: Environment) => {
+  const storeBuilds = ({ platform, environment }: OnChannel) => {
     const key = `${platform} ${environment}`;
     const list =
       lists.get(key) ??
-      eas(["build:list", "--platform", platform, "--limit", "30"], environment).then((output) =>
-        z
-          .array(EasBuildSchema)
-          .parse(output)
-          .filter((build) => build.buildProfile === environment && !build.isForIosSimulator),
+      eas({ args: ["build:list", "--platform", platform, "--limit", "30"], environment }).then(
+        (output) =>
+          z
+            .array(EasBuildSchema)
+            .parse(output)
+            .filter((build) => build.buildProfile === environment && !build.isForIosSimulator),
       );
     lists.set(key, list);
     return list;
   };
 
   return {
-    localFingerprint: async (platform: Platform, environment: Environment) =>
+    localFingerprint: async ({ platform, environment }: OnChannel) =>
       FingerprintSchema.parse(
-        await eas(["fingerprint:generate", "--platform", platform], environment),
+        await eas({ args: ["fingerprint:generate", "--platform", platform], environment }),
       ).hash,
 
     // The simulator profile shares the preview channel: only the channel's own store profile counts.
-    channelBuilds: async (platform: Platform, environment: Environment) => {
-      const builds = await storeBuilds(platform, environment);
+    channelBuilds: async (channel: OnChannel) => {
+      const builds = await storeBuilds(channel);
       const finished = builds.find((build) => build.status === "FINISHED");
       const running = builds.find((build) => RUNNING.has(build.status));
       return {
@@ -150,10 +168,8 @@ export const easClient = (shell: Shell, cwd: string) => {
      * One version's newest finished and running store builds, and its newest errored or canceled
      * one when no finished build came after it.
      */
-    versionBuilds: async (platform: Platform, environment: Environment, version: string) => {
-      const builds = (await storeBuilds(platform, environment)).filter(
-        (build) => build.appVersion === version,
-      );
+    versionBuilds: async ({ version, ...channel }: OnChannel & { version: string }) => {
+      const builds = (await storeBuilds(channel)).filter((build) => build.appVersion === version);
       const finished = builds.findIndex((build) => build.status === "FINISHED");
       const failed = builds.findIndex((build) => FAILED.has(build.status));
       const running = builds.find((build) => RUNNING.has(build.status));
@@ -174,10 +190,13 @@ export const easClient = (shell: Shell, cwd: string) => {
     },
 
     /** The platform's recent submissions, newest first; null when eas-cli's answer cannot be read. */
-    submissions: async (platform: Platform, environment: Environment) => {
+    submissions: async ({ platform, environment }: OnChannel) => {
       try {
         const list = SubmissionListSchema.parse(
-          await eas(["submit:list", "--platform", platform, "--limit", "10"], environment),
+          await eas({
+            args: ["submit:list", "--platform", platform, "--limit", "10"],
+            environment,
+          }),
         );
         return list.flatMap((entry): Submission[] => {
           const parsed = SubmissionSchema.safeParse(entry);
@@ -198,10 +217,16 @@ export const easClient = (shell: Shell, cwd: string) => {
     },
 
     // What differs between the last build's native layer and this commit's, for a "native changed".
-    nativeChanges: async (buildId: string, environment: Environment): Promise<string[]> => {
+    nativeChanges: async ({
+      buildId,
+      environment,
+    }: {
+      buildId: string;
+      environment: Environment;
+    }): Promise<string[]> => {
       const { fingerprint1, fingerprint2 } = z
         .object({ fingerprint1: FingerprintSchema, fingerprint2: FingerprintSchema })
-        .parse(await eas(["fingerprint:compare", "--build-id", buildId], environment));
+        .parse(await eas({ args: ["fingerprint:compare", "--build-id", buildId], environment }));
       type Source = z.infer<typeof SourceSchema>;
       const key = (source: Source) => `${source.type}:${source.filePath ?? source.id ?? ""}`;
       const label = (source: Source) =>
@@ -223,22 +248,30 @@ export const easClient = (shell: Shell, cwd: string) => {
       environment: Environment,
     ): Promise<{ group: string; rolloutPercentage: number } | null> => {
       const { currentPage } = UpdateListSchema.parse(
-        await eas(["update:list", "--branch", environment, "--limit", "1"], environment),
+        await eas({ args: ["update:list", "--branch", environment, "--limit", "1"], environment }),
       );
       const [last] = currentPage;
       return last ? { group: last.group, rolloutPercentage: last.rolloutPercentage ?? 100 } : null;
     },
 
     /** Each platform's launches of an update group over the last 7 days, and the failed ones. */
-    updateLaunches: async (group: string, environment: Environment) =>
-      UpdateInsightsSchema.parse(await eas(["update:insights", group], environment)).platforms.map(
-        ({ platform, totals }) => ({ platform, ...totals }),
-      ),
+    updateLaunches: async ({ group, environment }: UpdateGroup) =>
+      UpdateInsightsSchema.parse(
+        await eas({ args: ["update:insights", group], environment }),
+      ).platforms.map(({ platform, totals }) => ({ platform, ...totals })),
 
     /** The commit an update group was made from, and when it was published. */
-    updateOrigin: async (group: string, environment: Environment) => {
-      const [first] = UpdateViewSchema.parse(await eas(["update:view", group], environment));
+    updateOrigin: async ({ group, environment }: UpdateGroup) => {
+      const [first] = UpdateViewSchema.parse(
+        await eas({ args: ["update:view", group], environment }),
+      );
       return { commit: first?.gitCommitHash ?? null, createdAt: first?.createdAt ?? null };
     },
   };
 };
+
+export type EasClient = ReturnType<typeof easClient>;
+
+/** The eas CLI for one app, in its folder. */
+export const clientFor = ({ context, unit }: { context: DecideContext; unit: ReleaseUnit }) =>
+  easClient({ shell: context.shell, cwd: path.join(context.root, unit.dir) });

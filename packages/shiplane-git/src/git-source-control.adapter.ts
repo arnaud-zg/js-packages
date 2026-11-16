@@ -1,6 +1,5 @@
-import { setTimeout as sleep } from "node:timers/promises";
-import type { ServiceAdapter, Shell, ShellResult, SourceControlPort } from "shiplane/plugin";
-import { CommandFailed } from "shiplane/plugin";
+import type { ServiceAdapter, Shell, SourceControlPort } from "shiplane/plugin";
+import { commandFailed, mustCapture, retrying } from "shiplane/plugin";
 
 export interface GitOptions {
   /** The branch releases start from. */
@@ -19,33 +18,26 @@ const DROPPED =
 // pre-push checks would redo minutes of work with the connection open, until GitHub drops it.
 const PUSH = ["push", "--no-verify", "--quiet"];
 
-const gitSource = (root: string, shell: Shell, options: GitOptions): SourceControlPort => {
+const gitSource = ({
+  root,
+  shell,
+  options,
+}: {
+  root: string;
+  shell: Shell;
+  options: GitOptions;
+}): SourceControlPort => {
   const main = options.main ?? "main";
-  const retryDelays = options.retryDelays ?? [2_000, 10_000];
   const run = (args: string[]) => shell.capture("git", args, { cwd: root });
-  const failed = (args: string[], { status, stdout, stderr }: ShellResult) => {
-    const reason = stderr.trim().split("\n")[0] ?? "";
-    return new CommandFailed(
-      `git ${args[0] ?? ""} exited with ${status}${reason ? `: ${reason}` : ""}`,
-      [stderr, stdout]
-        .map((text) => text.trim())
-        .filter(Boolean)
-        .join("\n"),
-    );
-  };
-  const must = async (args: string[]) => {
-    const result = await run(args);
-    if (result.status !== 0) throw failed(args, result);
-    return result.stdout.trim();
-  };
+  const must = async (args: string[]) =>
+    (await mustCapture({ shell, command: "git", args, cwd: root })).trim();
   const network = async (args: string[]) => {
-    let result = await run(args);
-    for (const delay of retryDelays) {
-      if (result.status === 0 || !DROPPED.test(result.stderr)) break;
-      await sleep(delay);
-      result = await run(args);
-    }
-    if (result.status !== 0) throw failed(args, result);
+    const result = await retrying({
+      run: () => run(args),
+      retryable: ({ status, stderr }) => status !== 0 && DROPPED.test(stderr),
+      delays: options.retryDelays ?? [2_000, 10_000],
+    });
+    if (result.status !== 0) throw commandFailed({ label: `git ${args[0] ?? ""}`, result });
   };
   const maybe = async (args: string[]) => {
     const result = await run(args);
@@ -171,5 +163,5 @@ export type GitSourceControlAdapter = ServiceAdapter<SourceControlPort>;
 export const gitSourceControl = (options: GitOptions = {}): GitSourceControlAdapter => ({
   name: "git",
   requirements: () => [{ label: "git", check: { command: "git", args: ["--version"] } }],
-  create: ({ root, shell }) => gitSource(root, shell, options),
+  create: ({ root, shell }) => gitSource({ root, shell, options }),
 });

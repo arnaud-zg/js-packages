@@ -10,6 +10,7 @@ import type {
 } from "shiplane/plugin";
 import { expandPatterns, workspacePatterns, z } from "shiplane/plugin";
 
+import { changesetText } from "./changeset-text";
 import { placeThanks } from "./thanks";
 
 export interface ChangesetsOptions {
@@ -72,11 +73,8 @@ const changesetsFiles = (
 ): VersioningPort => {
   const dir = path.join(root, ".changeset");
   const fileOf = (id: string) => path.join(dir, `${id}.md`);
-  const write = ({ id, releases, summary }: PlannedChangeset) =>
-    fs.writeFileSync(
-      fileOf(id),
-      `---\n${releases.map(({ name, type }) => `"${name}": ${type}`).join("\n")}\n---\n\n${summary}\n`,
-    );
+  const write = (changeset: PlannedChangeset) =>
+    fs.writeFileSync(fileOf(changeset.id), changesetText(changeset));
   const workspacePackages = () =>
     expandPatterns(root, workspacePatterns(root)).flatMap((folder) => {
       const file = path.join(root, folder, "package.json");

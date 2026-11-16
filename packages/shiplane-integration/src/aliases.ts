@@ -1,8 +1,10 @@
 import { createRequire } from "node:module";
 
-const PLUGINS = ["git", "github", "changesets", "fly", "cloudflare-pages", "eas", "npm"];
+/** Every plugin this repository publishes, by its name under `@shiplane/`. */
+export const PLUGINS = ["git", "github", "changesets", "fly", "cloudflare-pages", "eas", "npm"];
 
-const resolved = createRequire(import.meta.url).resolve;
+/** Resolves a package as this workspace installed it. */
+export const resolved = createRequire(import.meta.url).resolve;
 
 /** What a config written by init imports, resolved to the built workspace packages. */
 export const PLUGIN_ALIASES: Record<string, string> = Object.fromEntries([

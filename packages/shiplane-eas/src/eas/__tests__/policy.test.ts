@@ -3,7 +3,7 @@ import { appBumps, onlyVersionFiles, yesAllowed } from "shiplane/plugin";
 import { SAMPLE_UNITS, SAMPLE_VERSION_FILES } from "shiplane/testing";
 import { describe, expect, it } from "vitest";
 
-import type { PlatformState, ShippedBuild } from "../policy";
+import type { PlatformState, ShippedBuild } from "../decide";
 import { updateHealth, why } from "../analyse";
 import {
   mobileRelease,
@@ -14,7 +14,7 @@ import {
   releaseChangesets,
   releasePlan,
   rolloutAdvice,
-} from "../policy";
+} from "../decide";
 
 // The four changesets that came with #1676, #1677, #1680 and #1681.
 const LAST_WEEK: StatusPlan = {
