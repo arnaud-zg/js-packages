@@ -71,6 +71,8 @@ export interface ReleaseModule {
   readonly settings: z.ZodObject;
   /** The adapters it was given. */
   readonly adapters: readonly Adapter<unknown>[];
+  /** The kind of delivery its adapter does, such as "package-registry". */
+  readonly capability?: string;
   /** Set when its own platform, not deploy records, knows what is live. */
   readonly decidedBy?: DecidedBy;
   /** Set when nothing deploys its apps: a release versions and tags them, nothing more. */

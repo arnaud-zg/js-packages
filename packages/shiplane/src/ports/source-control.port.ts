@@ -2,8 +2,10 @@ import type { GitPosition } from "../domain/governance";
 
 /** The repository's history, as a release reads and writes it. */
 export interface SourceControlPort {
-  /** After fetching main: the branch, its head and origin/main. */
+  /** After fetching the default branch: the branch, its head and the default branch on origin. */
   position: () => Promise<GitPosition>;
+  /** The branch releases start from: origin's default, else whichever of main or master exists. */
+  defaultBranch: () => Promise<string>;
   /** No tracked file changed. */
   isClean: () => Promise<boolean>;
   tagCommit: (tag: string) => Promise<string | null>;

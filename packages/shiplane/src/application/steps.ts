@@ -92,14 +92,14 @@ export const runSteps = async (context: ReleaseContext, steps: readonly Step[]) 
   return true;
 };
 
-/** A branch from main; undone by dropping the changes made on it and the branch itself. */
+/** A branch from the default one; undone by dropping the changes made on it and the branch itself. */
 export const branchStep = (
   { services: { sourceControl: source } }: ReleaseContext,
-  branch: string,
+  { branch, from }: { branch: string; from: string },
 ): Step => {
   let untracked = new Set<string>();
   return {
-    label: `branch ${branch} from main`,
+    label: `branch ${branch} from ${from}`,
     run: async () => {
       untracked = new Set(await source.changedFiles());
       await source.createBranch(branch);
@@ -109,10 +109,10 @@ export const branchStep = (
       run: async () => {
         const created = (await source.changedFiles()).filter((file) => !untracked.has(file));
         await source.discard(created);
-        await source.switchTo("main");
+        await source.switchTo(from);
         await source.deleteBranch(branch);
       },
-      byHand: () => ["git reset --hard", "git switch main", `git branch -D ${branch}`],
+      byHand: () => ["git reset --hard", `git switch ${from}`, `git branch -D ${branch}`],
     },
   };
 };

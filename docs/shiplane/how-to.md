@@ -13,6 +13,7 @@
 [Preview every command](#preview-every-command) · [Promote to production](#promote-to-production) ·
 [Widen a production rollout](#widen-a-production-rollout) ·
 [Retry a failed release](#retry-a-failed-release) ·
+[Publish a branch release for testers](#publish-a-branch-release-for-testers) ·
 [Choose GitHub Actions or this machine](#choose-github-actions-or-this-machine) ·
 [Ship with no laptop](#ship-with-no-laptop) · [Use it from a script](#use-it-from-a-script)
 
@@ -217,6 +218,33 @@ notes and PR comments already made are not made twice.
 
 With no terminal, or on CI, it refuses and says the retry is there in a terminal. Preview only, and
 never when main is behind the last preview build.
+
+## Publish a branch release for testers
+
+Push your branch and open its pull request, then, from the branch:
+
+```sh
+pnpm shiplane branch          # or pnpm shiplane, which asks first
+```
+
+```text
+◆  You're on feat/x, not main.
+│  ● Publish a branch release   0.6.0-feat-x.ae08284 → npm tag feat-x
+│  ○ Switch to main             git switch main && git pull, then the real release
+```
+
+Each npm package with a pending changeset is published as `<next>-<branch>.<sha>`, under an npm tag
+named after the branch (`branch-` in front when npm would read the name as a version, such as `v2`,
+and never `latest`). Testers install it with `npm i <package>@feat-x`. The same install lines go in
+one comment on the pull request, edited on each run.
+
+Nothing reaches git: the versions are written to `package.json` for the publish and put back after,
+even when it fails, and the changesets stay pending for the real release. Under `--yes` or in CI it
+publishes without asking.
+
+It refuses a branch with no open pull request, and uncommitted changes. Units that ship elsewhere
+than npm are listed as not part of a branch release. The default branch is read from git
+(`origin/HEAD`, else `main` or `master`); `gitSourceControl({ main })` sets it.
 
 ## Choose GitHub Actions or this machine
 

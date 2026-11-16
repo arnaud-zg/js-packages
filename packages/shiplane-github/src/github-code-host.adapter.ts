@@ -12,6 +12,7 @@ const OpenPrsSchema = z.array(
   }),
 );
 const PrSchema = z.object({ number: z.number(), url: z.string(), headRefOid: z.string() });
+const IssueCommentSchema = z.object({ id: z.number(), body: z.string() });
 const toOpenPr = ({ number, url, headRefOid }: z.infer<typeof PrSchema>) => ({
   number,
   url,
@@ -259,6 +260,44 @@ export const githubHost = (root: string, shell: Shell): CodeHostPort => {
         ({ issueOrPullRequest }) =>
           issueOrPullRequest?.comments.nodes.map(({ body }) => body) ?? [],
       );
+    },
+    prForBranch: async (branch) => {
+      const [pr] = z
+        .array(PrSchema)
+        .parse(
+          await json([
+            "pr",
+            "list",
+            "--head",
+            branch,
+            "--state",
+            "open",
+            "--limit",
+            "1",
+            "--json",
+            "number,url,headRefOid",
+          ]),
+        );
+      return pr ? toOpenPr(pr) : null;
+    },
+    upsertComment: async ({ on, marker, body }) => {
+      // One JSON object per line: --paginate joins pages, --jq keeps each comment parseable.
+      const listed = await must([
+        "api",
+        `repos/{owner}/{repo}/issues/${on.number}/comments`,
+        "--paginate",
+        "--jq",
+        ".[] | {id, body}",
+      ]);
+      const found = listed
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => IssueCommentSchema.parse(JSON.parse(line)))
+        .find((comment) => comment.body.includes(marker));
+      const [method, endpoint] = found
+        ? ["PATCH", `repos/{owner}/{repo}/issues/comments/${found.id}`]
+        : ["POST", `repos/{owner}/{repo}/issues/${on.number}/comments`];
+      await must(["api", "-X", method, endpoint, "-f", `body=${body}`]);
     },
     comment: async ({ repository, number }, body) => {
       const wait = lastPost + POST_GAP_MS - Date.now();

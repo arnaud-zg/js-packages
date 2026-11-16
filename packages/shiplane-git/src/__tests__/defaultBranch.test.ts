@@ -21,7 +21,20 @@ const origin = (branch: string) => {
   fs.mkdirSync(seed);
   git(["init", "--quiet", "--bare", `--initial-branch=${branch}`, bare], dir);
   git(["init", "--quiet", `--initial-branch=${branch}`], seed);
-  git(["-c", "user.name=t", "-c", "user.email=t@t", "commit", "--quiet", "--allow-empty", "-m", "chore: start"], seed);
+  git(
+    [
+      "-c",
+      "user.name=t",
+      "-c",
+      "user.email=t@t",
+      "commit",
+      "--quiet",
+      "--allow-empty",
+      "-m",
+      "chore: start",
+    ],
+    seed,
+  );
   git(["remote", "add", "origin", bare], seed);
   git(["push", "--quiet", "origin", branch], seed);
   return { dir, seed, bare };

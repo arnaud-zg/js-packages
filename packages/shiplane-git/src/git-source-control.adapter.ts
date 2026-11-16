@@ -2,7 +2,7 @@ import type { ServiceAdapter, Shell, SourceControlPort } from "shiplane/plugin";
 import { commandFailed, mustCapture, retrying } from "shiplane/plugin";
 
 export interface GitOptions {
-  /** The branch releases start from. */
+  /** The branch releases start from; origin's default branch, main or master, when absent. */
   main?: string;
   /** Run on the files of a commit before it is made, such as a formatter. */
   format?: string[];
@@ -27,7 +27,6 @@ const gitSource = ({
   shell: Shell;
   options: GitOptions;
 }): SourceControlPort => {
-  const main = options.main ?? "main";
   const run = (args: string[]) => shell.capture("git", args, { cwd: root });
   const must = async (args: string[]) =>
     (await mustCapture({ shell, command: "git", args, cwd: root })).trim();
@@ -44,10 +43,26 @@ const gitSource = ({
     return result.status === 0 ? result.stdout.trim() : null;
   };
   const lines = (text: string | null) => (text ?? "").split("\n").filter(Boolean);
+  const exists = async (ref: string) =>
+    (await maybe(["rev-parse", "--verify", "--quiet", ref])) !== null;
+  const detected = async () => {
+    // A clone knows origin's default; a repository made with `git init` and a remote may not.
+    const head = await maybe(["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"]);
+    if (head) return head.replace(/^origin\//, "");
+    for (const name of ["main", "master"]) {
+      if ((await exists(`refs/heads/${name}`)) || (await exists(`refs/remotes/origin/${name}`))) {
+        return name;
+      }
+    }
+    return "main";
+  };
+  const defaultBranch = async () => options.main ?? (await detected());
 
   return {
+    defaultBranch,
     position: async () => {
-      // Offline, the last fetched origin/main still says whether main moved.
+      const main = await defaultBranch();
+      // Offline, the last fetched origin/<default> still says whether it moved.
       await run(["fetch", "--quiet", "origin", main]);
       return {
         branch: await must(["rev-parse", "--abbrev-ref", "HEAD"]),

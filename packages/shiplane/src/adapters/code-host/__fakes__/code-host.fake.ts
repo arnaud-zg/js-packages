@@ -34,7 +34,14 @@ export type HostEvent =
   | { type: "close"; pr: OpenPr; comment: string }
   | { type: "release"; tag: string; notes: string; latest: boolean }
   | { type: "record"; ref: string; environment: Environment }
-  | { type: "comment"; issue: string; body: string };
+  | { type: "comment"; issue: string; body: string }
+  | { type: "upsert-comment"; issue: string; body: string; edited: boolean };
+
+/** A pull request in this repository as an issue, by the repository its URL names. */
+const issueOf = ({ url, number }: OpenPr): IssueRef => ({
+  repository: new URL(url).pathname.split("/").slice(1, 3).join("/"),
+  number,
+});
 
 /** A code host held in memory: seed its pull requests and deploys, read back what it received. */
 export class CodeHostFake implements CodeHostPort {
@@ -171,6 +178,21 @@ export class CodeHostFake implements CodeHostPort {
     if (this.commentError) return Promise.reject(this.commentError);
     this.received.push({ type: "comment", issue: issueName(on), body });
     this.state.comments[issueName(on)] = [...(this.state.comments[issueName(on)] ?? []), body];
+    return Promise.resolve();
+  };
+
+  prForBranch = (branch: string) =>
+    Promise.resolve(this.state.openPrs.find((open) => open.branch === branch)?.pr ?? null);
+
+  upsertComment = ({ on, marker, body }: { on: OpenPr; marker: string; body: string }) => {
+    if (this.commentError) return Promise.reject(this.commentError);
+    const issue = issueName(issueOf(on));
+    const bodies = this.state.comments[issue] ?? [];
+    const edited = bodies.some((text) => text.includes(marker));
+    this.received.push({ type: "upsert-comment", issue, body, edited });
+    this.state.comments[issue] = edited
+      ? bodies.map((text) => (text.includes(marker) ? body : text))
+      : [...bodies, body];
     return Promise.resolve();
   };
 }

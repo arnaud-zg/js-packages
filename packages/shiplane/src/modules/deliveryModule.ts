@@ -20,6 +20,7 @@ export const deliveryModule = <Port extends Delivery & { capability: string }>(
   provider: adapter.name,
   settings: adapter.settings,
   adapters: [adapter],
+  capability: adapter.capability,
   decidedBy: adapter.decidedBy,
   typicalMinutes: adapter.typicalMinutes,
   ...(adapter.env ? { env: adapter.env } : {}),

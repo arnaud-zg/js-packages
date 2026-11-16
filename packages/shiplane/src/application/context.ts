@@ -1,6 +1,7 @@
 import type { Open } from "../modules/module";
 import type { CiPipelinePort } from "../ports/ci-pipeline.port";
 import type { CodeHostPort } from "../ports/code-host.port";
+import type { Files } from "../ports/files.port";
 import type { Shell } from "../ports/shell.port";
 import type { SourceControlPort } from "../ports/source-control.port";
 import type { Clock, Output, Progress, Prompter } from "../ports/terminal.port";
@@ -22,6 +23,8 @@ export interface ReleaseContext {
   clock: Clock;
   /** Runs the jobs plugins return, when they run from this machine. */
   shell: Shell;
+  /** The repository's files, as a branch release writes and puts back its versions. */
+  files: Files;
   options: {
     /** Answers yes to every confirmation; production never accepts it. */
     yes: boolean;

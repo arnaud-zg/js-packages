@@ -22,16 +22,20 @@ export const buildRefusal = async ({
 }): Promise<Refusal | null> => {
   // A runner checked out at the tag builds exactly what the release named.
   const tagCommit = await context.sourceControl.tagCommit(input.tag);
-  const source = releaseSource("build", input.environment, analysis.git, { tagCommit });
+  const defaultBranch = await context.sourceControl.defaultBranch();
+  const source = releaseSource("build", input.environment, analysis.git, {
+    tagCommit,
+    defaultBranch,
+  });
   if (!source.allowed) {
     return source.why === "not-main"
       ? {
           title: `Not from ${analysis.git.branch}`,
-          detail: "a binary ships what it is built from, so builds start from main.",
-          commands: ["git switch main", "git pull", "shiplane ship"],
+          detail: `a binary ships what it is built from, so builds start from ${defaultBranch}.`,
+          commands: [`git switch ${defaultBranch}`, "git pull", "shiplane ship"],
         }
       : {
-          title: "main is behind origin",
+          title: `${defaultBranch} is behind origin`,
           detail: "pull it first, a release ships what is merged.",
           commands: ["git pull"],
         };

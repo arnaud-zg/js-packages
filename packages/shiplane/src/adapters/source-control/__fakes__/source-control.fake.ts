@@ -4,6 +4,8 @@ import type { SourceControlPort } from "../../../ports/source-control.port";
 
 interface SourceState {
   position: GitPosition;
+  /** The branch releases start from. */
+  defaultBranch: string;
   clean: boolean;
   /** Tag name → the commit it points at. */
   tags: Record<string, string>;
@@ -39,6 +41,7 @@ export type SourceEvent =
 export class SourceControlFake implements SourceControlPort {
   private state: SourceState = {
     position: { branch: "main", head: "head", originMain: "head" },
+    defaultBranch: "main",
     clean: true,
     tags: {},
     versionCommits: {},
@@ -71,6 +74,7 @@ export class SourceControlFake implements SourceControlPort {
   }
 
   position = () => Promise.resolve(this.state.position);
+  defaultBranch = () => Promise.resolve(this.state.defaultBranch);
   isClean = () => Promise.resolve(this.state.clean);
   tagCommit = (tag: string) => Promise.resolve(this.state.tags[tag] ?? null);
   versionCommit = (dir: string, _manifest: string, version: string) =>

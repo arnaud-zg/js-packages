@@ -96,9 +96,7 @@ describe("Feature: a branch release for testers", () => {
       cwd: "/repo/packages/kit",
       env: undefined,
     });
-    expect(world.published).toEqual([
-      expect.stringContaining('"version": "0.6.0-feat-x.ae08284"'),
-    ]);
+    expect(world.published).toEqual([expect.stringContaining('"version": "0.6.0-feat-x.ae08284"')]);
     expect(world.files.all).toEqual(before);
     expect(world.versioning.applied).toEqual([]);
     expect(world.source.received).toEqual([]);
@@ -179,7 +177,9 @@ describe("Feature: a branch release for testers", () => {
 
     // then
     expect(world.output.text).not.toContain("Not from main");
-    expect(world.host.received).toContainEqual(expect.objectContaining({ type: "pr", base: "master" }));
+    expect(world.host.received).toContainEqual(
+      expect.objectContaining({ type: "pr", base: "master" }),
+    );
     expect(world.source.received).toContainEqual({ type: "switch", branch: "master" });
   });
 

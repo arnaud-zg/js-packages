@@ -3,8 +3,10 @@ import type { ReleaseContext } from "../application/context";
 import type { Approval } from "../domain/releasePr";
 import type { ReleaseUnit } from "../domain/unit";
 import type { Feature, ReleaseModule } from "../modules/module";
+import type { Files } from "../ports/files.port";
 import { ciPipelineFake } from "../adapters/ci-pipeline/__fakes__/ci-pipeline.fake";
 import { codeHostFake } from "../adapters/code-host/__fakes__/code-host.fake";
+import { MemoryFiles } from "../adapters/files/__fakes__/memory-files.fake";
 import { RecordingShell } from "../adapters/shell/__fakes__/shell.fake";
 import { sourceControlFake } from "../adapters/source-control/__fakes__/source-control.fake";
 import { RecordingProgress } from "../adapters/terminal/__fakes__/progress.fake";
@@ -50,6 +52,7 @@ export const testContext = ({
   root = "/repo",
   tagFormat = DEFAULT_TAG_FORMAT,
   approval,
+  files = new MemoryFiles(),
 }: {
   units: ReleaseUnit[];
   modules?: ReleaseModule[];
@@ -61,6 +64,8 @@ export const testContext = ({
   tagFormat?: string;
   /** Whether someone else approves the release PR; the config default when absent. */
   approval?: Approval;
+  /** The repository's files; empty when absent. */
+  files?: Files;
 }) => {
   const sourceControl = sourceControlFake();
   const codeHost = codeHostFake();
@@ -96,6 +101,7 @@ export const testContext = ({
     progress,
     clock: new FixedClock(new Date("2026-10-12T09:00:00Z")),
     shell,
+    files,
     options: { yes, ci: false },
   };
   return {

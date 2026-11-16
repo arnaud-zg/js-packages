@@ -38,4 +38,8 @@ export interface CodeHostPort {
   comments: (on: readonly IssueRef[]) => Promise<string[][]>;
   /** Posts a comment on an issue or a pull request, paced so a burst stays under the host's limits. */
   comment: (on: IssueRef, body: string) => Promise<void>;
+  /** The open pull request whose head is this branch, or null when it has none. */
+  prForBranch: (branch: string) => Promise<OpenPr | null>;
+  /** Edits the pull request's comment holding `marker`, or posts `body` when none does. */
+  upsertComment: (comment: { on: OpenPr; marker: string; body: string }) => Promise<void>;
 }

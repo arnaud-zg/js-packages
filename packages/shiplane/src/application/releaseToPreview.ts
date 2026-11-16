@@ -185,9 +185,10 @@ export const releaseToPreview = async (context: ReleaseContext): Promise<boolean
     progress.say("happy", `${paint("green", "✓")} Release PR #${pr.number} merged`);
   }
   if (prs.length > 0) {
+    const from = await services.sourceControl.defaultBranch();
     const pulled = await runSteps(context, [
-      { label: "switch to main", run: () => services.sourceControl.switchTo("main") },
-      { label: "pull main", run: () => services.sourceControl.pull() },
+      { label: `switch to ${from}`, run: () => services.sourceControl.switchTo(from) },
+      { label: `pull ${from}`, run: () => services.sourceControl.pull() },
     ]);
     if (!pulled) return false;
     current = { ...context, release: await context.load() };
