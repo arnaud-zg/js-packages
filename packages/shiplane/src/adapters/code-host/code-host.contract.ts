@@ -98,6 +98,16 @@ export const codeHostContract = (name: string, subject: () => Promise<CodeHostSu
       expect(await port.releasedTags()).toContain(name);
     });
 
+    it("given release notes published with the tag before, when the released tags are read, then it is among them", async () => {
+      const { port, tag } = await subject();
+      const before = await tag();
+      const name = await tag();
+
+      await port.createRelease(name, "Published by the contract suite.", false, before);
+
+      expect(await port.releasedTags()).toContain(name);
+    });
+
     it("given a deploy recorded, when the deploys are read, then it is there and done", async () => {
       const { port, tag } = await subject();
       const name = await tag();

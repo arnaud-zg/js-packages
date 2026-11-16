@@ -12,14 +12,22 @@ export const bumpOf = ({ subject, version }: { subject: string; version: string 
   return FEATURE.test(subject) ? "minor" : "patch";
 };
 
-// Subjects are written as user value already: drop the type, scope and PR number.
-export const asSentence = (subject: string) => {
+// Subjects are written as user value already: drop the type, scope and PR number. Without its
+// period, a sentence a `line` template goes on after.
+export const asSentence = (subject: string, period = true) => {
   const text = subject
     .replace(/^\w+(\(.+?\))?!?:\s*/, "")
     .replace(/\s*\(#\d+\)$/, "")
     .trim();
   const sentence = `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
-  return /[.!?]$/.test(sentence) ? sentence : `${sentence}.`;
+  return !period || /[.!?]$/.test(sentence) ? sentence : `${sentence}.`;
+};
+
+/** The summary a `line` template shapes: no period, and `(#61)` kept as `pr: #61` for changelog-github. */
+const lineSummary = (subject: string) => {
+  const pr = /\(#(\d+)\)$/.exec(subject.trim())?.[1];
+  const sentence = asSentence(subject, false);
+  return pr ? `${sentence}\n\npr: #${pr}` : sentence;
 };
 
 /**
@@ -30,16 +38,19 @@ export const changesetsFrom = ({
   name,
   version,
   subjects,
+  line = false,
 }: {
   name: string;
   version: string;
   subjects: readonly string[];
+  /** A `line` template shapes the release notes. */
+  line?: boolean;
 }): PlannedChangeset[] => {
   const told = subjects.filter((subject) => USER_FACING.test(subject) || BREAKING.test(subject));
   const slug = name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "");
   return (told.length > 0 ? told : subjects.slice(0, 1)).map((subject, index) => ({
     id: `commits-${slug}-${index + 1}`,
     releases: [{ name, type: bumpOf({ subject, version }) }],
-    summary: asSentence(subject),
+    summary: line ? lineSummary(subject) : asSentence(subject),
   }));
 };

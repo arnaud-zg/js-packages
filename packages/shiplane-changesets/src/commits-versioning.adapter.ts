@@ -73,7 +73,12 @@ const commitsFiles = ({
         const manifest = Manifest.safeParse(readJson(path.join(root, folder, "package.json")));
         if (!manifest.success) return [];
         const { version } = manifest.data;
-        return changesetsFrom({ name, version, subjects: await subjectsSince(folder, version) });
+        return changesetsFrom({
+          name,
+          version,
+          subjects: await subjectsSince(folder, version),
+          line: options.line !== undefined,
+        });
       }),
     );
     return found.flat();

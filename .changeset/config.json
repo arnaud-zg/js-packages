@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/@changesets/config@3.0.0/schema.json",
-  "changelog": ["@changesets/changelog-github", { "repo": "arnaud-zg/packages" }],
+  "changelog": ["@changesets/changelog-github", { "repo": "arnaud-zg/js-packages" }],
   "commit": false,
   "fixed": [["shiplane", "@shiplane/*"]],
   "linked": [],
