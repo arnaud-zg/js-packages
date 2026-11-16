@@ -7,6 +7,7 @@ import {
   branchSlug,
   branchTag,
   branchVersion,
+  repositoryOfPr,
 } from "../branchRelease";
 
 const PR = { number: 42, url: "https://github.com/acme/repo/pull/42" };
@@ -94,21 +95,82 @@ describe("what running on a branch does", () => {
 });
 
 describe("the pull request comment of a branch release", () => {
-  it("given published packages, when written, then it opens with its marker and has one install line each", () => {
-    expect(
-      branchComment({
-        sha: "ae08284f00d",
-        published: [{ name: "@acme/kit", version: "0.6.0-feat-x.ae08284", tag: "feat-x" }],
-      }),
-    ).toBe(
-      [
-        BRANCH_COMMENT_MARKER,
-        "### Branch release for ae08284",
-        "| Package | Version | Install |",
-        "| --- | --- | --- |",
-        "| @acme/kit | 0.6.0-feat-x.ae08284 | `npm i @acme/kit@feat-x` |",
-        "",
-      ].join("\n"),
+  const KIT = {
+    name: "@acme/kit",
+    version: "0.5.2-feat-x.ae08284",
+    tag: "feat-x",
+    onNpmjs: true,
+  };
+  const UI = { ...KIT, name: "@acme/ui", version: "1.2.0-feat-x.ae08284" };
+  const comment = (overrides: Partial<Parameters<typeof branchComment>[0]> = {}) =>
+    branchComment({
+      sha: "ae08284f00d1",
+      branch: "feat/x",
+      repository: "https://github.com/acme/repo",
+      published: [KIT, UI],
+      others: ["api"],
+      ...overrides,
+    });
+
+  it("given published packages, when written, then it opens with its marker and says it is a test build of that commit", () => {
+    const lines = comment().split("\n");
+
+    expect(lines[0]).toBe(BRANCH_COMMENT_MARKER);
+    expect(lines[1]).toBe("### 📦 Published on npm for testing");
+    expect(lines[2]).toContain(
+      "Built from [`ae08284`](https://github.com/acme/repo/commit/ae08284f00d1) on `feat/x`.",
     );
+  });
+
+  it("given packages on the public npm registry, when written, then each row links its npm page and version", () => {
+    expect(comment()).toContain(
+      "| [@acme/kit](https://www.npmjs.com/package/@acme/kit) | [0.5.2-feat-x.ae08284](https://www.npmjs.com/package/@acme/kit/v/0.5.2-feat-x.ae08284) | `npm i @acme/kit@feat-x` |",
+    );
+  });
+
+  it("given a package published to another registry, when written, then its name and version are plain text", () => {
+    expect(comment({ published: [{ ...KIT, onNpmjs: false }] })).toContain(
+      "| @acme/kit | 0.5.2-feat-x.ae08284 | `npm i @acme/kit@feat-x` |",
+    );
+  });
+
+  it("given several packages, when written, then it pins the first one's exact version and adds every package for pnpm and yarn", () => {
+    const body = comment();
+
+    expect(body).toContain(
+      "`@feat-x` always points at this branch's latest publish. To stay on this exact build, install the version instead: `npm i @acme/kit@0.5.2-feat-x.ae08284`.",
+    );
+    expect(body).toContain("pnpm add @acme/kit@feat-x @acme/ui@feat-x");
+    expect(body).toContain("yarn add @acme/kit@feat-x @acme/ui@feat-x");
+  });
+
+  it("given a changed unit that is not an npm package, when written, then it is named as not published here", () => {
+    expect(comment()).toContain("Not published here: `api` (not an npm package).");
+  });
+
+  it("given every changed unit published, when written, then there is no not-published line", () => {
+    expect(comment({ others: [] })).not.toContain("Not published here");
+  });
+
+  it("given no repository address, when written, then the commit is named without a link", () => {
+    expect(comment({ repository: null })).toContain("Built from `ae08284` on `feat/x`.");
+  });
+
+  it("given the comment, when written, then it ends by saying each run edits it", () => {
+    expect(comment().trimEnd().split("\n").at(-1)).toBe(
+      "<sub>Updated by shiplane on each run, same comment.</sub>",
+    );
+  });
+});
+
+describe("a repository's address, from its pull request", () => {
+  it("given a GitHub pull request address, when read, then it is the repository's", () => {
+    expect(repositoryOfPr("https://github.com/acme/repo/pull/42")).toBe(
+      "https://github.com/acme/repo",
+    );
+  });
+
+  it("given an address that is not a pull request's, when read, then there is none", () => {
+    expect(repositoryOfPr("https://example.com/merge/42")).toBeNull();
   });
 });

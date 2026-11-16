@@ -109,8 +109,16 @@ describe("Feature: a branch release for testers", () => {
     expect(world.output.text).toContain("api  not part of a branch release");
     expect(world.output.text).toContain("@acme/kit  0.5.2-feat-x.ae08284  npm i @acme/kit@feat-x");
     expect(await branchComments(world)).toEqual([
-      expect.stringContaining("| @acme/kit | 0.5.2-feat-x.ae08284 | `npm i @acme/kit@feat-x` |"),
+      expect.stringContaining(
+        "| [@acme/kit](https://www.npmjs.com/package/@acme/kit) | [0.5.2-feat-x.ae08284](https://www.npmjs.com/package/@acme/kit/v/0.5.2-feat-x.ae08284) | `npm i @acme/kit@feat-x` |",
+      ),
     ]);
+    expect((await branchComments(world))[0]).toContain(
+      "Built from [`ae08284`](https://github.com/acme/repo/commit/ae08284f00d1) on `feat/x`.",
+    );
+    expect((await branchComments(world))[0]).toContain(
+      "Not published here: `api` (not an npm package).",
+    );
   });
 
   it("given a package published under another name, when its branch release is out, then testers are told to install that name", async () => {
@@ -126,8 +134,25 @@ describe("Feature: a branch release for testers", () => {
     expect(world.output.text).toContain("npm i @acme/kit-next@feat-x");
     expect(await branchComments(world)).toEqual([
       expect.stringContaining(
-        "| @acme/kit-next | 0.5.2-feat-x.ae08284 | `npm i @acme/kit-next@feat-x` |",
+        "| [@acme/kit-next](https://www.npmjs.com/package/@acme/kit-next) | [0.5.2-feat-x.ae08284](https://www.npmjs.com/package/@acme/kit-next/v/0.5.2-feat-x.ae08284) | `npm i @acme/kit-next@feat-x` |",
       ),
+    ]);
+  });
+
+  it("given a package that publishes to a private registry, when its branch release is out, then the comment names it without npmjs links", async () => {
+    // given
+    const world = setUp();
+    world.files.write(
+      "packages/kit/package.json",
+      '{\n  "name": "@acme/kit",\n  "version": "0.5.2",\n  "publishConfig": { "registry": "https://npm.acme.dev" }\n}\n',
+    );
+
+    // when
+    await branchRelease(world.context, { onDefault: "release" });
+
+    // then
+    expect(await branchComments(world)).toEqual([
+      expect.stringContaining("| @acme/kit | 0.5.2-feat-x.ae08284 | `npm i @acme/kit@feat-x` |"),
     ]);
   });
 
@@ -145,7 +170,9 @@ describe("Feature: a branch release for testers", () => {
 
     // then
     expect(await branchComments(world)).toEqual([
-      expect.stringContaining("Branch release for b1b2b3b"),
+      expect.stringContaining(
+        "Built from [`b1b2b3b`](https://github.com/acme/repo/commit/b1b2b3b4b5)",
+      ),
     ]);
   });
 
