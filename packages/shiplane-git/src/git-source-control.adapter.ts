@@ -100,6 +100,7 @@ const gitSource = ({
       ...lines(await maybe(["ls-files", "--others", "--exclude-standard"])),
     ],
     diffNames: async (from, to) => lines(await maybe(["diff", "--name-only", from, to])),
+    mergeBase: (a, b) => maybe(["merge-base", a, b]),
     fileAt: (ref, file) => maybe(["show", `${ref}:${file}`]),
     tags: async () => {
       // Offline, the tags fetched last still say what is tagged.

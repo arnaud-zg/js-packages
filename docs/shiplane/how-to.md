@@ -229,22 +229,25 @@ pnpm shiplane branch          # or pnpm shiplane, which asks first
 
 ```text
 ◆  You're on feat/x, not main.
-│  ● Publish a branch release   0.6.0-feat-x.ae08284 → npm tag feat-x
+│  ● Publish a branch release   0.5.2-feat-x.ae08284 → npm tag feat-x
 │  ○ Switch to main             git switch main && git pull, then the real release
 ```
 
-Each npm package with a pending changeset is published as `<next>-<branch>.<sha>`, under an npm tag
-named after the branch (`branch-` in front when npm would read the name as a version, such as `v2`,
-and never `latest`). Testers install it with `npm i <package>@feat-x`. The same install lines go in
-one comment on the pull request, edited on each run.
+Each npm package whose files the branch changed since it left the default branch is published as
+`<version>-<branch>.<sha>`, its `package.json` version first, under an npm tag named after the
+branch (`branch-` in front when npm would read the name as a version, such as `v2`, and never
+`latest`). Testers install it with `npm i <package>@feat-x`. The same install lines go in one
+comment on the pull request, edited on each run.
 
 Nothing reaches git: the versions are written to `package.json` for the publish and put back after,
-even when it fails, and the changesets stay pending for the real release. Under `--yes` or in CI it
-publishes without asking.
+even when it fails, and any pending changesets stay for the real release; none is needed. With
+nothing changed, it says `nothing changed since main`. Under `--yes` or in CI it publishes without
+asking.
 
-It refuses a branch with no open pull request, and uncommitted changes. Units that ship elsewhere
-than npm are listed as not part of a branch release. The default branch is read from git
-(`origin/HEAD`, else `main` or `master`); `gitSourceControl({ main })` sets it.
+It refuses a branch with no open pull request, and uncommitted changes. Changed units that ship
+elsewhere than npm are listed as not part of a branch release, and nothing deploys them. The default
+branch is read from git (`origin/HEAD`, else `main` or `master`); `gitSourceControl({ main })` sets
+it.
 
 ## Choose GitHub Actions or this machine
 

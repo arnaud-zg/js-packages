@@ -15,6 +15,8 @@ interface SourceState {
   files: Record<string, string>;
   /** `<from>..<to>` → the files that differ. */
   diffs: Record<string, string[]>;
+  /** `<a>...<b>` → the commit they share; unseeded, `a`, as a branch that left it and it never moved. */
+  mergeBases: Record<string, string>;
   /** `<from>..<to>` → the commits after `from` up to `to`, newest first. */
   commits: Record<string, { subject: string; files: string[] }[]>;
   changed: string[];
@@ -47,6 +49,7 @@ export class SourceControlFake implements SourceControlPort {
     versionCommits: {},
     files: {},
     diffs: {},
+    mergeBases: {},
     commits: {},
     changed: [],
     ignored: [],
@@ -82,6 +85,7 @@ export class SourceControlFake implements SourceControlPort {
   changedFiles = () => Promise.resolve(this.state.changed);
   diffNames = (from: string, to: string) =>
     Promise.resolve(this.state.diffs[`${from}..${to}`] ?? []);
+  mergeBase = (a: string, b: string) => Promise.resolve(this.state.mergeBases[`${a}...${b}`] ?? a);
   commitsBetween = (from: string, to: string) =>
     Promise.resolve(this.state.commits[`${from}..${to}`] ?? []);
   fileAt = (ref: string, file: string) =>

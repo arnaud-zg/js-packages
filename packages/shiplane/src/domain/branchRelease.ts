@@ -20,16 +20,16 @@ export const branchSlug = (branch: string) =>
 
 const identifier = (text: string) => (LEADING_ZERO_NUMBER.test(text) ? `g${text}` : text);
 
-/** `<next>-<slug>.<short sha>`: the version testers install, never one a release takes. */
+/** `<current>-<slug>.<short sha>`: the version testers install, never one a release takes. */
 export const branchVersion = ({
-  next,
+  current,
   branch,
   sha,
 }: {
-  next: string;
+  current: string;
   branch: string;
   sha: string;
-}) => `${next}-${identifier(branchSlug(branch))}.${identifier(sha.slice(0, SHORT_SHA))}`;
+}) => `${current}-${identifier(branchSlug(branch))}.${identifier(sha.slice(0, SHORT_SHA))}`;
 
 /** The npm dist-tag a branch publishes under: its slug, unless npm would refuse it or it is latest. */
 export const branchTag = (slug: string) =>

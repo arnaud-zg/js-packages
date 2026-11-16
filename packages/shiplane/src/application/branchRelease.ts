@@ -12,11 +12,11 @@ import { runSteps } from "./steps";
 export type OnDefault = "release" | "refuse";
 
 const whereHere = async ({ services }: ReleaseContext): Promise<Here> => {
-  const [{ branch, head }, defaultBranch] = await Promise.all([
+  const [{ branch, head, originMain }, defaultBranch] = await Promise.all([
     services.sourceControl.position(),
     services.sourceControl.defaultBranch(),
   ]);
-  return { branch, head, defaultBranch };
+  return { branch, head, defaultBranch, originMain };
 };
 
 const refuseOnDefault = (context: ReleaseContext, { defaultBranch }: Here) => {
@@ -53,11 +53,14 @@ const printOthers = ({ output }: ReleaseContext, others: readonly string[]) =>
     output.line(`  ${paint("dim", "–")} ${name}  ${paint("dim", "not part of a branch release")}`),
   );
 
-const nothingToPublish = ({ progress, services }: ReleaseContext, { others }: BranchPlan) => {
+const nothingToPublish = (
+  { progress }: ReleaseContext,
+  { here, plan }: { here: Here; plan: BranchPlan },
+) => {
   const why =
-    others.length > 0
-      ? "nothing to publish: no pending unit is an npm package"
-      : `nothing to release: add a change with ${paint("cyan", services.versioning.nextChange)}`;
+    plan.others.length > 0
+      ? "nothing to publish: no changed unit is an npm package"
+      : `nothing changed since ${here.defaultBranch}`;
   progress.say("resting", why);
   return true;
 };
@@ -105,7 +108,7 @@ const fromBranch = async (
   if (!(await context.services.sourceControl.isClean())) return refuseDirty(context);
   const plan = await planBranch(context, here);
   printOthers(context, plan.others);
-  if (plan.publish.length === 0) return nothingToPublish(context, plan);
+  if (plan.publish.length === 0) return nothingToPublish(context, { here, plan });
   const answer = ask ? await askHow(context, { here, plan }) : "publish";
   if (answer === "switch") return switchAndRelease(context, here);
   if (answer === null) {

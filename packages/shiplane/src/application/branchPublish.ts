@@ -14,9 +14,8 @@ import {
   branchVersion,
   installLine,
 } from "../domain/branchRelease";
-import { appBumps } from "../domain/changes";
 import { readManifest } from "./manifest";
-import { MANIFEST, unitRefs } from "./readScope";
+import { MANIFEST } from "./readScope";
 import { paint, reasonOf } from "./say";
 import { runSteps } from "./steps";
 import { decideContext, moduleOf, runHere, shipPlanOf, unitTarget } from "./targets";
@@ -26,6 +25,8 @@ export interface Here {
   branch: string;
   head: string;
   defaultBranch: string;
+  /** Where origin's default branch stands, fetched as the position was read. */
+  originMain: string;
 }
 
 /** One unit a branch release publishes, at its branch version. */
@@ -34,7 +35,7 @@ interface Candidate {
   version: string;
 }
 
-/** What a branch release publishes, under which npm tag, and the pending units it leaves out. */
+/** What a branch release publishes, under which npm tag, and the changed units it leaves out. */
 export interface BranchPlan {
   tag: string;
   publish: Candidate[];
@@ -46,27 +47,29 @@ const REGISTRY = "package-registry";
 const isRegistry = (context: ReleaseContext, unit: ReleaseUnit) =>
   moduleOf(context, unit)?.capability === REGISTRY;
 
-/** What the pending changesets would move, at branch versions: npm packages publish, the rest wait. */
+/** The files this branch changed: from where it left the default branch, not what main did since. */
+const branchChanges = async ({ services }: ReleaseContext, here: Here) => {
+  const { sourceControl } = services;
+  const base = (await sourceControl.mergeBase(here.originMain, here.head)) ?? here.originMain;
+  return sourceControl.diffNames(base, here.head);
+};
+
+const touches = (files: readonly string[], { dir }: ReleaseUnit) =>
+  dir === "." || dir === "" ? files.length > 0 : files.some((file) => file.startsWith(`${dir}/`));
+
+/** The units this branch changed, at branch versions: npm packages publish, the rest wait. */
 export const planBranch = async (context: ReleaseContext, here: Here): Promise<BranchPlan> => {
-  const { versioning } = context.services;
-  const [plan, dependencies] = await Promise.all([
-    versioning.plan([], []),
-    versioning.dependencies(),
-  ]);
-  const bumps = appBumps(plan, dependencies, unitRefs(context.release.units));
-  const moving = context.release.units.flatMap((unit) => {
-    const bump = bumps.find(({ app }) => app === unit.name);
-    return bump ? [{ unit, next: bump.to }] : [];
-  });
+  const files = await branchChanges(context, here);
+  const changed = context.release.units.filter((unit) => touches(files, unit));
   return {
     tag: branchTag(branchSlug(here.branch)),
-    publish: moving
-      .filter(({ unit }) => isRegistry(context, unit))
-      .map(({ unit, next }) => ({
+    publish: changed
+      .filter((unit) => isRegistry(context, unit))
+      .map((unit) => ({
         unit,
-        version: branchVersion({ next, branch: here.branch, sha: here.head }),
+        version: branchVersion({ current: unit.version, branch: here.branch, sha: here.head }),
       })),
-    others: moving.filter(({ unit }) => !isRegistry(context, unit)).map(({ unit }) => unit.name),
+    others: changed.filter((unit) => !isRegistry(context, unit)).map((unit) => unit.name),
   };
 };
 
