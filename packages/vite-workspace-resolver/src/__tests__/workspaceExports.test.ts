@@ -123,6 +123,16 @@ describe("workspaceExports", () => {
     expect(resolve("react")).toBeNull();
   });
 
+  it("given a package.json that is not valid JSON, when the workspace is scanned, then the error names that file", () => {
+    const pkgDir = join(root, "packages", "broken");
+    mkdirSync(pkgDir, { recursive: true });
+    writeFileSync(join(pkgDir, "package.json"), "{ not json");
+
+    expect(() => workspaceExports(root)).toThrow(
+      `Malformed package.json at ${join(pkgDir, "package.json")}`,
+    );
+  });
+
   it("given a relative or absolute specifier, when resolved, then it returns null", () => {
     expect(resolve("./local")).toBeNull();
     expect(resolve("/abs/path")).toBeNull();

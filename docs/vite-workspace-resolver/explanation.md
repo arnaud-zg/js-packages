@@ -4,6 +4,18 @@ Explanation**
 
 # 💡 Explanation: `vite-workspace-resolver`
 
+## Why Vite needs this plugin
+
+Vite's test resolver won't follow a workspace package's `package.json` `exports` map for non-`.`
+subpaths, and can't reach into a package's `src/` for files that aren't exported at all.
+`workspaceExports` scans every workspace package once and resolves both cases directly, so no
+consuming `vitest.config.ts` needs its own hand-rolled alias. Specifiers naming a package outside
+the workspace return `null`, leaving them to Vite's default resolver.
+
+The plugin's type declares only the fields it needs rather than importing Vite's `Plugin` type,
+which would drag Vite's large, version-fragile type graph (its CSS and PostCSS types) into this
+package's build.
+
 ## Design notes
 
 - Exports-map resolution itself is delegated to
