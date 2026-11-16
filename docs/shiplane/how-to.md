@@ -224,12 +224,12 @@ never when main is behind the last preview build.
 From any branch, with or without a pull request:
 
 ```sh
-pnpm shiplane branch          # or pnpm shiplane, which asks first
+pnpm shiplane test-release    # or pnpm shiplane, which asks first
 ```
 
 ```text
 ◆  You're on feat/x, not main.
-│  ● Publish a branch release   0.5.2-feat-x.ae08284 → npm tag feat-x
+│  ● Publish a test release     0.5.2-feat-x.ae08284 → npm tag feat-x
 │  ○ Switch to main             git switch main && git pull, then the real release
 ```
 
@@ -238,15 +238,16 @@ Each npm package whose files the branch changed since it left the default branch
 branch (`branch-` in front when npm would read the name as a version, such as `v2`, and never
 `latest`). Testers install it with `npm i <package>@feat-x`; the terminal prints that table.
 
-| Where you run `shiplane branch` | Open PR? | What happens                                                                            |
-| ------------------------------- | -------- | --------------------------------------------------------------------------------------- |
-| a branch, in a terminal         | yes / no | Asks, publishes, prints the install table                                               |
-| a branch, `--yes` or CI         | yes / no | Publishes without asking                                                                |
-| the default branch              | yes / no | Publishes what the next release ships as `x.y.z-main.<sha>`, tag `main`, without asking |
-| nothing changed                 | n/a      | `nothing changed since main`, nothing runs                                              |
+| Where you run `shiplane test-release` | Open PR? | What happens                                                                                                      |
+| ------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------- |
+| a branch, in a terminal               | yes / no | Asks, publishes, prints the install table                                                                         |
+| a branch, `--yes` or CI               | yes / no | Publishes without asking                                                                                          |
+| the default branch                    | yes / no | Publishes what the next release ships at its next version, such as `0.6.0-main.<sha>`, tag `main`, without asking |
+| nothing changed                       | n/a      | `nothing changed since main`, nothing runs                                                                        |
 
 On the default branch, the branch's diff is empty, so it publishes the packages the pending changes
-would release. Plain `pnpm shiplane` there is still the real release.
+would release, each at the version it will take. Plain `pnpm shiplane` there is still the real
+release. `shiplane branch` still works as an alias.
 
 With an open pull request, one comment on it, edited on each run, gives the commit, each package and
 version linked on npmjs (plain text for another registry), how to pin the exact build, the pnpm and
@@ -276,7 +277,7 @@ back after, even when it fails; any pending changesets stay for the real release
 needed.
 
 It refuses uncommitted changes. Changed units that ship elsewhere than npm are listed as not part of
-a branch release, and nothing deploys them. The default branch is read from git (`origin/HEAD`, else
+a test release, and nothing deploys them. The default branch is read from git (`origin/HEAD`, else
 `main` or `master`); `gitSourceControl({ main })` sets it.
 
 ## Choose GitHub Actions or this machine

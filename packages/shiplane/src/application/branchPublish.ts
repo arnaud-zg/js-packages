@@ -60,17 +60,24 @@ const touches = (files: readonly string[], { dir }: ReleaseUnit) =>
   dir === "." || dir === "" ? files.length > 0 : files.some((file) => file.startsWith(`${dir}/`));
 
 /**
- * The units this test version covers. On a branch: what it changed since it left the default
- * branch. On the default branch, where that diff is empty: what the next release ships.
+ * The units this test version covers, each with the version its test version builds on. On a
+ * branch: what it changed since it left the default branch, at its current version. On the default
+ * branch, where that diff is empty: what the next release ships, at the version it will take.
  */
-const changedUnits = async (context: ReleaseContext, here: Here) => {
+const changedUnits = async (
+  context: ReleaseContext,
+  here: Here,
+): Promise<{ unit: ReleaseUnit; base: string }[]> => {
   const { units } = context.release;
   if (here.branch === here.defaultBranch) {
     const { releases } = await context.services.versioning.plan([], []);
-    return units.filter((unit) => releases.some(({ name }) => name === unit.packageName));
+    return units.flatMap((unit) => {
+      const next = releases.find(({ name }) => name === unit.packageName);
+      return next ? [{ unit, base: next.newVersion }] : [];
+    });
   }
   const files = await branchChanges(context, here);
-  return units.filter((unit) => touches(files, unit));
+  return units.filter((unit) => touches(files, unit)).map((unit) => ({ unit, base: unit.version }));
 };
 
 /** The units this test version covers, at test versions: npm packages publish, the rest wait. */
@@ -79,12 +86,12 @@ export const planBranch = async (context: ReleaseContext, here: Here): Promise<B
   return {
     tag: branchTag(branchSlug(here.branch)),
     publish: changed
-      .filter((unit) => isRegistry(context, unit))
-      .map((unit) => ({
+      .filter(({ unit }) => isRegistry(context, unit))
+      .map(({ unit, base }) => ({
         unit,
-        version: branchVersion({ current: unit.version, branch: here.branch, sha: here.head }),
+        version: branchVersion({ current: base, branch: here.branch, sha: here.head }),
       })),
-    others: changed.filter((unit) => !isRegistry(context, unit)).map((unit) => unit.name),
+    others: changed.filter(({ unit }) => !isRegistry(context, unit)).map(({ unit }) => unit.name),
   };
 };
 

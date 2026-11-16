@@ -107,7 +107,7 @@ describe("Feature: a branch release for testers", () => {
     expect(world.files.all).toEqual(before);
     expect(world.versioning.applied).toEqual([]);
     expect(world.source.received).toEqual([]);
-    expect(world.output.text).toContain("api  not part of a branch release");
+    expect(world.output.text).toContain("api  not part of a test release");
     expect(world.output.text).toContain("@acme/kit  0.5.2-feat-x.ae08284  npm i @acme/kit@feat-x");
     expect(await branchComments(world)).toEqual([
       expect.stringContaining(
@@ -191,7 +191,7 @@ describe("Feature: a branch release for testers", () => {
     expect(world.prompter.choices["You're on feat/x, not main."]).toEqual([
       {
         value: "publish",
-        label: "Publish a branch release",
+        label: "Publish a test release",
         hint: "0.5.2-feat-x.ae08284 → npm tag feat-x",
       },
       {
@@ -368,7 +368,7 @@ describe("Feature: a branch release for testers", () => {
     expect(world.shell.calls).toEqual([]);
   });
 
-  it("given the branch command on the default branch, when it runs in a terminal, then it publishes what the next release ships as a main test version, without asking", async () => {
+  it("given the branch command on the default branch, when it runs in a terminal, then it publishes what the next release ships at its next version, as a main test version, without asking", async () => {
     // given
     const world = setUp({ yes: false, pr: false });
     world.source.seed({ position: { branch: "main", head: "c0ffee1d", originMain: "c0ffee1d" } });
@@ -382,9 +382,9 @@ describe("Feature: a branch release for testers", () => {
     expect(world.shell.calls).toContainEqual(
       expect.objectContaining({ args: [...PUBLISH.slice(0, -1), "main"] }),
     );
-    expect(world.published).toEqual([expect.stringContaining('"version": "0.5.2-main.c0ffee1"')]);
-    expect(world.output.text).toContain("api  not part of a branch release");
-    expect(world.output.text).toContain("@acme/kit  0.5.2-main.c0ffee1  npm i @acme/kit@main");
+    expect(world.published).toEqual([expect.stringContaining('"version": "0.6.0-main.c0ffee1"')]);
+    expect(world.output.text).toContain("api  not part of a test release");
+    expect(world.output.text).toContain("@acme/kit  0.6.0-main.c0ffee1  npm i @acme/kit@main");
     expect(world.versioning.applied).toEqual([]);
     expect(world.source.received).toEqual([]);
     expect(world.host.received).not.toContainEqual(

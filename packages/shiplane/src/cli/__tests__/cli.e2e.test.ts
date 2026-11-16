@@ -44,9 +44,28 @@ describe("the built shiplane CLI, installed in a repository", () => {
     const { status, output } = install().shiplane(["help"]);
 
     expect(status).toBe(0);
-    for (const command of ["promote", "status", "plan", "init", "doctor", "docs <name>"]) {
+    for (const command of [
+      "test-release",
+      "promote",
+      "status",
+      "plan",
+      "init",
+      "doctor",
+      "docs <name>",
+    ]) {
       expect(output).toContain(`shiplane ${command}`);
     }
+    expect(output).not.toContain("shiplane branch");
+  });
+
+  it("given the old branch command, when it runs, then it does what test-release does", () => {
+    const repo = install();
+    const testRelease = repo.shiplane(["test-release"]);
+    const branch = repo.shiplane(["branch"]);
+
+    expect(testRelease.status).toBe(0);
+    expect(testRelease.output).toContain("nothing to publish: the next release ships no change");
+    expect(branch).toEqual(testRelease);
   });
 
   it("given a command shiplane does not know, when it runs, then it says so, prints the help and exits 1", () => {

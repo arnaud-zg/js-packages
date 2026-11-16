@@ -28,7 +28,7 @@ const refuseDirty = (context: ReleaseContext) => {
 
 const printOthers = ({ output }: ReleaseContext, others: readonly string[]) =>
   others.forEach((name) =>
-    output.line(`  ${paint("dim", "–")} ${name}  ${paint("dim", "not part of a branch release")}`),
+    output.line(`  ${paint("dim", "–")} ${name}  ${paint("dim", "not part of a test release")}`),
   );
 
 const nothingToPublish = (
@@ -50,14 +50,14 @@ const whatPublishes = ({ publish }: BranchPlan) => {
   return publish.length === 1 && only ? only.version : plural(publish.length, "package");
 };
 
-/** The person picks a branch release or the real one from the default branch; null on cancel. */
+/** The person picks a test release or the real one from the default branch; null on cancel. */
 const askHow = ({ prompter }: ReleaseContext, { here, plan }: { here: Here; plan: BranchPlan }) =>
   prompter.select(
     `You're on ${here.branch}, not ${here.defaultBranch}.`,
     [
       {
         value: "publish",
-        label: "Publish a branch release",
+        label: "Publish a test release",
         hint: `${whatPublishes(plan)} → npm tag ${plan.tag}`,
       },
       {
