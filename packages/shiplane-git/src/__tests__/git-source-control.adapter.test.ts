@@ -122,7 +122,7 @@ describe("finding where a branch started", () => {
     const shell = new RecordingShell().seed("git merge-base", { stdout: "c0ffee1\n" });
     const source = gitSourceControl().create({ root: "/repo", shell });
 
-    expect(await source.mergeBase("origin/main", "HEAD")).toBe("c0ffee1");
+    expect(await source.mergeBase?.("origin/main", "HEAD")).toBe("c0ffee1");
     expect(shell.calls[0]?.args).toEqual(["merge-base", "origin/main", "HEAD"]);
   });
 
@@ -130,6 +130,6 @@ describe("finding where a branch started", () => {
     const shell = new RecordingShell().seed("git merge-base", { status: 1 });
     const source = gitSourceControl().create({ root: "/repo", shell });
 
-    expect(await source.mergeBase("origin/main", "HEAD")).toBeNull();
+    expect(await source.mergeBase?.("origin/main", "HEAD")).toBeNull();
   });
 });

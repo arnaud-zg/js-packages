@@ -96,7 +96,7 @@ export const sourceControlContract = (name: string, subject: () => Promise<Sourc
       await change("main.md", "main\n");
       await port.commit(["main.md"], "chore: main moves");
 
-      expect(await port.mergeBase(await head(), branch)).toBe(start);
+      expect(await port.mergeBase?.(await head(), branch)).toBe(start);
     });
 
     it("given an env file git ignores, when the ignored files are listed by pattern, then only it is listed", async () => {

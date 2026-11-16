@@ -52,7 +52,7 @@ const isRegistry = (context: ReleaseContext, unit: ReleaseUnit) =>
 /** The files this branch changed: from where it left the default branch, not what main did since. */
 const branchChanges = async ({ services }: ReleaseContext, here: Here) => {
   const { sourceControl } = services;
-  const base = (await sourceControl.mergeBase(here.originMain, here.head)) ?? here.originMain;
+  const base = (await sourceControl.mergeBase?.(here.originMain, here.head)) ?? here.originMain;
   return sourceControl.diffNames(base, here.head);
 };
 

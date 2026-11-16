@@ -21,7 +21,7 @@ export interface SourceControlPort {
   changedFiles: () => Promise<string[]>;
   diffNames: (from: string, to: string) => Promise<string[]>;
   /** The last commit `a` and `b` share, where a branch left the other; null when none. */
-  mergeBase: (a: string, b: string) => Promise<string | null>;
+  mergeBase?: (a: string, b: string) => Promise<string | null>;
   fileAt: (ref: string, file: string) => Promise<string | null>;
   tags: () => Promise<Set<string>>;
   /** Untracked files git ignores that match a pattern (`*` stays in its folder), relative to the root. */
