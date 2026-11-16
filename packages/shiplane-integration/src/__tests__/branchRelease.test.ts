@@ -107,6 +107,24 @@ describe("Feature: a branch release for testers", () => {
     ]);
   });
 
+  it("given a package published under another name, when its branch release is out, then testers are told to install that name", async () => {
+    // given
+    const world = setUp();
+    const renamed = { ...KIT, options: { publishAs: "@acme/kit-next" } };
+    world.context.release.units.splice(0, 1, renamed);
+
+    // when
+    await branchRelease(world.context, { onDefault: "release" });
+
+    // then
+    expect(world.output.text).toContain("npm i @acme/kit-next@feat-x");
+    expect(await branchComments(world)).toEqual([
+      expect.stringContaining(
+        "| @acme/kit-next | 0.6.0-feat-x.ae08284 | `npm i @acme/kit-next@feat-x` |",
+      ),
+    ]);
+  });
+
   it("given a branch released once, when a new commit is released again, then the same comment is edited", async () => {
     // given
     const world = setUp();
