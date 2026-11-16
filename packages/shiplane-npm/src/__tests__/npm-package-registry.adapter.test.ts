@@ -120,6 +120,22 @@ describe("publishing a package to npm under next, then latest", () => {
     });
   });
 
+  it("given npm answers the dist-tags with a warning instead of JSON, when production ships, then latest is moved to it as if no tag were set", async () => {
+    const { context, shell, prompter } = setUp();
+    shell.seed("npm view @acme/context-budget@0.2.0 version", { stdout: "0.2.0" });
+    shell.seed("npm view @acme/context-budget dist-tags", {
+      stdout: "npm warn config production Use `--omit=dev` instead.\n",
+    });
+    prompter.answer("production", true);
+
+    await shipTo(context, "production", {});
+
+    expect(shell.calls.at(-1)).toMatchObject({
+      command: "npm",
+      args: ["dist-tag", "add", "@acme/context-budget@0.2.0", "latest"],
+    });
+  });
+
   it("given production and a version npm never got, when it ships, then it says to release it to preview first", async () => {
     const { context, shell, prompter, output } = setUp();
     shell.seed("npm view @acme/context-budget@0.2.0 version", notOnRegistry);
