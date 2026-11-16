@@ -181,6 +181,17 @@ describe("shaping each change's line in release notes", () => {
     );
   });
 
+  it("given a summary wrapped over lines, when a release is versioned, then the line goes on after the whole summary and a list under it stays", async () => {
+    const written = RELEASED.replace(
+      "Fixes a thing.",
+      "Fixes a thing\n  `on` two lines.\n  - a detail",
+    );
+
+    expect(await shaped(lines.whatsChanged, undefined, written)).toContain(
+      "* Fixes a thing `on` two lines. by @ada in https://github.com/acme/kit/pull/4\n  - a detail",
+    );
+  });
+
   it("given the plain changesets changelog, when a release is versioned, then its lines stay as they were", async () => {
     const written = RELEASED.replace(/^- .* - /gm, "- ");
 

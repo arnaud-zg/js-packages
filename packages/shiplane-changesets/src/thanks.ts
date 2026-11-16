@@ -47,6 +47,8 @@ const CHANGE =
 // `Thanks [@a](url), [@b](url)!` as @changesets/changelog-github writes it, after the links.
 const INLINE = / Thanks ((?:\[@[^\]]+\]\([^)]+\)(?:, )?)+)!/;
 const USER = /\[@([^\]]+)\]\(([^)]+)\)/g;
+// A summary's next line of prose: indented, and not a list, quote, table, heading or code fence.
+const WRAPPED = /^ {2}(?![-*+>|#]|\d+\.|```)\S/;
 
 const changeOf = (line: string): Change | null => {
   const match = CHANGE.exec(line);
@@ -108,19 +110,31 @@ export const placeNotes = (changelog: string, { line, thanks }: NotesOptions): s
 
   const contributors = new Map<string, Contributor>();
   const written = changelog.slice(headingEnd + 1, end).split("\n");
-  const rewritten = written.map((text) => {
+  const rewritten: string[] = [];
+  for (let index = 0; index < written.length; index += 1) {
+    const text = written[index] ?? "";
     const change = changeOf(text);
-    if (!change) return text;
+    if (!change) {
+      rewritten.push(text);
+      continue;
+    }
     change.authors.forEach((person) => {
       if (!contributors.has(person.login)) contributors.set(person.login, person);
     });
-    const shaped = line === undefined ? null : lineOf(line, change);
-    return shaped ?? (thanks === undefined ? text : change.unthanked);
-  });
-  const template = contributors.size > 0 ? thanks : undefined;
-  if (template === undefined && rewritten.every((text, index) => text === written[index])) {
-    return changelog;
+    // A summary wrapped over several lines is one sentence: the line goes on after all of it.
+    const wrapped: string[] = [];
+    while (WRAPPED.test(written[index + 1 + wrapped.length] ?? "")) {
+      wrapped.push((written[index + 1 + wrapped.length] ?? "").trim());
+    }
+    const shaped =
+      line === undefined
+        ? null
+        : lineOf(line, { ...change, summary: [change.summary, ...wrapped].join(" ") });
+    if (shaped !== null) index += wrapped.length;
+    rewritten.push(shaped ?? (thanks === undefined ? text : change.unthanked));
   }
+  const template = contributors.size > 0 ? thanks : undefined;
+  if (template === undefined && rewritten.join("\n") === written.join("\n")) return changelog;
 
   const full =
     template === undefined || template.includes("{changes}")
