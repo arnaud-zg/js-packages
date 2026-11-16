@@ -75,6 +75,7 @@ export const composeContext = (
     progress: io.progress ?? terminalProgress(display, tty && !ci),
     clock: systemClock,
     shell,
+    files: nodeFiles(release.root),
     options: { yes, ci: onGitHubActions() },
   };
 };

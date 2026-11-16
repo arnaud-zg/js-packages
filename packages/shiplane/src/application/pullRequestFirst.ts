@@ -22,8 +22,9 @@ export const pullRequestFirst = async (
     return "declined";
   }
   const created: { pr?: OpenPr } = {};
+  const from = await services.sourceControl.defaultBranch();
   const opened = await runSteps(context, [
-    branchStep(context, request.branch),
+    branchStep(context, { branch: request.branch, from }),
     {
       label: `commit "${request.title}"`,
       run: async () => {
@@ -38,7 +39,7 @@ export const pullRequestFirst = async (
     pushStep(context, request.branch),
     openPrStep(context, "open the pull request", async () => {
       created.pr = await services.codeHost.createPr({
-        base: "main",
+        base: from,
         head: request.branch,
         title: request.title,
         body: request.body,
@@ -46,7 +47,7 @@ export const pullRequestFirst = async (
       });
       return created.pr;
     }),
-    { label: "back to main", run: () => services.sourceControl.switchTo("main") },
+    { label: `back to ${from}`, run: () => services.sourceControl.switchTo(from) },
   ]);
   const { pr } = created;
   if (!opened || !pr) return "failed";
@@ -61,7 +62,7 @@ export const pullRequestFirst = async (
     return "declined";
   }
   const pulled = await runSteps(context, [
-    { label: "pull main", run: () => services.sourceControl.pull() },
+    { label: `pull ${from}`, run: () => services.sourceControl.pull() },
   ]);
   return pulled ? "merged" : "failed";
 };

@@ -5,6 +5,8 @@ export interface PackageRegistryPort<Options = Record<string, unknown>> extends 
   readonly capability: "package-registry";
   /** Publish, move a tag, or nothing: the registry, not GitHub Deployments, knows what is out. */
   decide(context: DecideContext, input: JobInput<Options>): Promise<Decision>;
+  /** The name it publishes the app under, when a rename it is told differs from the workspace name. */
+  publishedName?(input: JobInput<Options>): string;
   /** The version is out on the environment: published, and its dist-tag points at it. */
   live(context: DecideContext, input: JobInput<Options>): Promise<boolean>;
 }

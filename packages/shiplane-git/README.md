@@ -48,11 +48,11 @@ export default defineRelease({
 
 It fills a flow port, so unit files take no key from it. Its factory takes:
 
-| Option        | Default           | Means                                                         |
-| ------------- | ----------------- | ------------------------------------------------------------- |
-| `main`        | `main`            | The branch releases start from                                |
-| `format`      |                   | A command run on a commit's files before it is made           |
-| `retryDelays` | `[2_000, 10_000]` | Waits in ms before each new try of a push the network dropped |
+| Option        | Default           | Means                                                            |
+| ------------- | ----------------- | ---------------------------------------------------------------- |
+| `main`        | detected          | The branch releases start from: else `origin/HEAD`, main, master |
+| `format`      |                   | A command run on a commit's files before it is made              |
+| `retryDelays` | `[2_000, 10_000]` | Waits in ms before each new try of a push the network dropped    |
 
 Source: `GitOptions` in `src/git-source-control.adapter.ts`.
 

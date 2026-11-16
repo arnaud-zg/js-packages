@@ -5,6 +5,7 @@ import type { ReleaseContext } from "../application/context";
 import type { ContextIo } from "./compose";
 import { nodeFiles } from "../adapters/files/node-files.adapter";
 import { addUnit, removeUnit } from "../application/addUnit";
+import { branchRelease } from "../application/branchRelease";
 import { docsFor } from "../application/docsFor";
 import { doctor } from "../application/doctor";
 import { initRelease } from "../application/initRelease";
@@ -14,7 +15,6 @@ import { pickScope } from "../application/pickScope";
 import { planShips } from "../application/planShips";
 import { prepareRelease } from "../application/prepareRelease";
 import { promote } from "../application/promote";
-import { releaseToPreview } from "../application/releaseToPreview";
 import { paint } from "../application/say";
 import { setup } from "../application/setup";
 import { CONFIG_FILE, refreshEditorSchema } from "../application/setupFiles";
@@ -30,6 +30,8 @@ import { statusCommand } from "./statusCommand";
 const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, trigger each app's deploy.
 
   shiplane                        the next step to preview: release PR, merge, tags, ship
+                                  (on a branch with a PR: a branch release, asked first)
+  shiplane branch                 publish a temporary npm version of this branch for testers
   shiplane promote                production, from what preview runs (--channel production too)
   shiplane status [--json]        where every unit stands, and what to run next
   shiplane version                open the release PR for what is pending
@@ -78,7 +80,10 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
 
   const commands: Record<string, (context: ReleaseContext) => Promise<boolean | void>> = {
     next: (context) =>
-      environment === "preview" ? releaseToPreview(context) : promote(context, via),
+      environment === "preview"
+        ? branchRelease(context, { onDefault: "release" })
+        : promote(context, via),
+    branch: (context) => branchRelease(context, { onDefault: "refuse" }),
     promote: (context) => promote(context, via),
     status: (context) => statusCommand(context, { environment, json: values.json }),
     version: async (context) => {

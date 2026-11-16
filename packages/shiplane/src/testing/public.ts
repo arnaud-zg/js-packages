@@ -22,9 +22,11 @@ export { versioningFake } from "../adapters/versioning/__fakes__/versioning.fake
 export type { HostEvent } from "../adapters/code-host/__fakes__/code-host.fake";
 export { RecordingShell } from "../adapters/shell/__fakes__/shell.fake";
 export { MemoryOutput, ScriptedPrompter } from "../adapters/terminal/__fakes__/terminal.fake";
+export { MemoryFiles } from "../adapters/files/__fakes__/memory-files.fake";
 export { nodeFiles } from "../adapters/files/node-files.adapter";
 export { systemShell } from "../adapters/shell/system-shell.adapter";
 export { addUnit, removeUnit } from "../application/addUnit";
+export { branchRelease } from "../application/branchRelease";
 export { loadReleaseOnDisk as loadRelease } from "../cli/compose";
 export { docsFor } from "../application/docsFor";
 export { doctor } from "../application/doctor";

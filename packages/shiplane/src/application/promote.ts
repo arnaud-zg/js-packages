@@ -7,7 +7,7 @@ import { changelogSection, tagName } from "../domain/tags";
 import { pickScope } from "./pickScope";
 import { confirm, listed, paint } from "./say";
 import { shipTo } from "./ship";
-import { decideContext, unitTarget } from "./targets";
+import { checkout, decideContext, unitTarget } from "./targets";
 
 const STAGES = ["What to promote", "Ship"] as const;
 
@@ -85,8 +85,8 @@ export const pickPromotion = async (context: ReleaseContext): Promise<Set<string
 
 /** How each picked unit does on preview, said; when one looks unwell, asks before going on. */
 const previewLooksWell = async (context: ReleaseContext, scope: ReadonlySet<string>) => {
-  const { output, release, services } = context;
-  const { head } = await services.sourceControl.position();
+  const { output, release } = context;
+  const at = await checkout(context);
   const reads = await context.progress.during(
     "Reading how preview runs what you picked",
     "thinking",
@@ -95,7 +95,7 @@ const previewLooksWell = async (context: ReleaseContext, scope: ReadonlySet<stri
         release.units
           .filter(({ name }) => scope.has(name))
           .map(async (unit) => {
-            const target = unitTarget(context, { unit, environment: "preview", commit: head });
+            const target = unitTarget(context, { unit, environment: "preview", ...at });
             if (!target?.module.health) return [];
             const health = await target.module
               .health(decideContext(context), target.input)

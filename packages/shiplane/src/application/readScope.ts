@@ -7,7 +7,7 @@ import type { ReleaseContext } from "./context";
 import { changesetApps } from "../domain/changes";
 import { deployRunTitle } from "../domain/deploys";
 import { cameWithRelease, firstRelease, tagName } from "../domain/tags";
-import { decideContext, hasNoEnvironment, jobInput, moduleOf } from "./targets";
+import { checkout, decideContext, hasNoEnvironment, jobInput, moduleOf } from "./targets";
 
 export const MANIFEST = "package.json";
 
@@ -57,8 +57,8 @@ export const readScope = async (
       // A module that reads its platform (a registry) says what runs; else deploy records do.
       const live = async (on: Environment) => {
         if (!target?.live || !tagged) return deployedOn(deployed, tag, on) === "done";
-        const { head } = await services.sourceControl.position();
-        const input = jobInput(context, target, unit, { tag, environment: on, commit: head });
+        const at = await checkout(context);
+        const input = jobInput(context, target, unit, { tag, environment: on, ...at });
         return target.live(decideContext(context), input).catch(() => false);
       };
       return {

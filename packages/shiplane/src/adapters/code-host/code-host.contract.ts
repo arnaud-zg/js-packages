@@ -51,6 +51,44 @@ export const codeHostContract = (name: string, subject: () => Promise<CodeHostSu
       expect(await port.prState(pr)).toBe("CLOSED");
     });
 
+    it("given a branch with an open pull request, when its pull request is read, then it is that one; another branch has none", async () => {
+      const { port, branch } = await subject();
+      const head = await branch("release/contract-for-branch");
+      const pr = await port.createPr({
+        base: "main",
+        head,
+        title: "chore: contract",
+        body: "Opened by the contract suite.",
+        label: "release",
+      });
+
+      expect(await port.prForBranch(head)).toMatchObject({ number: pr.number, url: pr.url });
+      expect(await port.prForBranch(`${head}-none`)).toBeNull();
+    });
+
+    it("given a comment upserted twice with one marker, when the comments are read, then there is one, holding the second body", async () => {
+      const { port, branch } = await subject();
+      const head = await branch("release/contract-upsert");
+      const pr = await port.createPr({
+        base: "main",
+        head,
+        title: "chore: contract",
+        body: "Opened by the contract suite.",
+        label: "release",
+      });
+      const marker = `<!-- contract:${Date.now()} -->`;
+      const ref = {
+        repository: new URL(pr.url).pathname.split("/").slice(1, 3).join("/"),
+        number: pr.number,
+      };
+
+      await port.upsertComment({ on: pr, marker, body: `${marker}\nfirst` });
+      await port.upsertComment({ on: pr, marker, body: `${marker}\nsecond` });
+
+      const marked = (await port.comments([ref])).flat().filter((body) => body.includes(marker));
+      expect(marked).toEqual([`${marker}\nsecond`]);
+    });
+
     it("given release notes published for a tag, when the released tags are read, then it is among them", async () => {
       const { port, tag } = await subject();
       const name = await tag();

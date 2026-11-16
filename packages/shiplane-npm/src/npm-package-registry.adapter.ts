@@ -57,22 +57,26 @@ const distTags = async (context: DecideContext, name: string) => {
   return parsed.success ? parsed.data : {};
 };
 
-/** Publish the version under the environment's tag, renamed for the registry and back after. */
+/**
+ * Publish the version under the environment's tag, or a branch release's own, renamed for the
+ * registry and back after.
+ */
 const publishJob = (input: JobInput<Options>): Job => {
   const { unit, options } = input;
   const name = nameOf(input);
+  const distTag = input.distTag ?? options.tag;
   const rename = (to: string) => ({
     command: "npm",
     args: ["pkg", "set", `name=${to}`],
     cwd: unit.dir,
   });
   return {
-    label: `publish ${name}@${unit.version} under ${options.tag}`,
+    label: `publish ${name}@${unit.version} under ${distTag}`,
     local: [
       ...(options.publishAs ? [rename(options.publishAs)] : []),
       {
         command: "pnpm",
-        args: ["publish", "--no-git-checks", "--access", options.access, "--tag", options.tag],
+        args: ["publish", "--no-git-checks", "--access", options.access, "--tag", distTag],
         cwd: unit.dir,
       },
     ],
@@ -148,7 +152,9 @@ export const npmPackageRegistry = (): NpmPackageRegistryAdapter =>
     name: "npm",
     settings: NpmOptions,
     describe: (input) => `${nameOf(input)} on npm (${input.options.tag})`,
-    jobs: (input) => [publishJob(input), moveTagJob(input)],
+    // A branch release publishes once under its own tag: there is no tag to move.
+    publishedName: nameOf,
+    jobs: (input) => (input.distTag ? [publishJob(input)] : [publishJob(input), moveTagJob(input)]),
     decide,
     live,
     detect: (folder) => {

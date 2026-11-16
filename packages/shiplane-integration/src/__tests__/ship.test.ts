@@ -126,6 +126,22 @@ describe("shipping to an environment, fire and forget", () => {
     expect(output.text).toContain("admin@0.1.3  predates ship.yml, and main moved past it");
   });
 
+  it("given a repository whose default branch is master, when a unit predates ship.yml, then master is read for the workflow and named as what moved", async () => {
+    const { context, source, shell, prompter, output } = setUp();
+    source.seed({
+      position: { branch: "master", head: "c0ffee1", originMain: "c0ffee1" },
+      defaultBranch: "master",
+      files: { "master:.github/workflows/ship.yml": "on: workflow_dispatch" },
+      diffs: { "admin@0.1.3..HEAD": ["apps/admin/src/main.tsx"] },
+    });
+    prompter.answer(true);
+
+    expect(await shipTo(context, "preview", {})).toBe(false);
+
+    expect(shell.calls.map(({ command }) => command)).toEqual(["flyctl"]);
+    expect(output.text).toContain("admin@0.1.3  predates ship.yml, and master moved past it");
+  });
+
   it("given api and admin tagged but not on preview, when shipped through GitHub Actions, then each workflow is dispatched on its tag, api first, and nothing waits for them", async () => {
     const { context, ci, shell, prompter, output } = setUp();
     prompter.answer("github", "github", true);

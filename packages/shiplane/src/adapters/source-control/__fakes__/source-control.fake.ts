@@ -4,6 +4,8 @@ import type { SourceControlPort } from "../../../ports/source-control.port";
 
 interface SourceState {
   position: GitPosition;
+  /** The branch releases start from. */
+  defaultBranch: string;
   clean: boolean;
   /** Tag name → the commit it points at. */
   tags: Record<string, string>;
@@ -13,6 +15,8 @@ interface SourceState {
   files: Record<string, string>;
   /** `<from>..<to>` → the files that differ. */
   diffs: Record<string, string[]>;
+  /** `<a>...<b>` → the commit they share; unseeded, `a`, as a branch that left it and it never moved. */
+  mergeBases: Record<string, string>;
   /** `<from>..<to>` → the commits after `from` up to `to`, newest first. */
   commits: Record<string, { subject: string; files: string[] }[]>;
   changed: string[];
@@ -39,11 +43,13 @@ export type SourceEvent =
 export class SourceControlFake implements SourceControlPort {
   private state: SourceState = {
     position: { branch: "main", head: "head", originMain: "head" },
+    defaultBranch: "main",
     clean: true,
     tags: {},
     versionCommits: {},
     files: {},
     diffs: {},
+    mergeBases: {},
     commits: {},
     changed: [],
     ignored: [],
@@ -71,6 +77,7 @@ export class SourceControlFake implements SourceControlPort {
   }
 
   position = () => Promise.resolve(this.state.position);
+  defaultBranch = () => Promise.resolve(this.state.defaultBranch);
   isClean = () => Promise.resolve(this.state.clean);
   tagCommit = (tag: string) => Promise.resolve(this.state.tags[tag] ?? null);
   versionCommit = (dir: string, _manifest: string, version: string) =>
@@ -78,6 +85,7 @@ export class SourceControlFake implements SourceControlPort {
   changedFiles = () => Promise.resolve(this.state.changed);
   diffNames = (from: string, to: string) =>
     Promise.resolve(this.state.diffs[`${from}..${to}`] ?? []);
+  mergeBase = (a: string, b: string) => Promise.resolve(this.state.mergeBases[`${a}...${b}`] ?? a);
   commitsBetween = (from: string, to: string) =>
     Promise.resolve(this.state.commits[`${from}..${to}`] ?? []);
   fileAt = (ref: string, file: string) =>

@@ -14,6 +14,7 @@
 | Command                       | Does                                                                 |
 | ----------------------------- | -------------------------------------------------------------------- |
 | `shiplane`                    | The next step to preview: release PR, merge, tags, ship              |
+| `shiplane branch`             | Publish the npm packages this branch changed, for testers            |
 | `shiplane promote`            | Production, from what preview runs                                   |
 | `shiplane status`             | Where every unit stands, and what to run next. Reads only            |
 | `shiplane plan`               | Every command a ship would run, run nothing                          |

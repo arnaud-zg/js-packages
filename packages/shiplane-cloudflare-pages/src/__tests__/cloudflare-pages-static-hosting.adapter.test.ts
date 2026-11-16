@@ -48,6 +48,7 @@ describe("building and uploading to Cloudflare Pages", () => {
       tag: "site@1.0.0",
       environment: "preview",
       commit: "abc1234",
+      defaultBranch: "main",
       options: {
         project: "acme-site",
         dist: "dist",

@@ -48,6 +48,13 @@ export interface JobInput<Options> {
   options: Options;
   /** The commit this machine is on. */
   commit: string;
+  /** The branch releases start from: main or master, as git reports it. */
+  defaultBranch: string;
+  /**
+   * A branch release for testers: a registry publishes under this dist-tag instead of the
+   * environment's, and moves no other tag.
+   */
+  distTag?: string;
 }
 
 /** What a module's per-app stages may read and run. */

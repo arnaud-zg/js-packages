@@ -114,7 +114,8 @@ const refused = (context: ReleaseContext, { contributions }: Prepared) => {
 };
 
 /**
- * Versions what `prepared` covers on one branch from main, opens its PR, and goes back to main.
+ * Versions what `prepared` covers on one branch from the default branch, opens its PR, and goes
+ * back to it.
  * Null, with what to do, when it must not run.
  */
 export const openReleasePr = async (
@@ -126,13 +127,16 @@ export const openReleasePr = async (
   const { output, services, clock } = context;
   printSummary(context, prepared);
   if (refused(context, prepared)) return null;
-  const source = releaseSource("build", "preview", await services.sourceControl.position());
+  const defaultBranch = await services.sourceControl.defaultBranch();
+  const source = releaseSource("build", "preview", await services.sourceControl.position(), {
+    defaultBranch,
+  });
   if (!source.allowed) {
     fail(
       context,
-      source.why === "not-main" ? "Not from main" : "main is behind origin",
+      source.why === "not-main" ? `Not from ${defaultBranch}` : `${defaultBranch} is behind origin`,
       "a release versions what is merged.",
-      ["git switch main", "git pull", "shiplane"],
+      [`git switch ${defaultBranch}`, "git pull", "shiplane"],
     );
     return null;
   }
@@ -178,7 +182,7 @@ export const openReleasePr = async (
       opening.length > 1 ? await prepareRelease(context, apps, chosen.contributions) : chosen;
     const [first] = group;
     const branch = `${releaseBranchName(now)}${opening.length > 1 && first ? `-${first.app}` : ""}`;
-    const pr = await openOne(context, scoped, kindOf, branch, replaces);
+    const pr = await openOne(context, scoped, { kindOf, branch, from: defaultBranch, replaces });
     if (!pr) {
       if (prs.length > 0) {
         output.line(
@@ -220,13 +224,16 @@ const replacedLine = (replaces: readonly OpenPr[]) =>
     ? ""
     : `Replaces ${listed(replaces.map(({ number }) => `#${number}`))}, which went out of date when main moved.\n\n`;
 
-/** Versions `prepared` on `branch` from main, opens its PR, and goes back to main. */
+/** Versions `prepared` on `branch` from the default branch, opens its PR, and goes back to it. */
 const openOne = async (
   context: ReleaseContext,
   prepared: Prepared,
-  kindOf: KindOf,
-  branch: string,
-  replaces: readonly OpenPr[],
+  {
+    kindOf,
+    branch,
+    from,
+    replaces,
+  }: { kindOf: KindOf; branch: string; from: string; replaces: readonly OpenPr[] },
 ): Promise<OpenPr | null> => {
   const { services } = context;
   const title = releaseTitle(prepared.bumps, kindOf);
@@ -235,7 +242,7 @@ const openOne = async (
   const skipHooks = !titleFits(title);
   const created: { pr?: OpenPr } = {};
   const done = await runSteps(context, [
-    branchStep(context, branch),
+    branchStep(context, { branch, from }),
     {
       label: "versions and changelogs",
       run: () =>
@@ -255,7 +262,7 @@ const openOne = async (
     pushStep(context, branch),
     openPrStep(context, "open the release pull request", async () => {
       created.pr = await services.codeHost.createPr({
-        base: "main",
+        base: from,
         head: branch,
         title,
         body:
@@ -269,7 +276,7 @@ const openOne = async (
       });
       return created.pr;
     }),
-    { label: "back to main", run: () => services.sourceControl.switchTo("main") },
+    { label: `back to ${from}`, run: () => services.sourceControl.switchTo(from) },
   ]);
   return done && created.pr ? created.pr : null;
 };
