@@ -27,6 +27,12 @@ export const sourceControlContract = (name: string, subject: () => Promise<Sourc
       expect(await port.isClean()).toBe(true);
     });
 
+    it("given a fresh checkout of main, when its default branch is read, then it is main", async () => {
+      const { port } = await subject();
+
+      expect(await port.defaultBranch()).toBe("main");
+    });
+
     it("given a commit tagged, when the tags are read, then the tag is there and names that commit", async () => {
       const { port, head } = await subject();
       const sha = await head();

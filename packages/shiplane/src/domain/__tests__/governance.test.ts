@@ -56,6 +56,21 @@ describe("where a release may start from", () => {
     });
   });
 
+  it("given a repository whose default branch is master, when building from master, then it may start", () => {
+    const master = { branch: "master", head: "abc", originMain: "abc" };
+
+    expect(releaseSource("build", "preview", master, { defaultBranch: "master" })).toEqual({
+      allowed: true,
+    });
+  });
+
+  it("given a repository whose default branch is master, when building from main, then it is refused", () => {
+    expect(releaseSource("build", "preview", main, { defaultBranch: "master" })).toEqual({
+      allowed: false,
+      why: "not-main",
+    });
+  });
+
   it("given a feature branch, when updating production, then it is refused", () => {
     expect(releaseSource("update", "production", { ...main, branch: "feat/x" })).toEqual({
       allowed: false,
