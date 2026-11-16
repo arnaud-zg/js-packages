@@ -2,8 +2,11 @@
 "shiplane": minor
 ---
 
-`shiplane test-release` (formerly `shiplane branch`, still an alias) publishes a test version from
-any branch, pull request or not, and from the default branch: what the next release ships, at its
-next version, as `x.y.z-main.<sha>` on npm tag `main`. The pull request comment takes a template:
-`defineRelease({ testComment })` with `comments.table` (the default), `comments.compact`, or your
-own text.
+`shiplane test-release` publishes a test version of your npm packages for testers, with no changeset
+and no pull request needed. On a branch, each package the branch changed goes out as
+`<version>-<branch>.<sha>` under an npm tag named after the branch; on the default branch, what the
+next release ships goes out at its next version, as `<next>-main.<sha>` under the npm tag `main`.
+With an open pull request, one comment on it gives the install lines and is edited on each run; pick
+its layout with `defineRelease({ testComment })`: `comments.table` (the default),
+`comments.compact`, or your own text with `{branch}`, `{commit}`, `{table}` and `{install}`. Nothing
+reaches git: no tag, no commit.

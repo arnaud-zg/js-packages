@@ -221,10 +221,10 @@ never when main is behind the last preview build.
 
 ## Publish a test version
 
-From any branch, with or without a pull request:
+From any branch, main included. No pull request and no changeset needed:
 
 ```sh
-pnpm shiplane test-release    # or pnpm shiplane, which asks first
+pnpm shiplane test-release    # on a branch, plain pnpm shiplane offers it too, asked first
 ```
 
 ```text
@@ -238,16 +238,16 @@ Each npm package whose files the branch changed since it left the default branch
 branch (`branch-` in front when npm would read the name as a version, such as `v2`, and never
 `latest`). Testers install it with `npm i <package>@feat-x`; the terminal prints that table.
 
-| Where you run `shiplane test-release` | Open PR? | What happens                                                                                                      |
-| ------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------- |
-| a branch, in a terminal               | yes / no | Asks, publishes, prints the install table                                                                         |
-| a branch, `--yes` or CI               | yes / no | Publishes without asking                                                                                          |
-| the default branch                    | yes / no | Publishes what the next release ships at its next version, such as `0.6.0-main.<sha>`, tag `main`, without asking |
-| nothing changed                       | n/a      | `nothing changed since main`, nothing runs                                                                        |
+| Where you run it        | What is published                                                    | Asks first? | PR comment      |
+| ----------------------- | -------------------------------------------------------------------- | ----------- | --------------- |
+| a branch, in a terminal | what the branch changed, `0.5.2-feat-x.<sha>`, tag `feat-x`          | yes         | if a PR is open |
+| a branch, `--yes` or CI | the same                                                             | no          | if a PR is open |
+| the default branch      | what the next release ships, at its next version, `0.6.0-main.<sha>` | no          | if a PR is open |
+| nothing changed         | nothing                                                              | no          | none            |
 
-On the default branch, the branch's diff is empty, so it publishes the packages the pending changes
-would release, each at the version it will take. Plain `pnpm shiplane` there is still the real
-release. `shiplane branch` still works as an alias.
+On the default branch the branch's own diff is empty, so it publishes the packages the pending
+changes would release, each at the version it will take. Plain `pnpm shiplane` there is still the
+real release.
 
 With an open pull request, one comment on it, edited on each run, gives the commit, each package and
 version linked on npmjs (plain text for another registry), how to pin the exact build, the pnpm and

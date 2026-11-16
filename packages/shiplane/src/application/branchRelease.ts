@@ -99,7 +99,7 @@ const publishTest = async (
 };
 
 /**
- * `shiplane` where it runs: on the default branch, the real release (or, for `shiplane branch`, a
+ * `shiplane` where it runs: on the default branch, the real release (or, for `shiplane test-release`, a
  * test version of what the next release ships); on another branch, a temporary npm version of the
  * packages it changes, for testers, commented on its pull request when it has one. False when
  * refused or failed.

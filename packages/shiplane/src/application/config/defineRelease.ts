@@ -19,7 +19,7 @@ export interface ReleaseConfig {
   /** How much the release says while it runs; `--verbose` and `--mascot` (or `--no-…`) override. */
   display?: DisplayChoice;
   /**
-   * The pull request comment of a test version (`shiplane branch`): `comments.table` (the default),
+   * The pull request comment of a test version (`shiplane test-release`): `comments.table` (the default),
    * `comments.compact`, or text of your own with `{branch}`, `{commit}`, `{table}` and `{install}`.
    */
   testComment?: string;
