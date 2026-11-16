@@ -53,6 +53,7 @@ describe("deploying to Fly", () => {
       tag: "api@1.0.0",
       environment: "preview",
       commit: "abc1234",
+      defaultBranch: "main",
       options: {
         app: "acme-api-preview",
         config: "fly.toml",

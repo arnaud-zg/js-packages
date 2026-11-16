@@ -18,6 +18,7 @@ const jobsFor = (options: Record<string, unknown>) =>
       tag: "kit@0.6.0-feat-x.ae08284",
       environment: "preview",
       commit: "ae08284",
+      defaultBranch: "main",
       options: { access: "public", tag: "latest", ...options },
       distTag: "feat-x",
     });
