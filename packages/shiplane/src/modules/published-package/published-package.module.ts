@@ -12,5 +12,6 @@ export const publishedPackage = ({
   ...deliveryModule("published-package", packageRegistry, name),
   decide: (context, input) => context.open(packageRegistry).decide(context, input),
   live: (context, input) => context.open(packageRegistry).live(context, input),
-  publishedName: (context, input) => context.open(packageRegistry).publishedName(input),
+  publishedName: (context, input) =>
+    context.open(packageRegistry).publishedName?.(input) ?? input.unit.packageName,
 });
