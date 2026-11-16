@@ -19,7 +19,7 @@ import { readManifest } from "./manifest";
 import { MANIFEST, unitRefs } from "./readScope";
 import { paint, reasonOf } from "./say";
 import { runSteps } from "./steps";
-import { moduleOf, runHere, shipPlanOf, unitTarget } from "./targets";
+import { decideContext, moduleOf, runHere, shipPlanOf, unitTarget } from "./targets";
 
 /** Where this checkout stands, as a branch release reads it. */
 export interface Here {
@@ -85,35 +85,46 @@ const versionStep = ({ files }: ReleaseContext, publish: readonly Candidate[]): 
   run: () => Promise.resolve(publish.forEach((candidate) => writeVersion(files, candidate))),
 });
 
-/** The jobs that publish one unit under the branch's tag, as its registry builds them. */
-const publishSteps = (
+/** One package as the branch release publishes it: its name on the registry and its steps. */
+interface Publishing {
+  published: BranchPublished;
+  steps: Step[];
+}
+
+/** One unit at its branch version, as its registry publishes it under the branch's tag. */
+const publishingOf = (
   context: ReleaseContext,
-  { candidate, head, tag }: { candidate: Candidate; head: string; tag: string },
-): Step[] => {
+  { candidate, here, tag }: { candidate: Candidate; here: Here; tag: string },
+): Publishing[] => {
   const unit = { ...candidate.unit, version: candidate.version };
-  const target = unitTarget(context, { unit, environment: "preview", commit: head });
+  const target = unitTarget(context, {
+    unit,
+    environment: "preview",
+    commit: here.head,
+    defaultBranch: here.defaultBranch,
+  });
   if (!target) return [];
   const input = { ...target.input, distTag: tag };
-  return shipPlanOf(context, target.module, input).jobs.map((job) => ({
+  const name = target.module.publishedName?.(decideContext(context), input) ?? unit.packageName;
+  const steps = shipPlanOf(context, target.module, input).jobs.map((job) => ({
     label: job.label,
     run: () => runHere(context, job, { tag: target.tag, environment: "preview" }),
   }));
+  return [{ published: { name, version: candidate.version, tag }, steps }];
 };
 
 /**
  * Writes the branch versions, publishes each package, then always puts every package.json back as
  * it was: nothing is committed, tagged or versioned. False when a step failed.
  */
-const publishAll = async (context: ReleaseContext, { here, plan }: BranchRun) => {
+const publishAll = async (
+  context: ReleaseContext,
+  { plan, publishing }: { plan: BranchPlan; publishing: readonly Publishing[] },
+) => {
   const originals = plan.publish
     .map(manifestFile)
     .map((file) => ({ file, text: context.files.read(file) }));
-  const steps = [
-    versionStep(context, plan.publish),
-    ...plan.publish.flatMap((candidate) =>
-      publishSteps(context, { candidate, head: here.head, tag: plan.tag }),
-    ),
-  ];
+  const steps = [versionStep(context, plan.publish), ...publishing.flatMap(({ steps }) => steps)];
   try {
     return await runSteps(context, steps);
   } finally {
@@ -172,12 +183,11 @@ export interface BranchRun {
 
 /** Publishes the branch release, prints its install lines and keeps them on the pull request. */
 export const publishBranch = async (context: ReleaseContext, run: BranchRun) => {
-  if (!(await publishAll(context, run))) return false;
-  const published = run.plan.publish.map(({ unit, version }) => ({
-    name: unit.packageName,
-    version,
-    tag: run.plan.tag,
-  }));
+  const publishing = run.plan.publish.flatMap((candidate) =>
+    publishingOf(context, { candidate, here: run.here, tag: run.plan.tag }),
+  );
+  if (!(await publishAll(context, { plan: run.plan, publishing }))) return false;
+  const published = publishing.map((entry) => entry.published);
   printPublished(context, published);
   await commentOn(context, { pr: run.pr, sha: run.here.head, published });
   return true;

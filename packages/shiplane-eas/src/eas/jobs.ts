@@ -5,8 +5,9 @@ import type { EasInput } from "./options";
 import { easCommand } from "./command";
 import { PLATFORM_NAME } from "./wording";
 
-// A build runs on EAS from this machine; a preview update ships what its tag named, production main.
-const updateRef = ({ tag, environment }: EasInput) => (environment === "preview" ? tag : "main");
+// A preview update ships what its tag named; production ships the default branch.
+const updateRef = ({ tag, environment, defaultBranch }: EasInput) =>
+  environment === "preview" ? tag : defaultBranch;
 
 /** A build of the platforms on EAS, submitted to the stores when done. */
 const easBuild = ({

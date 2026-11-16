@@ -8,7 +8,7 @@ import { tagName } from "../domain/tags";
 import { readScope } from "./readScope";
 import { reasonOf } from "./say";
 import { missingTags } from "./tagRelease";
-import { decideContext, moduleOf, unitTarget } from "./targets";
+import { checkout, decideContext, moduleOf, unitTarget } from "./targets";
 
 export interface UnitStatus {
   unit: string;
@@ -43,10 +43,10 @@ export const readStatus = async (
     context.services.codeHost.openPrsFrom(RELEASE_BRANCH_PREFIX).catch(() => []),
     missingTags(context),
   ]);
-  const { head } = await context.services.sourceControl.position();
+  const at = await checkout(context);
   const live = async (name: string) => {
     const unit = context.release.units.find((candidate) => candidate.name === name);
-    const target = unit && unitTarget(context, { unit, environment, commit: head });
+    const target = unit && unitTarget(context, { unit, environment, ...at });
     if (!target?.module.inspect) return {};
     const inspected = await target.module
       .inspect(decideContext(context), target.input)

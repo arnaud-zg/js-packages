@@ -26,17 +26,33 @@ export const resolvedOptions = (
   return optionsFor({ ...unit, options: withDefaults }, environment, units);
 };
 
+/** Where this checkout stands: the commit it is on and the branch releases start from. */
+export interface Checkout {
+  commit: string;
+  defaultBranch: string;
+}
+
+/** The commit this machine is on and the default branch, read once for every unit a run looks at. */
+export const checkout = async ({ services }: ReleaseContext): Promise<Checkout> => {
+  const [{ head }, defaultBranch] = await Promise.all([
+    services.sourceControl.position(),
+    services.sourceControl.defaultBranch(),
+  ]);
+  return { commit: head, defaultBranch };
+};
+
 /** What a module's stages are told about one app's tag. */
 export const jobInput = (
   context: ReleaseContext,
   module: ReleaseModule,
   unit: ReleaseUnit,
-  { tag, environment, commit }: { tag: string; environment: Environment; commit: string },
+  { tag, environment, commit, defaultBranch }: { tag: string; environment: Environment } & Checkout,
 ): AppInput => ({
   unit,
   tag,
   environment,
   commit,
+  defaultBranch,
   options: resolvedOptions(module, unit, environment, context.release.units),
 });
 
@@ -50,11 +66,11 @@ export const unitTag = (context: ReleaseContext, unit: ReleaseUnit) => {
 /** One unit aimed at an environment at a commit: its module, its tag, and what its stages are told. */
 export const unitTarget = (
   context: ReleaseContext,
-  { unit, environment, commit }: { unit: ReleaseUnit; environment: Environment; commit: string },
+  { unit, environment, ...at }: { unit: ReleaseUnit; environment: Environment } & Checkout,
 ) => {
   const found = unitTag(context, unit);
   if (!found) return null;
-  const input = jobInput(context, found.module, unit, { tag: found.tag, environment, commit });
+  const input = jobInput(context, found.module, unit, { tag: found.tag, environment, ...at });
   return { ...found, input };
 };
 

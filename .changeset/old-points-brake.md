@@ -2,4 +2,5 @@
 "@shiplane/eas": patch
 ---
 
-A build refused off the default branch names it, main or master.
+A production update and a build refused off the default branch use the branch git reports, main or
+master.

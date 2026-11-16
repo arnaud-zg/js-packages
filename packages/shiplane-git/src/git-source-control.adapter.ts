@@ -56,7 +56,9 @@ const gitSource = ({
     }
     return "main";
   };
-  const defaultBranch = async () => options.main ?? (await detected());
+  // Read once per port: every unit a run looks at asks for it.
+  let known: Promise<string> | null = null;
+  const defaultBranch = () => (known ??= options.main ? Promise.resolve(options.main) : detected());
 
   return {
     defaultBranch,

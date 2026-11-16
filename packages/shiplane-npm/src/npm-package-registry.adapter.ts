@@ -153,6 +153,7 @@ export const npmPackageRegistry = (): NpmPackageRegistryAdapter =>
     settings: NpmOptions,
     describe: (input) => `${nameOf(input)} on npm (${input.options.tag})`,
     // A branch release publishes once under its own tag: there is no tag to move.
+    publishedName: nameOf,
     jobs: (input) => (input.distTag ? [publishJob(input)] : [publishJob(input), moveTagJob(input)]),
     decide,
     live,

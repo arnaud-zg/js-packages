@@ -19,6 +19,7 @@ import { deployedOn } from "./readScope";
 import { signIn, signInsOf } from "./requirements";
 import { confirm, fail, listed, paint, reasonOf } from "./say";
 import {
+  checkout,
   decideContext,
   destination,
   dispatchShip,
@@ -141,8 +142,8 @@ const decideAll = async (
     .filter((_, index) => tagged[index])
     .map(({ unit, module, tag }) => {
       const decide = async () => {
-        const { head } = await services.sourceControl.position();
-        const input = jobInput(context, module, unit, { tag, environment, commit: head });
+        const at = await checkout(context);
+        const input = jobInput(context, module, unit, { tag, environment, ...at });
         const decision = module.decide
           ? await module.decide(decideContext(context), input)
           : webDecision(context, module, input, recorded);
@@ -232,7 +233,8 @@ const blockedOn = async (
       const file = `.github/workflows/${workflow}`;
       if ((await services.sourceControl.fileAt(ci.ref, file)) !== null) continue;
       const onMain =
-        ci.ref !== "main" && (await services.sourceControl.fileAt("main", file)) !== null;
+        ci.ref !== input.defaultBranch &&
+        (await services.sourceControl.fileAt(input.defaultBranch, file)) !== null;
       return onMain ? `predates ${workflow}` : `no ${workflow}`;
     }
     return null;
@@ -240,7 +242,9 @@ const blockedOn = async (
   if (decided) return notLocal;
   const changed = await services.sourceControl.diffNames(input.tag, "HEAD");
   const sinceTagOnlyVersionFiles = onlyVersionFiles(changed, versionFiles(context));
-  return shipsFrom(path, { sinceTagOnlyVersionFiles }) ? null : "main moved past it";
+  return shipsFrom(path, { sinceTagOnlyVersionFiles })
+    ? null
+    : `${input.defaultBranch} moved past it`;
 };
 
 /** What to do instead, when the path a person forced cannot ship a unit. */
@@ -291,14 +295,16 @@ const shipmentOf =
     typicalMinutes: module.typicalMinutes,
   });
 
-/** Each job the workflow ships, in order, with the commit its ref tags: main moves, so it has none. */
+/** Each job the workflow ships, in order, with the commit its ref tags: the default branch moves, so it has none. */
 const workflowJobs = async ({ services }: ReleaseContext, entries: readonly Ready[]) => {
-  const refs = entries.flatMap(({ unit, jobs }) =>
-    jobs.flatMap(({ ci }) => (ci ? [{ unit: unit.name, ref: ci.ref }] : [])),
+  const refs = entries.flatMap(({ unit, jobs, input }) =>
+    jobs.flatMap(({ ci }) =>
+      ci ? [{ unit: unit.name, ref: ci.ref, moves: ci.ref === input.defaultBranch }] : [],
+    ),
   );
   const jobs: WorkflowJob[] = [];
-  for (const { unit, ref } of refs) {
-    const commit = ref === "main" ? null : await services.sourceControl.tagCommit(ref);
+  for (const { unit, ref, moves } of refs) {
+    const commit = moves ? null : await services.sourceControl.tagCommit(ref);
     jobs.push({ unit, ref, commit });
   }
   return jobs;

@@ -4,7 +4,7 @@ import type { ReleaseContext } from "./context";
 import { planFollowUps } from "./followUps";
 import { releaseOrder } from "./releaseOrder";
 import { paint } from "./say";
-import { commandLine, environmentLabel, shipPlanOf, unitTarget } from "./targets";
+import { checkout, commandLine, environmentLabel, shipPlanOf, unitTarget } from "./targets";
 
 /**
  * `shiplane plan`: every command shipping the current tags would run, both ways, in release order,
@@ -13,7 +13,7 @@ import { commandLine, environmentLabel, shipPlanOf, unitTarget } from "./targets
  */
 export const planShips = async (context: ReleaseContext, environment: Environment) => {
   const { release, services, output } = context;
-  const { head } = await services.sourceControl.position();
+  const at = await checkout(context);
   output.line();
   output.line(
     `  ${paint("bold", "Plan")}  ${paint("dim", "·")}  ${environmentLabel(context, [], environment)}  ${paint("dim", "· nothing runs")}`,
@@ -21,7 +21,7 @@ export const planShips = async (context: ReleaseContext, environment: Environmen
   output.line(`  ${paint("bold", "Order")}  ${releaseOrder(release.units)}`);
   const shipped: Shipped[] = [];
   for (const unit of release.units) {
-    const target = unitTarget(context, { unit, environment, commit: head });
+    const target = unitTarget(context, { unit, environment, ...at });
     if (!target) continue;
     const { module, tag, input } = target;
     const tagged = (await services.sourceControl.tagCommit(tag)) !== null;

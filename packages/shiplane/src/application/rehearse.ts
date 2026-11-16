@@ -5,7 +5,7 @@ import type { SetupContext } from "./setupContext";
 import { readManifest } from "./manifest";
 import { checkStatus, requirementsOf } from "./requirements";
 import { paint, reasonOf } from "./say";
-import { commandLine, shipPlanOf, unitTarget } from "./targets";
+import { checkout, commandLine, shipPlanOf, unitTarget } from "./targets";
 
 class StepFailed extends Error {}
 
@@ -124,9 +124,9 @@ export const rehearse = async (context: SetupContext): Promise<boolean> => {
   const planned =
     !releaseContext ||
     (await check(context, `plan  ${release.units.length} apps, nothing runs`, async () => {
-      const { head } = await releaseContext.services.sourceControl.position();
+      const at = await checkout(releaseContext);
       for (const unit of release.units) {
-        const target = unitTarget(releaseContext, { unit, environment: "preview", commit: head });
+        const target = unitTarget(releaseContext, { unit, environment: "preview", ...at });
         if (target) shipPlanOf(releaseContext, target.module, target.input);
       }
       return true;

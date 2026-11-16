@@ -44,6 +44,7 @@ export const deliveryContract = <Port extends Delivery & { capability: string }>
           unit,
         ]),
         commit: "abc1234",
+        defaultBranch: "main",
       });
 
       it("given an app's settings, when its unit file is read, then the adapter's schema takes them", () => {

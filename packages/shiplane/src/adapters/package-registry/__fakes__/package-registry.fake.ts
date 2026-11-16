@@ -65,6 +65,8 @@ export class PackageRegistryFake implements PackageRegistryPort {
     return Promise.resolve(decision);
   };
 
+  publishedName = ({ unit }: JobInput<Record<string, unknown>>) => unit.packageName;
+
   live = (_context: DecideContext, { unit }: JobInput<Record<string, unknown>>) =>
     Promise.resolve(this.published.has(`${unit.packageName}@${unit.version}`));
 
