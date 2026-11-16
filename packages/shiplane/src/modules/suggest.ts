@@ -41,16 +41,27 @@ const SUGGESTED: Record<AnyDeliveryAdapter["capability"], Suggested> = {
 export const suggestedModule = (adapter: AnyDeliveryAdapter): Suggested =>
   SUGGESTED[adapter.capability];
 
+type Capability = AnyDeliveryAdapter["capability"];
+
+type MakesModule<K extends Capability> = (
+  adapter: Extract<AnyDeliveryAdapter, { capability: K }>,
+  name: string,
+) => ReleaseModule;
+
+const MODULE_FOR = {
+  "server-hosting": (adapter, name) => backendService({ name, serverHosting: adapter }),
+  "static-hosting": (adapter, name) => webApp({ name, staticHosting: adapter }),
+  "mobile-distribution": (adapter, name) => mobileApp({ name, mobileDistribution: adapter }),
+  "package-registry": (adapter, name) => publishedPackage({ name, packageRegistry: adapter }),
+} satisfies { [K in Capability]: MakesModule<K> };
+
+const makes: { [K in Capability]: MakesModule<K> } = MODULE_FOR;
+
 /** The module a provider makes under a name, as `init` composes it before the config exists. */
-export const moduleFor = (adapter: AnyDeliveryAdapter, name: string): ReleaseModule => {
-  switch (adapter.capability) {
-    case "server-hosting":
-      return backendService({ name, serverHosting: adapter });
-    case "static-hosting":
-      return webApp({ name, staticHosting: adapter });
-    case "mobile-distribution":
-      return mobileApp({ name, mobileDistribution: adapter });
-    case "package-registry":
-      return publishedPackage({ name, packageRegistry: adapter });
-  }
+export const moduleFor = <K extends Capability>(
+  adapter: Extract<AnyDeliveryAdapter, { capability: K }>,
+  name: string,
+): ReleaseModule => {
+  const make: MakesModule<K> = makes[adapter.capability];
+  return make(adapter, name);
 };

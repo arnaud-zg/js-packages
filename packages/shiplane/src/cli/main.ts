@@ -5,7 +5,6 @@ import type { ReleaseContext } from "../application/context";
 import type { ContextIo } from "./compose";
 import { nodeFiles } from "../adapters/files/node-files.adapter";
 import { addUnit, removeUnit } from "../application/addUnit";
-import { loadRelease } from "../application/config/loadRelease";
 import { docsFor } from "../application/docsFor";
 import { doctor } from "../application/doctor";
 import { initRelease } from "../application/initRelease";
@@ -16,14 +15,15 @@ import { planShips } from "../application/planShips";
 import { prepareRelease } from "../application/prepareRelease";
 import { promote } from "../application/promote";
 import { releaseToPreview } from "../application/releaseToPreview";
+import { paint } from "../application/say";
 import { setup } from "../application/setup";
 import { CONFIG_FILE, refreshEditorSchema } from "../application/setupFiles";
 import { shipTo } from "../application/ship";
 import { missingTags, tagRelease } from "../application/tagRelease";
 import { ENVIRONMENTS } from "../domain/environment";
-import { composeContext, composeSetup } from "./compose";
+import { composeContext, composeSetup, loadReleaseOnDisk } from "./compose";
 import { findRoot } from "./findRoot";
-import { out, paint, printProblems } from "./output";
+import { out, printProblems } from "./output";
 import { pluginsCommand } from "./pluginsCommand";
 import { statusCommand } from "./statusCommand";
 
@@ -130,7 +130,7 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
     out(HELP);
     return 1;
   }
-  const release = await loadRelease(root, { aliases: io.aliases });
+  const release = await loadReleaseOnDisk(root, { aliases: io.aliases });
   if (release.problems.length > 0) {
     printProblems(release.problems);
     return 2;

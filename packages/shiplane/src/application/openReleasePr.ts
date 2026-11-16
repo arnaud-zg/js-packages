@@ -11,13 +11,12 @@ import {
   releaseTitle,
   titleFits,
 } from "../domain/releasePr";
+import { plural } from "../domain/words";
 import { chooseVersion } from "./chooseVersion";
 import { prepareRelease } from "./prepareRelease";
 import { fail, listed, paint } from "./say";
 import { branchStep, openPrStep, pushStep, runSteps } from "./steps";
 import { destination, environmentLabel, moduleOf } from "./targets";
-
-const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
 
 /** What happens to a unit once the release PR merges: its module ships the version. */
 const shipsOnMerge =

@@ -2,32 +2,35 @@ import path from "node:path";
 
 import type { ReleaseUnit } from "../domain/unit";
 import type { SetupContext } from "./setupContext";
-import { tagName } from "../domain/tags";
+import { readManifest } from "./manifest";
 import { checkStatus, requirementsOf } from "./requirements";
-import { paint } from "./say";
-import { commandLine, jobInput, moduleOf, shipPlanOf } from "./targets";
+import { paint, reasonOf } from "./say";
+import { commandLine, shipPlanOf, unitTarget } from "./targets";
 
 class StepFailed extends Error {}
+
+/** A failed check, said: a spinner already said a check that did not pass; one that broke says why. */
+const sayFailed = (context: SetupContext, { label, error }: { label: string; error: unknown }) => {
+  if (error instanceof StepFailed && context.progress) return;
+  context.output.line(`  ${paint("red", "✗")} ${label}`);
+  if (error instanceof StepFailed) return;
+  context.output.line(`     ${paint("dim", reasonOf(error))}`);
+};
 
 /** One rehearsal check under a spinner when there is one: true when `work` says it passed. */
 const check = async (context: SetupContext, label: string, work: () => Promise<boolean>) => {
   const run = async () => {
     if (!(await work())) throw new StepFailed();
   };
+  const runPlain = async () => {
+    await run();
+    context.output.line(`  ${paint("green", "✓")} ${label}`);
+  };
   try {
-    if (context.progress) await context.progress.during(label, "working", run);
-    else {
-      await run();
-      context.output.line(`  ${paint("green", "✓")} ${label}`);
-    }
+    await (context.progress ? context.progress.during(label, "working", run) : runPlain());
     return true;
   } catch (error) {
-    if (!(error instanceof StepFailed)) {
-      context.output.line(`  ${paint("red", "✗")} ${label}`);
-      context.output.line(
-        `     ${paint("dim", error instanceof Error ? error.message : String(error))}`,
-      );
-    } else if (!context.progress) context.output.line(`  ${paint("red", "✗")} ${label}`);
+    sayFailed(context, { label, error });
     return false;
   }
 };
@@ -46,10 +49,7 @@ export const runner = (context: SetupContext) =>
 export const buildCommandOf = (context: SetupContext, unit: ReleaseUnit) => {
   if (unit.buildCommand)
     return { command: "sh", args: ["-c", unit.buildCommand], shown: unit.buildCommand };
-  const manifest = JSON.parse(
-    context.files.read(path.posix.join(unit.dir, "package.json")) ?? "{}",
-  ) as { scripts?: Record<string, string> };
-  if (!manifest.scripts?.build) return null;
+  if (!readManifest({ files: context.files, dir: unit.dir })?.scripts?.build) return null;
   const pm = runner(context);
   return { command: pm, args: ["run", "build"], shown: `${pm} run build` };
 };
@@ -126,14 +126,8 @@ export const rehearse = async (context: SetupContext): Promise<boolean> => {
     (await check(context, `plan  ${release.units.length} apps, nothing runs`, async () => {
       const { head } = await releaseContext.services.sourceControl.position();
       for (const unit of release.units) {
-        const module = moduleOf(releaseContext, unit);
-        if (!module) continue;
-        const tag = tagName(unit.name, unit.version, release.tagFormat);
-        shipPlanOf(
-          releaseContext,
-          module,
-          jobInput(releaseContext, module, unit, { tag, environment: "preview", commit: head }),
-        );
+        const target = unitTarget(releaseContext, { unit, environment: "preview", commit: head });
+        if (target) shipPlanOf(releaseContext, target.module, target.input);
       }
       return true;
     }));

@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { Workspace } from "../../../testing/workspace";
+import { loadReleaseOnDisk as loadRelease } from "../../../cli/compose";
 import { resolveDisplay } from "../../../domain/display";
 import { MODULE_CONFIG } from "../../../testing/moduleConfig";
 import { createWorkspace, SOURCE_ALIASES } from "../../../testing/workspace";
-import { loadRelease } from "../loadRelease";
 
 let workspace: Workspace | undefined;
 afterEach(() => workspace?.remove());

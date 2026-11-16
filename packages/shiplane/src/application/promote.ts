@@ -7,7 +7,7 @@ import { changelogSection, tagName } from "../domain/tags";
 import { pickScope } from "./pickScope";
 import { confirm, listed, paint } from "./say";
 import { shipTo } from "./ship";
-import { decideContext, jobInput, moduleOf } from "./targets";
+import { decideContext, unitTarget } from "./targets";
 
 const STAGES = ["What to promote", "Ship"] as const;
 
@@ -95,16 +95,12 @@ const previewLooksWell = async (context: ReleaseContext, scope: ReadonlySet<stri
         release.units
           .filter(({ name }) => scope.has(name))
           .map(async (unit) => {
-            const module = moduleOf(context, unit);
-            if (!module?.health) return [];
-            const tag = tagName(unit.name, unit.version, context.release.tagFormat);
-            const input = jobInput(context, module, unit, {
-              tag,
-              environment: "preview",
-              commit: head,
-            });
-            const health = await module.health(decideContext(context), input).catch(() => null);
-            return health ? [{ tag, ...health }] : [];
+            const target = unitTarget(context, { unit, environment: "preview", commit: head });
+            if (!target?.module.health) return [];
+            const health = await target.module
+              .health(decideContext(context), target.input)
+              .catch(() => null);
+            return health ? [{ tag: target.tag, ...health }] : [];
           }),
       ),
   );

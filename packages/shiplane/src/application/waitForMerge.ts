@@ -41,6 +41,24 @@ const hintsFor = (approvalRequired: boolean) => [
   { key: "Ctrl-C", label: "leave, continue later" },
 ];
 
+/** What the wait is for: someone's approval, or a merge from here or GitHub. */
+const sayWaiting = (
+  { output }: ReleaseContext,
+  { pr, approvalRequired }: { pr: OpenPr; approvalRequired: boolean },
+) => {
+  if (!approvalRequired) {
+    output.line(
+      paint(
+        "dim",
+        "    Review and merge it here or on GitHub; this carries on by itself once merged.",
+      ),
+    );
+    return;
+  }
+  output.line(`    Waiting for approval on #${pr.number}. This can take a while.`);
+  output.line(paint("dim", "    It's safe to leave: run shiplane later and it picks up here."));
+};
+
 /**
  * Polls the host until the PR merges or closes; in a terminal the person can also read the diff
  * (d), merge from here (m, unless approval is required) or open it in the browser (o). Without a
@@ -50,17 +68,7 @@ export const waitForMerge = async (context: ReleaseContext, pr: OpenPr): Promise
   const { output, prompter, services } = context;
   const approvalRequired = context.release.flow.approval === "required";
   output.line(`  ${paint("green", "✓")} Release PR  ${paint("cyan", pr.url)}`);
-  if (approvalRequired) {
-    output.line(`    Waiting for approval on #${pr.number}. This can take a while.`);
-    output.line(paint("dim", "    It's safe to leave: run shiplane later and it picks up here."));
-  } else {
-    output.line(
-      paint(
-        "dim",
-        "    Review and merge it here or on GitHub; this carries on by itself once merged.",
-      ),
-    );
-  }
+  sayWaiting(context, { pr, approvalRequired });
   if (approvalRequired && !prompter.interactive) {
     const state = await services.codeHost.prState(pr).catch(() => "OPEN" as const);
     if (state === "OPEN") return "left";

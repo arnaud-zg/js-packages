@@ -3,8 +3,9 @@ import path from "node:path";
 import { z } from "zod";
 
 import type { ManifestReader } from "../../ports/manifest.port";
+import { PackageJsonSchema } from "../../application/manifest";
 
-const PackageSchema = z.object({ name: z.string(), version: z.string() });
+const PackageSchema = PackageJsonSchema.pipe(z.object({ name: z.string(), version: z.string() }));
 
 export const packageJsonManifest: ManifestReader = {
   read: (root, dir) => {

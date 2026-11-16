@@ -6,6 +6,10 @@ type Style = Parameters<typeof styleText>[0];
 
 export const paint = (style: Style, text: string) => styleText(style, text);
 
+/** What a failure says, whatever was thrown. */
+export const reasonOf = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
+
 /** A failure, said with what to run next; the caller returns false so nothing else runs. */
 export const fail = (
   { output, progress }: ReleaseContext,

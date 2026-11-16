@@ -6,8 +6,9 @@ import { nextStep, RELEASE_BRANCH_PREFIX } from "../domain/releasePr";
 import { scopeChoices } from "../domain/scope";
 import { tagName } from "../domain/tags";
 import { readScope } from "./readScope";
+import { reasonOf } from "./say";
 import { missingTags } from "./tagRelease";
-import { decideContext, jobInput, moduleOf } from "./targets";
+import { decideContext, moduleOf, unitTarget } from "./targets";
 
 export interface UnitStatus {
   unit: string;
@@ -45,17 +46,12 @@ export const readStatus = async (
   const { head } = await context.services.sourceControl.position();
   const live = async (name: string) => {
     const unit = context.release.units.find((candidate) => candidate.name === name);
-    const module = unit && moduleOf(context, unit);
-    if (!unit || !module?.inspect) return {};
-    const input = jobInput(context, module, unit, {
-      tag: tagName(unit.name, unit.version, context.release.tagFormat),
-      environment,
-      commit: head,
-    });
-    const inspected = await module
-      .inspect(decideContext(context), input)
+    const target = unit && unitTarget(context, { unit, environment, commit: head });
+    if (!target?.module.inspect) return {};
+    const inspected = await target.module
+      .inspect(decideContext(context), target.input)
       .catch((error: unknown) => ({
-        error: error instanceof Error ? error.message : String(error),
+        error: reasonOf(error),
       }));
     return { live: inspected };
   };

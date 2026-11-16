@@ -1,4 +1,5 @@
 import type { Environment } from "./environment";
+import { plural } from "./words";
 
 /** A unit whose live state its own platform knows, not GitHub Deployments: EAS for a mobile app. */
 export interface DecidedBy {
@@ -39,8 +40,6 @@ export interface ScopeChoice {
   pending: boolean;
   hint: string;
 }
-
-const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
 
 const previewChoice = ({
   version,

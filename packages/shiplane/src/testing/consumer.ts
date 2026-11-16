@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { systemShell } from "../adapters/shell/system-shell.adapter";
+import { PackageJsonSchema } from "../application/manifest";
 
 /** What the built CLI printed and the code it exited with. */
 export interface CliRun {
@@ -31,8 +32,8 @@ const CORE = "shiplane";
 const coreDir = (from: string): string => {
   const manifest = path.join(from, "package.json");
   if (fs.existsSync(manifest)) {
-    const { name } = JSON.parse(fs.readFileSync(manifest, "utf8")) as { name?: string };
-    if (name === CORE) return from;
+    const parsed = PackageJsonSchema.safeParse(JSON.parse(fs.readFileSync(manifest, "utf8")));
+    if (parsed.data?.name === CORE) return from;
   }
   const parent = path.dirname(from);
   if (parent === from) throw new Error(`${CORE} not found above ${import.meta.dirname}`);

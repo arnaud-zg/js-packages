@@ -6,7 +6,7 @@ import type { Release } from "./config/loadRelease";
 import { findUnset } from "../domain/checkEnvBeforeDeploy";
 import { ENVIRONMENTS } from "../domain/environment";
 import { listing, platformEnvOf, STEP } from "./checkEnvBeforeDeploy";
-import { paint } from "./say";
+import { paint, reasonOf } from "./say";
 
 const doctorLine = (output: Output, mark: string, text: string) =>
   output.line(`${paint("dim", "│")}  ${mark} ${text}`);
@@ -21,7 +21,7 @@ const reportUnit = async (
   const expected = toCheck.for(environment);
   const where = `${unit.name} on ${environment}`;
   const setOnPlatform = await port.listNames({ unit, environment }).catch((error: unknown) => {
-    const reason = error instanceof Error ? error.message : String(error);
+    const reason = reasonOf(error);
     doctorLine(output, paint("red", "✗"), `${where}: ${reason}`);
     return null;
   });

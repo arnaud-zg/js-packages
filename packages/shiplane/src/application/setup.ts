@@ -18,6 +18,7 @@ import {
   suggestedName,
 } from "./customAdapter";
 import { askOptions } from "./initRelease";
+import { readManifest } from "./manifest";
 import { rehearse, runner } from "./rehearse";
 import { paint } from "./say";
 import {
@@ -37,6 +38,7 @@ import {
   schemaLineFor,
   schemaText,
 } from "./setupFiles";
+import { unattended } from "./unattended";
 
 /** A file setup writes: its text, and whether it is new. */
 export interface Write {
@@ -133,9 +135,8 @@ const customWrites = (port: CustomPortKey, name: string, pkg: string): Write[] =
 
 /** What both ways of versioning need: the changesets config, and its CLI when it is missing. */
 const changesetsWrites = ({ files }: SetupContext): Write[] => {
-  const manifest = files.read("package.json");
-  const parsed = JSON.parse(manifest ?? "{}") as Record<string, Record<string, string> | undefined>;
-  const present = { ...parsed.dependencies, ...parsed.devDependencies }[CHANGESETS_CLI.name];
+  const manifest = readManifest({ files, dir: "." });
+  const present = { ...manifest?.dependencies, ...manifest?.devDependencies }[CHANGESETS_CLI.name];
   return [
     { file: CHANGESETS_CONFIG_FILE, text: CHANGESETS_CONFIG, created: true },
     ...(manifest === null || present
@@ -145,9 +146,9 @@ const changesetsWrites = ({ files }: SetupContext): Write[] => {
             file: "package.json",
             text: `${JSON.stringify(
               {
-                ...parsed,
+                ...manifest,
                 devDependencies: {
-                  ...parsed.devDependencies,
+                  ...manifest.devDependencies,
                   [CHANGESETS_CLI.name]: CHANGESETS_CLI.version,
                 },
               },
@@ -168,26 +169,25 @@ const chooseVersioning = async (
   pkg: string,
 ): Promise<FlowChoice | null> => {
   const { prompter } = context;
-  const picked =
-    yes || !prompter.interactive
-      ? "commits"
-      : await prompter.select(
-          "How do you want to release?",
-          [
-            {
-              value: "commits",
-              label: "From commits",
-              hint: "feat, fix and ! set the version, nothing to write",
-            },
-            {
-              value: "changesets",
-              label: "From changesets",
-              hint: "you write what ships, and when",
-            },
-            { value: "custom", label: "Custom", hint: "a no-op in memory you implement" },
-          ],
-          "commits",
-        );
+  const picked = unattended({ prompter, options: { yes } })
+    ? "commits"
+    : await prompter.select(
+        "How do you want to release?",
+        [
+          {
+            value: "commits",
+            label: "From commits",
+            hint: "feat, fix and ! set the version, nothing to write",
+          },
+          {
+            value: "changesets",
+            label: "From changesets",
+            hint: "you write what ships, and when",
+          },
+          { value: "custom", label: "Custom", hint: "a no-op in memory you implement" },
+        ],
+        "commits",
+      );
   if (picked === null) return null;
   if (picked === "custom") {
     const name = await askName(context, "versioning", suggestedName("versioning"));
@@ -275,20 +275,19 @@ const chooseFolders = async (
   const found = expandPatterns(files, known).filter((dir) => dir !== ".");
   output.line();
   output.line(paint("bold", "  Apps"));
-  if (found.length > 0) {
-    const patterns = known.filter((pattern) => !pattern.startsWith("!")).join(", ");
-    if (
-      yes ||
-      (await prompter.confirm(
-        `Your apps and packages are in ${patterns} (${found.length} folders)?`,
-        true,
-      ))
-    )
-      return known;
-  } else if (yes) {
+  if (found.length === 0 && yes) {
     needsPerson.push("where the apps are (no workspace folders found)");
     return null;
   }
+  const listed = known.filter((pattern) => !pattern.startsWith("!")).join(", ");
+  const taken =
+    found.length > 0 &&
+    (yes ||
+      (await prompter.confirm(
+        `Your apps and packages are in ${listed} (${found.length} folders)?`,
+        true,
+      )));
+  if (taken) return known;
   for (;;) {
     const typed = await prompter.text("Where are your apps and packages? (e.g. apps/*, web)");
     if (typed === null) return null;
@@ -421,18 +420,42 @@ const placeFolder = async (
   return { folder, module, options: {} };
 };
 
+/** The config: written whole the first time, else the new modules added to the one there. */
+const configWrites = (
+  { files }: SetupContext,
+  {
+    existing,
+    entries,
+    pkg,
+    flow,
+    patterns,
+  }: {
+    existing: boolean;
+    entries: readonly ModuleEntry[];
+    pkg: string;
+    flow: Record<FlowPort, FlowChoice> | null;
+    patterns: string[] | null;
+  },
+): Write[] => {
+  if (!existing) {
+    const units =
+      patterns && patterns.join() !== workspacePatterns(files).join() ? patterns : undefined;
+    const text = renderConfig(entries, pkg, flow ?? DEFAULT_FLOW, units);
+    return [{ file: CONFIG_FILE, text, created: true }];
+  }
+  if (entries.length === 0) return [];
+  const before = files.read(CONFIG_FILE) ?? "";
+  const config = entries.reduce((text, entry) => addToConfig(text, entry, pkg) ?? text, before);
+  return [{ file: CONFIG_FILE, text: config, created: false }];
+};
+
 /** The command that builds a folder: its unit's, its package.json script's, or one asked once. */
 const buildFor = async (
   context: SetupContext,
   folder: FolderView,
   yes: boolean,
 ): Promise<string | null> => {
-  const manifest = JSON.parse(
-    context.files.read(path.posix.join(folder.dir, "package.json")) ?? "{}",
-  ) as {
-    scripts?: Record<string, string>;
-  };
-  if (manifest.scripts?.build) return null;
+  if (readManifest({ files: context.files, dir: folder.dir })?.scripts?.build) return null;
   if (yes) return null;
   const typed = await context.prompter.text(
     `${folder.dir} has no "build" script. Command to build it? (empty: nothing to build)`,
@@ -469,7 +492,7 @@ export const setup = async (context: SetupContext, { yes }: { yes: boolean }): P
 
   const flow = existing ? null : await chooseFlow(context, yes, needsPerson, writes, pkg);
   if (existing) output.line(`  ${ok} flow  ${paint("dim", CONFIG_FILE)}`);
-  else if (!flow && needsPerson.length === 0) return cancelled(context);
+  if (!existing && !flow && needsPerson.length === 0) return cancelled(context);
 
   const patterns = existing
     ? existing.units.length > 0
@@ -514,19 +537,9 @@ export const setup = async (context: SetupContext, { yes }: { yes: boolean }): P
     return false;
   }
 
-  if (!existing) {
-    const units =
-      patterns && patterns.join() !== workspacePatterns(files).join() ? patterns : undefined;
-    writes.unshift({
-      file: CONFIG_FILE,
-      text: renderConfig(entries, pkg, flow ?? DEFAULT_FLOW, units),
-      created: true,
-    });
-  } else if (entries.length > 0) {
-    let config = files.read(CONFIG_FILE) ?? "";
-    for (const entry of entries) config = addToConfig(config, entry, pkg) ?? config;
-    writes.unshift({ file: CONFIG_FILE, text: config, created: false });
-  }
+  writes.unshift(
+    ...configWrites(context, { existing: existing !== null, entries, pkg, flow, patterns }),
+  );
   placed.forEach(({ folder, module, options, reason }) =>
     writes.push({
       file: path.posix.join(folder.dir, UNIT_FILE),

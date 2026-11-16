@@ -5,9 +5,9 @@ import type { VersionChoice, VersionContribution } from "../ports/delivery.port"
 import type { ReleaseContext } from "./context";
 import { appBumps, packageBumps, splitChangesets } from "../domain/changes";
 import { draggedUnits } from "../domain/companions";
-import { tagName } from "../domain/tags";
 import { namedUnits, unitRefs } from "./readScope";
-import { decideContext, jobInput, moduleOf } from "./targets";
+import { decideContext, unitTarget } from "./targets";
+import { unattended } from "./unattended";
 
 export type Split = ReturnType<typeof splitChangesets>;
 
@@ -37,10 +37,10 @@ export interface Prepared {
 }
 
 /** The person's answer to a plugin's choice; the suggestion without a terminal or with --yes. */
-const choose = async ({ prompter, options }: ReleaseContext, choice: VersionChoice | undefined) => {
+const choose = async (context: ReleaseContext, choice: VersionChoice | undefined) => {
   if (!choice) return null;
-  if (options.yes || !prompter.interactive) return choice.suggested;
-  return prompter.select(choice.question, choice.options, choice.suggested);
+  if (unattended(context)) return choice.suggested;
+  return context.prompter.select(choice.question, choice.options, choice.suggested);
 };
 
 /** What each picked unit's plugin adds, given the unit's bump so far. One at a time: it may ask. */
@@ -59,14 +59,10 @@ const contributionsOf = async (
       contributions[unit.name] = answered;
       continue;
     }
-    const module = moduleOf(context, unit);
-    const version = module?.version?.bind(module);
-    if (!module || !version) continue;
-    const input = jobInput(context, module, unit, {
-      tag: tagName(unit.name, unit.version, context.release.tagFormat),
-      environment: "preview",
-      commit: head,
-    });
+    const target = unitTarget(context, { unit, environment: "preview", commit: head });
+    const version = target?.module.version?.bind(target.module);
+    if (!target || !version) continue;
+    const { input } = target;
     const bump = bumps.find(({ app }) => app === unit.name);
     const contribute = (chosen?: string) =>
       version(decideContext(context), { ...input, bump, chosen });

@@ -6,8 +6,9 @@ import type { Shell } from "../ports/shell.port";
 import type { Release } from "./config/loadRelease";
 import type { ReleaseContext } from "./context";
 import { findUnset } from "../domain/checkEnvBeforeDeploy";
-import { paint } from "./say";
+import { paint, reasonOf } from "./say";
 import { resolvedOptions } from "./targets";
+import { unattended } from "./unattended";
 
 export const STEP = "Check env before deploy";
 const SET_THEM = "Are they set now?";
@@ -59,17 +60,12 @@ const readNames = async (
   try {
     return await port.listNames(input);
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
+    const reason = reasonOf(error);
     line(context, paint("red", "✗"), `${input.unit.name} on ${input.environment}: ${reason}`);
-    const retry =
-      context.prompter.interactive &&
-      !context.options.yes &&
-      (await context.prompter.confirm(READ_AGAIN, true));
+    const retry = !unattended(context) && (await context.prompter.confirm(READ_AGAIN, true));
     return retry ? readNames(context, port, input) : null;
   }
 };
-
-const canWait = ({ prompter, options }: ReleaseContext) => prompter.interactive && !options.yes;
 
 /** One unit on one environment: true once every listed name is on its platform. */
 const checkUnit = async (
@@ -95,7 +91,7 @@ const checkUnit = async (
     `${where}: ${unset.names().length} unset env vars, the deploy waits`,
   );
   unset.names().forEach((name) => output.line(`      ${name}`));
-  if (!canWait(context)) {
+  if (unattended(context)) {
     output.line(`    ${paint("dim", "Nothing was written. Set them, then run again:")}`);
     output.line(`      ${command}`);
     return false;

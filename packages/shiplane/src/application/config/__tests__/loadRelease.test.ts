@@ -3,9 +3,9 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { Workspace } from "../../../testing/workspace";
+import { loadReleaseOnDisk as loadRelease } from "../../../cli/compose";
 import { ADMIN_UNIT, MODULE_CONFIG, SERVER_UNIT } from "../../../testing/moduleConfig";
 import { createWorkspace, packageJson, SOURCE_ALIASES } from "../../../testing/workspace";
-import { loadRelease } from "../loadRelease";
 import { optionsFor } from "../optionsFor";
 
 let workspace: Workspace | undefined;

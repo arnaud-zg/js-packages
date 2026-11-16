@@ -7,7 +7,9 @@ import type { AfterShipContext, AppInput, ReleaseModule } from "../modules/modul
 import type { Command, DecideContext, Job } from "../ports/delivery.port";
 import type { ReleaseContext } from "./context";
 import { changesReaching, codeFolders } from "../domain/codeScope";
+import { tagName } from "../domain/tags";
 import { optionsFor } from "./config/optionsFor";
+import { reasonOf } from "./say";
 
 /** The module that ships an app: the one its unit file names. */
 export const moduleOf = ({ release }: ReleaseContext, unit: ReleaseUnit) =>
@@ -37,6 +39,24 @@ export const jobInput = (
   commit,
   options: resolvedOptions(module, unit, environment, context.release.units),
 });
+
+/** The module that ships a unit and the tag it ships, or null when no module claims it. */
+export const unitTag = (context: ReleaseContext, unit: ReleaseUnit) => {
+  const module = moduleOf(context, unit);
+  if (!module) return null;
+  return { module, tag: tagName(unit.name, unit.version, context.release.tagFormat) };
+};
+
+/** One unit aimed at an environment at a commit: its module, its tag, and what its stages are told. */
+export const unitTarget = (
+  context: ReleaseContext,
+  { unit, environment, commit }: { unit: ReleaseUnit; environment: Environment; commit: string },
+) => {
+  const found = unitTag(context, unit);
+  if (!found) return null;
+  const input = jobInput(context, found.module, unit, { tag: found.tag, environment, commit });
+  return { ...found, input };
+};
 
 /** Where a tag lands and the jobs that ship it, as its module says. */
 export const shipPlanOf = (context: ReleaseContext, module: ReleaseModule, input: AppInput) =>
@@ -102,7 +122,7 @@ const runFromTag = async (context: ReleaseContext, job: Job, tag: string) => {
   let removing: Promise<void> | null = null;
   const remove = () => {
     removing ??= services.sourceControl.removeWorktree(dir).catch((error: unknown) => {
-      const reason = error instanceof Error ? error.message : String(error);
+      const reason = reasonOf(error);
       output.line(`  ! could not remove the worktree ${dir}: ${reason}`);
       output.line(`    git worktree remove --force ${dir}`);
     });
@@ -146,8 +166,7 @@ export const runHere = async (
   job: Job,
   { tag, environment }: { tag: string; environment: Environment },
 ) => {
-  if (job.from) await runFromTag(context, job, job.from);
-  else await runIn(context, job, context.release.root);
+  await (job.from ? runFromTag(context, job, job.from) : runIn(context, job, context.release.root));
   if (job.record) await context.services.codeHost.recordDeployment(tag, environment);
 };
 

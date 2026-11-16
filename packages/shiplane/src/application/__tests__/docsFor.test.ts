@@ -7,9 +7,9 @@ import { defineStaticHosting } from "../../adapters/defineDelivery";
 import { nodeFiles } from "../../adapters/files/node-files.adapter";
 import { RecordingShell } from "../../adapters/shell/__fakes__/shell.fake";
 import { MemoryOutput, ScriptedPrompter } from "../../adapters/terminal/__fakes__/terminal.fake";
+import { loadReleaseOnDisk as loadRelease } from "../../cli/compose";
 import { MODULE_CONFIG } from "../../testing/moduleConfig";
 import { createWorkspace, SOURCE_ALIASES } from "../../testing/workspace";
-import { loadRelease } from "../config/loadRelease";
 import { perEnv } from "../config/perEnv";
 import { docsFor } from "../docsFor";
 

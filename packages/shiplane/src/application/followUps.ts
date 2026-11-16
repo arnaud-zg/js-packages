@@ -1,9 +1,7 @@
 import type { FollowUp, Shipped } from "../modules/module";
 import type { ReleaseContext } from "./context";
-import { paint } from "./say";
+import { paint, reasonOf } from "./say";
 import { afterShipContext } from "./targets";
-
-const reasonOf = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
 /** What every feature asks for once these apps ship, in order. One that cannot read is said, then skipped. */
 const followUpsOf = async (context: ReleaseContext, shipped: readonly Shipped[]) => {

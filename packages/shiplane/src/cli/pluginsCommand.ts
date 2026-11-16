@@ -1,6 +1,7 @@
 import type { Release } from "../application/config/loadRelease";
 import { keysAt } from "../application/config/unitSchema";
-import { out, paint } from "./output";
+import { paint } from "../application/say";
+import { out } from "./output";
 
 /** `shiplane plugins`: the flow's adapters, the modules in release order with their apps, the features. */
 export const pluginsCommand = (release: Release, { json }: { json: boolean }) => {
