@@ -5,25 +5,31 @@ import { CatalogUpdate } from "../catalogUpdate";
 describe("version update detection", () => {
   describe("given a package is already at the correct version", () => {
     it("when compared, then no update is produced", () => {
-      expect(CatalogUpdate.between("expo-camera", "~17.0.10", "~17.0.10")).toBeNull();
+      expect(
+        CatalogUpdate.between({ name: "expo-camera", from: "~17.0.10", to: "~17.0.10" }),
+      ).toBeNull();
     });
   });
 
   describe("given a package has no current version recorded", () => {
     it("when compared, then no update is produced", () => {
-      expect(CatalogUpdate.between("expo-camera", "", "~17.0.10")).toBeNull();
+      expect(CatalogUpdate.between({ name: "expo-camera", from: "", to: "~17.0.10" })).toBeNull();
     });
   });
 
   describe("given expo tooling did not return a version", () => {
     it("when compared, then no update is produced", () => {
-      expect(CatalogUpdate.between("expo-camera", "~17.0.8", "")).toBeNull();
+      expect(CatalogUpdate.between({ name: "expo-camera", from: "~17.0.8", to: "" })).toBeNull();
     });
   });
 
   describe("given a package is outdated", () => {
     it("when compared, then an update is produced with the old and new versions", () => {
-      const update = CatalogUpdate.between("expo-camera", "~17.0.8", "~17.0.10");
+      const update = CatalogUpdate.between({
+        name: "expo-camera",
+        from: "~17.0.8",
+        to: "~17.0.10",
+      });
 
       expect(update).not.toBeNull();
       expect(update?.name).toBe("expo-camera");

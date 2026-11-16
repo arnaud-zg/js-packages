@@ -3,7 +3,7 @@ import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { WorkspaceCatalogExpoScanner } from "../workspaceCatalogExpoScanner";
+import { WorkspaceCatalogExpoScanner, WorkspaceCatalogScanner } from "../workspaceCatalogScanner";
 import { aPackageJson } from "./builders";
 
 let tmpDir: string;
@@ -34,7 +34,7 @@ describe("scanning workspace packages for catalog dependencies", () => {
         .build();
       writePackageJson("packages/app", pkg);
 
-      const result = new WorkspaceCatalogExpoScanner(tmpDir).scan(allVersions, skipPath);
+      const result = new WorkspaceCatalogScanner(tmpDir).scan(allVersions, skipPath);
 
       expect(result.versions["expo-camera"]).toBe("~17.0.10");
       expect(result.byPackage["expo-camera"]).toEqual(["@/app"]);
@@ -47,7 +47,7 @@ describe("scanning workspace packages for catalog dependencies", () => {
       const pkg = aPackageJson().name("@/app").dependencies({ "some-lib": "catalog:" }).build();
       writePackageJson("packages/app", pkg);
 
-      const result = new WorkspaceCatalogExpoScanner(tmpDir).scan(allVersions, skipPath);
+      const result = new WorkspaceCatalogScanner(tmpDir).scan(allVersions, skipPath);
 
       expect(result.versions["some-lib"]).toBe("^3.0.0");
       expect(result.byPackage["some-lib"]).toEqual(["@/app"]);
@@ -65,7 +65,7 @@ describe("scanning workspace packages for catalog dependencies", () => {
         aPackageJson().name("@/ui").dependencies({ "expo-camera": "catalog:expo" }).build(),
       );
 
-      const result = new WorkspaceCatalogExpoScanner(tmpDir).scan(allVersions, skipPath);
+      const result = new WorkspaceCatalogScanner(tmpDir).scan(allVersions, skipPath);
 
       expect(result.byPackage["expo-camera"]).toContain("@/app");
       expect(result.byPackage["expo-camera"]).toContain("@/ui");
@@ -80,7 +80,7 @@ describe("scanning workspace packages for catalog dependencies", () => {
         aPackageJson().name("@/expo").dependencies({ "expo-camera": "catalog:expo" }).build(),
       );
 
-      const result = new WorkspaceCatalogExpoScanner(tmpDir).scan(allVersions, skipPath);
+      const result = new WorkspaceCatalogScanner(tmpDir).scan(allVersions, skipPath);
 
       expect(result.byPackage["expo-camera"]).toBeUndefined();
     });
@@ -94,7 +94,7 @@ describe("scanning workspace packages for catalog dependencies", () => {
         aPackageJson().dependencies({ "some-unknown-pkg": "catalog:expo" }).build(),
       );
 
-      const result = new WorkspaceCatalogExpoScanner(tmpDir).scan(allVersions, skipPath);
+      const result = new WorkspaceCatalogScanner(tmpDir).scan(allVersions, skipPath);
 
       expect(result.versions["some-unknown-pkg"]).toBeUndefined();
     });
@@ -102,7 +102,7 @@ describe("scanning workspace packages for catalog dependencies", () => {
 
   describe("given a workspace directory that does not exist", () => {
     it("when scanned, then it completes safely with no results", () => {
-      const scanner = new WorkspaceCatalogExpoScanner(tmpDir);
+      const scanner = new WorkspaceCatalogScanner(tmpDir);
 
       expect(() => scanner.scan({ "expo-camera": "~17.0.10" }, skipPath)).not.toThrow();
     });
@@ -116,12 +116,18 @@ describe("scanning workspace packages for catalog dependencies", () => {
         aPackageJson().name("@/shared").dependencies({ "expo-camera": "catalog:expo" }).build(),
       );
 
-      const result = new WorkspaceCatalogExpoScanner(tmpDir, ["libs"]).scan(
+      const result = new WorkspaceCatalogScanner(tmpDir, ["libs"]).scan(
         { "expo-camera": "~17.0.10" },
         skipPath,
       );
 
       expect(result.byPackage["expo-camera"]).toEqual(["@/shared"]);
     });
+  });
+});
+
+describe("the scanner's former name", () => {
+  it("still refers to the same scanner", () => {
+    expect(WorkspaceCatalogExpoScanner).toBe(WorkspaceCatalogScanner);
   });
 });

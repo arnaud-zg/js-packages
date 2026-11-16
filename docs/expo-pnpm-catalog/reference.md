@@ -6,10 +6,10 @@
 
 ## Exports
 
-| Package             | Subpath                 | Resolves to     | Needs                                                          |
-| ------------------- | ----------------------- | --------------- | -------------------------------------------------------------- |
-| `expo-pnpm-catalog` | `.`                     | `dist/index.js` | nothing extra (bundles `chalk`, `commander`, `js-yaml`, `ora`) |
-| `expo-pnpm-catalog` | bin `expo-pnpm-catalog` | `dist/cli.js`   | same                                                           |
+| Package             | Subpath                 | Resolves to     | Needs                                                                 |
+| ------------------- | ----------------------- | --------------- | --------------------------------------------------------------------- |
+| `expo-pnpm-catalog` | `.`                     | `dist/index.js` | nothing extra (bundles `chalk`, `commander`, `js-yaml`, `ora`, `zod`) |
+| `expo-pnpm-catalog` | bin `expo-pnpm-catalog` | `dist/cli.js`   | same                                                                  |
 
 ## API
 
@@ -42,7 +42,10 @@ type CatalogPaths = {
   packageJsonPath: string; // absolute path to the Expo app's package.json
 };
 
-type CheckOptions = { dryRun: boolean };
+type CheckOptions = { dryRun: boolean; interrupts?: InterruptGuard };
+type InterruptGuard = {
+  run<Result>(task: { work: () => Result; onInterrupt: () => void }): Result;
+};
 type SyncOptions = { dryRun: boolean; yes: boolean };
 
 function findWorkspaceRoot(startDir: string): string;
@@ -54,6 +57,10 @@ function runSync(paths: CatalogPaths, options: SyncOptions): Promise<void>;
   reaches the filesystem root without finding one.
 - `runCheck`: returns `true` if `expo-doctor` passed against the resolved manifest (`dryRun: true`
   always returns `true` without running it).
+- `CheckOptions.interrupts`: wraps the `expo-doctor` run, so `onInterrupt` can put the Expo app's
+  `package.json` back if the process is killed mid-run. By default it listens for `SIGINT` and
+  `SIGTERM`, restores the file and exits with code 1. Pass your own to handle your process's signals
+  yourself.
 - `runSync`: writes to `pnpm-workspace.yaml` and runs `pnpm install` unless `dryRun: true`.
 - Packages under `expo.install.exclude` in the Expo app's `package.json` are skipped by `runSync`,
   matching `expo install --fix`'s own exclusion behavior. See
@@ -64,3 +71,11 @@ function runSync(paths: CatalogPaths, options: SyncOptions): Promise<void>;
 Top-level workspace directories to scan (e.g. `apps`, `packages`) come from the `packages:` globs
 declared in `pnpm-workspace.yaml`. If none are declared, it falls back to `apps`, `packages`,
 `tooling`.
+
+## Malformed input
+
+`check` and `sync` validate `pnpm-workspace.yaml`, the Expo app's `package.json` and every scanned
+workspace `package.json` before using them. A file whose `packages`, `catalog`, `catalogs`,
+`dependencies`, `devDependencies` or `expo.install.exclude` has the wrong shape stops the run with
+`<path> is malformed:` and the offending field, and the command exits with code 1. A catalog version
+written as a bare YAML number (`react: 19`) is read as the string `"19"`.

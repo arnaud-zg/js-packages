@@ -1,34 +1,17 @@
-import fs from "fs";
-import os from "os";
-import path from "path";
 import { dump } from "js-yaml";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { CatalogWorkspace } from "../catalogWorkspace";
 import { aWorkspaceYaml } from "./builders";
 
-let tmpDir: string;
-
-beforeEach(() => {
-  tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "expo-pnpm-catalog-workspace-test-"));
-});
-
-afterEach(() => {
-  fs.rmSync(tmpDir, { recursive: true, force: true });
-});
-
-function writeYaml(data: object): string {
-  const filePath = path.join(tmpDir, "pnpm-workspace.yaml");
-  fs.writeFileSync(filePath, dump(data));
-  return filePath;
+function workspaceOf(data: object): CatalogWorkspace {
+  return CatalogWorkspace.fromText({ text: dump(data) });
 }
 
 describe("reading and updating catalog versions", () => {
   describe("given the workspace has both a root catalog and named catalogs", () => {
-    it("when loaded, then all versions from every catalog section are available", () => {
-      const filePath = writeYaml(aWorkspaceYaml().build());
-
-      const workspace = CatalogWorkspace.load(filePath);
+    it("when read, then all versions from every catalog section are available", () => {
+      const workspace = workspaceOf(aWorkspaceYaml().build());
 
       expect(workspace.getAllCatalogVersions()).toEqual({
         "some-lib": "^3.0.0",
@@ -38,8 +21,7 @@ describe("reading and updating catalog versions", () => {
     });
 
     it("when a package uses catalog:expo, then its concrete version is resolved", () => {
-      const filePath = writeYaml(aWorkspaceYaml().build());
-      const workspace = CatalogWorkspace.load(filePath);
+      const workspace = workspaceOf(aWorkspaceYaml().build());
 
       const resolved = workspace.resolveDeps({
         "expo-camera": "catalog:expo",
@@ -51,8 +33,7 @@ describe("reading and updating catalog versions", () => {
     });
 
     it("when a package uses the root catalog, then its concrete version is resolved", () => {
-      const filePath = writeYaml(aWorkspaceYaml().build());
-      const workspace = CatalogWorkspace.load(filePath);
+      const workspace = workspaceOf(aWorkspaceYaml().build());
 
       const resolved = workspace.resolveDeps({ "some-lib": "catalog:" });
 
@@ -61,53 +42,64 @@ describe("reading and updating catalog versions", () => {
   });
 
   describe("given the workspace has no catalog section", () => {
-    it("when loaded, then no versions are available", () => {
-      const filePath = writeYaml({ packages: ["apps/*"] });
-
-      const workspace = CatalogWorkspace.load(filePath);
+    it("when read, then no versions are available", () => {
+      const workspace = workspaceOf({ packages: ["apps/*"] });
 
       expect(workspace.getAllCatalogVersions()).toEqual({});
     });
   });
 
   describe("given the yaml contains comments alongside package entries", () => {
-    it("when a version is updated and saved, then comments survive", () => {
-      const content = [
+    it("when a version is updated, then the text keeps the comments", () => {
+      const text = [
         "catalogs:",
         "  expo:",
         "    # managed by expo-pnpm-catalog",
         '    expo-camera: "~17.0.8"',
       ].join("\n");
-      const filePath = path.join(tmpDir, "pnpm-workspace.yaml");
-      fs.writeFileSync(filePath, content);
 
-      CatalogWorkspace.load(filePath).writeVersion("expo-camera", "~17.0.10").save();
+      const updated = CatalogWorkspace.fromText({ text })
+        .writeVersion("expo-camera", "~17.0.10")
+        .toText();
 
-      const updated = fs.readFileSync(filePath, "utf-8");
       expect(updated).toContain("# managed by expo-pnpm-catalog");
       expect(updated).toContain('"~17.0.10"');
       expect(updated).not.toContain('"~17.0.8"');
     });
   });
 
-  describe("given a version is updated in memory but not saved", () => {
-    it("when not saved, then the file on disk is unchanged", () => {
-      const filePath = writeYaml(aWorkspaceYaml().build());
-      const original = fs.readFileSync(filePath, "utf-8");
+  describe("given a workspace is read and nothing changes", () => {
+    it("when turned back into text, then the text is identical", () => {
+      const text = "packages:\n  - apps/*\n# keep me\ncatalog:\n  some-lib: ^3.0.0\n";
 
-      CatalogWorkspace.load(filePath).writeVersion("expo-camera", "~17.0.99");
+      expect(CatalogWorkspace.fromText({ text }).toText()).toBe(text);
+    });
+  });
 
-      expect(fs.readFileSync(filePath, "utf-8")).toBe(original);
+  describe("given the yaml is a bare value instead of a map", () => {
+    it("when read, then it throws an error naming the file", () => {
+      expect(() => CatalogWorkspace.fromText({ text: "null\n" })).toThrow(
+        /pnpm-workspace\.yaml is malformed/,
+      );
+    });
+  });
+
+  describe("given the yaml has the wrong shape", () => {
+    it("when read, then it throws an error naming the file", () => {
+      expect(() =>
+        CatalogWorkspace.fromText({
+          text: "packages: apps/*\n",
+          source: "/repo/pnpm-workspace.yaml",
+        }),
+      ).toThrow(/\/repo\/pnpm-workspace\.yaml is malformed/);
     });
   });
 });
 
 describe("deriving workspace directories from packages globs", () => {
   describe("given pnpm-workspace.yaml declares packages globs", () => {
-    it("when loaded, then the top-level directory of each glob is returned", () => {
-      const filePath = writeYaml({ packages: ["apps/*", "packages/*", "tooling/*"] });
-
-      const workspace = CatalogWorkspace.load(filePath);
+    it("when read, then the top-level directory of each glob is returned", () => {
+      const workspace = workspaceOf({ packages: ["apps/*", "packages/*", "tooling/*"] });
 
       expect(workspace.getWorkspaceDirs()).toEqual(
         expect.arrayContaining(["apps", "packages", "tooling"]),
@@ -116,10 +108,8 @@ describe("deriving workspace directories from packages globs", () => {
   });
 
   describe("given pnpm-workspace.yaml declares no packages globs", () => {
-    it("when loaded, then the default workspace directories are returned", () => {
-      const filePath = writeYaml({ catalog: {} });
-
-      const workspace = CatalogWorkspace.load(filePath);
+    it("when read, then the default workspace directories are returned", () => {
+      const workspace = workspaceOf({ catalog: {} });
 
       expect(workspace.getWorkspaceDirs()).toEqual(["apps", "packages", "tooling"]);
     });

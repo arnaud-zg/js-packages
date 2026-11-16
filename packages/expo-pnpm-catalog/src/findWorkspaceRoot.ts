@@ -1,7 +1,3 @@
-/**
- * Locates the pnpm workspace root by walking up from a starting directory
- * until a pnpm-workspace.yaml is found.
- */
 import fs from "fs";
 import path from "path";
 

@@ -6,6 +6,7 @@ import { Command } from "commander";
 import type { CatalogPaths } from "./catalogUtils";
 import { runCheck } from "./check";
 import { findWorkspaceRoot } from "./findWorkspaceRoot";
+import { processSignals } from "./processSignals.adapter";
 import { runSync } from "./sync";
 
 function resolvePaths(appDirOption: string | undefined): CatalogPaths {
@@ -32,7 +33,10 @@ program
   .option("--app-dir <path>", "path to the Expo app (defaults to the current working directory)")
   .action((opts: { dryRun?: boolean; appDir?: string }) => {
     try {
-      const passed = runCheck(resolvePaths(opts.appDir), { dryRun: Boolean(opts.dryRun) });
+      const passed = runCheck(resolvePaths(opts.appDir), {
+        dryRun: Boolean(opts.dryRun),
+        interrupts: processSignals,
+      });
       if (!passed) process.exitCode = 1;
     } catch (err: unknown) {
       console.error(chalk.red("Unexpected error:"), err);

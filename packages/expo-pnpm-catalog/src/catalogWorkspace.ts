@@ -1,41 +1,44 @@
-/**
- * Represents pnpm-workspace.yaml — reads, resolves catalog references,
- * and writes version updates in place (preserving comments).
- */
-import fs from "fs";
+// Keeps the raw text so a version update patches it in place and comments survive.
 import { load } from "js-yaml";
 
-import type { WorkspaceYaml } from "./catalogUtils";
+import type { WorkspaceYaml } from "./schemas";
 import {
   DEFAULT_WORKSPACE_DIRS,
   getAllCatalogVersions,
   resolveCatalogRefs,
   updateVersionInYaml,
 } from "./catalogUtils";
+import { parseOrThrow, WorkspaceYamlSchema } from "./schemas";
 
 export type { WorkspaceYaml };
 
+export type WorkspaceText = {
+  text: string;
+  /** Names the file in a parse error. */
+  source?: string;
+};
+
 export class CatalogWorkspace {
   private constructor(
-    private readonly path: string,
     private readonly raw: string,
+    private readonly source: string,
     private readonly data: WorkspaceYaml,
   ) {}
 
-  static load(path: string): CatalogWorkspace {
-    const raw = fs.readFileSync(path, "utf-8");
-    const data = load(raw) as WorkspaceYaml;
-    return new CatalogWorkspace(path, raw, data);
+  static fromText({ text, source = "pnpm-workspace.yaml" }: WorkspaceText): CatalogWorkspace {
+    const data = parseOrThrow({ schema: WorkspaceYamlSchema, value: load(text), source });
+    return new CatalogWorkspace(text, source, data);
+  }
+
+  toText(): string {
+    return this.raw;
   }
 
   getAllCatalogVersions(): Record<string, string> {
     return getAllCatalogVersions(this.data);
   }
 
-  /**
-   * Top-level workspace directories declared by `packages:` (e.g. `apps/*`
-   * → `apps`). Falls back to the monorepo defaults when none are declared.
-   */
+  /** `packages: [apps/*]` gives `apps`; with no globs, the monorepo defaults. */
   getWorkspaceDirs(): string[] {
     const dirs = new Set<string>();
     for (const pattern of this.data.packages ?? []) {
@@ -50,11 +53,7 @@ export class CatalogWorkspace {
   }
 
   writeVersion(packageName: string, newVersion: string): CatalogWorkspace {
-    const updatedRaw = updateVersionInYaml(this.raw, packageName, newVersion);
-    return new CatalogWorkspace(this.path, updatedRaw, load(updatedRaw) as WorkspaceYaml);
-  }
-
-  save(): void {
-    fs.writeFileSync(this.path, this.raw);
+    const text = updateVersionInYaml({ content: this.raw, packageName, newVersion });
+    return CatalogWorkspace.fromText({ text, source: this.source });
   }
 }
