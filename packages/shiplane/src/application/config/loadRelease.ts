@@ -54,9 +54,14 @@ export interface Release {
   display?: DisplayChoice;
   /** Files still under their name from before shiplane. */
   renames?: Rename[];
+  /** The template of a test version's pull request comment; `comments.table` when unset. */
+  testComment?: string;
 }
 
-type Composed = Pick<Release, "flow" | "modules" | "features" | "display" | "tagFormat"> & {
+type Composed = Pick<
+  Release,
+  "flow" | "modules" | "features" | "display" | "tagFormat" | "testComment"
+> & {
   units?: string[];
 };
 
@@ -201,7 +206,16 @@ const readConfig = async (file: string, aliases: Record<string, string>): Promis
     units,
     display: { verbose: flag(display.verbose), mascot: mascotOf(display.mascot) },
     tagFormat: tagFormatOf(loaded.tag),
+    ...testCommentOf(loaded.testComment),
   };
+};
+
+const testCommentOf = (value: unknown) => {
+  if (value === undefined) return {};
+  if (typeof value !== "string") {
+    throw new Error('testComment is a template, such as comments.compact or "Try it: {install}"');
+  }
+  return { testComment: value };
 };
 
 /** A config's mascot: true, false, frames per mood, or a function; anything else is ignored. */
@@ -368,5 +382,6 @@ export const loadRelease = async (root: string, options: LoadOptions): Promise<R
       (file) => renameOf(file) ?? [],
     ),
     tagFormat: config.tagFormat,
+    ...(config.testComment === undefined ? {} : { testComment: config.testComment }),
   };
 };

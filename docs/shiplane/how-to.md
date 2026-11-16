@@ -13,7 +13,7 @@
 [Preview every command](#preview-every-command) · [Promote to production](#promote-to-production) ·
 [Widen a production rollout](#widen-a-production-rollout) ·
 [Retry a failed release](#retry-a-failed-release) ·
-[Publish a branch release for testers](#publish-a-branch-release-for-testers) ·
+[Publish a test version](#publish-a-test-version) ·
 [Choose GitHub Actions or this machine](#choose-github-actions-or-this-machine) ·
 [Ship with no laptop](#ship-with-no-laptop) · [Use it from a script](#use-it-from-a-script)
 
@@ -219,9 +219,9 @@ notes and PR comments already made are not made twice.
 With no terminal, or on CI, it refuses and says the retry is there in a terminal. Preview only, and
 never when main is behind the last preview build.
 
-## Publish a branch release for testers
+## Publish a test version
 
-Push your branch and open its pull request, then, from the branch:
+From any branch, with or without a pull request:
 
 ```sh
 pnpm shiplane branch          # or pnpm shiplane, which asks first
@@ -236,20 +236,48 @@ pnpm shiplane branch          # or pnpm shiplane, which asks first
 Each npm package whose files the branch changed since it left the default branch is published as
 `<version>-<branch>.<sha>`, its `package.json` version first, under an npm tag named after the
 branch (`branch-` in front when npm would read the name as a version, such as `v2`, and never
-`latest`). Testers install it with `npm i <package>@feat-x`. One comment on the pull request, edited
-on each run, gives the commit, each package and version linked on npmjs (plain text for another
-registry), how to pin the exact build, the pnpm and yarn lines, and the changed units it did not
-publish.
+`latest`). Testers install it with `npm i <package>@feat-x`; the terminal prints that table.
 
-Nothing reaches git: the versions are written to `package.json` for the publish and put back after,
-even when it fails, and any pending changesets stay for the real release; none is needed. With
-nothing changed, it says `nothing changed since main`. Under `--yes` or in CI it publishes without
-asking.
+| Where you run `shiplane branch` | Open PR? | What happens                                                                            |
+| ------------------------------- | -------- | --------------------------------------------------------------------------------------- |
+| a branch, in a terminal         | yes / no | Asks, publishes, prints the install table                                               |
+| a branch, `--yes` or CI         | yes / no | Publishes without asking                                                                |
+| the default branch              | yes / no | Publishes what the next release ships as `x.y.z-main.<sha>`, tag `main`, without asking |
+| nothing changed                 | n/a      | `nothing changed since main`, nothing runs                                              |
 
-It refuses a branch with no open pull request, and uncommitted changes. Changed units that ship
-elsewhere than npm are listed as not part of a branch release, and nothing deploys them. The default
-branch is read from git (`origin/HEAD`, else `main` or `master`); `gitSourceControl({ main })` sets
-it.
+On the default branch, the branch's diff is empty, so it publishes the packages the pending changes
+would release. Plain `pnpm shiplane` there is still the real release.
+
+With an open pull request, one comment on it, edited on each run, gives the commit, each package and
+version linked on npmjs (plain text for another registry), how to pin the exact build, the pnpm and
+yarn lines, and the changed units it did not publish. Pick another layout with `testComment`:
+
+```ts
+import { comments, defineRelease } from "shiplane";
+
+export default defineRelease({
+  // …
+  testComment: comments.compact, // or comments.table (the default), or your own text
+});
+```
+
+| `testComment`         | The comment                                                                 |
+| --------------------- | --------------------------------------------------------------------------- |
+| `comments.table`      | The install table above                                                     |
+| `comments.compact`    | `` 📦 Test version of `feat/x` ([`a1b2c3d`](…)): `npm i shiplane@feat-x` `` |
+| `"Try it: {install}"` | `` Try it: `npm i shiplane@feat-x` ``                                       |
+
+Your own text takes `{branch}`, `{commit}` (linked), `{table}` (the install table with its notes)
+and `{install}` (one `npm i` line for every package). A hidden marker goes on top, so the same
+comment is edited whatever the text.
+
+Nothing reaches git: no tag, and the versions are written to `package.json` for the publish and put
+back after, even when it fails; any pending changesets stay for the real release, and none is
+needed.
+
+It refuses uncommitted changes. Changed units that ship elsewhere than npm are listed as not part of
+a branch release, and nothing deploys them. The default branch is read from git (`origin/HEAD`, else
+`main` or `master`); `gitSourceControl({ main })` sets it.
 
 ## Choose GitHub Actions or this machine
 

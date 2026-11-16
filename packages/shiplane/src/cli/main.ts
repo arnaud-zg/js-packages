@@ -83,7 +83,7 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
       environment === "preview"
         ? branchRelease(context, { onDefault: "release" })
         : promote(context, via),
-    branch: (context) => branchRelease(context, { onDefault: "refuse" }),
+    branch: (context) => branchRelease(context, { onDefault: "publish" }),
     promote: (context) => promote(context, via),
     status: (context) => statusCommand(context, { environment, json: values.json }),
     version: async (context) => {

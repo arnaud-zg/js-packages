@@ -1,3 +1,4 @@
+import type { OnDefault } from "../domain/branchRelease";
 import type { OpenPr } from "../domain/releasePr";
 import type { BranchPlan, Here } from "./branchPublish";
 import type { ReleaseContext } from "./context";
@@ -8,9 +9,6 @@ import { releaseToPreview } from "./releaseToPreview";
 import { fail, paint } from "./say";
 import { runSteps } from "./steps";
 
-/** What `shiplane` does on the default branch: the real release, or, for `shiplane branch`, refuse. */
-export type OnDefault = "release" | "refuse";
-
 const whereHere = async ({ services }: ReleaseContext): Promise<Here> => {
   const [{ branch, head, originMain }, defaultBranch] = await Promise.all([
     services.sourceControl.position(),
@@ -19,31 +17,11 @@ const whereHere = async ({ services }: ReleaseContext): Promise<Here> => {
   return { branch, head, defaultBranch, originMain };
 };
 
-const refuseOnDefault = (context: ReleaseContext, { defaultBranch }: Here) => {
-  fail(
-    context,
-    `On ${defaultBranch}`,
-    `a branch release publishes a feature branch; on ${defaultBranch}, run the real release.`,
-    ["shiplane"],
-  );
-  return false;
-};
-
-const refuseWithoutPr = (context: ReleaseContext, { branch, defaultBranch }: Here) => {
-  fail(
-    context,
-    `No pull request for ${branch}`,
-    `open a pull request for ${branch} first, or switch to ${defaultBranch}.`,
-    ["gh pr create", `git switch ${defaultBranch}`],
-  );
-  return false;
-};
-
 const refuseDirty = (context: ReleaseContext) => {
   fail(
     context,
     "Uncommitted changes",
-    "commit or stash them first, a branch release publishes the commit its pull request shows.",
+    "commit or stash them first, a test version publishes the commit you are on.",
   );
   return false;
 };
@@ -57,10 +35,12 @@ const nothingToPublish = (
   { progress }: ReleaseContext,
   { here, plan }: { here: Here; plan: BranchPlan },
 ) => {
-  const why =
-    plan.others.length > 0
-      ? "nothing to publish: no changed unit is an npm package"
+  const nothing =
+    here.branch === here.defaultBranch
+      ? "nothing to publish: the next release ships no change"
       : `nothing changed since ${here.defaultBranch}`;
+  const why =
+    plan.others.length > 0 ? "nothing to publish: no changed unit is an npm package" : nothing;
   progress.say("resting", why);
   return true;
 };
@@ -100,10 +80,10 @@ const switchAndRelease = async (context: ReleaseContext, { defaultBranch }: Here
   return releaseToPreview({ ...context, release: await context.load() });
 };
 
-/** A branch with a pull request: plan what it publishes, ask when asked to, then publish. */
-const fromBranch = async (
+/** Plans what the test version publishes, asks when asked to, then publishes it. */
+const publishTest = async (
   context: ReleaseContext,
-  { here, pr, ask }: { here: Here; pr: OpenPr; ask: boolean },
+  { here, pr, ask }: { here: Here; pr: OpenPr | null; ask: boolean },
 ) => {
   if (!(await context.services.sourceControl.isClean())) return refuseDirty(context);
   const plan = await planBranch(context, here);
@@ -119,26 +99,23 @@ const fromBranch = async (
 };
 
 /**
- * `shiplane` where it runs: the real release on the default branch; on another branch with an open
- * pull request, a temporary npm version of the packages it changes, for testers. False when refused
- * or failed.
+ * `shiplane` where it runs: on the default branch, the real release (or, for `shiplane branch`, a
+ * test version of what the next release ships); on another branch, a temporary npm version of the
+ * packages it changes, for testers, commented on its pull request when it has one. False when
+ * refused or failed.
  */
 export const branchRelease = async (
   context: ReleaseContext,
   { onDefault }: { onDefault: OnDefault },
 ): Promise<boolean> => {
   const here = await whereHere(context);
-  const onDefaultBranch = here.branch === here.defaultBranch;
-  const pr = onDefaultBranch ? null : await context.services.codeHost.prForBranch(here.branch);
   const choice = branchChoice({
-    onDefault: onDefaultBranch,
-    pr,
+    onDefaultBranch: here.branch === here.defaultBranch,
+    onDefault,
     yes: context.options.yes,
     interactive: context.prompter.interactive,
   });
-  if (choice === "release") {
-    return onDefault === "release" ? releaseToPreview(context) : refuseOnDefault(context, here);
-  }
-  if (choice === "no-pr" || !pr) return refuseWithoutPr(context, here);
-  return fromBranch(context, { here, pr, ask: choice === "ask" });
+  if (choice === "release") return releaseToPreview(context);
+  const pr = await context.services.codeHost.prForBranch(here.branch);
+  return publishTest(context, { here, pr, ask: choice === "ask" });
 };

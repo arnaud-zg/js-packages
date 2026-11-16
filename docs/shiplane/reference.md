@@ -14,7 +14,7 @@
 | Command                       | Does                                                                 |
 | ----------------------------- | -------------------------------------------------------------------- |
 | `shiplane`                    | The next step to preview: release PR, merge, tags, ship              |
-| `shiplane branch`             | Publish the npm packages this branch changed, for testers            |
+| `shiplane branch`             | Publish a test version of what this branch changes, PR or not        |
 | `shiplane promote`            | Production, from what preview runs                                   |
 | `shiplane status`             | Where every unit stands, and what to run next. Reads only            |
 | `shiplane plan`               | Every command a ship would run, run nothing                          |
@@ -88,14 +88,15 @@ export default defineRelease({
 });
 ```
 
-| Key        | Means                                                                                                                                                                                                                                                           |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `flow`     | **Required.** One adapter per port: source control, code host, CI, versioning                                                                                                                                                                                   |
-| `modules`  | What ships, in release order. The first app is the GitHub Latest release                                                                                                                                                                                        |
-| `features` | What runs after a ship, in order, such as `releaseComments()`                                                                                                                                                                                                   |
-| `units`    | Folders to look in. Default: the pnpm workspace, then `package.json` workspaces                                                                                                                                                                                 |
-| `tag`      | Tag format: `"package"` (`{name}@{version}`, default), `"plugin"` (`{name}--v{version}`, for Claude Code, Gemini CLI and Codex), `"single"` (`v{version}`), `"module"` (`{name}/v{version}`, Go modules), or your own. A format without `{name}` takes one unit |
-| `display`  | `{ verbose, mascot }` defaults for the flags; `mascot` may be your own ([Mascot](#mascot))                                                                                                                                                                      |
+| Key           | Means                                                                                                                                                                                                                                                           |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `flow`        | **Required.** One adapter per port: source control, code host, CI, versioning                                                                                                                                                                                   |
+| `modules`     | What ships, in release order. The first app is the GitHub Latest release                                                                                                                                                                                        |
+| `features`    | What runs after a ship, in order, such as `releaseComments()`                                                                                                                                                                                                   |
+| `units`       | Folders to look in. Default: the pnpm workspace, then `package.json` workspaces                                                                                                                                                                                 |
+| `tag`         | Tag format: `"package"` (`{name}@{version}`, default), `"plugin"` (`{name}--v{version}`, for Claude Code, Gemini CLI and Codex), `"single"` (`v{version}`), `"module"` (`{name}/v{version}`, Go modules), or your own. A format without `{name}` takes one unit |
+| `display`     | `{ verbose, mascot }` defaults for the flags; `mascot` may be your own ([Mascot](#mascot))                                                                                                                                                                      |
+| `testComment` | The test version's PR comment: `comments.table` (default), `comments.compact`, or your own text with `{branch}` `{commit}` `{table}` `{install}` ([how-to](./how-to.md#publish-a-test-version))                                                                 |
 
 Source: `src/application/config/defineRelease.ts`. A `release.config.ts` still loads, with a line
 saying to rename it.
