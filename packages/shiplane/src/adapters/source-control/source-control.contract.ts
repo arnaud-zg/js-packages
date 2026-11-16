@@ -85,6 +85,20 @@ export const sourceControlContract = (name: string, subject: () => Promise<Sourc
       expect(await port.changedFiles()).not.toContain("notes.md");
     });
 
+    it("given a branch and main each one commit ahead, when their merge base is read, then it is where the branch started", async () => {
+      const { port, change, head } = await subject();
+      const start = await head();
+      await port.createBranch("feat/x");
+      await change("feature.md", "feature\n");
+      await port.commit(["feature.md"], "feat: x");
+      const branch = await head();
+      await port.switchTo("main");
+      await change("main.md", "main\n");
+      await port.commit(["main.md"], "chore: main moves");
+
+      expect(await port.mergeBase(await head(), branch)).toBe(start);
+    });
+
     it("given an env file git ignores, when the ignored files are listed by pattern, then only it is listed", async () => {
       const { port, change } = await subject();
       await change(".gitignore", ".env*\n");

@@ -116,3 +116,20 @@ describe("reading what went into a release", () => {
     expect(shell.calls[0]?.args.at(-1)).toBe("expo@0.4.1..expo@0.4.2");
   });
 });
+
+describe("finding where a branch started", () => {
+  it("given a branch off main, when its merge base is read, then git names the commit both share", async () => {
+    const shell = new RecordingShell().seed("git merge-base", { stdout: "c0ffee1\n" });
+    const source = gitSourceControl().create({ root: "/repo", shell });
+
+    expect(await source.mergeBase("origin/main", "HEAD")).toBe("c0ffee1");
+    expect(shell.calls[0]?.args).toEqual(["merge-base", "origin/main", "HEAD"]);
+  });
+
+  it("given histories that share no commit, when their merge base is read, then there is none", async () => {
+    const shell = new RecordingShell().seed("git merge-base", { status: 1 });
+    const source = gitSourceControl().create({ root: "/repo", shell });
+
+    expect(await source.mergeBase("origin/main", "HEAD")).toBeNull();
+  });
+});

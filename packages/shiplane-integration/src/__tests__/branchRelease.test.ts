@@ -42,6 +42,11 @@ const CHANGESET = {
   ],
 };
 
+const HEAD = "ae08284f00d1";
+const ORIGIN_MAIN = "c0ffee1";
+const KIT_CHANGE = "packages/kit/src/index.ts";
+const API_CHANGE = "apps/api/src/server.ts";
+
 const KIT_MANIFEST = '{\n  "name": "@acme/kit",\n  "version": "0.5.2"\n}\n';
 const PR = { number: 42, url: "https://github.com/acme/repo/pull/42" };
 const PUBLISH = ["publish", "--no-git-checks", "--access", "public", "--tag", "feat-x"];
@@ -61,7 +66,8 @@ const setUp = ({ yes = true, interactive = true, pr = true } = {}) => {
     plan: planFrom([CHANGESET], { "@acme/kit": "0.5.2", "@acme/api": "0.0.3" }),
   });
   world.source.seed({
-    position: { branch: "feat/x", head: "ae08284f00d1", originMain: "c0ffee1" },
+    position: { branch: "feat/x", head: HEAD, originMain: ORIGIN_MAIN },
+    diffs: { [`${ORIGIN_MAIN}..${HEAD}`]: [KIT_CHANGE, API_CHANGE] },
   });
   if (pr) world.host.seed({ openPrs: [{ branch: "feat/x", pr: { ...PR } }] });
   // What package.json holds at the moment npm publishes it.
@@ -96,14 +102,14 @@ describe("Feature: a branch release for testers", () => {
       cwd: "/repo/packages/kit",
       env: undefined,
     });
-    expect(world.published).toEqual([expect.stringContaining('"version": "0.6.0-feat-x.ae08284"')]);
+    expect(world.published).toEqual([expect.stringContaining('"version": "0.5.2-feat-x.ae08284"')]);
     expect(world.files.all).toEqual(before);
     expect(world.versioning.applied).toEqual([]);
     expect(world.source.received).toEqual([]);
     expect(world.output.text).toContain("api  not part of a branch release");
-    expect(world.output.text).toContain("@acme/kit  0.6.0-feat-x.ae08284  npm i @acme/kit@feat-x");
+    expect(world.output.text).toContain("@acme/kit  0.5.2-feat-x.ae08284  npm i @acme/kit@feat-x");
     expect(await branchComments(world)).toEqual([
-      expect.stringContaining("| @acme/kit | 0.6.0-feat-x.ae08284 | `npm i @acme/kit@feat-x` |"),
+      expect.stringContaining("| @acme/kit | 0.5.2-feat-x.ae08284 | `npm i @acme/kit@feat-x` |"),
     ]);
   });
 
@@ -120,7 +126,7 @@ describe("Feature: a branch release for testers", () => {
     expect(world.output.text).toContain("npm i @acme/kit-next@feat-x");
     expect(await branchComments(world)).toEqual([
       expect.stringContaining(
-        "| @acme/kit-next | 0.6.0-feat-x.ae08284 | `npm i @acme/kit-next@feat-x` |",
+        "| @acme/kit-next | 0.5.2-feat-x.ae08284 | `npm i @acme/kit-next@feat-x` |",
       ),
     ]);
   });
@@ -130,7 +136,8 @@ describe("Feature: a branch release for testers", () => {
     const world = setUp();
     await branchRelease(world.context, { onDefault: "release" });
     world.source.seed({
-      position: { branch: "feat/x", head: "b1b2b3b4b5", originMain: "c0ffee1" },
+      position: { branch: "feat/x", head: "b1b2b3b4b5", originMain: ORIGIN_MAIN },
+      diffs: { [`${ORIGIN_MAIN}..b1b2b3b4b5`]: [KIT_CHANGE] },
     });
 
     // when
@@ -157,7 +164,7 @@ describe("Feature: a branch release for testers", () => {
       {
         value: "publish",
         label: "Publish a branch release",
-        hint: "0.6.0-feat-x.ae08284 → npm tag feat-x",
+        hint: "0.5.2-feat-x.ae08284 → npm tag feat-x",
       },
       {
         value: "switch",
@@ -230,7 +237,7 @@ describe("Feature: a branch release for testers", () => {
     expect(await branchComments(world)).toEqual([]);
   });
 
-  it("given nothing pending, when a branch release runs, then it says how to add a change", async () => {
+  it("given a package changed on the branch with no changeset, when a branch release runs, then it is published at its current version", async () => {
     // given
     const world = setUp();
     world.versioning.seed({ pending: [], plan: planFrom([], {}) });
@@ -240,7 +247,53 @@ describe("Feature: a branch release for testers", () => {
 
     // then
     expect(done).toBe(true);
-    expect(world.output.text).toContain("nothing to release: add a change with pnpm changeset");
+    expect(world.published).toEqual([expect.stringContaining('"version": "0.5.2-feat-x.ae08284"')]);
+  });
+
+  it("given a package with a changeset the branch did not change, when a branch release runs, then it is not published", async () => {
+    // given
+    const world = setUp();
+    world.source.seed({ diffs: { [`${ORIGIN_MAIN}..${HEAD}`]: [API_CHANGE] } });
+
+    // when
+    const done = await branchRelease(world.context, { onDefault: "release" });
+
+    // then
+    expect(done).toBe(true);
+    expect(world.output.text).toContain("nothing to publish: no changed unit is an npm package");
+    expect(world.shell.calls).toEqual([]);
+  });
+
+  it("given main moved since the branch started, when a branch release runs, then only what the branch changed is published", async () => {
+    // given
+    const world = setUp();
+    world.source.seed({
+      position: { branch: "feat/x", head: HEAD, originMain: "d00d1e5" },
+      mergeBases: { [`d00d1e5...${HEAD}`]: ORIGIN_MAIN },
+      diffs: {
+        [`${ORIGIN_MAIN}..${HEAD}`]: [API_CHANGE],
+        [`d00d1e5..${HEAD}`]: [KIT_CHANGE, API_CHANGE],
+      },
+    });
+
+    // when
+    await branchRelease(world.context, { onDefault: "release" });
+
+    // then
+    expect(world.shell.calls).toEqual([]);
+  });
+
+  it("given nothing changed since the default branch, when a branch release runs, then it says so and publishes nothing", async () => {
+    // given
+    const world = setUp();
+    world.source.seed({ diffs: {} });
+
+    // when
+    const done = await branchRelease(world.context, { onDefault: "release" });
+
+    // then
+    expect(done).toBe(true);
+    expect(world.output.text).toContain("nothing changed since main");
     expect(world.shell.calls).toEqual([]);
   });
 

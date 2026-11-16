@@ -33,14 +33,14 @@ describe("a branch's name, as a version and an npm tag read it", () => {
 });
 
 describe("a branch release's version", () => {
-  it("given the next version, the branch and the head, when versioned, then it is <next>-<slug>.<short sha>", () => {
-    expect(branchVersion({ next: "0.6.0", branch: "feat/x", sha: "ae08284f00d" })).toBe(
-      "0.6.0-feat-x.ae08284",
+  it("given the current version, the branch and the head, when versioned, then it is <current>-<slug>.<short sha>", () => {
+    expect(branchVersion({ current: "0.5.2", branch: "feat/x", sha: "ae08284f00d" })).toBe(
+      "0.5.2-feat-x.ae08284",
     );
   });
 
   it("given a head whose short sha is all digits with a leading zero, when versioned, then it stays valid semver", () => {
-    expect(branchVersion({ next: "1.0.0", branch: "fix", sha: "0123456789" })).toBe(
+    expect(branchVersion({ current: "1.0.0", branch: "fix", sha: "0123456789" })).toBe(
       "1.0.0-fix.g0123456",
     );
   });
