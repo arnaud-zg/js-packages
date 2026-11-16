@@ -236,8 +236,10 @@ pnpm shiplane branch          # or pnpm shiplane, which asks first
 Each npm package whose files the branch changed since it left the default branch is published as
 `<version>-<branch>.<sha>`, its `package.json` version first, under an npm tag named after the
 branch (`branch-` in front when npm would read the name as a version, such as `v2`, and never
-`latest`). Testers install it with `npm i <package>@feat-x`. The same install lines go in one
-comment on the pull request, edited on each run.
+`latest`). Testers install it with `npm i <package>@feat-x`. One comment on the pull request, edited
+on each run, gives the commit, each package and version linked on npmjs (plain text for another
+registry), how to pin the exact build, the pnpm and yarn lines, and the changed units it did not
+publish.
 
 Nothing reaches git: the versions are written to `package.json` for the publish and put back after,
 even when it fails, and any pending changesets stay for the real release; none is needed. With

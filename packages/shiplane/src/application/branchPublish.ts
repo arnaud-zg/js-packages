@@ -5,6 +5,7 @@ import type { OpenPr } from "../domain/releasePr";
 import type { ReleaseUnit } from "../domain/unit";
 import type { Files } from "../ports/files.port";
 import type { ReleaseContext } from "./context";
+import type { PackageJson } from "./manifest";
 import type { Step } from "./steps";
 import {
   BRANCH_COMMENT_MARKER,
@@ -13,6 +14,7 @@ import {
   branchTag,
   branchVersion,
   installLine,
+  repositoryOfPr,
 } from "../domain/branchRelease";
 import { readManifest } from "./manifest";
 import { MANIFEST } from "./readScope";
@@ -94,6 +96,18 @@ interface Publishing {
   steps: Step[];
 }
 
+const NPM_REGISTRY = /^https?:\/\/registry\.npmjs\.(org|com)\/?$/;
+
+/** Whether npm publishes the package to its public registry: no `publishConfig.registry` elsewhere. */
+const publishesToNpmjs = (manifest: PackageJson | null) => {
+  const config = manifest && "publishConfig" in manifest ? manifest.publishConfig : undefined;
+  const registry =
+    typeof config === "object" && config !== null && "registry" in config
+      ? config.registry
+      : undefined;
+  return typeof registry !== "string" || NPM_REGISTRY.test(registry);
+};
+
 /** One unit at its branch version, as its registry publishes it under the branch's tag. */
 const publishingOf = (
   context: ReleaseContext,
@@ -109,11 +123,12 @@ const publishingOf = (
   if (!target) return [];
   const input = { ...target.input, distTag: tag };
   const name = target.module.publishedName?.(decideContext(context), input) ?? unit.packageName;
+  const onNpmjs = publishesToNpmjs(readManifest({ files: context.files, dir: unit.dir }));
   const steps = shipPlanOf(context, target.module, input).jobs.map((job) => ({
     label: job.label,
     run: () => runHere(context, job, { tag: target.tag, environment: "preview" }),
   }));
-  return [{ published: { name, version: candidate.version, tag }, steps }];
+  return [{ published: { name, version: candidate.version, tag, onNpmjs }, steps }];
 };
 
 /**
@@ -162,13 +177,24 @@ const printPublished = ({ output, progress }: ReleaseContext, published: BranchP
 /** The pull request's comment, edited each run; a failure is said, never undoes the publish. */
 const commentOn = (
   { services, output }: ReleaseContext,
-  { pr, sha, published }: { pr: OpenPr; sha: string; published: BranchPublished[] },
+  {
+    pr,
+    here,
+    published,
+    others,
+  }: { pr: OpenPr; here: Here; published: BranchPublished[]; others: readonly string[] },
 ) =>
   services.codeHost
     .upsertComment({
       on: pr,
       marker: BRANCH_COMMENT_MARKER,
-      body: branchComment({ sha, published }),
+      body: branchComment({
+        sha: here.head,
+        branch: here.branch,
+        repository: repositoryOfPr(pr.url),
+        published,
+        others,
+      }),
     })
     .then(() => output.line(paint("dim", `  The install lines are on #${pr.number} too.`)))
     .catch((error: unknown) =>
@@ -192,6 +218,6 @@ export const publishBranch = async (context: ReleaseContext, run: BranchRun) => 
   if (!(await publishAll(context, { plan: run.plan, publishing }))) return false;
   const published = publishing.map((entry) => entry.published);
   printPublished(context, published);
-  await commentOn(context, { pr: run.pr, sha: run.here.head, published });
+  await commentOn(context, { pr: run.pr, here: run.here, published, others: run.plan.others });
   return true;
 };
