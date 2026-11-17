@@ -87,7 +87,7 @@ url:
       gh workflow run ship.yml --ref api@1.0.0 -f units=api -f environment=preview
 ```
 
-The deploy waits until Fly rolled it out, then records it. `init` offers this adapter for a folder
+The deploy waits until Fly rolled it out, then records it. `setup` offers this adapter for a folder
 with a `fly.toml` (or `fly-preview.toml` and `fly-production.toml`), and as a possibility for a
 folder with only a Dockerfile.
 

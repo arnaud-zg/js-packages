@@ -28,9 +28,9 @@ export interface ServiceAdapter<Port> extends Adapter<Port> {
   readonly requirements?: () => Requirement[];
 }
 
-/** An adapter of a delivery port: what its apps' unit files hold, and what `init` recognises. */
+/** An adapter of a delivery port: what its apps' unit files hold, and what `setup` recognises. */
 export interface DeliveryAdapter<Port extends { capability: string }> extends Adapter<Port> {
-  /** The kind of delivery its port does, the one `init` picks a module by. */
+  /** The kind of delivery its port does, the one `setup` picks a module by. */
   readonly capability: Port["capability"];
   /** The keys an app's unit file holds for it besides `module`. */
   readonly settings: z.ZodObject;
@@ -38,9 +38,9 @@ export interface DeliveryAdapter<Port extends { capability: string }> extends Ad
   readonly typicalMinutes?: number;
   /** Set when its own platform, not deploy records, knows what is live. */
   readonly decidedBy?: DecidedBy;
-  /** What `init` recognises in a folder it ships. */
+  /** What `setup` recognises in a folder it ships. */
   readonly detect?: (folder: FolderView) => Detection | null;
-  /** Settings `init` asks for that `detect` could not read. */
+  /** Settings `setup` asks for that `detect` could not read. */
   readonly questions?: (
     folder: FolderView,
     found: Record<string, unknown>,

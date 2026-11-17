@@ -8,7 +8,7 @@ import type { ServerHostingPort } from "../ports/server-hosting.port";
 import type { StaticHostingPort } from "../ports/static-hosting.port";
 
 /**
- * What an adapter author writes in one object: the recipe's static parts (name, settings, what init
+ * What an adapter author writes in one object: the recipe's static parts (name, settings, what setup
  * and doctor ask) and the port's members, which read the settings typed.
  */
 type Authored<Port extends { capability: string }, Schema extends z.ZodObject> = Omit<

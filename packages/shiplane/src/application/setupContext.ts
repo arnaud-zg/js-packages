@@ -5,7 +5,7 @@ import type { Output, Progress, Prompter } from "../ports/terminal.port";
 import type { Release } from "./config/loadRelease";
 import type { ReleaseContext } from "./context";
 
-/** What setting a release up needs: the repository, the person, the adapters init can offer. */
+/** What setting a release up needs: the repository, the person, the adapters setup can offer. */
 export interface SetupContext {
   root: string;
   files: Files;

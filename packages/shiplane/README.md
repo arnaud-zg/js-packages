@@ -16,7 +16,7 @@ flowchart LR
 ## ⚡ Three commands
 
 ```sh
-pnpm shiplane init       # find what ships, write the config
+pnpm shiplane setup      # find what ships, rehearse, write the config
 pnpm shiplane            # release PR, merge, tags, ship to preview
 pnpm shiplane promote    # what preview validated, to production
 ```

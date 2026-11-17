@@ -102,7 +102,7 @@ export const FLOW_PORTS: readonly FlowPort[] = [
   "versioning",
 ];
 
-/** The flow init writes when nothing else is chosen: git, GitHub, GitHub Actions, changesets. */
+/** The flow setup writes when nothing else is chosen: git, GitHub, GitHub Actions, changesets. */
 export const DEFAULT_FLOW: Record<FlowPort, FlowChoice> = {
   sourceControl: { factory: "gitSourceControl", from: pluginPackage("git") },
   codeHost: { factory: "gitHubCodeHost", from: pluginPackage("github") },
@@ -238,7 +238,7 @@ export const addToConfig = (
   return `${withCall.slice(0, at)}${at === 0 ? "" : "\n"}${importLine}${at === 0 ? "\n" : ""}${withCall.slice(at)}`;
 };
 
-/** A unit file naming its module, with the settings init found, and where it found them. */
+/** A unit file naming its module, with the settings setup found, and where it found them. */
 export const renderUnit = (
   module: string,
   options: Record<string, unknown>,

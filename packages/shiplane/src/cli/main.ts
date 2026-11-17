@@ -32,7 +32,7 @@ const SHORT_HELP = `${paint("bold", "shiplane")}: detect what changed, version i
 
   shiplane                        the next step to preview: release PR, merge, tags, ship
   shiplane promote                production, from what preview runs
-  shiplane branch                 publish a temporary npm version of this branch for testers
+  shiplane test-release           publish a temporary npm version for testers, from any branch
   shiplane status                 where every unit stands, and what to run next
   shiplane setup                  set up releases, or add an app
   shiplane doctor                 check the config, tools and sign-ins, offer each fix
@@ -54,9 +54,8 @@ const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, tri
   shiplane plan                   every command a ship would run, run nothing
   shiplane plugins [--json]       the flow, the modules in release order and who uses each, the features
 
-  shiplane setup [--yes]          set up or check releases: asks only what it can't tell, rehearses, then writes
-  shiplane init [--yes|--blank]   the older setup: a unit file per app, then doctor
-  shiplane add <folder>           init's questions for one folder
+  shiplane setup [--yes]          set up, check, or add an app: asks only what it can't tell, rehearses, then writes
+                                  (shiplane init and shiplane add are now setup; both still run for now)
   shiplane remove <unit>          stop shipping a unit; it stays versioned
   shiplane doctor                 check the config, tools and sign-ins, offer each fix
   shiplane adapter new <name>     scaffold a server hosting adapter, its contract test and its module
@@ -125,7 +124,10 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
       out(paint("dim", "init is now shiplane setup"));
       return setup(context, { yes: values.yes });
     },
-    add: (context) => addUnit(context, first),
+    add: (context) => {
+      out(paint("dim", "add is now shiplane setup: run it again to add an app"));
+      return addUnit(context, first);
+    },
     remove: (context) => removeUnit(context, first),
     doctor: (context) => doctor(context),
     adapter: (context) => {

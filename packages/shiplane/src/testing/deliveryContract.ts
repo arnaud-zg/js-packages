@@ -67,7 +67,7 @@ export const deliveryContract = <Port extends Delivery & { capability: string }>
         );
       });
 
-      it("given a folder with nothing in it, when init looks at it, then the adapter recognises nothing", () => {
+      it("given a folder with nothing in it, when setup looks at it, then the adapter recognises nothing", () => {
         expect(adapter.detect?.(EMPTY_FOLDER) ?? null).toBeNull();
       });
 

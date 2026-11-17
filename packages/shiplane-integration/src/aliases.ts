@@ -6,7 +6,7 @@ export const PLUGINS = ["git", "github", "changesets", "fly", "cloudflare-pages"
 /** Resolves a package as this workspace installed it. */
 export const resolved = createRequire(import.meta.url).resolve;
 
-/** What a config written by init imports, resolved to the built workspace packages. */
+/** What a config written by setup imports, resolved to the built workspace packages. */
 export const PLUGIN_ALIASES: Record<string, string> = Object.fromEntries([
   ...["", "/plugin", "/memory", "/testing"].map((sub) => [
     `shiplane${sub}`,

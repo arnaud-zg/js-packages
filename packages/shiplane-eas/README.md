@@ -82,8 +82,8 @@ update:
 
 At release time EAS decides: a build when the fingerprint moved, an update when it did not. Builds
 run from this machine and return at once (`--no-wait`). An update script with `--rollout-percentage`
-starts a staged rollout that `shiplane promote` widens. `init` offers this adapter for a folder with
-an `eas.json`.
+starts a staged rollout that `shiplane promote` widens. `setup` offers this adapter for a folder
+with an `eas.json`.
 
 A preview build that failed after main moved on is offered again as released: each platform builds
 or submits only what EAS shows missing, from the tag's commit

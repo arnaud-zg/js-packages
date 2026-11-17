@@ -22,8 +22,7 @@
 | `shiplane tag`                | Tag merged versions, publish their notes                             |
 | `shiplane ship [unit...]`     | Trigger each tagged unit's deploy, then return                       |
 | `shiplane setup`              | Find what ships, write the config and unit files, rehearse a release |
-| `shiplane init`               | Find what ships, write the config and unit files, run doctor         |
-| `shiplane add <folder>`       | `init`'s questions for one folder                                    |
+| `shiplane init`, `add`        | Deprecated: they still run; use `setup` instead                      |
 | `shiplane remove <unit>`      | Stop shipping a unit; it stays versioned                             |
 | `shiplane doctor`             | Check the config, tools and sign-ins, offer each fix                 |
 | `shiplane plugins`            | The flow, the modules in release order with their apps, the features |
@@ -43,7 +42,7 @@ Source: `src/cli/main.ts`. Here, `pnpm shiplane` builds the CLI first when its s
 | `--via github\|local`           | Ship through GitHub Actions or this machine, without asking           |
 | `--yes`, `-y`                   | Yes to every question, at the computed version. Refused on production |
 | `--json`                        | `status` and `plugins` print JSON                                     |
-| `--blank`                       | `init` writes commented templates, not guesses                        |
+| `--blank`                       | Deprecated: `init` writes commented templates, not guesses            |
 | `--verbose`, `--mascot`         | On by default; `--no-` turns off. Defaults: `display` in config       |
 
 ## Exit codes

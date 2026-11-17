@@ -169,7 +169,7 @@ describe("finding what ships", () => {
     expect(release.problems).toEqual([
       expect.objectContaining({
         message: expect.stringContaining("No shiplane.config.ts"),
-        hint: expect.stringContaining("shiplane init"),
+        hint: expect.stringContaining("shiplane setup"),
       }),
     ]);
   });

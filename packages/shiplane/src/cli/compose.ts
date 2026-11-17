@@ -80,7 +80,7 @@ export const composeContext = (
   };
 };
 
-/** What init, add, doctor and the rest need: the repository on disk and the adapters installed. */
+/** What setup, doctor and the rest need: the repository on disk and the adapters installed. */
 export const composeSetup = async (
   root: string,
   io: Partial<SetupContext> = {},

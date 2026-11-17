@@ -79,7 +79,7 @@ tag:
 
 A ship asks npm first: a version not published yet is published, one already out only has its tag
 moved, so nothing publishes twice. It publishes this checkout, so it stops when main moved past the
-tag; production waits for a version preview published. `init` offers this adapter for a public
+tag; production waits for a version preview published. `setup` offers this adapter for a public
 package with a `bin`, `exports` or `main`.
 
 ## 🔑 Tools and sign-ins

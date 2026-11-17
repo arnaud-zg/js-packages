@@ -9,7 +9,7 @@ import { shellServerHosting } from "../adapters/server-hosting/shell-server-host
 import { isRecord } from "../application/config/values";
 import { PackageJsonSchema } from "../application/manifest";
 
-/** A plugin's own word on what init may offer: `"shiplane": { "adapters": ["flyServerHosting"] }`. */
+/** A plugin's own word on what setup may offer: `"shiplane": { "adapters": ["flyServerHosting"] }`. */
 const PluginManifestSchema = z.object({
   shiplane: z.object({ adapters: z.array(z.string()).optional() }).optional(),
 });
@@ -17,7 +17,7 @@ const PluginManifestSchema = z.object({
 const readJson = (file: string): unknown => JSON.parse(fs.readFileSync(file, "utf8"));
 
 /**
- * The delivery adapters init can offer: the built-in shell adapter, then each one a plugin this
+ * The delivery adapters setup can offer: the built-in shell adapter, then each one a plugin this
  * repository depends on names in its package.json. A plugin that does not load is skipped.
  */
 export const installedAdapters = async (root: string): Promise<AnyDeliveryAdapter[]> => {

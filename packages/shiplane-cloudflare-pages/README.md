@@ -85,7 +85,7 @@ build:
       gh workflow run ship.yml --ref site@1.0.0 -f units=site -f environment=preview
 ```
 
-The upload is the deploy: it returns in seconds. `init` offers this adapter for a folder with a
+The upload is the deploy: it returns in seconds. `setup` offers this adapter for a folder with a
 `wrangler.toml` or `wrangler.json(c)`, and for an Astro, Next, Nuxt, Svelte or Vite site.
 
 ## 🔑 Tools and sign-ins
