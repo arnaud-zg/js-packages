@@ -27,6 +27,20 @@ import { out, printProblems } from "./output";
 import { pluginsCommand } from "./pluginsCommand";
 import { statusCommand } from "./statusCommand";
 
+/** What `shiplane help` shows: the commands a person runs day to day, and where the rest are. */
+const SHORT_HELP = `${paint("bold", "shiplane")}: detect what changed, version it, trigger each app's deploy.
+
+  shiplane                        the next step to preview: release PR, merge, tags, ship
+  shiplane promote                production, from what preview runs
+  shiplane branch                 publish a temporary npm version of this branch for testers
+  shiplane status                 where every unit stands, and what to run next
+  shiplane setup                  set up releases, or add an app
+  shiplane doctor                 check the config, tools and sign-ins, offer each fix
+  shiplane docs <name>            every key a module's or an adapter's unit files take
+
+  shiplane help all               every command and flag: version, tag, ship, remove and the rest
+`;
+
 const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, trigger each app's deploy.
 
   shiplane                        the next step to preview: release PR, merge, tags, ship
@@ -47,7 +61,7 @@ const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, tri
   shiplane doctor                 check the config, tools and sign-ins, offer each fix
   shiplane adapter new <name>     scaffold a server hosting adapter, its contract test and its module
   shiplane docs <name>            every key a module's or an adapter's unit files take
-  shiplane help                   this
+  shiplane help [all]             the main commands; all: this, every command and flag
 
   --channel preview|production    where status reads (preview by default)
   --via github|local              ship through GitHub Actions or this machine, without asking
@@ -129,7 +143,7 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
   const setUp = setupCommands[firstRun ? "setup" : command];
   if (setUp) return (await setUp(await composeSetup(root, io.setup))) ? 0 : 1;
   if (command === "help") {
-    out(HELP);
+    out(first === "all" ? HELP : SHORT_HELP);
     return 0;
   }
   if (!run) {

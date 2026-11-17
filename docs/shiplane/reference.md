@@ -32,6 +32,9 @@
 
 Source: `src/cli/main.ts`. Here, `pnpm shiplane` builds the CLI first when its sources changed.
 
+`shiplane help` shows the ones run day to day: `shiplane`, `promote`, `branch`, `status`, `setup`,
+`doctor` and `docs`. `shiplane help all` shows every command and flag.
+
 ## Flags
 
 | Flag                            | Means                                                                 |
