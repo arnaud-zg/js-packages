@@ -41,12 +41,23 @@ const install = (unitFile = "module: backend-service\ndeploy: [./deploy.sh, --fa
 
 describe("the built shiplane CLI, installed in a repository", () => {
   it("when a person asks for help, then every command is listed and it exits 0", () => {
-    const { status, output } = install().shiplane(["help"]);
+    const { status, output } = install().shiplane(["help", "all"]);
 
     expect(status).toBe(0);
     for (const command of ["promote", "status", "plan", "init", "doctor", "docs <name>"]) {
       expect(output).toContain(`shiplane ${command}`);
     }
+  });
+
+  it("when a person asks for help, then the day-to-day commands show and help all names the rest", () => {
+    const { status, output } = install().shiplane(["help"]);
+
+    expect(status).toBe(0);
+    for (const command of ["promote", "status", "setup", "doctor", "docs <name>", "help all"]) {
+      expect(output).toContain(`shiplane ${command}`);
+    }
+    expect(output).not.toContain("shiplane version");
+    expect(output).not.toContain("--channel");
   });
 
   it("given a command shiplane does not know, when it runs, then it says so, prints the help and exits 1", () => {
