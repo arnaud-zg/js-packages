@@ -78,7 +78,7 @@ describe("a release rehearsed on Fakes, through the CLI's entry", () => {
   it("given two tagged apps, when shipped to preview through CI, then each app's workflow is dispatched on its tag, in release order", async () => {
     const { fakes, run } = setUp();
 
-    expect(await run("ship", "--via", "github", "--yes")).toBe(0);
+    expect(await run("ship", "--via", "ci", "--yes")).toBe(0);
 
     expect(fakes.serverHosting.fake.received).toEqual([
       { tag: "api@1.0.0", environment: "preview", service: "api" },

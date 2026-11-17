@@ -39,11 +39,12 @@ export const webShip = ({
 export const onlyVersionFiles = (files: string[], versionFiles: ReadonlySet<string>) =>
   files.every((file) => versionFiles.has(file));
 
-export type DeployPath = "github" | "local";
+/** How a unit ships: through the flow's CI pipeline, or from this machine. */
+export type DeployPath = "ci" | "local";
 
-/** How this run deploys: --via when given, GitHub Actions under --yes, otherwise asked (null). */
+/** How this run deploys: --via when given, the CI pipeline under --yes, otherwise asked (null). */
 export const deployVia = ({ via, yes }: { via: DeployPath | undefined; yes: boolean }) =>
-  via ?? (yes ? ("github" as const) : null);
+  via ?? (yes ? ("ci" as const) : null);
 
 export interface ShipItem {
   /** The unit's name. */
@@ -60,4 +61,4 @@ export const needsPath = (items: ShipItem[]) => items.some(({ kind }) => kind !=
 export const shipsFrom = (
   path: DeployPath,
   { sinceTagOnlyVersionFiles }: { sinceTagOnlyVersionFiles: boolean },
-) => path === "github" || sinceTagOnlyVersionFiles;
+) => path === "ci" || sinceTagOnlyVersionFiles;

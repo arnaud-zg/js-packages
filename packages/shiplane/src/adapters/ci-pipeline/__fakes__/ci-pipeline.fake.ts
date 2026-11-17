@@ -24,6 +24,15 @@ export class CiPipelineFake implements CiPipelinePort {
 
   constructor(readonly shipWorkflow = "ship.yml") {}
 
+  // Speaks like the default pipeline, GitHub Actions, so what a test reads matches a real run.
+  readonly label = "GitHub Actions";
+  workflowFile = (workflow: string) => `.github/workflows/${workflow}`;
+  dispatchLine = (workflow: string, ref: string, inputs: Record<string, string>) =>
+    [
+      `gh workflow run ${workflow} --ref ${ref}`,
+      ...Object.entries(inputs).map(([key, value]) => `-f ${key}=${value}`),
+    ].join(" ");
+
   seed(state: Partial<PipelineState>) {
     this.state = { ...this.state, ...state };
     return this;

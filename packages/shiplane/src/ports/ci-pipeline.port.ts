@@ -12,4 +12,10 @@ export interface CiPipelinePort {
   minutes: () => Promise<ActionsMinutes | null>;
   /** Billed minutes of a workflow's last successful runs. */
   measuredMinutes: (workflow: string) => Promise<number[]>;
+  /** What a person calls this pipeline, such as `GitHub Actions`; `CI` when unset. */
+  readonly label?: string;
+  /** Where a ref holds a workflow's file, checked before dispatching on it; unchecked when unset. */
+  workflowFile?: (workflow: string) => string;
+  /** The command a dry run prints for a dispatch, as a person would type it. */
+  dispatchLine?: (workflow: string, ref: string, inputs: Record<string, string>) => string;
 }

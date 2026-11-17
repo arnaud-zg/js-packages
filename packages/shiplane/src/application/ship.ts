@@ -10,7 +10,7 @@ import type { ReleaseContext } from "./context";
 import { onlyVersionFiles, shipsFrom, webShip } from "../domain/deploys";
 import { yesAllowed } from "../domain/governance";
 import { choosesPath, forcedPath, routeChoice, shipRuns } from "../domain/shipRoute";
-import { askPaths, PATH_LABEL } from "./askPath";
+import { askPaths, ciLabel, pathLabel } from "./askPath";
 import { checkEnvBeforeDeploy } from "./checkEnvBeforeDeploy";
 import { runFollowUps } from "./followUps";
 import { mapLimit } from "./mapLimit";
@@ -225,12 +225,13 @@ const blockedOn = async (
   { input, jobs, decided, notLocal }: Ready,
 ): Promise<string | null> => {
   const { services } = context;
-  if (path === "github") {
+  if (path === "ci") {
     const workflow = services.ciPipeline.shipWorkflow;
+    // Where a ref holds the workflow is the pipeline's to say; one that says nothing is not checked.
+    const file = services.ciPipeline.workflowFile?.(workflow);
     for (const { ci } of jobs) {
       if (!ci) return "only ships from this machine";
-      // GitHub runs the workflow file the ref holds.
-      const file = `.github/workflows/${workflow}`;
+      if (file === undefined) continue;
       if ((await services.sourceControl.fileAt(ci.ref, file)) !== null) continue;
       const onMain =
         ci.ref !== input.defaultBranch &&
@@ -248,15 +249,13 @@ const blockedOn = async (
 };
 
 /** What to do instead, when the path a person forced cannot ship a unit. */
-const INSTEAD: Record<DeployPath, string> = {
-  github: "ship it from this machine",
-  local: "this machine builds its checkout, ship it through GitHub Actions",
-};
+const instead = (context: ReleaseContext, forced: DeployPath) =>
+  forced === "ci"
+    ? "ship it from this machine"
+    : `this machine builds its checkout, ship it through ${ciLabel(context.services.ciPipeline)}`;
 
-const TAKES: Record<DeployPath, string> = {
-  github: "ships through GitHub Actions",
-  local: "ships from this machine",
-};
+const takes = (context: ReleaseContext, path: DeployPath) =>
+  `ships ${path === "ci" ? "through" : "from"} ${pathLabel(context.services.ciPipeline, path)}`;
 
 /**
  * The way a unit ships: the forced one when it can, the only one left when the other cannot, or
@@ -272,19 +271,19 @@ const routeOf = async (
   if (forced) {
     const why = await blockedOn(context, forced, entry);
     if (!why) return forced;
-    say(paint("yellow", "!"), `${why}: ${INSTEAD[forced]}`);
+    say(paint("yellow", "!"), `${why}: ${instead(context, forced)}`);
     return "skip";
   }
-  const github = await blockedOn(context, "github", entry);
+  const ci = await blockedOn(context, "ci", entry);
   const local = await blockedOn(context, "local", entry);
-  const choice = routeChoice({ github, local });
+  const choice = routeChoice({ ci, local });
   // Both ways can: the config's way when it names one, else the person picks.
   if (choice.route === "ask") return context.release.via ?? "ask";
   if (choice.route === "stuck") {
-    say(paint("red", "✗"), `${github}, and ${local}: nothing can ship it`);
+    say(paint("red", "✗"), `${ci}, and ${local}: nothing can ship it`);
     return "stuck";
   }
-  say(paint("dim", "·"), `${choice.blocked}: ${TAKES[choice.route]}`);
+  say(paint("dim", "·"), `${choice.blocked}: ${takes(context, choice.route)}`);
   return choice.route;
 };
 
@@ -315,7 +314,7 @@ const workflowJobs = async ({ services }: ReleaseContext, entries: readonly Read
 const offerAgain = ({ output }: ReleaseContext, tags: string[]) =>
   output.line(`    ${paint("dim", `Run shiplane again: it offers ${listed(tags)} again`)}`);
 
-/** `Ship a through GitHub Actions`, or each tag with its way when they differ. */
+/** `Ship a through <the CI pipeline>`, or each tag with its way when they differ. */
 const shipQuestion = (
   going: Ready[],
   paths: ReadonlyMap<Ready, DeployPath>,
@@ -332,10 +331,13 @@ const shipQuestion = (
   const names = going
     .map((entry) => {
       const path = paths.get(entry);
-      return used.length > 1 && path ? `${entry.input.tag} (${PATH_LABEL[path]})` : entry.input.tag;
+      return used.length > 1 && path
+        ? `${entry.input.tag} (${pathLabel(context.services.ciPipeline, path)})`
+        : entry.input.tag;
     })
     .join(", ");
-  const how = used.length === 1 && only ? ` through ${PATH_LABEL[only]}` : "";
+  const how =
+    used.length === 1 && only ? ` through ${pathLabel(context.services.ciPipeline, only)}` : "";
   return `Ship ${names} ${label === "live" ? "live" : `to ${label}`}${how}?`;
 };
 
@@ -375,7 +377,7 @@ const pathsOf = async (
     const route = await routeOf(context, entry, forced);
     if (route === "ask") unanswered.push(entry);
     if (route === "stuck") stuck = true;
-    if (route === "github" || route === "local") paths.set(entry, route);
+    if (route === "ci" || route === "local") paths.set(entry, route);
   }
   if (unanswered.length === 0) return { paths, stuck };
   const answers = await askPaths(
@@ -510,11 +512,11 @@ export const shipTo = async (
   ) {
     return declined(context, { environment, scope, via });
   }
-  const here = going.filter((entry) => paths.get(entry) !== "github");
+  const here = going.filter((entry) => paths.get(entry) !== "ci");
   const runs = shipRuns(
     await workflowJobs(
       context,
-      going.filter((entry) => paths.get(entry) === "github"),
+      going.filter((entry) => paths.get(entry) === "ci"),
     ),
   );
   const workflow = services.ciPipeline.shipWorkflow;

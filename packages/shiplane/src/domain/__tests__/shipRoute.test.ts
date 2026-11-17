@@ -23,34 +23,34 @@ describe("which way a unit ships", () => {
   });
 
   it("given a run on a CI runner, when forcing a path, then this runner ships whatever --via says", () => {
-    expect(forcedPath({ ci: true, via: "github" })).toBe("local");
+    expect(forcedPath({ ci: true, via: "ci" })).toBe("local");
   });
 
   it("given a run on a laptop, when forcing a path, then --via decides", () => {
-    expect(forcedPath({ ci: false, via: "github" })).toBe("github");
+    expect(forcedPath({ ci: false, via: "ci" })).toBe("ci");
     expect(forcedPath({ ci: false, via: undefined })).toBeUndefined();
   });
 
   it("given both paths open, when choosing a route, then the person is asked", () => {
-    expect(routeChoice({ github: null, local: null })).toEqual({ route: "ask" });
+    expect(routeChoice({ ci: null, local: null })).toEqual({ route: "ask" });
   });
 
   it("given GitHub blocked, when choosing a route, then it ships from this machine and says why", () => {
-    expect(routeChoice({ github: "no ship.yml", local: null })).toEqual({
+    expect(routeChoice({ ci: "no ship.yml", local: null })).toEqual({
       route: "local",
       blocked: "no ship.yml",
     });
   });
 
   it("given this machine blocked, when choosing a route, then it ships through GitHub and says why", () => {
-    expect(routeChoice({ github: null, local: "main moved past it" })).toEqual({
-      route: "github",
+    expect(routeChoice({ ci: null, local: "main moved past it" })).toEqual({
+      route: "ci",
       blocked: "main moved past it",
     });
   });
 
   it("given both paths blocked, when choosing a route, then nothing can ship it", () => {
-    expect(routeChoice({ github: "no ship.yml", local: "main moved past it" })).toEqual({
+    expect(routeChoice({ ci: "no ship.yml", local: "main moved past it" })).toEqual({
       route: "stuck",
     });
   });

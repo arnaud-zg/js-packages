@@ -99,7 +99,7 @@ export type ShipKind = "build" | "submit" | "publish" | "update" | "deploy";
 export type Decision =
   /**
    * Ship: a build, a submit or a publish runs from here; an update or a deploy asks how.
-   * `notLocal` says why this machine cannot ship it, leaving GitHub Actions.
+   * `notLocal` says why this machine cannot ship it, leaving the CI pipeline.
    */
   | {
       action: "ship";

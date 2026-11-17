@@ -58,8 +58,8 @@ describe("how a release deploys", () => {
     expect(deployVia({ via: "local", yes: false })).toBe("local");
   });
 
-  it("given --yes and no --via, when deploying, then GitHub Actions runs it, behind its gate", () => {
-    expect(deployVia({ via: undefined, yes: true })).toBe("github");
+  it("given --yes and no --via, when deploying, then the CI pipeline runs it, behind its gate", () => {
+    expect(deployVia({ via: undefined, yes: true })).toBe("ci");
   });
 
   it("given neither, when deploying, then the person is asked", () => {
@@ -78,8 +78,8 @@ describe("how a release deploys", () => {
     expect(shipsFrom("local", { sinceTagOnlyVersionFiles: false })).toBe(false);
   });
 
-  it("given main moved past the tag, when GitHub Actions deploys, then it ships the tag itself", () => {
-    expect(shipsFrom("github", { sinceTagOnlyVersionFiles: false })).toBe(true);
+  it("given main moved past the tag, when the CI pipeline deploys, then it ships the tag itself", () => {
+    expect(shipsFrom("ci", { sinceTagOnlyVersionFiles: false })).toBe(true);
   });
 
   it("given main still holds the tagged code, when deploying from this machine, then it ships", () => {
