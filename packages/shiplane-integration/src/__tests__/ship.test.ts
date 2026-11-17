@@ -313,7 +313,7 @@ describe("shipping to an environment, fire and forget", () => {
     expect(ci.received).toEqual([]);
   });
 
-  it("given via github in the config and no terminal, when shipped, then it dispatches without asking", async () => {
+  it("given via ci in the config and no terminal, when shipped, then it dispatches without asking", async () => {
     const world = testContext({ units: [API, ADMIN], modules: MODULES, interactive: false });
     world.source.seed({
       tags: { "api@0.0.3": "t3", "admin@0.1.3": "t4" },

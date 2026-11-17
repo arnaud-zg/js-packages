@@ -335,14 +335,25 @@ describe("how a ship goes", () => {
     expect(release.via).toBe("local");
   });
 
-  it("given a via that is neither way, when the release loads, then it names both", async () => {
+  it("given via ci in the config, when the release loads, then it ships through the CI pipeline", async () => {
     const { root } = setUp({
-      "shiplane.config.ts": MODULE_CONFIG.replace("modules: [", 'via: "laptop",\n  modules: ['),
+      "shiplane.config.ts": MODULE_CONFIG.replace("modules: [", 'via: "ci",\n  modules: ['),
     });
 
     const release = await load(root);
 
-    expect(release.problems[0]?.message).toContain('via is "github" (GitHub Actions) or "local"');
+    expect(release.problems).toEqual([]);
+    expect(release.via).toBe("github");
+  });
+
+  it("given a via that names a provider, when the release loads, then it names the two ways", async () => {
+    const { root } = setUp({
+      "shiplane.config.ts": MODULE_CONFIG.replace("modules: [", 'via: "github",\n  modules: ['),
+    });
+
+    const release = await load(root);
+
+    expect(release.problems[0]?.message).toContain('via is "ci" (the CI pipeline) or "local"');
   });
 });
 

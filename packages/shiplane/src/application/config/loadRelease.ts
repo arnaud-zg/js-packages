@@ -222,10 +222,12 @@ const testCommentOf = (value: unknown) => {
   return { testComment: value };
 };
 
+/** The config names a way by its port, never its provider: "ci" is whatever CI the flow uses. */
 const viaOf = (via: unknown): DeployPath | undefined => {
   if (via === undefined) return undefined;
-  if (via === "github" || via === "local") return via;
-  throw new Error('via is "github" (GitHub Actions) or "local" (this machine)');
+  if (via === "ci") return "github";
+  if (via === "local") return via;
+  throw new Error('via is "ci" (the CI pipeline) or "local" (this machine)');
 };
 
 /** A config's mascot: true, false, frames per mood, or a function; anything else is ignored. */
