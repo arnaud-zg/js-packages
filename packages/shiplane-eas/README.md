@@ -65,7 +65,7 @@ update:
   production: eas:update:production
 ```
 
-`pnpm shiplane plan` in that repository prints both ways a ship to preview could go:
+`pnpm shiplane ship --dry-run` in that repository prints both ways a ship to preview could go:
 
 ```text
   Plan  ·  preview  · nothing runs

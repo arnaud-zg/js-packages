@@ -64,7 +64,7 @@ tag:
   production: latest
 ```
 
-`pnpm shiplane plan` in that repository prints what a ship to preview could run:
+`pnpm shiplane ship --dry-run` in that repository prints what a ship to preview could run:
 
 ```text
   Plan  ·  live  · nothing runs

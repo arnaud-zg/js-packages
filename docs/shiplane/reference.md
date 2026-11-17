@@ -17,7 +17,7 @@
 | `shiplane test-release`       | Publish a test version from any branch, PR or not (alias `branch`)   |
 | `shiplane promote`            | Production, from what preview runs                                   |
 | `shiplane status`             | Where every unit stands, and what to run next. Reads only            |
-| `shiplane plan`               | Every command a ship would run, run nothing                          |
+| `shiplane plan`               | Deprecated: it still runs; use `ship --dry-run` instead              |
 | `shiplane version`            | Open the release PR for what is pending                              |
 | `shiplane tag`                | Tag merged versions, publish their notes                             |
 | `shiplane ship [unit...]`     | Trigger each tagged unit's deploy, then return                       |
@@ -44,6 +44,7 @@ Source: `src/cli/main.ts`. Here, `pnpm shiplane` builds the CLI first when its s
 | `--json`                        | `status` and `plugins` print JSON                                     |
 | `--blank`                       | Deprecated: `init` writes commented templates, not guesses            |
 | `--verbose`, `--mascot`         | On by default; `--no-` turns off. Defaults: `display` in config       |
+| `--dry-run`                     | `shiplane`, `ship`, `promote`: every command it would run, run none   |
 
 ## Exit codes
 

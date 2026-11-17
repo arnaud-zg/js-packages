@@ -51,7 +51,6 @@ const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, tri
   shiplane version                open the release PR for what is pending
   shiplane tag                    tag merged versions and publish their release notes
   shiplane ship [unit...]         trigger each tagged unit's deploy, then return
-  shiplane plan                   every command a ship would run, run nothing
   shiplane plugins [--json]       the flow, the modules in release order and who uses each, the features
 
   shiplane setup [--yes]          set up, check, or add an app: asks only what it can't tell, rehearses, then writes
@@ -65,10 +64,15 @@ const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, tri
   --channel preview|production    where status reads (preview by default)
   --via github|local              ship through GitHub Actions or this machine, without asking
   --yes                           answer yes to every question (never on production)
+  --dry-run                       with shiplane, ship or promote: every command it would run, run nothing
+                                  (shiplane plan before)
   --verbose / --no-verbose        say each thing it reads and runs, with a progress bar (on by default)
   --mascot / --no-mascot          the mascot beside it, still in CI or under NO_MOTION=1 (on by default)
                                   Both defaults live in shiplane.config.ts: display: { verbose, mascot }
 `;
+
+/** The commands `--dry-run` previews instead of running. */
+const DRY_RUNS = new Set(["next", "ship", "promote"]);
 
 /** The CLI as a person runs it, from its arguments and folder; resolves to its exit code. */
 export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): Promise<number> => {
@@ -79,6 +83,7 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
     options: {
       verbose: { type: "boolean" },
       mascot: { type: "boolean" },
+      "dry-run": { type: "boolean", default: false },
       json: { type: "boolean", default: false },
       yes: { type: "boolean", short: "y", default: false },
       channel: { type: "string", default: "preview" },
@@ -109,7 +114,13 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
     tag: async (context) => tagRelease(context, await missingTags(context)),
     ship: (context) =>
       shipTo(context, environment, { via, ...(units.length > 0 ? { scope: new Set(units) } : {}) }),
-    plan: (context) => planShips(context, environment),
+    // Deprecated: --dry-run does it. Kept working, left out of the help.
+    plan: (context) => {
+      out(
+        paint("dim", "plan is now --dry-run: shiplane ship --dry-run, shiplane promote --dry-run"),
+      );
+      return planShips(context, environment);
+    },
     plugins: (context) => Promise.resolve(pluginsCommand(context.release, { json: values.json })),
   };
 
@@ -141,7 +152,12 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
   const root = findRoot(cwd);
   const files = io.setup?.files ?? nodeFiles(root);
   const firstRun = command === "next" && !files.exists(CONFIG_FILE);
-  const run = commands[command];
+  // A dry run prints every command a ship would run, the way it would go, and runs none.
+  const run =
+    values["dry-run"] && DRY_RUNS.has(command)
+      ? (context: ReleaseContext) =>
+          planShips(context, command === "promote" ? "production" : environment)
+      : commands[command];
   const setUp = setupCommands[firstRun ? "setup" : command];
   if (setUp) return (await setUp(await composeSetup(root, io.setup))) ? 0 : 1;
   if (command === "help") {

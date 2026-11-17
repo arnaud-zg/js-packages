@@ -87,8 +87,8 @@ describe("the built shiplane CLI, installed in a repository", () => {
     expect(output).toContain("shiplane plan");
   });
 
-  it("given a host no plugin covers, when the plan is asked, then it prints the unit file's own command and runs nothing", () => {
-    const { status, output } = install().shiplane(["plan"]);
+  it("given a host no plugin covers, when a dry run is asked, then it prints the unit file's own command and runs nothing", () => {
+    const { status, output } = install().shiplane(["ship", "--dry-run"]);
 
     expect(status).toBe(0);
     expect(output).toContain("api@1.0.0 → ./deploy.sh --fast  (not tagged yet: release first)");
@@ -98,10 +98,27 @@ describe("the built shiplane CLI, installed in a repository", () => {
     );
   });
 
+  it("given promote --dry-run, when it runs, then it prints what production would run and runs nothing", () => {
+    const { status, output } = install().shiplane(["promote", "--dry-run"]);
+
+    expect(status).toBe(0);
+    expect(output).toContain(
+      "gh workflow run ship.yml --ref api@1.0.0 -f units=api -f environment=production",
+    );
+  });
+
+  it("given the older habit, when shiplane plan runs, then it says it is --dry-run and still prints the plan", () => {
+    const { status, output } = install().shiplane(["plan"]);
+
+    expect(status).toBe(0);
+    expect(output).toContain("plan is now --dry-run");
+    expect(output).toContain("api@1.0.0 → ./deploy.sh --fast");
+  });
+
   it("given a unit file with a mistyped key, when any command runs, then it exits 2 naming the file, the line and the closest key", () => {
     const { status, output } = install(
       "module: backend-service\ndeploy: [./deploy.sh]\nulr: https://api.acme.dev\n",
-    ).shiplane(["plan"]);
+    ).shiplane(["ship", "--dry-run"]);
 
     expect(status).toBe(2);
     expect(output).toContain("apps/api/shiplane.unit.yml:3");

@@ -70,7 +70,7 @@ build:
       production: https://api.acme.dev
 ```
 
-`pnpm shiplane plan` in that repository prints what a ship to preview would run:
+`pnpm shiplane ship --dry-run` in that repository prints what a ship to preview would run:
 
 ```text
   Plan  ·  preview  · nothing runs

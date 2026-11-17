@@ -71,8 +71,8 @@ Source: `src/github-code-host.adapter.ts`, `src/github-actions-ci-pipeline.adapt
 
 ## 🧪 Example
 
-`pnpm shiplane plan` in [`examples/`](./examples/shiplane.config.ts) shows the ship through GitHub
-Actions dispatching `deploy.yml`:
+`pnpm shiplane ship --dry-run` in [`examples/`](./examples/shiplane.config.ts) shows the ship
+through GitHub Actions dispatching `deploy.yml`:
 
 ```text
   Plan  ·  preview  · nothing runs

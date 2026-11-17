@@ -7,7 +7,7 @@ import { paint } from "./say";
 import { checkout, commandLine, environmentLabel, shipPlanOf, unitTarget } from "./targets";
 
 /**
- * `shiplane plan`: every command shipping the current tags would run, both ways, in release order,
+ * `--dry-run`: every command shipping the current tags would run, both ways, in release order,
  * then what the features would do. It runs nothing and asks nothing; it reads git, and the code host
  * for features.
  */
