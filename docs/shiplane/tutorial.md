@@ -9,7 +9,7 @@ below is copied from a run on a copy of [arnaud-zg/packages](https://github.com/
 
 ```mermaid
 flowchart LR
-    A["Install"] --> B["init"]
+    A["Install"] --> B["setup"]
     B --> C["changeset"]
     C --> D["status"]
     D --> E["shiplane"]
@@ -29,22 +29,34 @@ pnpm add -D shiplane @shiplane/git @shiplane/github \
 ## 2. Let it find what ships
 
 ```sh
-pnpm shiplane init --yes
+pnpm shiplane setup --yes
 ```
 
 ```text
-◇  Workspace  packages/*
-│  packages/agent-context-budget     npm               package.json, public, bin
-│  packages/vite-workspace-resolver  npm               package.json, public, exports
-◇  Wrote 6 files
-◆  shiplane doctor
-│  ✓ git
-│  ✓ gh
-│  ✓ npm
-└  Next: shiplane status
+  Flow
+  ✓ git             .git
+  ✓ GitHub          remote github.com/arnaud-zg/packages
+  ✓ GitHub Actions  .github/workflows/ci.yml
+  ✓ Changesets      .changeset/config.json
+
+  Apps
+  ✓ packages/agent-context-budget  Published package → npm   proof: package.json, public, bin
+  ✓ packages/vite-workspace-resolver  Published package → npm   proof: package.json, public, exports
+
+  Rehearsal  · nothing is pushed, published or deployed
+  ✓ build 2 apps
+  ✓ git
+  ✓ gh
+  ✓ npm
+  + shiplane.config.ts
+  + packages/agent-context-budget/shiplane.unit.yml
+  + packages/vite-workspace-resolver/shiplane.unit.yml
+
+  ✓ Ready. Add a changeset, merge, and run shiplane
 ```
 
-It wrote `shiplane.config.ts` and a `shiplane.unit.yml` next to each package.
+It rehearsed a release, then wrote `shiplane.config.ts` and a `shiplane.unit.yml` next to each
+package. Without `--yes`, it asks only what it can't tell.
 
 ## 3. Queue a change
 

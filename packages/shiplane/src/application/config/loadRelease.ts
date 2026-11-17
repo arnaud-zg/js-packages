@@ -291,7 +291,7 @@ export const loadRelease = async (root: string, options: LoadOptions): Promise<R
       {
         file: "shiplane.config.ts",
         message: "No shiplane.config.ts in this repository",
-        hint: "shiplane init writes it, with a shiplane.unit.yml next to each app",
+        hint: "shiplane setup writes it, with a shiplane.unit.yml next to each app",
       },
     ]);
   }

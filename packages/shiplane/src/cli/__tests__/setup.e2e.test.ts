@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { serverHostingFake } from "../../adapters/server-hosting/__fakes__/server-hosting.fake";
 import { RecordingProgress } from "../../adapters/terminal/__fakes__/progress.fake";
@@ -61,6 +61,17 @@ describe("Feature: shiplane setup from the command line", () => {
     expect(await run("init")).toBe(0);
 
     expect(output.text).toContain("shiplane setup");
+  });
+
+  it("given the older habit, when the person types shiplane add, then it says add is now setup and still runs", async () => {
+    const { run } = given();
+    const printed = vi.spyOn(process.stdout, "write").mockReturnValue(true);
+
+    await run("add", "apps/nothing");
+
+    const text = printed.mock.calls.map(([chunk]) => String(chunk)).join("");
+    printed.mockRestore();
+    expect(text).toContain("add is now shiplane setup");
   });
 
   it("given a build that fails, when the person types shiplane setup --yes, then it exits 1 and the files are as they were", async () => {

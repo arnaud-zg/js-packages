@@ -9,7 +9,7 @@ import { mobileApp } from "./mobile-app/mobile-app.module";
 import { publishedPackage } from "./published-package/published-package.module";
 import { webApp } from "./web-app/web-app.module";
 
-/** An adapter of any delivery port, as `init` offers them. */
+/** An adapter of any delivery port, as `setup` offers them. */
 export type AnyDeliveryAdapter =
   | DeliveryAdapter<ServerHostingPort>
   | DeliveryAdapter<StaticHostingPort>
@@ -57,7 +57,7 @@ const MODULE_FOR = {
 
 const makes: { [K in Capability]: MakesModule<K> } = MODULE_FOR;
 
-/** The module a provider makes under a name, as `init` composes it before the config exists. */
+/** The module a provider makes under a name, as `setup` composes it before the config exists. */
 export const moduleFor = <K extends Capability>(
   adapter: Extract<AnyDeliveryAdapter, { capability: K }>,
   name: string,

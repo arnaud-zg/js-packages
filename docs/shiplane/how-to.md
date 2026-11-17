@@ -31,10 +31,11 @@
 ## Add an app
 
 ```sh
-pnpm shiplane add apps/docs
+pnpm shiplane setup
 ```
 
-Or write `apps/docs/shiplane.unit.yml` yourself; `shiplane docs web-app` lists its keys:
+Run again, setup keeps your config and unit files and asks only about the new folder. Or write
+`apps/docs/shiplane.unit.yml` yourself; `shiplane docs web-app` lists its keys:
 
 ```yaml
 module: web-app
@@ -535,7 +536,7 @@ pnpm shiplane adapter new render
 ```
 
 It writes `release/adapters/render.ts`, its contract test, and its module in the config. To share
-it, publish it as a package and name its adapters in its `package.json`, so `init` offers them:
+it, publish it as a package and name its adapters in its `package.json`, so `setup` offers them:
 
 ```json
 "shiplane": { "adapters": ["renderServerHosting"] }

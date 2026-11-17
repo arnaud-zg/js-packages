@@ -166,7 +166,7 @@ export interface VersionContribution {
   step?: string;
 }
 
-/** A folder as `init` shows it to an adapter, to recognise what ships from it. */
+/** A folder as `setup` shows it to an adapter, to recognise what ships from it. */
 export interface FolderView {
   /** Relative to the root. */
   dir: string;
@@ -190,7 +190,7 @@ export interface Detection {
   options: Record<string, unknown>;
 }
 
-/** An option `init` asks for when nothing in the folder said it. */
+/** An option `setup` asks for when nothing in the folder said it. */
 export interface Question {
   key: string;
   message: string;

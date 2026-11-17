@@ -72,7 +72,7 @@ export const newAdapter = async (context: SetupContext, name: string): Promise<b
   );
   if (!config) {
     output.line(
-      `${paint("red", "✗")}  ${CONFIG_FILE} has no modules list to add it to: run shiplane init first`,
+      `${paint("red", "✗")}  ${CONFIG_FILE} has no modules list to add it to: run shiplane setup first`,
     );
     return false;
   }
