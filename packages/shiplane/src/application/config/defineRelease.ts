@@ -23,6 +23,12 @@ export interface ReleaseConfig {
    * `comments.compact`, or text of your own with `{branch}`, `{commit}`, `{table}` and `{install}`.
    */
   testComment?: string;
+  /**
+   * How a unit ships when both ways can: `"ci"` (the flow's CI pipeline, such as GitHub Actions) or
+   * `"local"` (this machine). Without it, each ship asks. `--via` still wins for one run; a way that
+   * cannot ship takes the other.
+   */
+  via?: "ci" | "local";
 }
 
 export const defineRelease = (config: ReleaseConfig): ReleaseConfig => config;

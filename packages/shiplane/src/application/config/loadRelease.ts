@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti";
 
+import type { DeployPath } from "../../domain/deploys";
 import type { DisplayChoice } from "../../domain/display";
 import type { ReleaseUnit } from "../../domain/unit";
 import type { Feature, ReleaseFlow, ReleaseModule } from "../../modules/module";
@@ -50,6 +51,8 @@ export interface Release {
   problems: ConfigProblem[];
   /** How a tag names a version, such as `{name}@{version}`. */
   tagFormat: string;
+  /** How a unit ships when both ways can, as the config asks; unset, each ship asks. */
+  via?: DeployPath;
   /** How much the release says while it runs, as the config asks. */
   display?: DisplayChoice;
   /** Files still under their name from before shiplane. */
@@ -60,7 +63,7 @@ export interface Release {
 
 type Composed = Pick<
   Release,
-  "flow" | "modules" | "features" | "display" | "tagFormat" | "testComment"
+  "flow" | "modules" | "features" | "display" | "tagFormat" | "testComment" | "via"
 > & {
   units?: string[];
 };
@@ -207,6 +210,7 @@ const readConfig = async (file: string, aliases: Record<string, string>): Promis
     display: { verbose: flag(display.verbose), mascot: mascotOf(display.mascot) },
     tagFormat: tagFormatOf(loaded.tag),
     ...testCommentOf(loaded.testComment),
+    via: viaOf(loaded.via),
   };
 };
 
@@ -216,6 +220,14 @@ const testCommentOf = (value: unknown) => {
     throw new Error('testComment is a template, such as comments.compact or "Try it: {install}"');
   }
   return { testComment: value };
+};
+
+/** The config names a way by its port, never its provider: "ci" is whatever CI the flow uses. */
+const viaOf = (via: unknown): DeployPath | undefined => {
+  if (via === undefined) return undefined;
+  if (via === "ci") return "github";
+  if (via === "local") return via;
+  throw new Error('via is "ci" (the CI pipeline) or "local" (this machine)');
 };
 
 /** A config's mascot: true, false, frames per mood, or a function; anything else is ignored. */
@@ -375,6 +387,7 @@ export const loadRelease = async (root: string, options: LoadOptions): Promise<R
     flow: config.flow,
     modules: config.modules,
     features: config.features,
+    ...(config.via ? { via: config.via } : {}),
     units: ordered.map(({ unit }) => unit),
     problems: sortProblems(problems),
     display: config.display,
