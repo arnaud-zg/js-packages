@@ -142,7 +142,8 @@ gives way when you go lower.
 ## Preview every command
 
 ```sh
-pnpm shiplane plan --channel production
+pnpm shiplane ship --dry-run        # preview
+pnpm shiplane promote --dry-run     # production
 ```
 
 Nothing runs. It prints the release order, then each command, both ways.

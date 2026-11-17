@@ -44,7 +44,7 @@ describe("tagging a merged version with the built CLI, real git and a local orig
     expect(status).toBe(0);
     expect(output).toContain("Tags and release notes  api@1.0.0");
     expect(repo.git(["rev-parse", "api@1.0.0^{commit}"], { in: "origin" })).toBe(head);
-    expect(repo.shiplane(["plan"]).output).not.toContain("not tagged yet");
+    expect(repo.shiplane(["ship", "--dry-run"]).output).not.toContain("not tagged yet");
   });
 
   it("given a version already tagged on origin, when the maintainer tags again, then nothing is pushed twice", () => {

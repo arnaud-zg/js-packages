@@ -33,8 +33,8 @@ The shell adapter stays built in, the fallback for any host.
 
 ## The order of `modules` is the release order
 
-Versions, tags, deploys and comments follow it, so `plan` shows a reorder before anything ships. An
-app reading another's url comes after it, and loading says so when it does not.
+Versions, tags, deploys and comments follow it, so `--dry-run` shows a reorder before anything
+ships. An app reading another's url comes after it, and loading says so when it does not.
 
 ## Changesets decide what ships
 
