@@ -1,6 +1,7 @@
 import type { Environment } from "../domain/environment";
 import type { Shipped } from "../modules/module";
 import type { ReleaseContext } from "./context";
+import { ciLabel } from "./askPath";
 import { planFollowUps } from "./followUps";
 import { releaseOrder } from "./releaseOrder";
 import { paint } from "./say";
@@ -39,10 +40,11 @@ export const planShips = async (context: ReleaseContext, environment: Environmen
           `      ${paint("dim", `then record ${tag} on ${environment} in GitHub Deployments`)}`,
         );
       if (job.ci) {
-        const workflow = services.ciPipeline.shipWorkflow;
-        output.line(`    ${paint("dim", "GitHub Actions")}`);
+        const pipeline = services.ciPipeline;
+        const inputs = { units: unit.name, environment };
+        output.line(`    ${paint("dim", ciLabel(pipeline))}`);
         output.line(
-          `      gh workflow run ${workflow} --ref ${job.ci.ref} -f units=${unit.name} -f environment=${environment}`,
+          `      ${pipeline.dispatchLine?.(pipeline.shipWorkflow, job.ci.ref, inputs) ?? `dispatch ${pipeline.shipWorkflow} on ${job.ci.ref} with units=${unit.name}, environment=${environment}`}`,
         );
       }
     });

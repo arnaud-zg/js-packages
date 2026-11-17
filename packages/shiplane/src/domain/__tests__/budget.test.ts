@@ -34,7 +34,9 @@ describe("the GitHub Actions minutes a deploy spends", () => {
   const OCTOBER_11 = new Date(Date.UTC(2026, 9, 11, 9));
 
   it("given 216 of 2,000 used on 11 October, when drawn, then a mostly full green bar and a pace well within the plan", () => {
-    expect(minutesBudget({ used: 216, included: 2000, left: 1784 }, OCTOBER_11, 20)).toEqual({
+    expect(
+      minutesBudget({ used: 216, included: 2000, left: 1784 }, OCTOBER_11, 20, 0, "GitHub Actions"),
+    ).toEqual({
       tone: "green",
       title: "GitHub Actions minutes · October 2026",
       bar: "██████████████████░░",
@@ -46,9 +48,17 @@ describe("the GitHub Actions minutes a deploy spends", () => {
   });
 
   it("given this release costs 17 minutes, when drawn, then it says what is left after it and counts it in the pace", () => {
-    const budget = minutesBudget({ used: 216, included: 2000, left: 1784 }, OCTOBER_11, 20, 17);
+    const budget = minutesBudget(
+      { used: 216, included: 2000, left: 1784 },
+      OCTOBER_11,
+      20,
+      17,
+      "GitHub Actions",
+    );
 
-    expect(budget.after).toBe("This release: about 17 min on GitHub, about 1,767 left after it");
+    expect(budget.after).toBe(
+      "This release: about 17 min on GitHub Actions, about 1,767 left after it",
+    );
     expect(budget.pace).toBe(
       "At this pace, with this release, about 662 used by October 31, within the 2,000 included.",
     );

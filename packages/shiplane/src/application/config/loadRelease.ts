@@ -225,8 +225,7 @@ const testCommentOf = (value: unknown) => {
 /** The config names a way by its port, never its provider: "ci" is whatever CI the flow uses. */
 const viaOf = (via: unknown): DeployPath | undefined => {
   if (via === undefined) return undefined;
-  if (via === "ci") return "github";
-  if (via === "local") return via;
+  if (via === "ci" || via === "local") return via;
   throw new Error('via is "ci" (the CI pipeline) or "local" (this machine)');
 };
 

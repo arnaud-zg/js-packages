@@ -343,7 +343,7 @@ describe("how a ship goes", () => {
     const release = await load(root);
 
     expect(release.problems).toEqual([]);
-    expect(release.via).toBe("github");
+    expect(release.via).toBe("ci");
   });
 
   it("given a via that names a provider, when the release loads, then it names the two ways", async () => {

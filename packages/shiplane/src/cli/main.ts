@@ -62,7 +62,7 @@ const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, tri
   shiplane help [all]             the main commands; all: this, every command and flag
 
   --channel preview|production    where status reads (preview by default)
-  --via github|local              ship through GitHub Actions or this machine, without asking
+  --via ci|local                  ship through the CI pipeline (such as GitHub Actions) or this machine, without asking
   --yes                           answer yes to every question (never on production)
   --dry-run                       with shiplane, ship or promote: every command it would run, run nothing
                                   (shiplane plan before)
@@ -73,6 +73,16 @@ const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, tri
 
 /** The commands `--dry-run` previews instead of running. */
 const DRY_RUNS = new Set(["next", "ship", "promote"]);
+
+/** --via ci|local; the older --via github still means the CI pipeline, said once. */
+const viaFlag = (value: string | undefined) => {
+  if (value === undefined) return undefined;
+  if (value === "github") {
+    out(paint("dim", "--via github is now --via ci: the flow's CI pipeline"));
+    return "ci" as const;
+  }
+  return z.enum(["ci", "local"]).parse(value);
+};
 
 /** The CLI as a person runs it, from its arguments and folder; resolves to its exit code. */
 export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): Promise<number> => {
@@ -94,7 +104,7 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
 
   const [command = "next", ...units] = positionals;
   const environment = z.enum(ENVIRONMENTS).parse(values.channel);
-  const via = values.via === undefined ? undefined : z.enum(["github", "local"]).parse(values.via);
+  const via = viaFlag(values.via);
 
   const commands: Record<string, (context: ReleaseContext) => Promise<boolean | void>> = {
     next: (context) =>

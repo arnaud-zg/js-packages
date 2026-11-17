@@ -39,7 +39,7 @@ Source: `src/cli/main.ts`. Here, `pnpm shiplane` builds the CLI first when its s
 | Flag                            | Means                                                                 |
 | ------------------------------- | --------------------------------------------------------------------- |
 | `--channel preview\|production` | The environment worked on (preview by default)                        |
-| `--via github\|local`           | Ship through GitHub Actions or this machine, without asking           |
+| `--via ci\|local`               | Ship through the CI pipeline or this machine, without asking          |
 | `--yes`, `-y`                   | Yes to every question, at the computed version. Refused on production |
 | `--json`                        | `status` and `plugins` print JSON                                     |
 | `--blank`                       | Deprecated: `init` writes commented templates, not guesses            |

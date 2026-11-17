@@ -382,7 +382,7 @@ describe("shipping the mobile app to preview", () => {
       tags: { "expo@0.1.115": "head-1" },
       diffs: { "head-1..built-from": ["apps/expo/package.json"] },
     });
-    prompter.answer("github", true);
+    prompter.answer("ci", true);
 
     await shipTo(context, "preview", { scope: new Set(["expo"]) });
 
@@ -423,7 +423,7 @@ describe("shipping the mobile app to preview", () => {
 
     it("given only another app's release commit since the mobile tag, when shipped, then the update goes out", async () => {
       const { context, ci, prompter } = releasedOnTop();
-      prompter.answer("github", true);
+      prompter.answer("ci", true);
 
       expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
 
@@ -591,7 +591,7 @@ describe("promoting the mobile app after main moved on", () => {
         "tag-expo..built-from": ["packages/app/src/home.tsx"],
       },
     });
-    prompter.answer("production", "github", true);
+    prompter.answer("production", "ci", true);
 
     expect(await shipTo(context, "production", { scope: new Set(["expo"]) })).toBe(true);
 
@@ -611,7 +611,7 @@ describe("promoting the mobile app after main moved on", () => {
       tags: { "expo@0.1.115": "head-1" },
       diffs: { "head-1..built-from": ["packages/app/src/home.tsx"] },
     });
-    prompter.answer("production", "github", true);
+    prompter.answer("production", "ci", true);
 
     expect(await shipTo(context, "production", { scope: new Set(["expo"]) })).toBe(true);
 
@@ -965,7 +965,7 @@ describe("retrying a mobile release that never reached preview", () => {
 
   it("given the iOS build failed and main moved on, when shipped, then it says why, offers the retry preselected and ships the tag through GitHub Actions without asking again", async () => {
     const { context, ci, shell, prompter, output } = iosFailed();
-    prompter.answer("retry", "github");
+    prompter.answer("retry", "ci");
 
     expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
 
@@ -1068,7 +1068,7 @@ describe("retrying a mobile release that never reached preview", () => {
     const { context, ci, prompter, output } = movedOn({
       platformBuilds: { ios: [OLDER("ios")], android: [OLDER("android")] },
     });
-    prompter.answer("retry", "github");
+    prompter.answer("retry", "ci");
 
     expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
 
@@ -1145,7 +1145,7 @@ describe("retrying a mobile release that never reached preview", () => {
       },
       submissions: { android: [submitted("ANDROID", "android-42", "ERRORED")] },
     });
-    prompter.answer("retry", "github");
+    prompter.answer("retry", "ci");
 
     expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
 

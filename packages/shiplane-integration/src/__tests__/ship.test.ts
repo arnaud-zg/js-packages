@@ -51,7 +51,7 @@ describe("shipping to an environment, fire and forget", () => {
   it("given a release whose tag is the tip of main, when shipped through GitHub Actions, then it is dispatched on its tag", async () => {
     const { context, ci, source, prompter, progress } = setUp();
     source.seed({ tags: { "api@0.0.3": "c0ffee1" } });
-    prompter.answer("github", true);
+    prompter.answer("ci", true);
 
     expect(await shipTo(context, "preview", { scope: new Set(["api"]) })).toBe(true);
 
@@ -69,7 +69,7 @@ describe("shipping to an environment, fire and forget", () => {
   it("given two units tagged on the same commit, when shipped through GitHub Actions, then they ship in one run on one tag", async () => {
     const { context, ci, source, prompter } = setUp();
     source.seed({ tags: { "api@0.0.3": "c0ffee1", "admin@0.1.3": "c0ffee1" } });
-    prompter.answer("github", "github", true);
+    prompter.answer("ci", "ci", true);
 
     expect(await shipTo(context, "preview", {})).toBe(true);
 
@@ -144,7 +144,7 @@ describe("shipping to an environment, fire and forget", () => {
 
   it("given api and admin tagged but not on preview, when shipped through GitHub Actions, then each workflow is dispatched on its tag, api first, and nothing waits for them", async () => {
     const { context, ci, shell, prompter, output } = setUp();
-    prompter.answer("github", "github", true);
+    prompter.answer("ci", "ci", true);
 
     expect(await shipTo(context, "preview", {})).toBe(true);
 
@@ -241,7 +241,7 @@ describe("shipping to an environment, fire and forget", () => {
     });
 
     expect(await shipTo(world.context, "preview", {})).toBe(false);
-    expect(world.output.text).toContain("shiplane ship --via github");
+    expect(world.output.text).toContain("shiplane ship --via ci");
     expect(world.host.received).toEqual([]);
   });
 
@@ -322,7 +322,7 @@ describe("shipping to an environment, fire and forget", () => {
         "admin@0.1.3:.github/workflows/ship.yml": "on: workflow_dispatch",
       },
     });
-    world.context.release.via = "github";
+    world.context.release.via = "ci";
     world.context.options.yes = true;
 
     expect(await shipTo(world.context, "preview", {})).toBe(true);
@@ -332,7 +332,7 @@ describe("shipping to an environment, fire and forget", () => {
   it("given api already on preview, when shipped, then only admin goes", async () => {
     const { context, host, ci, prompter } = setUp();
     host.seed({ deployments: [{ title: "Deploy api@0.0.3 to preview", state: "done" }] });
-    prompter.answer("github", true);
+    prompter.answer("ci", true);
 
     await shipTo(context, "preview", {});
 
@@ -342,7 +342,7 @@ describe("shipping to an environment, fire and forget", () => {
 
   it("given api through GitHub Actions and admin from this machine, when shipped, then api's workflow is dispatched and admin builds and deploys here", async () => {
     const { context, host, ci, shell, prompter, output } = setUp();
-    prompter.answer("github", "local", true);
+    prompter.answer("ci", "local", true);
 
     await shipTo(context, "preview", {});
 
@@ -365,7 +365,7 @@ describe("shipping to an environment, fire and forget", () => {
 
   it("given one unit's ship cancelled, when asked how, then nothing ships", async () => {
     const { context, host, ci, shell, prompter } = setUp();
-    prompter.answer("github", null);
+    prompter.answer("ci", null);
 
     expect(await shipTo(context, "preview", {})).toBe(true);
 
@@ -382,7 +382,7 @@ describe("shipping to an environment, fire and forget", () => {
         "main:.github/workflows/ship.yml": "on: workflow_dispatch",
       },
     });
-    prompter.answer("github", true);
+    prompter.answer("ci", true);
 
     await shipTo(context, "preview", {});
 
@@ -409,7 +409,7 @@ describe("shipping to an environment, fire and forget", () => {
     });
     prompter.answer(true);
 
-    await shipTo(context, "preview", { via: "github" });
+    await shipTo(context, "preview", { via: "ci" });
 
     expect(ci.received.map(({ ref }) => ref)).toEqual(["api@0.0.3"]);
     expect(output.text).toContain("admin@0.1.3  predates ship.yml: ship it from this machine");
@@ -454,7 +454,7 @@ describe("shipping to an environment, fire and forget", () => {
 
   it("given a ship to preview through GitHub Actions, when it asks to go ahead, then Yes is preselected", async () => {
     const { context, prompter } = setUp();
-    prompter.answer("github", "github", false, false);
+    prompter.answer("ci", "ci", false, false);
 
     await shipTo(context, "preview", {});
 
@@ -517,7 +517,7 @@ describe("declining preview", () => {
 
   it("given preview declined, when asked what next, then production is offered with No preselected and nothing ships on a No", async () => {
     const { context, host, ci, shell, prompter } = setUp();
-    prompter.answer("github", "github", false, false);
+    prompter.answer("ci", "ci", false, false);
 
     expect(await shipTo(context, "preview", {})).toBe(true);
 
@@ -543,7 +543,7 @@ describe("declining preview", () => {
 
   it("given --yes, when shipping to preview, then production is never offered", async () => {
     const { context, prompter } = setUp();
-    prompter.answer("github", "github");
+    prompter.answer("ci", "ci");
 
     await shipTo({ ...context, options: { ...context.options, yes: true } }, "preview", {});
 

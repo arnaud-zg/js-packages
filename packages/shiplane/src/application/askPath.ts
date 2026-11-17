@@ -1,29 +1,33 @@
 import type { ActionsMinutes } from "../domain/budget";
 import type { DeployPath, ShipItem } from "../domain/deploys";
 import type { Environment } from "../domain/environment";
+import type { CiPipelinePort } from "../ports/ci-pipeline.port";
 import type { ReleaseContext } from "./context";
 import { deployEstimate, minutesBudget } from "../domain/budget";
 import { fail, paint } from "./say";
 
 export interface Shipment {
   item: ShipItem;
-  /** The workflow its jobs dispatch on GitHub Actions, if any. */
+  /** The workflow its jobs dispatch on the CI pipeline, if any. */
   workflows: string[];
   typicalMinutes: number | undefined;
 }
 
-export const PATH_LABEL: Record<DeployPath, string> = {
-  github: "GitHub Actions",
-  local: "this machine",
-};
+/** What a person calls the CI pipeline: its own label, else `CI`. */
+export const ciLabel = (ci: CiPipelinePort) => ci.label ?? "CI";
+
+/** A way to ship, as a person reads it: the pipeline's label, or this machine. */
+export const pathLabel = (ci: CiPipelinePort, path: DeployPath) =>
+  path === "ci" ? ciLabel(ci) : "this machine";
 
 /** The minutes block above the question: status, what is left, this release shaded in, the pace. */
 const showMinutes = (
-  { output, clock }: ReleaseContext,
+  { output, clock, services }: ReleaseContext,
   budget: ActionsMinutes,
   estimate: ReturnType<typeof deployEstimate>,
 ) => {
-  const drawn = minutesBudget(budget, clock.now(), 30, estimate.total);
+  const label = ciLabel(services.ciPipeline);
+  const drawn = minutesBudget(budget, clock.now(), 30, estimate.total, label);
   output.line();
   output.line(`  ${paint("bold", drawn.title)}   ${paint(["bold", drawn.tone], drawn.status)}`);
   output.line(`  ${paint(drawn.tone, drawn.bar)}  ${paint(["bold", drawn.tone], drawn.amount)}`);
@@ -75,7 +79,7 @@ export const askPaths = async (
   if (budget) showMinutes(context, budget, estimate);
   if (!prompter.interactive) {
     fail(context, "Not a terminal", "say how to ship.", [
-      "shiplane ship --via github",
+      "shiplane ship --via ci",
       "shiplane ship --via local",
     ]);
     return null;
@@ -89,19 +93,19 @@ export const askPaths = async (
       `How should ${item.tag} ship to ${environment}?`,
       [
         {
-          value: "github",
-          label: PATH_LABEL.github,
+          value: "ci",
+          label: pathLabel(services.ciPipeline, "ci"),
           hint: budget
-            ? `runs on GitHub from its tag, about ${minutes} of ${budget.left.toLocaleString("en-US")} minutes left`
-            : "its workflow runs on GitHub, from its tag",
+            ? `runs on ${ciLabel(services.ciPipeline)} from its tag, about ${minutes} of ${budget.left.toLocaleString("en-US")} minutes left`
+            : `its workflow runs on ${ciLabel(services.ciPipeline)}, from its tag`,
         },
         {
           value: "local",
-          label: PATH_LABEL.local,
+          label: pathLabel(services.ciPipeline, "local"),
           hint: "the same commands, run here: no Actions minutes",
         },
       ],
-      low ? "local" : "github",
+      low ? "local" : "ci",
     );
     if (!path) return null;
     paths.push(path);

@@ -18,7 +18,7 @@ export const choosesPath = ({
 export const forcedPath = ({ ci, via }: { ci: boolean; via: DeployPath | undefined }) =>
   ci ? ("local" as const) : via;
 
-export const OTHER_PATH: Record<DeployPath, DeployPath> = { github: "local", local: "github" };
+export const OTHER_PATH: Record<DeployPath, DeployPath> = { ci: "local", local: "ci" };
 
 /** How a unit goes, from why each path cannot ship it (null when it can). */
 export type RouteChoice =
@@ -26,14 +26,14 @@ export type RouteChoice =
 
 /** Both paths open asks; one blocked takes the other; both blocked, nothing can ship it. */
 export const routeChoice = ({
-  github,
+  ci,
   local,
 }: {
-  github: string | null;
+  ci: string | null;
   local: string | null;
 }): RouteChoice => {
-  if (github && local) return { route: "stuck" };
-  if (github) return { route: OTHER_PATH.github, blocked: github };
+  if (ci && local) return { route: "stuck" };
+  if (ci) return { route: OTHER_PATH.ci, blocked: ci };
   if (local) return { route: OTHER_PATH.local, blocked: local };
   return { route: "ask" };
 };

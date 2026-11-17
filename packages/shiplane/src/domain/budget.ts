@@ -55,6 +55,7 @@ export const minutesBudget = (
   now: Date,
   width = 30,
   spend = 0,
+  label = "CI",
 ): MinutesBudget => {
   const { used, included, left } = budget;
   const start = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
@@ -77,7 +78,7 @@ export const minutesBudget = (
   const pace = `At this pace${spend > 0 ? ", with this release," : ""} about ${number(projected)} used by ${month({ month: "long" })} ${lastDay}`;
   return {
     tone,
-    title: `GitHub Actions minutes · ${month({ month: "long", year: "numeric" })}`,
+    title: `${label} minutes · ${month({ month: "long", year: "numeric" })}`,
     bar: `${"█".repeat(filledAfter)}${"▒".repeat(filled - filledAfter)}${"░".repeat(width - filled)}`,
     amount: `${number(left)} of ${number(included)} left · ${Math.round((used / included) * 100)}% used`,
     pace:
@@ -87,7 +88,7 @@ export const minutesBudget = (
     status: STATUS[tone],
     after:
       spend > 0
-        ? `This release: about ${spend} min on GitHub, about ${number(leftAfter)} left after it`
+        ? `This release: about ${spend} min on ${label}, about ${number(leftAfter)} left after it`
         : null,
   };
 };
