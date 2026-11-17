@@ -301,6 +301,34 @@ describe("shipping to an environment, fire and forget", () => {
     expect(prompter.asked).not.toContain(HOW_ADMIN);
   });
 
+  it("given via local in the config and both ways open, when shipped, then nobody is asked how and it ships from here", async () => {
+    const { context, prompter, ci } = setUp();
+    context.release.via = "local";
+    prompter.answer(true);
+
+    await shipTo(context, "preview", {});
+
+    expect(prompter.asked).not.toContain(HOW_API);
+    expect(prompter.asked).not.toContain(HOW_ADMIN);
+    expect(ci.received).toEqual([]);
+  });
+
+  it("given via github in the config and no terminal, when shipped, then it dispatches without asking", async () => {
+    const world = testContext({ units: [API, ADMIN], modules: MODULES, interactive: false });
+    world.source.seed({
+      tags: { "api@0.0.3": "t3", "admin@0.1.3": "t4" },
+      files: {
+        "api@0.0.3:.github/workflows/ship.yml": "on: workflow_dispatch",
+        "admin@0.1.3:.github/workflows/ship.yml": "on: workflow_dispatch",
+      },
+    });
+    world.context.release.via = "github";
+    world.context.options.yes = true;
+
+    expect(await shipTo(world.context, "preview", {})).toBe(true);
+    expect(world.ci.received.map(({ type }) => type)).toContain("dispatch");
+  });
+
   it("given api already on preview, when shipped, then only admin goes", async () => {
     const { context, host, ci, prompter } = setUp();
     host.seed({ deployments: [{ title: "Deploy api@0.0.3 to preview", state: "done" }] });

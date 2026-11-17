@@ -1,3 +1,4 @@
+import type { DeployPath } from "../../domain/deploys";
 import type { DisplayChoice } from "../../domain/display";
 import type { TagFormatName } from "../../domain/tags";
 import type { Feature, ReleaseFlow, ReleaseModule } from "../../modules/module";
@@ -23,6 +24,11 @@ export interface ReleaseConfig {
    * `comments.compact`, or text of your own with `{branch}`, `{commit}`, `{table}` and `{install}`.
    */
   testComment?: string;
+  /**
+   * How a unit ships when both ways can: `"github"` (GitHub Actions) or `"local"` (this machine).
+   * Without it, each ship asks. `--via` still wins for one run; a way that cannot ship takes the other.
+   */
+  via?: DeployPath;
 }
 
 export const defineRelease = (config: ReleaseConfig): ReleaseConfig => config;

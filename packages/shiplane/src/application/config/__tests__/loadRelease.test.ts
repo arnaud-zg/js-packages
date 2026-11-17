@@ -323,6 +323,29 @@ describe("how the release talks", () => {
   });
 });
 
+describe("how a ship goes", () => {
+  it("given via local in the config, when the release loads, then it keeps it", async () => {
+    const { root } = setUp({
+      "shiplane.config.ts": MODULE_CONFIG.replace("modules: [", 'via: "local",\n  modules: ['),
+    });
+
+    const release = await load(root);
+
+    expect(release.problems).toEqual([]);
+    expect(release.via).toBe("local");
+  });
+
+  it("given a via that is neither way, when the release loads, then it names both", async () => {
+    const { root } = setUp({
+      "shiplane.config.ts": MODULE_CONFIG.replace("modules: [", 'via: "laptop",\n  modules: ['),
+    });
+
+    const release = await load(root);
+
+    expect(release.problems[0]?.message).toContain('via is "github" (GitHub Actions) or "local"');
+  });
+});
+
 describe("mistakes in a unit file", () => {
   it("given a misspelt key, when the release loads, then the problem gives the file, the line and the key it meant", async () => {
     const { root } = setUp({

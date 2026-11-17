@@ -278,7 +278,8 @@ const routeOf = async (
   const github = await blockedOn(context, "github", entry);
   const local = await blockedOn(context, "local", entry);
   const choice = routeChoice({ github, local });
-  if (choice.route === "ask") return "ask";
+  // Both ways can: the config's way when it names one, else the person picks.
+  if (choice.route === "ask") return context.release.via ?? "ask";
   if (choice.route === "stuck") {
     say(paint("red", "✗"), `${github}, and ${local}: nothing can ship it`);
     return "stuck";
