@@ -119,12 +119,47 @@ const unsetFlow = () =>
     versioning: unset("versioning"),
   });
 
-const FLOW_MISSING = [
-  "flow is missing: give it one, such as",
-  "flow: releaseFlow({ sourceControl: gitSourceControl(), codeHost: gitHubCodeHost(),",
-  "ciPipeline: gitHubActionsCiPipeline(), versioning: changesetsVersioning() }),",
-  "from the shiplane-git, shiplane-github and shiplane-changesets plugins",
-].join(" ");
+/** The flow a config without one gets: each factory, from the plugin it is installed as. */
+const DEFAULT_FLOW = {
+  sourceControl: { plugin: "@shiplane/git", factory: "gitSourceControl" },
+  codeHost: { plugin: "@shiplane/github", factory: "gitHubCodeHost" },
+  ciPipeline: { plugin: "@shiplane/github", factory: "gitHubActionsCiPipeline" },
+  versioning: { plugin: "@shiplane/changesets", factory: "changesetsVersioning" },
+} as const;
+
+/**
+ * Git, GitHub, GitHub Actions and Changesets, imported from the plugins installed next to the
+ * config, for a config that sets no flow.
+ */
+const defaultFlow = async (file: string, aliases: Record<string, string>) => {
+  const jiti = createJiti(file, { alias: aliases, moduleCache: false, fsCache: false });
+  const plugins = [...new Set(Object.values(DEFAULT_FLOW).map(({ plugin }) => plugin))];
+  const loaded = new Map<string, unknown>();
+  const missing: string[] = [];
+  for (const plugin of plugins) {
+    try {
+      loaded.set(plugin, await jiti.import(plugin));
+    } catch {
+      missing.push(plugin);
+    }
+  }
+  if (missing.length > 0) {
+    throw new Error(
+      `no flow, and the default one needs ${missing.join(", ")}: install ${missing.length === 1 ? "it" : "them"} (pnpm add -D ${missing.join(" ")}), or set flow: releaseFlow({ ... })`,
+    );
+  }
+  const make = <Port>({ plugin, factory }: { plugin: string; factory: string }) => {
+    const exported = (loaded.get(plugin) as Record<string, unknown> | undefined)?.[factory];
+    if (typeof exported !== "function") throw new Error(`${plugin} has no ${factory}`);
+    return (exported as () => ServiceAdapter<Port>)();
+  };
+  return releaseFlow({
+    sourceControl: make(DEFAULT_FLOW.sourceControl),
+    codeHost: make(DEFAULT_FLOW.codeHost),
+    ciPipeline: make(DEFAULT_FLOW.ciPipeline),
+    versioning: make(DEFAULT_FLOW.versioning),
+  });
+};
 
 const typed = (value: unknown, type: string) =>
   isRecord(value) && value.type === type && typeof value.name === "string";
@@ -190,8 +225,8 @@ const readConfig = async (file: string, aliases: Record<string, string>): Promis
   for (const [key, message] of Object.entries(LEFTOVERS)) {
     if (key in loaded) throw new Error(message);
   }
-  if (loaded.flow === undefined) throw new Error(FLOW_MISSING);
-  if (!isFlow(loaded.flow)) {
+  const flow = loaded.flow === undefined ? await defaultFlow(file, aliases) : loaded.flow;
+  if (!isFlow(flow)) {
     throw new Error("flow is not a release flow, such as flow: releaseFlow({ ... })");
   }
   const modules = listOf(loaded.modules, "modules", isModule, "webApp({ ... })");
@@ -203,7 +238,7 @@ const readConfig = async (file: string, aliases: Record<string, string>): Promis
   const display = isRecord(loaded.display) ? loaded.display : {};
   const flag = (value: unknown) => (typeof value === "boolean" ? value : undefined);
   return {
-    flow: loaded.flow,
+    flow,
     modules,
     features,
     units,

@@ -377,3 +377,17 @@ describe("mistakes in a unit file", () => {
     ]);
   });
 });
+
+describe("a config with no flow", () => {
+  it("given no flow and none of its plugins installed, when the release loads, then it names the packages to install", async () => {
+    const { root } = setUp({
+      "shiplane.config.ts": MODULE_CONFIG.replace("  flow,\n", ""),
+    });
+
+    const release = await load(root);
+
+    expect(release.problems[0]?.message).toContain(
+      "no flow, and the default one needs @shiplane/git, @shiplane/github, @shiplane/changesets",
+    );
+  });
+});

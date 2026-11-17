@@ -7,8 +7,12 @@ import type { Feature, ReleaseFlow, ReleaseModule } from "../../modules/module";
 export interface ReleaseConfig {
   /** Folders to look in, `dir/*` or exact. Without it, the workspace file decides. */
   units?: string[];
-  /** How the release itself runs: an adapter per port, each from its plugin. */
-  flow: ReleaseFlow;
+  /**
+   * How the release itself runs: an adapter per port, each from its plugin. Without it: git,
+   * GitHub, GitHub Actions and Changesets, from `@shiplane/git`, `@shiplane/github` and
+   * `@shiplane/changesets`.
+   */
+  flow?: ReleaseFlow;
   /** What gets released, in this order. The first app is the repository's Latest release. */
   modules: ReleaseModule[];
   /** What happens around a release, after the ship, in this order. */

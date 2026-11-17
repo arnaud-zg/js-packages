@@ -93,6 +93,9 @@ export default defineRelease({
 });
 ```
 
+Leave `flow` out and it is git, GitHub, GitHub Actions and Changesets, from `@shiplane/git`,
+`@shiplane/github` and `@shiplane/changesets`. Set it to swap one of them.
+
 Swap any piece:
 
 | Want                                                    | Use                                                                                                                                |
