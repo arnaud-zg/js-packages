@@ -257,6 +257,11 @@ manual run (`units`, `environment`) calling `shiplane-ship.yml`, pinned to the c
 installed shiplane's tag (`uses: …/shiplane-ship.yml@<sha> # shiplane@x.y.z`). An unreleased version
 has no tag: `no release tag shiplane@x.y.z: pin shiplane-ship.yml by hand`.
 
+With ship.yml calling `shiplane-ship.yml`, setup adds the preset
+`github>arnaud-zg/js-packages//renovate/shiplane` to `extends` in a JSON Renovate config
+(`renovate.json`, `.github/`, `.gitlab/`, `.renovaterc`, `.renovaterc.json`) that lacks it, names
+the entry to add for a JSON5 or `package.json` config, and creates none.
+
 `shiplane doctor` checks it on a laptop, not on a runner:
 
 | Found                                           | Fix offered                                                  |

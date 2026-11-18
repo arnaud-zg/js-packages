@@ -7,7 +7,7 @@ import type { CustomPortKey } from "./customAdapter";
 import type { SetupContext } from "./setupContext";
 import type { FlowChoice, FlowPort, ModuleEntry } from "./setupFiles";
 import { moduleFor } from "../modules/suggest";
-import { callerWrite } from "./callerWorkflow";
+import { callerWrite, renovateWrite } from "./callerWorkflow";
 import { UNIT_FILE, UNIT_FILES } from "./config/readUnitFile";
 import { expandPatterns, workspacePatterns } from "./config/workspaceFolders";
 import {
@@ -46,6 +46,8 @@ export interface Write {
   file: string;
   text: string;
   created: boolean;
+  /** Why setup writes it, said beside it when that is not plain from the file. */
+  reason?: string;
 }
 
 const ok = paint("green", "✓");
@@ -552,6 +554,8 @@ export const setup = async (context: SetupContext, { yes }: { yes: boolean }): P
   // The workflow that ships on CI: from the config there, or once a new one is written.
   const caller = existing ? await callerWrite(context, existing) : null;
   if (caller) writes.push(caller);
+  const renovate = existing ? renovateWrite(context, existing, caller?.text) : null;
+  if (renovate) writes.push(renovate);
 
   if (writes.length === 0) {
     const passed = await rehearse(context);
@@ -574,6 +578,12 @@ export const setup = async (context: SetupContext, { yes }: { yes: boolean }): P
       files.write(written.file, written.text);
       writes.push(written);
     }
+    const renovate = existing ? null : renovateWrite(context, release);
+    if (renovate) {
+      before.push({ file: renovate.file, text: files.read(renovate.file) });
+      files.write(renovate.file, renovate.text);
+      writes.push(renovate);
+    }
   }
   const passed = await rehearse(context);
   const keep = passed && (yes || (await prompter.confirm("Releasable. Write it?", true)));
@@ -586,8 +596,10 @@ export const setup = async (context: SetupContext, { yes }: { yes: boolean }): P
     );
     return false;
   }
-  writes.forEach(({ file, created }) =>
-    output.line(`  ${created ? paint("green", "+") : paint("yellow", "~")} ${file}`),
+  writes.forEach(({ file, created, reason }) =>
+    output.line(
+      `  ${created ? paint("green", "+") : paint("yellow", "~")} ${file}${reason ? `  ${paint("dim", reason)}` : ""}`,
+    ),
   );
   const custom = writes.some(({ file }) => file.startsWith("shiplane/adapters/"));
   if (custom) {
