@@ -7,6 +7,7 @@ import {
   computeTTR,
   detectStructuralNoise,
   redundancyLevelFromGzip,
+  stripMarkdown,
 } from "../redundancy";
 
 describe("computeGzipRatio", () => {
@@ -129,5 +130,78 @@ describe("computeRedundancyScore", () => {
     const score = computeRedundancyScore(0.4, 0.6, 4.0, 8.0);
     expect(score).toBeGreaterThanOrEqual(0);
     expect(score).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("weighing redundancy", () => {
+  it("given gzip, type-token and entropy readings, when scored, then it weighs them 0.5, 0.3 and 0.2", () => {
+    expect(computeRedundancyScore(0.4, 0.6, 2, 4)).toBeCloseTo(0.52);
+  });
+
+  it("given no entropy ceiling, when scored, then the entropy term counts as fully redundant", () => {
+    expect(computeRedundancyScore(0.4, 0.6, 2, 0)).toBeCloseTo(0.62);
+  });
+
+  it("given a gzip ratio of exactly 0.30, when classified, then it is ok rather than shrink", () => {
+    expect(redundancyLevelFromGzip(0.3)).toBe("ok");
+  });
+
+  it("given exactly ten words, half of them repeats, when measured, then the type-token ratio is 0.5", () => {
+    expect(computeTTR("one two three four five one two three four five")).toBe(0.5);
+  });
+
+  it("given two words seen equally often, when measured, then the entropy is one bit", () => {
+    expect(computeShannonEntropy("alpha beta alpha beta")).toBe(1);
+  });
+});
+
+describe("measuring structural noise", () => {
+  it("given eleven horizontal rules between prose lines, when measured, then each rule and its newline count as noise", () => {
+    const content = Array.from({ length: 11 }, () => "---\nplain words").join("\n");
+
+    expect(detectStructuralNoise(content).tokens).toBe(20);
+  });
+
+  it("given eleven table separator rows, when measured, then each row and its newline count as noise", () => {
+    const content = Array.from({ length: 11 }, () => "|---|---|\n| a | b |").join("\n");
+
+    expect(detectStructuralNoise(content).tokens).toBe(50);
+  });
+
+  it("given runs of five newlines, when measured, then every newline beyond two counts as noise", () => {
+    const content = Array.from({ length: 11 }, () => "words").join("\n\n\n\n\n");
+
+    expect(detectStructuralNoise(content).tokens).toBe(14);
+  });
+
+  it("given lines that only look like rules or separators, when measured, then nothing counts as noise", () => {
+    const content = ["text ---", "--- text", "---x", "x |---|", "|---| x", "end"].join("\n");
+
+    expect(detectStructuralNoise(content)).toEqual({ tokens: 0, pct: 0, flagged: false });
+  });
+
+  it("given empty content, when measured, then the share of noise is 0", () => {
+    expect(detectStructuralNoise("")).toEqual({ tokens: 0, pct: 0, flagged: false });
+  });
+});
+
+describe("stripping markdown before counting words", () => {
+  it("given code, comments, headings, tables and emphasis, when stripped, then only the lower-cased prose is left", () => {
+    const md = [
+      "# Title Here",
+      "Keep **Bold** and _this_ [link](url).",
+      "```",
+      "hidden code",
+      "```",
+      "Drop `inline code` now.",
+      "<!-- secret",
+      "comment -->",
+      "| table | row |",
+      "#hashtag stays",
+    ].join("\n");
+
+    expect(stripMarkdown(md)).toBe(
+      "title here\nkeep bold and this linkurl.\n\ndrop  now.\n\n\n#hashtag stays",
+    );
   });
 });
