@@ -128,6 +128,9 @@ jobs:
         with:
           node-version: ${{ steps.detect.outputs.node-version }}
           node-version-file: ${{ steps.detect.outputs.node-version-file }}
+          # setup-node caches on its own when package.json names a packageManager, and fails
+          # because pnpm or yarn is not installed yet. The package store is restored below.
+          package-manager-cache: false
 
       - name: Set up ${{ steps.detect.outputs.pm }}
         if: ${{ steps.detect.outputs.pm != 'npm' }}
@@ -136,7 +139,11 @@ jobs:
           HAS_MANIFEST_PM: ${{ steps.detect.outputs.has-manifest-pm }}
         run: |
           # corepack reads packageManager; without it, the latest release of the tool.
-          if [ "$HAS_MANIFEST_PM" = "true" ]; then corepack enable; else npm install --global "$PM"; fi
+          if [ "$HAS_MANIFEST_PM" = "true" ]; then
+            # Node 25 and later ship without corepack.
+            command -v corepack >/dev/null || npm install --global corepack
+            corepack enable
+          else npm install --global "$PM"; fi
           "$PM" --version
 
       - name: Find the package store
