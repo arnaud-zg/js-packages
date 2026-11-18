@@ -1,0 +1,224 @@
+# .github/workflows/shiplane-ship.yml
+#
+# The reusable workflow that ships a release with shiplane. A repo calls it from a 20-line ship.yml
+# that `shiplane setup` writes:
+#
+#   jobs:
+#     ship:
+#       uses: arnaud-zg/js-packages/.github/workflows/shiplane-ship.yml@<sha> # shiplane@x.y.z
+#       with: { units: "${{ inputs.units }}", environment: "${{ inputs.environment }}" }
+#       secrets: inherit
+#
+# It detects the package manager and the Node version, installs the repo, puts every secret in the
+# environment, then runs `shiplane doctor --ci` (fails before anything ships when something is not
+# supported) and `shiplane ship`: the same command a laptop runs, reading the same config.
+# What is supported, and every error it can give:
+# https://github.com/arnaud-zg/js-packages/blob/main/docs/shiplane/reference.md#github-actions-workflow
+
+name: Shiplane ship
+
+on:
+  workflow_call:
+    inputs:
+      units:
+        description: "Units to ship, space separated (empty: every unit the environment lacks)"
+        type: string
+        default: ""
+      environment:
+        description: "The GitHub Environment and shiplane channel to ship to, such as preview"
+        type: string
+        required: true
+      node-version:
+        description: "Last resort: a Node version, when the repo has no .nvmrc, .node-version or engines.node"
+        type: string
+        default: ""
+      install-command:
+        description: "Last resort: the install command, when the detected one does not fit"
+        type: string
+        default: ""
+      working-directory:
+        description: "Last resort: the folder holding shiplane.config.ts, when it is not the repo root"
+        type: string
+        default: "."
+
+env:
+  FORCE_COLOR: 3
+
+jobs:
+  ship:
+    name: Ship to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    # Each GitHub Environment's secrets reach this job.
+    environment: ${{ inputs.environment }}
+    concurrency:
+      group: shiplane-ship-${{ inputs.environment }}
+      cancel-in-progress: false
+    env:
+      # A GitHub App token is minted only when the repo has these secrets.
+      HAS_APP: ${{ secrets.SHIPLANE_APP_ID != '' }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      # Tags and history: a ship reads which commit each tag names.
+      - name: Check out
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Detect the package manager and Node version
+        id: detect
+        env:
+          NODE_VERSION_INPUT: ${{ inputs.node-version }}
+          WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        shell: node {0}
+        run: |
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const docs =
+            "https://github.com/arnaud-zg/js-packages/blob/main/docs/shiplane/reference.md#github-actions-workflow";
+          const fail = (message) => {
+            console.log(`::error::${message} (${docs})`);
+            process.exit(1);
+          };
+          const here = process.cwd();
+          const root = process.env.GITHUB_WORKSPACE ?? here;
+          const read = (file) => {
+            for (const dir of [here, root]) {
+              const full = path.join(dir, file);
+              if (fs.existsSync(full)) return fs.readFileSync(full, "utf8");
+            }
+            return null;
+          };
+          const configs = ["ts", "mts", "js", "mjs"].map((ext) => `shiplane.config.${ext}`);
+          if (!configs.some((file) => fs.existsSync(path.join(here, file)))) {
+            fail(`no shiplane.config.ts in ${process.env.WORKING_DIRECTORY}`);
+          }
+          const manifest = JSON.parse(read("package.json") ?? "{}");
+          const lockfiles = {
+            "pnpm-lock.yaml": "pnpm",
+            "package-lock.json": "npm",
+            "yarn.lock": "yarn",
+            "bun.lock": "bun",
+            "bun.lockb": "bun",
+          };
+          const fromLock = Object.entries(lockfiles).find(([file]) => read(file) !== null)?.[1];
+          const pm = manifest.packageManager?.split("@")[0] ?? fromLock;
+          if (!pm) fail("no package manager: add packageManager to package.json, or a lockfile");
+          if (!["pnpm", "npm", "yarn"].includes(pm)) {
+            fail(`unsupported package manager "${pm}": pnpm, npm or yarn`);
+          }
+          const input = process.env.NODE_VERSION_INPUT;
+          const file = [".nvmrc", ".node-version"].find((name) => read(name) !== null);
+          const engines = manifest.engines?.node;
+          if (!input && !file && !engines) fail("no Node version: add .nvmrc or set node-version");
+          const execs = { pnpm: "pnpm exec", npm: "npx --no-install", yarn: "yarn" };
+          const out = [
+            `pm=${pm}`,
+            `has-manifest-pm=${Boolean(manifest.packageManager)}`,
+            `node-version=${input || (file ? "" : engines)}`,
+            `node-version-file=${input || !file ? "" : path.relative(root, path.join(fs.existsSync(path.join(here, file)) ? here : root, file))}`,
+            `exec=${execs[pm]}`,
+          ];
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, out.join("\n") + "\n");
+          console.log(out.join("\n"));
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ steps.detect.outputs.node-version }}
+          node-version-file: ${{ steps.detect.outputs.node-version-file }}
+
+      - name: Set up ${{ steps.detect.outputs.pm }}
+        if: ${{ steps.detect.outputs.pm != 'npm' }}
+        env:
+          PM: ${{ steps.detect.outputs.pm }}
+          HAS_MANIFEST_PM: ${{ steps.detect.outputs.has-manifest-pm }}
+        run: |
+          # corepack reads packageManager; without it, the latest release of the tool.
+          if [ "$HAS_MANIFEST_PM" = "true" ]; then corepack enable; else npm install --global "$PM"; fi
+          "$PM" --version
+
+      - name: Find the package store
+        id: store
+        env:
+          PM: ${{ steps.detect.outputs.pm }}
+        run: |
+          case "$PM" in
+            pnpm) dir=$(pnpm store path --silent) ;;
+            npm) dir=$(npm config get cache) ;;
+            yarn) dir=$(yarn config get cacheFolder 2>/dev/null || yarn cache dir) ;;
+          esac
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+
+      - name: Restore the package store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.store.outputs.dir }}
+          key: shiplane-${{ runner.os }}-${{ steps.detect.outputs.pm }}-${{ hashFiles('**/pnpm-lock.yaml', '**/package-lock.json', '**/yarn.lock') }}
+          restore-keys: shiplane-${{ runner.os }}-${{ steps.detect.outputs.pm }}-
+
+      - name: Install
+        env:
+          PM: ${{ steps.detect.outputs.pm }}
+          INSTALL_COMMAND: ${{ inputs.install-command }}
+        run: |
+          if [ -n "$INSTALL_COMMAND" ]; then
+            eval "$INSTALL_COMMAND"
+            exit
+          fi
+          case "$PM" in
+            pnpm) pnpm install --frozen-lockfile ;;
+            npm) npm ci ;;
+            yarn)
+              if [ "$(yarn --version | cut -d. -f1)" -ge 2 ]; then yarn install --immutable
+              else yarn install --frozen-lockfile; fi ;;
+          esac
+
+      - name: Mint a GitHub App token
+        id: app
+        if: ${{ env.HAS_APP == 'true' }}
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.SHIPLANE_APP_ID }}
+          private-key: ${{ secrets.SHIPLANE_APP_PRIVATE_KEY }}
+
+      # Every secret becomes an environment variable of the same name, whatever adapter reads it.
+      - name: Put the secrets in the environment
+        env:
+          SECRETS: ${{ toJSON(secrets) }}
+          TOKEN: ${{ steps.app.outputs.token || github.token }}
+        shell: node {0}
+        run: |
+          const fs = require("node:fs");
+          const crypto = require("node:crypto");
+          const secrets = JSON.parse(process.env.SECRETS);
+          delete secrets.github_token;
+          const entries = Object.entries(secrets).filter(([name]) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(name));
+          // gh and every adapter calling it read GH_TOKEN; GITHUB_* names are GitHub's own.
+          entries.push(["GH_TOKEN", process.env.TOKEN]);
+          const lines = entries.map(([name, value]) => {
+            const end = `EOF_${crypto.randomUUID()}`;
+            return `${name}<<${end}\n${value}\n${end}`;
+          });
+          fs.appendFileSync(process.env.GITHUB_ENV, lines.join("\n") + "\n");
+          console.log(`${entries.length} variables: ${entries.map(([name]) => name).join(", ")}`);
+
+      # Fails here, before anything ships, when something is not supported; installs missing tools.
+      - name: Check what ships
+        env:
+          EXEC: ${{ steps.detect.outputs.exec }}
+          UNITS: ${{ inputs.units }}
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          # shellcheck disable=SC2086 # one word per unit, and the exec prefix's words
+          $EXEC shiplane doctor --ci $UNITS --channel "$ENVIRONMENT"
+
+      - name: Ship
+        env:
+          EXEC: ${{ steps.detect.outputs.exec }}
+          UNITS: ${{ inputs.units }}
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          # shellcheck disable=SC2086 # one word per unit, and the exec prefix's words
+          $EXEC shiplane ship $UNITS --channel "$ENVIRONMENT" --yes
