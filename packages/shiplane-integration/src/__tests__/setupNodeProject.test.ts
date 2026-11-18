@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
-// The setup action other repositories import, against the steps shiplane-ship.yml runs inline: a
+// The setup-node-project action other repositories import, against the steps shiplane-ship.yml runs inline: a
 // reusable workflow cannot use an action from its own commit, so the two copies must stay equal.
 
 interface Step {
@@ -20,7 +20,7 @@ const action = read<{
   inputs: Record<string, unknown>;
   outputs: Record<string, { value: string }>;
   runs: { using: string; steps: Step[] };
-}>("actions/setup/action.yml");
+}>("actions/setup-node-project/action.yml");
 
 const FIRST = "Detect the package manager and Node version";
 const LAST = "Save node_modules";
@@ -36,7 +36,7 @@ const setupSteps = (steps: Step[]) => {
   });
 };
 
-describe("the setup action other repositories import", () => {
+describe("the setup-node-project action other repositories import", () => {
   it("given action.yml, when it is read, then it is a composite action with no checkout and no secret", () => {
     expect(action.runs.using).toBe("composite");
     expect(JSON.stringify(action.runs.steps)).not.toMatch(/actions\/checkout|secrets\./);

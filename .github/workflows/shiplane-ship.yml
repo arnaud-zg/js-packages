@@ -90,7 +90,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      # Only here: the setup action serves repos without shiplane too.
+      # Only here: the setup-node-project action serves any Node project.
       - name: Find shiplane.config
         env:
           WORKING_DIRECTORY: ${{ inputs.working-directory }}
@@ -99,7 +99,7 @@ jobs:
           echo "::error::no shiplane.config.ts in $WORKING_DIRECTORY (https://github.com/arnaud-zg/js-packages/blob/main/docs/shiplane/reference.md#github-actions-workflow)"
           exit 1
 
-      # The same steps as .github/actions/setup, which other repos import; a test keeps them equal.
+      # The same steps as .github/actions/setup-node-project, which other repos import; a test keeps them equal.
       - name: Detect the package manager and Node version
         id: detect
         env:

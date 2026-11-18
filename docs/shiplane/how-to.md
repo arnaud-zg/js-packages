@@ -16,7 +16,7 @@
 [Publish a test version](#publish-a-test-version) ·
 [Choose GitHub Actions or this machine](#choose-github-actions-or-this-machine) ·
 [Ship from GitHub Actions](#ship-from-github-actions) ·
-[Reuse shiplane's setup in your own workflow](#reuse-shiplanes-setup-in-your-own-workflow) ·
+[Set up any Node project in your workflow](#set-up-any-node-project-in-your-workflow) ·
 [Ship with no laptop](#ship-with-no-laptop) · [Use it from a script](#use-it-from-a-script)
 
 **Hosts:** [Publish a package to npm](#publish-a-package-to-npm) ·
@@ -459,21 +459,21 @@ anything ships, with what to change: see
 [GitHub Actions workflow](./reference.md#github-actions-workflow). Only as a last resort, pass
 `node-version`, `install-command` or `working-directory` under `with:`.
 
-## Reuse shiplane's setup in your own workflow
+## Set up any Node project in your workflow
 
 ```yaml
 steps:
   - uses: actions/checkout@v5
-  - uses: arnaud-zg/js-packages/.github/actions/setup@<commit> # shiplane@<version>
+  - uses: arnaud-zg/js-packages/.github/actions/setup-node-project@<commit> # shiplane@<version>
     id: setup
     # Only as a last resort: with: { node-version, install-command, working-directory }
   - run: ${{ steps.setup.outputs.exec }} shiplane status
 ```
 
-It runs the setup steps of shiplane's workflow in your own job: it detects the package manager and
-Node version, sets them up and installs, reusing `node_modules` from the same lockfile and Node.
-Check out first; pin it like the workflow, to the commit of a shiplane release. Its inputs and
-outputs: [Setup action](./reference.md#setup-action).
+It runs in your own job the same setup steps as shiplane's ship workflow: it detects the package
+manager and Node version, sets them up and installs, reusing `node_modules` from the same lockfile
+and Node. Check out first; pin it like the workflow, to the commit of a shiplane release. Its inputs
+and outputs: [Setup Node project action](./reference.md#setup-node-project-action).
 
 ## Ship with no laptop
 

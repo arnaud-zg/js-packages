@@ -1,18 +1,18 @@
-# .github/actions/setup/action.yml
+# .github/actions/setup-node-project/action.yml
 #
-# shiplane's setup as one step another repo's job imports, after its own checkout:
+# Sets up any Node project in one step of your own job, after its checkout:
 #
 #   - uses: actions/checkout@v5
-#   - uses: arnaud-zg/js-packages/.github/actions/setup@<sha> # shiplane@x.y.z
+#   - uses: arnaud-zg/js-packages/.github/actions/setup-node-project@<sha> # shiplane@x.y.z
 #
 # It detects the package manager and the Node version, sets them up, and installs the repo, reusing
 # node_modules installed from the same lockfile and Node. The same steps as shiplane-ship.yml, which
 # a test keeps equal. It reads no secret.
 # What is supported, and every error it can give:
-# https://github.com/arnaud-zg/js-packages/blob/main/docs/shiplane/reference.md#setup-action
+# https://github.com/arnaud-zg/js-packages/blob/main/docs/shiplane/reference.md#setup-node-project-action
 
-name: Shiplane setup
-description: Detect the package manager and Node version, set them up, and install the repo.
+name: Set up a Node project
+description: "Package manager, Node and a cached install: detects pnpm, npm or yarn and the Node version, sets them up, installs."
 
 inputs:
   node-version:
