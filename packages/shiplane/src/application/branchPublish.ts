@@ -161,8 +161,6 @@ const publishingOf = (
     defaultBranch: here.defaultBranch,
   });
   if (!target) return [];
-  // The real release owns latest: a test version never publishes under it.
-  if (tag === "latest") throw new Error("a test release never publishes under latest");
   const input = { ...target.input, distTag: tag };
   const name = target.module.publishedName?.(decideContext(context), input) ?? unit.packageName;
   const onNpmjs = publishesToNpmjs(readManifest({ files: context.files, dir: unit.dir }));

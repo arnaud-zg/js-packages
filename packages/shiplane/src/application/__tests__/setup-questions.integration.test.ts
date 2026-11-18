@@ -358,37 +358,12 @@ describe("Feature: what setup asks when nothing proves the flow", () => {
       ...PROVEN,
       "apps/lib/package.json": manifest("@acme/lib"),
     });
-    prompter.answer(true, "package-registry", "fake", "snapshot", true);
+    prompter.answer(true, "package-registry", "fake", true);
 
     expect(await setup(context, { yes: false })).toBe(true);
 
     expect(files.read("apps/lib/shiplane.unit.yml")).toContain("module: published-package");
     expect(files.read("shiplane.config.ts")).toContain("publishedPackage(");
-    expect(files.read("shiplane.config.ts")).not.toContain("testRelease");
-  });
-
-  it("given a published package, when the person picks git-flow test releases, then the config holds the preset and imports it", async () => {
-    const { context, prompter, files } = given({
-      ...PROVEN,
-      "apps/lib/package.json": manifest("@acme/lib"),
-    });
-    prompter.answer(true, "package-registry", "fake", "gitflow", true);
-
-    expect(await setup(context, { yes: false })).toBe(true);
-
-    expect(prompter.asked).toContain("How do test releases work? (shiplane test-release)");
-    const config = files.read("shiplane.config.ts") ?? "";
-    expect(config).toContain("  testRelease: testReleases.gitflow,");
-    expect(config).toMatch(/import \{[^}]*\btestReleases\b[^}]*\} from "shiplane";/);
-  });
-
-  it("given no published package, when setup runs, then it never asks how test releases work", async () => {
-    const { context, prompter } = given(PROVEN);
-    prompter.answer(true, true);
-
-    await setup(context, { yes: false });
-
-    expect(prompter.asked).not.toContain("How do test releases work? (shiplane test-release)");
   });
 });
 

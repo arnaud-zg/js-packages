@@ -423,34 +423,6 @@ const placeFolder = async (
   return { folder, module, options: {} };
 };
 
-/**
- * How test releases work, asked once when the new config publishes an npm package: a preset of
- * `testReleases`, or undefined for snapshots everywhere (nothing written). Null on cancel.
- */
-const askTestRelease = async (
-  { prompter }: SetupContext,
-  { yes, entries }: { yes: boolean; entries: readonly ModuleEntry[] },
-): Promise<string | undefined | null> => {
-  const publishes = entries.some(({ factory }) => factory === MODULE_OF.packageRegistry);
-  if (!publishes || unattended({ prompter, options: { yes } })) return undefined;
-  const picked = await prompter.select(
-    "How do test releases work? (shiplane test-release)",
-    [
-      { value: "snapshot", label: "Snapshots only", hint: "every branch: 0.6.0-main.329aafb" },
-      { value: "nightly", label: "Nightly on main", hint: "main: 0.6.0-nightly.<n>" },
-      {
-        value: "prerelease",
-        label: "Prerelease branches",
-        hint: "main nightly, next alpha, beta beta, release/* rc",
-      },
-      { value: "gitflow", label: "Git-flow", hint: "develop nightly, release/* beta, hotfix/* rc" },
-    ],
-    "snapshot",
-  );
-  if (picked === null) return null;
-  return picked === "snapshot" ? undefined : picked;
-};
-
 /** The config: written whole the first time, else the new modules added to the one there. */
 const configWrites = (
   { files }: SetupContext,
@@ -460,21 +432,18 @@ const configWrites = (
     pkg,
     flow,
     patterns,
-    testRelease,
   }: {
     existing: boolean;
     entries: readonly ModuleEntry[];
     pkg: string;
     flow: Record<FlowPort, FlowChoice> | null;
     patterns: string[] | null;
-    /** The `testReleases` preset picked for a new config; none, snapshots everywhere. */
-    testRelease?: string;
   },
 ): Write[] => {
   if (!existing) {
     const units =
       patterns && patterns.join() !== workspacePatterns(files).join() ? patterns : undefined;
-    const text = renderConfig(entries, pkg, flow ?? DEFAULT_FLOW, units, testRelease);
+    const text = renderConfig(entries, pkg, flow ?? DEFAULT_FLOW, units);
     return [{ file: CONFIG_FILE, text, created: true }];
   }
   if (entries.length === 0) return [];
@@ -571,18 +540,8 @@ export const setup = async (context: SetupContext, { yes }: { yes: boolean }): P
     return false;
   }
 
-  const testRelease =
-    existing === null ? await askTestRelease(context, { yes, entries }) : undefined;
-  if (testRelease === null) return cancelled(context);
   writes.unshift(
-    ...configWrites(context, {
-      existing: existing !== null,
-      entries,
-      pkg,
-      flow,
-      patterns,
-      ...(testRelease ? { testRelease } : {}),
-    }),
+    ...configWrites(context, { existing: existing !== null, entries, pkg, flow, patterns }),
   );
   placed.forEach(({ folder, module, options, reason }) =>
     writes.push({

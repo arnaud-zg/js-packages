@@ -46,9 +46,7 @@
     "shiplane": "./dist/cli.js"
   },
   "files": [
-    "dist",
-    "src",
-    "!src/**/__tests__"
+    "dist"
   ],
   "scripts": {
     "build": "tsdown",

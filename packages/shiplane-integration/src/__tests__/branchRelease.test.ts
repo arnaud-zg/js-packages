@@ -177,10 +177,10 @@ describe("Feature: a branch release for testers", () => {
     ]);
   });
 
-  it("given a branch with an open pull request in a terminal, when shiplane runs, then the person picks a snapshot, a channel or the real one", async () => {
+  it("given a branch with an open pull request in a terminal, when shiplane runs, then the person picks between a branch release and the real one", async () => {
     // given
     const world = setUp({ yes: false });
-    world.prompter.answer("snapshot");
+    world.prompter.answer("publish");
 
     // when
     const done = await branchRelease(world.context, { onDefault: "release" });
@@ -190,14 +190,10 @@ describe("Feature: a branch release for testers", () => {
     expect(world.prompter.asked).toEqual(["You're on feat/x, not main."]);
     expect(world.prompter.choices["You're on feat/x, not main."]).toEqual([
       {
-        value: "snapshot",
-        label: "Publish a snapshot",
+        value: "publish",
+        label: "Publish a test release",
         hint: "0.6.0-feat-x.ae08284 → npm tag feat-x",
       },
-      { value: "nightly", label: "Publish on nightly", hint: "npm tag nightly" },
-      { value: "alpha", label: "Publish on alpha", hint: "npm tag alpha" },
-      { value: "beta", label: "Publish on beta", hint: "npm tag beta" },
-      { value: "rc", label: "Publish on rc", hint: "npm tag rc" },
       {
         value: "switch",
         label: "Switch to main",
@@ -226,7 +222,7 @@ describe("Feature: a branch release for testers", () => {
   it("given a branch with no pull request in a terminal, when shiplane runs, then the person is still asked first", async () => {
     // given
     const world = setUp({ pr: false, yes: false });
-    world.prompter.answer("snapshot");
+    world.prompter.answer("publish");
 
     // when
     const done = await branchRelease(world.context, { onDefault: "release" });

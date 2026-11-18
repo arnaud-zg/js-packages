@@ -364,13 +364,13 @@ describe("choosing between a test release and the real one on a feature branch",
     await branchRelease(context, { onDefault: "release" });
 
     expect(prompter.asked).toEqual([QUESTION]);
-    expect(prompter.initials[QUESTION]).toBe("snapshot");
+    expect(prompter.initials[QUESTION]).toBe("publish");
     expect(prompter.choices[QUESTION]).toEqual([
-      { value: "snapshot", label: "Publish a snapshot", hint: `${LIB_VERSION} → npm tag ${TAG}` },
-      { value: "nightly", label: "Publish on nightly", hint: "npm tag nightly" },
-      { value: "alpha", label: "Publish on alpha", hint: "npm tag alpha" },
-      { value: "beta", label: "Publish on beta", hint: "npm tag beta" },
-      { value: "rc", label: "Publish on rc", hint: "npm tag rc" },
+      {
+        value: "publish",
+        label: "Publish a test release",
+        hint: `${LIB_VERSION} → npm tag ${TAG}`,
+      },
       {
         value: "switch",
         label: "Switch to main",
@@ -413,7 +413,7 @@ describe("choosing between a test release and the real one on a feature branch",
 
   it("given the person picks the test release, when shiplane goes on, then the package publishes", async () => {
     const { context, prompter, shell } = branchWorld({ yes: false, interactive: true });
-    prompter.answer("snapshot");
+    prompter.answer("publish");
 
     expect(await branchRelease(context, { onDefault: "release" })).toBe(true);
     expect(shell.calls).toHaveLength(1);
@@ -471,7 +471,7 @@ describe("checking the npm sign-in before a test version publishes", () => {
     const { context, shell, registry, prompter } = branchWorld({ yes: false, interactive: true });
     registry.fake.seed({ requirements: [NPM] });
     shell.seedOnce("npm whoami", { status: 1 });
-    prompter.answer("snapshot", true);
+    prompter.answer("publish", true);
 
     const done = await branchRelease(context, { onDefault: "release" });
 

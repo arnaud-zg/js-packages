@@ -4,7 +4,7 @@ import type { Channel } from "../domain/testChannel";
 import type { BranchPlan, Here } from "./branchPublish";
 import type { ReleaseContext } from "./context";
 import { branchChoice } from "../domain/branchRelease";
-import { channelFor, channelProblem, channels } from "../domain/testChannel";
+import { channelFor, channelProblem } from "../domain/testChannel";
 import { plural } from "../domain/words";
 import { planBranch, printPlan, publishBranch } from "./branchPublish";
 import { releaseToPreview } from "./releaseToPreview";
@@ -72,46 +72,23 @@ const whatPublishes = ({ publish }: BranchPlan) => {
   return publish.length === 1 && only ? only.version : plural(publish.length, "package");
 };
 
-/** The channels a person may pick besides the branch's: the known ones and the config's. */
-const otherChannels = ({ release }: ReleaseContext, channel: Channel) => [
-  ...new Set(
-    [...Object.values(channels), ...Object.values(release.testRelease ?? {})].filter(
-      (other) => other !== channel,
-    ),
-  ),
-];
-
-const channelLabel = (channel: Channel) =>
-  channel === channels.snapshot ? "Publish a snapshot" : `Publish on ${channel}`;
-
-/**
- * The person picks the branch's channel (first), another channel, or the real release from the
- * default branch: the channel's name, "switch", or null on cancel.
- */
-const askHow = (
-  context: ReleaseContext,
-  { here, plan }: { here: Here; plan: BranchPlan },
-): Promise<string | null> =>
-  context.prompter.select(
+/** The person picks a test release or the real one from the default branch; null on cancel. */
+const askHow = ({ prompter }: ReleaseContext, { here, plan }: { here: Here; plan: BranchPlan }) =>
+  prompter.select(
     `You're on ${here.branch}, not ${here.defaultBranch}.`,
     [
       {
-        value: plan.channel,
-        label: channelLabel(plan.channel),
+        value: "publish",
+        label: "Publish a test release",
         hint: `${whatPublishes(plan)} → npm tag ${plan.tag}`,
       },
-      ...otherChannels(context, plan.channel).map((channel) => ({
-        value: channel,
-        label: channelLabel(channel),
-        hint: channel === channels.snapshot ? "one per commit, temporary" : `npm tag ${channel}`,
-      })),
       {
         value: "switch",
         label: `Switch to ${here.defaultBranch}`,
         hint: `git switch ${here.defaultBranch} && git pull, then the real release`,
       },
     ],
-    plan.channel,
+    "publish",
   );
 
 /** Switches to the default branch, pulls it, then runs the real release from there. */
@@ -133,19 +110,6 @@ const planOn = async (context: ReleaseContext, here: Here, channel: Channel) => 
     fail(context, `Cannot number ${channel}`, reasonOf(error));
     return null;
   }
-};
-
-/**
- * The plan on the channel the person answered, re-planned when it is another, then the packages
- * they keep when asked: false when the channel cannot be numbered, null on cancel.
- */
-const pickOn = async (
-  context: ReleaseContext,
-  { here, plan, answer, pick }: { here: Here; plan: BranchPlan; answer: Channel; pick: boolean },
-): Promise<BranchPlan | false | null> => {
-  const onChannel = answer === plan.channel ? plan : await planOn(context, here, answer);
-  if (!onChannel) return false;
-  return pick ? pickPackages(context, onChannel) : onChannel;
 };
 
 /** Plans what the test version publishes, asks when asked to, then publishes it or only shows it. */
@@ -174,14 +138,14 @@ const publishTest = async (
   printOthers(context, plan.others);
   if (plan.publish.length === 0) return nothingToPublish(context, plan);
   if (dryRun) return printPlan(context, plan);
-  const answer = ask ? await askHow(context, { here, plan }) : plan.channel;
+  const answer = ask ? await askHow(context, { here, plan }) : "publish";
   if (answer === "switch") return switchAndRelease(context, here);
-  const picked = answer === null ? null : await pickOn(context, { here, plan, answer, pick });
+  const picked = answer === null ? null : pick ? await pickPackages(context, plan) : plan;
   if (picked === null) {
     context.progress.say("resting", paint("dim", "Nothing ran."));
     return true;
   }
-  return picked ? publishBranch(context, { here, pr, plan: picked }) : false;
+  return publishBranch(context, { here, pr, plan: picked });
 };
 
 /**

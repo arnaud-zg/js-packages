@@ -135,27 +135,18 @@ export const CHANGESETS_CONFIG = `${JSON.stringify(
 
 export const CHANGESETS_CLI = { name: "@changesets/cli", version: "^3.0.1" };
 
-/**
- * A root config with this flow (today's by default) and these modules, in the order given, and the
- * test release preset when one was picked (none: every branch publishes a snapshot).
- */
+/** A root config with this flow (today's by default) and these modules, in the order given. */
 export const renderConfig = (
   entries: readonly ModuleEntry[],
   pkg: string = INSTALLED,
   flow: Record<FlowPort, FlowChoice> = DEFAULT_FLOW,
   units?: readonly string[],
-  testRelease?: string,
 ) => {
   const byPlugin = new Map<string, string[]>();
   const add = (from: string, name: string) =>
     byPlugin.set(from, [...(byPlugin.get(from) ?? []), name]);
   FLOW_PORTS.forEach((port) => add(flow[port].from, flow[port].factory));
-  const own = [
-    "defineRelease",
-    "releaseFlow",
-    ...(testRelease ? ["testReleases"] : []),
-    ...entries.map(({ factory }) => factory),
-  ];
+  const own = ["defineRelease", "releaseFlow", ...entries.map(({ factory }) => factory)];
   entries.forEach(({ adapter, from }) => {
     if (from === pkg) own.push(adapter);
     else add(from, adapter);
@@ -177,12 +168,6 @@ export const renderConfig = (
     ...FLOW_PORTS.map((port) => `    ${port}: ${flow[port].factory}(),`),
     "  }),",
     ...(units ? [`  units: [${units.map((unit) => JSON.stringify(unit)).join(", ")}],`] : []),
-    ...(testRelease
-      ? [
-          "  // Which channel each branch's test release publishes on: shiplane test-release",
-          `  testRelease: testReleases.${testRelease},`,
-        ]
-      : []),
     "  // What gets released, in this order. The first app is the repository's Latest release.",
     "  modules: [",
     ...entries.map((entry) => `    ${moduleCall(entry)},`),

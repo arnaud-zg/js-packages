@@ -250,9 +250,7 @@ more, you pick which ones get a test release:
 
 ```text
 ◆  You're on feat/x, not main.
-│  ● Publish a snapshot        0.6.0-feat-x.ae08284 → npm tag feat-x
-│  ○ Publish on nightly        npm tag nightly
-│  ○ Publish on beta           npm tag beta
+│  ● Publish a test release    0.6.0-feat-x.ae08284 → npm tag feat-x
 │  ○ Switch to main            git switch main && git pull, then the real release
 ```
 
@@ -260,7 +258,7 @@ more, you pick which ones get a test release:
 
 Without a setting, every branch publishes a snapshot. To make a branch publish on a channel by
 itself (in CI, a nightly job), pick a preset or write one map. Hover any name in your editor for
-what it publishes; Cmd/Ctrl-click opens its source.
+what it publishes.
 
 ```ts
 import { defineRelease, testReleases } from "shiplane";
@@ -289,8 +287,6 @@ export default defineRelease({
   testRelease: { main: channels.nightly, "release/*": channels.beta }, // or plain "nightly", "beta"
 });
 ```
-
-`shiplane setup` asks this once when it finds an npm package, and writes the line.
 
 ### The pull request comment
 
