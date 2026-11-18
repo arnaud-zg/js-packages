@@ -62,6 +62,7 @@ export const composeContext = (
     ci,
     noMotion: Boolean(systemShell.env("NO_MOTION")),
   });
+  // Stryker disable next-line LogicalOperator: a test's recording shell would give way to this machine's, running real commands
   const shell = io.shell ?? systemShell;
   const output = io.output ?? terminalOutput;
   const open = opener(release.root, shell);
