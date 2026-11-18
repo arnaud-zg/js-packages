@@ -66,4 +66,56 @@ describe("the env Cloudflare Pages holds for a site", () => {
       "npx --yes wrangler@4.141.0 pages secret put TURNSTILE_SECRET --project-name acme-admin --env production",
     );
   });
+
+  it("given two secrets not set yet, when shiplane prints how to set them, then one command puts each with wrangler in turn, stopping at the first that fails", () => {
+    const command = envOf(new RecordingShell()).setCommand({
+      unit,
+      environment: "preview",
+      options,
+      names: names("TURNSTILE_SECRET", "STRIPE_KEY"),
+    });
+
+    expect(command).toBe(
+      "npx --yes wrangler@4.141.0 pages secret put TURNSTILE_SECRET --project-name acme-admin --env preview && npx --yes wrangler@4.141.0 pages secret put STRIPE_KEY --project-name acme-admin --env preview",
+    );
+  });
+
+  it("given wrangler's listing carries a note beside widely spaced secrets, when shiplane checks which variables a site has, then it counts only the secrets", async () => {
+    const shell = new RecordingShell().seed("npx --yes wrangler@4.141.0 pages secret list", {
+      stdout: "Note - NOT_A_SECRET: read the docs\n  -   TURNSTILE_SECRET: Value Encrypted\n",
+    });
+
+    const listed = await envOf(shell).listNames({
+      unit,
+      environment: "preview",
+      options: { project: "acme-admin" },
+    });
+
+    expect([...listed]).toEqual(["TURNSTILE_SECRET"]);
+  });
+
+  it("given the unit file gives the build a key that is not a variable name, when shiplane checks which variables a site has, then that key is not counted", async () => {
+    const shell = new RecordingShell().seed("npx --yes wrangler@4.141.0 pages secret list", {
+      stdout: "",
+    });
+
+    const listed = await envOf(shell).listNames({
+      unit,
+      environment: "preview",
+      options: { project: "acme-admin", build: { env: { "not-a-name": "x", API_URL: "y" } } },
+    });
+
+    expect([...listed]).toEqual(["API_URL"]);
+  });
+
+  it("given wrangler fails without saying why, when shiplane checks which variables a site has, then the error names its exit status", async () => {
+    const shell = new RecordingShell().seed("npx --yes wrangler@4.141.0 pages secret list", {
+      status: 2,
+      stderr: "",
+    });
+
+    await expect(envOf(shell).listNames({ unit, environment: "preview", options })).rejects.toThrow(
+      "wrangler pages secret list --env preview: exit 2",
+    );
+  });
 });
