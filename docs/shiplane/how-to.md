@@ -311,9 +311,9 @@ export default defineRelease({
 ### The pull request comment
 
 With an open pull request, one comment on it, edited on each run, gives the commit, each package and
-version linked on npmjs (plain text for another registry), how to pin the exact build, the pnpm and
-yarn lines, and the pending units not available as test releases yet. Pick another layout with
-`testComment`:
+version linked on npmjs (plain text for another registry), install lines pinned to the exact
+version, the tag to follow instead, and the pending units not available as test releases yet. Pick
+another layout with `testComment`:
 
 ```ts
 import { comments, defineRelease } from "shiplane";
@@ -324,11 +324,11 @@ export default defineRelease({
 });
 ```
 
-| `testComment`         | The comment                                                                 |
-| --------------------- | --------------------------------------------------------------------------- |
-| `comments.table`      | The install table above                                                     |
-| `comments.compact`    | `` 📦 Test version of `feat/x` ([`a1b2c3d`](…)): `npm i shiplane@feat-x` `` |
-| `"Try it: {install}"` | `` Try it: `npm i shiplane@0.6.0-feat-x.ae08284` ``                         |
+| `testComment`         | The comment                                                                               |
+| --------------------- | ----------------------------------------------------------------------------------------- |
+| `comments.table`      | The install table above                                                                   |
+| `comments.compact`    | `` 📦 Test version of `feat/x` ([`a1b2c3d`](…)): `npm i shiplane@0.6.0-feat-x.a1b2c3d` `` |
+| `"Try it: {install}"` | `` Try it: `npm i shiplane@0.6.0-feat-x.a1b2c3d` ``                                       |
 
 Your own text takes `{branch}`, `{commit}` (linked), `{channel}`, `{table}` (the install table with
 its notes) and `{install}` (one `npm i` line for every package). A hidden marker goes on top, so the

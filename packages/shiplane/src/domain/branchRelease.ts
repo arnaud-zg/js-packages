@@ -79,18 +79,15 @@ export const SNAPSHOT_TAG = "snapshot";
 /** How the tag reads to a person: `npm tag beta`, or `no npm tag` for a snapshot. */
 export const tagWords = (tag: string) => (tag === SNAPSHOT_TAG ? "no npm tag" : `npm tag ${tag}`);
 
-/**
- * What a tester installs: a snapshot's exact version, since `@snapshot` is whichever branch
- * published last, or a numbered channel's tag, such as `@beta`.
- */
+/** What to install: the exact version, or the bare name when it is on latest. */
 export const installSpec = ({
   name,
   version,
   tag,
 }: Pick<BranchPublished, "name" | "version" | "tag">) =>
-  `${name}@${tag === SNAPSHOT_TAG ? version : tag}`;
+  tag === "latest" ? name : `${name}@${version}`;
 
-/** The install line a tester copies. */
+/** The install line a tester copies: the exact build, so it never moves under them. */
 export const installLine = (entry: BranchPublished) => `npm i ${installSpec(entry)}`;
 
 /** The repository a pull request address belongs to, such as `https://github.com/o/r`; else null. */
@@ -129,14 +126,11 @@ export const comments = {
   compact: "📦 Test version of `{branch}` ({commit}): {install}\n",
 } as const;
 
-/** Where `@<tag>` points, for a numbered channel; a snapshot installs its exact version. */
-const pinLine = ({ name, version, tag }: BranchPublished, channel: string) =>
+/** How to follow a numbered channel by its tag; none for a snapshot, which keeps no tag. */
+const followLine = ({ name, tag }: BranchPublished, channel: string) =>
   channel === SNAPSHOT_TAG
     ? []
-    : [
-        `\`@${tag}\` moves to each new ${channel}. To stay on this exact build, install the version instead: \`npm i ${name}@${version}\`.`,
-        "",
-      ];
+    : [`To follow each new ${channel} instead, install the tag: \`npm i ${name}@${tag}\`.`, ""];
 
 /** The install table, the pin line, the pnpm and yarn lines, and the pending units left out. */
 const installTable = (
@@ -145,18 +139,18 @@ const installTable = (
   channel: string,
 ) => {
   const [first] = published;
-  const tags = published.map(installSpec).join(" ");
+  const specs = published.map(installSpec).join(" ");
   return [
     "| Package | Version | Install |",
     "| --- | --- | --- |",
     ...published.map(row),
     "",
-    ...(first ? pinLine(first, channel) : []),
+    ...(first ? followLine(first, channel) : []),
     "<details><summary>pnpm / yarn</summary>",
     "",
     FENCE,
-    `pnpm add ${tags}`,
-    `yarn add ${tags}`,
+    `pnpm add ${specs}`,
+    `yarn add ${specs}`,
     FENCE,
     "</details>",
     ...notPublished(others),

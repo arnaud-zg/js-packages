@@ -364,7 +364,9 @@ describe("Feature: a branch release for testers", () => {
       expect.objectContaining({ args: [...PUBLISH.slice(0, -1), "beta"] }),
     );
     expect(world.published).toEqual([expect.stringContaining('"version": "0.6.0-beta.1"')]);
-    expect((await branchComments(world))[0]).toContain("`@beta` moves to each new beta.");
+    expect((await branchComments(world))[0]).toContain(
+      "To follow each new beta instead, install the tag: `npm i @acme/kit@beta`.",
+    );
   });
 
   it("given a release that ships, when it publishes to npm, then it publishes under latest, never a test tag", () => {
