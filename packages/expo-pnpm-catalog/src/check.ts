@@ -79,11 +79,9 @@ type DoctorRun = {
 
 function expoDoctorPasses(appDir: string): boolean {
   try {
-    // Stryker disable next-line ObjectLiteral: dropping cwd would run the real npx expo-doctor in the repo
     execSync("npx expo-doctor", {
       cwd: appDir,
       stdio: "inherit",
-      // Stryker disable next-line ObjectLiteral: an empty env loses the test's fake PATH, so the real npx runs
       env: { ...process.env, APP_VARIANT: "development" },
     });
     return true;
