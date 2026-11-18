@@ -20,4 +20,6 @@ export interface SetupContext {
   progress?: Progress;
   /** A release's context, for the rehearsal's plan; without it, the plan is not rehearsed. */
   compose?: (release: Release) => ReleaseContext;
+  /** The shiplane running, which the caller workflow pins; none is written or checked without it. */
+  version?: string;
 }

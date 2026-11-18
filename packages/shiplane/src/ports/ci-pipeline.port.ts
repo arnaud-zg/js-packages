@@ -1,6 +1,15 @@
 import type { ActionsMinutes } from "../domain/budget";
 import type { Deploy } from "./code-host.port";
 
+/** The workflow a repository ships from, calling shiplane's own, pinned to one shiplane release. */
+export interface CallerWorkflow {
+  /** Where it goes, as `workflowFile` places `shipWorkflow`. */
+  file: string;
+  content: string;
+  /** The commit the release's tag points at, which its `uses:` line pins. */
+  pin: string;
+}
+
 /** Where workflows run: dispatched on a ref, their runs read back, the minutes they cost. */
 export interface CiPipelinePort {
   /** The one workflow that ships on CI: `shiplane ship` on a runner, given units and an environment. */
@@ -18,4 +27,6 @@ export interface CiPipelinePort {
   workflowFile?: (workflow: string) => string;
   /** The command a dry run prints for a dispatch, as a person would type it. */
   dispatchLine?: (workflow: string, ref: string, inputs: Record<string, string>) => string;
+  /** The caller workflow for shiplane `version`, or why there is none; unwritten when unset. */
+  callerWorkflow?: (version: string) => Promise<CallerWorkflow | { error: string }>;
 }

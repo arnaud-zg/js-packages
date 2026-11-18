@@ -2,6 +2,7 @@ import path from "node:path";
 
 import type { Requirement } from "../ports/delivery.port";
 import type { SetupContext } from "./setupContext";
+import { checkCallerWorkflow } from "./callerWorkflow";
 import { UNIT_FILE } from "./config/readUnitFile";
 import { releaseOrder } from "./releaseOrder";
 import { reportEnvToCheck } from "./reportEnvToCheck";
@@ -13,9 +14,12 @@ import { commandLine } from "./targets";
 /**
  * `shiplane doctor`: the config as written, the editor schema refreshed, the release order, a warning
  * for each module no app names, then every tool and sign-in the flow, modules and features need, each
- * failure with the command that fixes it, offered to run.
+ * failure with the command that fixes it, offered to run, and the workflow that ships on CI.
  */
-export const doctor = async (context: SetupContext): Promise<boolean> => {
+export const doctor = async (
+  context: SetupContext,
+  { yes }: { yes: boolean } = { yes: false },
+): Promise<boolean> => {
   const { output, files, shell, prompter, root } = context;
   output.line();
   output.line(`${paint("cyan", "◆")}  ${paint("bold", "shiplane doctor")}`);
@@ -77,8 +81,9 @@ export const doctor = async (context: SetupContext): Promise<boolean> => {
       });
     }
   }
+  const shipsOnCi = await checkCallerWorkflow(context, release, { yes });
   const envSet = await reportEnvToCheck({ release, shell, output });
-  const passed = failing.length === 0 && envSet;
+  const passed = failing.length === 0 && shipsOnCi && envSet;
   output.line(
     `${paint("dim", "└")}  Next: ${paint("cyan", passed ? "shiplane status" : "shiplane doctor")}`,
   );

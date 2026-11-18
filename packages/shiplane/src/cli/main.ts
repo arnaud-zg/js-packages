@@ -155,7 +155,9 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
     },
     remove: (context) => removeUnit(context, first),
     doctor: (context) =>
-      values.ci ? doctorCi(context, { units, channel: values.channel }) : doctor(context),
+      values.ci
+        ? doctorCi(context, { units, channel: values.channel })
+        : doctor(context, { yes: values.yes }),
     adapter: (context) => {
       if (first === "new" && units[1]) return newAdapter(context, units[1]);
       out(`${paint("red", "✗")}  shiplane adapter new <name>`);
