@@ -43,3 +43,31 @@ describe("withExpoGoIndicator", () => {
     expect(Wrapped.displayName).toBe("withExpoGoIndicator(CameraView)");
   });
 });
+
+describe("spotting a native view that runs as a stand-in in Expo Go", () => {
+  it("given a camera view marked as an Expo Go stand-in, when the screen renders, then a dotted red frame surrounds it and a red badge in white text sits on its top-left corner", () => {
+    const Wrapped = withExpoGoIndicator(Stub, "CameraView");
+
+    render(<Wrapped label="hello" />);
+
+    const label = screen.getByText("CameraView · Expo Go");
+    const badge = label.parentElement;
+    const frame = badge?.parentElement;
+    expect(frame).toHaveStyle({
+      borderTopStyle: "dotted",
+      borderTopWidth: "2px",
+      borderTopColor: "rgb(255, 59, 48)",
+    });
+    expect(badge).toHaveStyle({
+      position: "absolute",
+      top: "4px",
+      left: "4px",
+      backgroundColor: "rgb(255, 59, 48)",
+    });
+    expect(label).toHaveStyle({
+      color: "rgb(255, 255, 255)",
+      fontSize: "10px",
+      fontWeight: "600",
+    });
+  });
+});
