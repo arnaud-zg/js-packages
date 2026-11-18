@@ -214,3 +214,94 @@ describe("checking a ship fits the GitHub Actions minutes budget", () => {
     await expect(pipelineOn(gh).measuredMinutes("ship.yml")).resolves.toEqual([]);
   });
 });
+
+const REF = "api repos/arnaud-zg/js-packages/git/ref/tags/shiplane@0.6.0";
+const COMMIT = "c0ffee0000000000000000000000000000000000";
+
+/** The ship.yml a repository calls shiplane's workflow from, word for word. */
+const CALLER = `# Ships with shiplane: \`pnpm shiplane ship --via ci\`, or Run workflow here.
+# Written by \`shiplane setup\`; \`shiplane doctor\` keeps the pin current.
+name: Ship
+run-name: Ship \${{ inputs.units || 'every released unit' }} to \${{ inputs.environment }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      units:
+        description: "Units to ship, space separated (empty: every unit the environment lacks)"
+        type: string
+        default: ""
+      environment:
+        description: "Where to ship the ref this runs on"
+        type: choice
+        options: [preview, production]
+        default: preview
+
+permissions:
+  contents: read
+  deployments: write
+  actions: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  ship:
+    uses: arnaud-zg/js-packages/.github/workflows/shiplane-ship.yml@${COMMIT} # shiplane@0.6.0
+    with:
+      units: \${{ inputs.units }}
+      environment: \${{ inputs.environment }}
+    secrets: inherit
+`;
+
+describe("writing the workflow a repository ships from", () => {
+  it("given a lightweight release tag, when the caller workflow is made, then it pins the commit the tag names", async () => {
+    const gh = fakeGh().seed(REF, JSON.stringify({ object: { sha: COMMIT, type: "commit" } }));
+
+    const made = await pipelineOn(gh).callerWorkflow?.("0.6.0");
+
+    expect(made).toEqual({ file: ".github/workflows/ship.yml", content: CALLER, pin: COMMIT });
+    expect(gh.args).toEqual([REF.split(" ")]);
+  });
+
+  it("given an annotated release tag, when the caller workflow is made, then it pins the commit behind the tag object", async () => {
+    const gh = fakeGh()
+      .seed(REF, JSON.stringify({ object: { sha: "7a90000", type: "tag" } }))
+      .seed(
+        "api repos/arnaud-zg/js-packages/git/tags/7a90000",
+        JSON.stringify({ object: { sha: COMMIT, type: "commit" } }),
+      );
+
+    const made = await pipelineOn(gh).callerWorkflow?.("0.6.0");
+
+    expect(made).toEqual({ file: ".github/workflows/ship.yml", content: CALLER, pin: COMMIT });
+    expect(gh.args[1]).toEqual(["api", "repos/arnaud-zg/js-packages/git/tags/7a90000"]);
+  });
+
+  it("given a ship workflow named, when the caller workflow is made, then it goes in that file", async () => {
+    const gh = fakeGh().seed(REF, JSON.stringify({ object: { sha: COMMIT, type: "commit" } }));
+    const port = gitHubActionsCiPipeline({ shipWorkflow: "deploy.yml" }).create({
+      root: "/repo",
+      shell: gh.shell,
+    });
+
+    expect(await port.callerWorkflow?.("0.6.0")).toMatchObject({
+      file: ".github/workflows/deploy.yml",
+    });
+  });
+
+  it("given no release tag for the version, when the caller workflow is made, then it says to pin by hand", async () => {
+    const gh = fakeGh().seed(REF, { status: 1, stderr: "gh: Not Found (HTTP 404)\n" });
+
+    expect(await pipelineOn(gh).callerWorkflow?.("0.6.0")).toEqual({
+      error: "no release tag shiplane@0.6.0: pin shiplane-ship.yml by hand",
+    });
+  });
+
+  it("given GitHub failing for another reason, when the caller workflow is made, then the failure is raised", async () => {
+    const gh = fakeGh().seed(REF, { status: 1, stderr: "gh: Bad credentials (HTTP 401)\n" });
+
+    await expect(pipelineOn(gh).callerWorkflow?.("0.6.0")).rejects.toThrow(
+      "exited with 1: gh: Bad credentials (HTTP 401)",
+    );
+  });
+});

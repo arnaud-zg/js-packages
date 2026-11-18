@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 
 import { systemShell } from "../adapters/shell/system-shell.adapter";
-import { PackageJsonSchema } from "../application/manifest";
+import { coreDir } from "../cli/installed";
 
 /** What the built CLI printed and the code it exited with. */
 export interface CliRun {
@@ -28,17 +28,6 @@ export interface ConsumerRepository {
 }
 
 const CORE = "shiplane";
-
-const coreDir = (from: string): string => {
-  const manifest = path.join(from, "package.json");
-  if (fs.existsSync(manifest)) {
-    const parsed = PackageJsonSchema.safeParse(JSON.parse(fs.readFileSync(manifest, "utf8")));
-    if (parsed.data?.name === CORE) return from;
-  }
-  const parent = path.dirname(from);
-  if (parent === from) throw new Error(`${CORE} not found above ${import.meta.dirname}`);
-  return coreDir(parent);
-};
 
 /** The built CLI, as `pnpm add shiplane` installs it. */
 export const builtCli = (): string => {

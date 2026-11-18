@@ -15,6 +15,49 @@ const JobsSchema = z.array(
   z.object({ startedAt: z.string().nullable(), completedAt: z.string().nullable() }),
 );
 
+const RefSchema = z.object({ object: z.object({ sha: z.string(), type: z.string() }) });
+
+/** Where shiplane's own workflow and its release tags live. */
+const SHIPLANE_REPO = "arnaud-zg/js-packages";
+
+/** The workflow a repository ships from: a manual run calling shiplane's, pinned to a commit. */
+const callerContent = (sha: string, version: string) =>
+  [
+    "# Ships with shiplane: `pnpm shiplane ship --via ci`, or Run workflow here.",
+    "# Written by `shiplane setup`; `shiplane doctor` keeps the pin current.",
+    "name: Ship",
+    "run-name: Ship ${{ inputs.units || 'every released unit' }} to ${{ inputs.environment }}",
+    "",
+    "on:",
+    "  workflow_dispatch:",
+    "    inputs:",
+    "      units:",
+    '        description: "Units to ship, space separated (empty: every unit the environment lacks)"',
+    "        type: string",
+    '        default: ""',
+    "      environment:",
+    '        description: "Where to ship the ref this runs on"',
+    "        type: choice",
+    "        options: [preview, production]",
+    "        default: preview",
+    "",
+    "permissions:",
+    "  contents: read",
+    "  deployments: write",
+    "  actions: read",
+    "  issues: write",
+    "  pull-requests: write",
+    "",
+    "jobs:",
+    "  ship:",
+    `    uses: ${SHIPLANE_REPO}/.github/workflows/shiplane-ship.yml@${sha} # shiplane@${version}`,
+    "    with:",
+    "      units: ${{ inputs.units }}",
+    "      environment: ${{ inputs.environment }}",
+    "    secrets: inherit",
+    "",
+  ].join("\n");
+
 type Run = z.infer<typeof RunsSchema>[number];
 
 /** A workflow run as a deploy record: still going, succeeded, or anything else. */
@@ -55,6 +98,28 @@ const githubActions = (root: string, shell: Shell, shipWorkflow: string): CiPipe
         ...Object.entries(inputs).map(([key, value]) => `-f ${key}=${value}`),
       ].join(" "),
     workflowRuns: runs,
+    callerWorkflow: async (version) => {
+      const tag = `shiplane@${version}`;
+      const ref = await json(["api", `repos/${SHIPLANE_REPO}/git/ref/tags/${tag}`]).catch(
+        (error: unknown) => {
+          if (error instanceof Error && /HTTP 404|Not Found/.test(error.message)) return null;
+          throw error;
+        },
+      );
+      if (ref === null) return { error: `no release tag ${tag}: pin shiplane-ship.yml by hand` };
+      const { object } = RefSchema.parse(ref);
+      // An annotated tag points at a tag object, which points at the commit.
+      const sha =
+        object.type === "tag"
+          ? RefSchema.parse(await json(["api", `repos/${SHIPLANE_REPO}/git/tags/${object.sha}`]))
+              .object.sha
+          : object.sha;
+      return {
+        file: `.github/workflows/${shipWorkflow}`,
+        content: callerContent(sha, version),
+        pin: sha,
+      };
+    },
     dispatch: async (workflow, ref, inputs) => {
       await must([
         "workflow",

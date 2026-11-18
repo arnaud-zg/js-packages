@@ -17,6 +17,7 @@ import {
 } from "../adapters/terminal/terminal.adapter";
 import { loadRelease } from "../application/config/loadRelease";
 import { resolveDisplay } from "../domain/display";
+import { installedVersion } from "./installed";
 import { installedAdapters } from "./plugins";
 
 /** The release as written on disk, each unit's name and version read from its package.json. */
@@ -106,6 +107,7 @@ export const composeSetup = async (
     load: () => loadReleaseOnDisk(root),
     progress: terminalProgress(display, tty && !ci),
     compose: (release) => composeContext(release, { yes: true, display: { mascot: false } }),
+    version: installedVersion(),
     ...io,
   };
 };

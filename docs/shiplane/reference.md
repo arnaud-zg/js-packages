@@ -25,7 +25,7 @@
 | `shiplane setup`                 | Find what ships, write the config and unit files, rehearse a release                                               |
 | `shiplane init`, `add`           | Deprecated: they still run; use `setup` instead                                                                    |
 | `shiplane remove <unit>`         | Stop shipping a unit; it stays versioned                                                                           |
-| `shiplane doctor`                | Check the config, tools and sign-ins, offer each fix                                                               |
+| `shiplane doctor`                | Check the config, tools, sign-ins and [`ship.yml`](#shipyml), offer each fix                                       |
 | `shiplane doctor --ci [unit...]` | On a runner: units, `--channel`, tools, secrets. Stops at the first problem ([workflow](#github-actions-workflow)) |
 | `shiplane plugins`               | The flow, the modules in release order with their apps, the features                                               |
 | `shiplane docs <name>`           | Every key a module's or an adapter's unit files take                                                               |
@@ -249,6 +249,24 @@ exits 1 when any failed.
 
 `doctor --ci` stops at the first problem and prints this section's link. Source:
 `src/application/doctorCi.ts`, `src/application/shipSteps.ts`.
+
+### `ship.yml`
+
+`shiplane setup` writes `.github/workflows/ship.yml` when it is missing, never over one there: a
+manual run (`units`, `environment`) calling `shiplane-ship.yml`, pinned to the commit of the
+installed shiplane's tag (`uses: …/shiplane-ship.yml@<sha> # shiplane@x.y.z`). An unreleased version
+has no tag: `no release tag shiplane@x.y.z: pin shiplane-ship.yml by hand`.
+
+`shiplane doctor` checks it on a laptop, not on a runner:
+
+| Found                                           | Fix offered                                                  |
+| ----------------------------------------------- | ------------------------------------------------------------ |
+| `ship.yml missing`                              | Write it (yes by default; `--yes` writes it)                 |
+| `ship.yml does not call shiplane-ship.yml`      | Replace it (no by default; never with `--yes` or unattended) |
+| `ship.yml pins shiplane@0.5.2, installed 0.6.0` | Re-pin: only the `uses:` line changes (`--yes` re-pins it)   |
+
+Pinned to the installed version, it prints one `✓ ship.yml` line. Source:
+`src/application/callerWorkflow.ts`.
 
 ## Example
 

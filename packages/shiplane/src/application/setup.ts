@@ -7,6 +7,7 @@ import type { CustomPortKey } from "./customAdapter";
 import type { SetupContext } from "./setupContext";
 import type { FlowChoice, FlowPort, ModuleEntry } from "./setupFiles";
 import { moduleFor } from "../modules/suggest";
+import { callerWrite } from "./callerWorkflow";
 import { UNIT_FILE, UNIT_FILES } from "./config/readUnitFile";
 import { expandPatterns, workspacePatterns } from "./config/workspaceFolders";
 import {
@@ -548,6 +549,10 @@ export const setup = async (context: SetupContext, { yes }: { yes: boolean }): P
     }),
   );
 
+  // The workflow that ships on CI: from the config there, or once a new one is written.
+  const caller = existing ? await callerWrite(context, existing) : null;
+  if (caller) writes.push(caller);
+
   if (writes.length === 0) {
     const passed = await rehearse(context);
     if (passed) output.line(`  ${ok} all set`);
@@ -563,6 +568,12 @@ export const setup = async (context: SetupContext, { yes }: { yes: boolean }): P
   if (existing === null || entries.length > 0) {
     const release = await context.load();
     if (release.modules.length > 0) files.write(SCHEMA_FILE, schemaText(release.modules));
+    const written = existing ? null : await callerWrite(context, release);
+    if (written) {
+      before.push({ file: written.file, text: null });
+      files.write(written.file, written.text);
+      writes.push(written);
+    }
   }
   const passed = await rehearse(context);
   const keep = passed && (yes || (await prompter.confirm("Releasable. Write it?", true)));
