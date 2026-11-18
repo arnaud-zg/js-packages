@@ -442,3 +442,38 @@ describe("choosing between a test release and the real one on a feature branch",
     expect(output.text).not.toContain("Nothing to release");
   });
 });
+
+describe("checking the npm sign-in before a test version publishes", () => {
+  const NPM = {
+    label: "npm",
+    check: { command: "npm", args: ["whoami"] },
+    fix: { command: "npm", args: ["login"] },
+  };
+
+  it("given npm is not signed in, when a test version starts, then it stops before writing any version and names npm login", async () => {
+    const { context, shell, registry, files, output } = branchWorld();
+    registry.fake.seed({ requirements: [NPM] });
+    shell.seed("npm whoami", { status: 1 });
+
+    const done = await branchRelease(context, { onDefault: "release" });
+
+    expect(done).toBe(false);
+    expect(files.changes).toEqual([]);
+    expect(shell.calls.some(({ command }) => command === "echo")).toBe(false);
+    expect(output.text).toContain("npm login");
+  });
+
+  it("given npm is not signed in and the person runs npm login when offered, when a test version starts, then it checks again and publishes", async () => {
+    const { context, shell, registry, prompter } = branchWorld({ yes: false, interactive: true });
+    registry.fake.seed({ requirements: [NPM] });
+    shell.seedOnce("npm whoami", { status: 1 });
+    prompter.answer("publish", true);
+
+    const done = await branchRelease(context, { onDefault: "release" });
+
+    expect(done).toBe(true);
+    expect(prompter.asked).toContain("Run npm login now?");
+    expect(shell.calls.filter(({ args }) => args[0] === "whoami")).toHaveLength(2);
+    expect(shell.calls.some(({ command }) => command === "echo")).toBe(true);
+  });
+});
