@@ -8,6 +8,7 @@ import {
   branchTag,
   branchVersion,
   comments,
+  installSpec,
   repositoryOfPr,
 } from "../branchRelease";
 
@@ -96,6 +97,18 @@ describe("what running on a branch does", () => {
   });
 });
 
+describe("what a tester installs", () => {
+  it("given a test version, when installed, then it is the exact version", () => {
+    expect(installSpec({ name: "kit", version: "1.0.0-feat-x.ae08284", tag: "feat-x" })).toBe(
+      "kit@1.0.0-feat-x.ae08284",
+    );
+  });
+
+  it("given a version on latest, when installed, then it is the bare name", () => {
+    expect(installSpec({ name: "kit", version: "1.0.0", tag: "latest" })).toBe("kit");
+  });
+});
+
 describe("the pull request comment of a branch release", () => {
   const KIT = {
     name: "@acme/kit",
@@ -144,13 +157,13 @@ describe("the pull request comment of a branch release", () => {
     expect(body).toContain("yarn add @acme/kit@0.5.2-feat-x.ae08284 @acme/ui@1.2.0-feat-x.ae08284");
   });
 
-  it("given a numbered channel, when written, then it installs by the channel's tag and pins the first one's exact version", () => {
+  it("given a numbered channel, when written, then it installs the exact version and offers the channel's tag to follow", () => {
     const beta = { ...KIT, version: "0.6.0-beta.2", tag: "beta" };
     const body = comment({ published: [beta], channel: "beta" });
 
-    expect(body).toContain("`npm i @acme/kit@beta`");
+    expect(body).toContain("`npm i @acme/kit@0.6.0-beta.2`");
     expect(body).toContain(
-      "`@beta` moves to each new beta. To stay on this exact build, install the version instead: `npm i @acme/kit@0.6.0-beta.2`.",
+      "To follow each new beta instead, install the tag: `npm i @acme/kit@beta`.",
     );
   });
 
