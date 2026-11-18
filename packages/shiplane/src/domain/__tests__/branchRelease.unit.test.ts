@@ -8,6 +8,7 @@ import {
   branchTag,
   branchVersion,
   comments,
+  installSpec,
   repositoryOfPr,
 } from "../branchRelease";
 
@@ -96,6 +97,18 @@ describe("what running on a branch does", () => {
   });
 });
 
+describe("what a tester installs", () => {
+  it("given a test version, when installed, then it is the exact version", () => {
+    expect(installSpec({ name: "kit", version: "1.0.0-feat-x.ae08284", tag: "feat-x" })).toBe(
+      "kit@1.0.0-feat-x.ae08284",
+    );
+  });
+
+  it("given a version on latest, when installed, then it is the bare name", () => {
+    expect(installSpec({ name: "kit", version: "1.0.0", tag: "latest" })).toBe("kit");
+  });
+});
+
 describe("the pull request comment of a branch release", () => {
   const KIT = {
     name: "@acme/kit",
@@ -126,24 +139,24 @@ describe("the pull request comment of a branch release", () => {
 
   it("given packages on the public npm registry, when written, then each row links its npm page and version", () => {
     expect(comment()).toContain(
-      "| [@acme/kit](https://www.npmjs.com/package/@acme/kit) | [0.5.2-feat-x.ae08284](https://www.npmjs.com/package/@acme/kit/v/0.5.2-feat-x.ae08284) | `npm i @acme/kit@feat-x` |",
+      "| [@acme/kit](https://www.npmjs.com/package/@acme/kit) | [0.5.2-feat-x.ae08284](https://www.npmjs.com/package/@acme/kit/v/0.5.2-feat-x.ae08284) | `npm i @acme/kit@0.5.2-feat-x.ae08284` |",
     );
   });
 
   it("given a package published to another registry, when written, then its name and version are plain text", () => {
     expect(comment({ published: [{ ...KIT, onNpmjs: false }] })).toContain(
-      "| @acme/kit | 0.5.2-feat-x.ae08284 | `npm i @acme/kit@feat-x` |",
+      "| @acme/kit | 0.5.2-feat-x.ae08284 | `npm i @acme/kit@0.5.2-feat-x.ae08284` |",
     );
   });
 
-  it("given several packages, when written, then it pins the first one's exact version and adds every package for pnpm and yarn", () => {
+  it("given several packages, when written, then it installs exact versions and offers the tag to follow", () => {
     const body = comment();
 
     expect(body).toContain(
-      "`@feat-x` always points at this branch's latest publish. To stay on this exact build, install the version instead: `npm i @acme/kit@0.5.2-feat-x.ae08284`.",
+      "To follow this branch's latest publish instead, install the tag: `npm i @acme/kit@feat-x`.",
     );
-    expect(body).toContain("pnpm add @acme/kit@feat-x @acme/ui@feat-x");
-    expect(body).toContain("yarn add @acme/kit@feat-x @acme/ui@feat-x");
+    expect(body).toContain("pnpm add @acme/kit@0.5.2-feat-x.ae08284 @acme/ui@1.2.0-feat-x.ae08284");
+    expect(body).toContain("yarn add @acme/kit@0.5.2-feat-x.ae08284 @acme/ui@1.2.0-feat-x.ae08284");
   });
 
   it("given a pending unit that is not an npm package, when written, then it says its test release is not available yet", () => {
@@ -172,13 +185,13 @@ describe("the pull request comment of a branch release", () => {
 
   it("given the compact preset, when written, then it is one line under the marker", () => {
     expect(comment({ template: comments.compact, published: [KIT] })).toBe(
-      `${BRANCH_COMMENT_MARKER}\n📦 Test version of \`feat/x\` ([\`ae08284\`](https://github.com/acme/repo/commit/ae08284f00d1)): \`npm i @acme/kit@feat-x\`\n`,
+      `${BRANCH_COMMENT_MARKER}\n📦 Test version of \`feat/x\` ([\`ae08284\`](https://github.com/acme/repo/commit/ae08284f00d1)): \`npm i @acme/kit@0.5.2-feat-x.ae08284\`\n`,
     );
   });
 
   it("given text of its own, when written, then its placeholders are filled and the marker is still on top", () => {
     expect(comment({ template: "Try it: {install}" })).toBe(
-      `${BRANCH_COMMENT_MARKER}\nTry it: \`npm i @acme/kit@feat-x @acme/ui@feat-x\``,
+      `${BRANCH_COMMENT_MARKER}\nTry it: \`npm i @acme/kit@0.5.2-feat-x.ae08284 @acme/ui@1.2.0-feat-x.ae08284\``,
     );
   });
 });
