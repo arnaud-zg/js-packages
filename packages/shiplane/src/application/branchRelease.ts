@@ -1,12 +1,14 @@
 import type { OnDefault } from "../domain/branchRelease";
 import type { OpenPr } from "../domain/releasePr";
+import type { Channel } from "../domain/testChannel";
 import type { BranchPlan, Here } from "./branchPublish";
 import type { ReleaseContext } from "./context";
 import { branchChoice } from "../domain/branchRelease";
+import { channelFor, channelProblem } from "../domain/testChannel";
 import { plural } from "../domain/words";
-import { planBranch, publishBranch } from "./branchPublish";
+import { planBranch, printPlan, publishBranch } from "./branchPublish";
 import { releaseToPreview } from "./releaseToPreview";
-import { fail, paint } from "./say";
+import { fail, paint, reasonOf } from "./say";
 import { runSteps } from "./steps";
 
 const whereHere = async ({ services }: ReleaseContext): Promise<Here> => {
@@ -28,21 +30,41 @@ const refuseDirty = (context: ReleaseContext) => {
 
 const printOthers = ({ output }: ReleaseContext, others: readonly string[]) =>
   others.forEach((name) =>
-    output.line(`  ${paint("dim", "–")} ${name}  ${paint("dim", "not part of a test release")}`),
+    output.line(
+      `  ${paint("dim", "–")} ${name}  ${paint("dim", "test release not available yet: npm packages only")}`,
+    ),
   );
 
-const nothingToPublish = (
-  { progress }: ReleaseContext,
-  { here, plan }: { here: Here; plan: BranchPlan },
-) => {
-  const nothing =
-    here.branch === here.defaultBranch
-      ? "nothing to publish: the next release ships no change"
-      : `nothing changed since ${here.defaultBranch}`;
+const nothingToPublish = ({ progress, services }: ReleaseContext, plan: BranchPlan) => {
   const why =
-    plan.others.length > 0 ? "nothing to publish: no changed unit is an npm package" : nothing;
+    plan.others.length > 0
+      ? "nothing to publish: no pending unit is an npm package"
+      : `nothing pending: a test release publishes what the changesets release, add one with ${services.versioning.nextChange}`;
   progress.say("resting", why);
   return true;
+};
+
+/**
+ * In a terminal, with more than one package pending, the person keeps the ones to test, all
+ * offered; null on cancel. Otherwise the plan as it is.
+ */
+const pickPackages = async (
+  { prompter }: ReleaseContext,
+  plan: BranchPlan,
+): Promise<BranchPlan | null> => {
+  if (plan.publish.length < 2) return plan;
+  const names = plan.publish.map(({ unit }) => unit.name);
+  const kept = await prompter.multiselect(
+    "Which pending packages get a test release?",
+    plan.publish.map(({ unit, version }) => ({
+      value: unit.name,
+      label: unit.name,
+      hint: version,
+    })),
+    names,
+  );
+  if (kept === null || kept.length === 0) return null;
+  return { ...plan, publish: plan.publish.filter(({ unit }) => kept.includes(unit.name)) };
 };
 
 const whatPublishes = ({ publish }: BranchPlan) => {
@@ -80,34 +102,77 @@ const switchAndRelease = async (context: ReleaseContext, { defaultBranch }: Here
   return releaseToPreview({ ...context, release: await context.load() });
 };
 
-/** Plans what the test version publishes, asks when asked to, then publishes it. */
+/** What the test version publishes on the channel; null, said, when its registry cannot say. */
+const planOn = async (context: ReleaseContext, here: Here, channel: Channel) => {
+  try {
+    return await planBranch(context, { here, channel });
+  } catch (error) {
+    fail(context, `Cannot number ${channel}`, reasonOf(error));
+    return null;
+  }
+};
+
+/** Plans what the test version publishes, asks when asked to, then publishes it or only shows it. */
 const publishTest = async (
   context: ReleaseContext,
-  { here, pr, ask }: { here: Here; pr: OpenPr | null; ask: boolean },
+  {
+    here,
+    pr,
+    ask,
+    pick,
+    channel,
+    dryRun,
+  }: {
+    here: Here;
+    pr: OpenPr | null;
+    ask: boolean;
+    /** Ask which pending packages to keep. */
+    pick: boolean;
+    channel: Channel;
+    dryRun: boolean;
+  },
 ) => {
-  if (!(await context.services.sourceControl.isClean())) return refuseDirty(context);
-  const plan = await planBranch(context, here);
+  if (!dryRun && !(await context.services.sourceControl.isClean())) return refuseDirty(context);
+  const plan = await planOn(context, here, channel);
+  if (!plan) return false;
   printOthers(context, plan.others);
-  if (plan.publish.length === 0) return nothingToPublish(context, { here, plan });
+  if (plan.publish.length === 0) return nothingToPublish(context, plan);
+  if (dryRun) return printPlan(context, plan);
   const answer = ask ? await askHow(context, { here, plan }) : "publish";
   if (answer === "switch") return switchAndRelease(context, here);
-  if (answer === null) {
+  const picked = answer === null ? null : pick ? await pickPackages(context, plan) : plan;
+  if (picked === null) {
     context.progress.say("resting", paint("dim", "Nothing ran."));
     return true;
   }
-  return publishBranch(context, { here, pr, plan });
+  return publishBranch(context, { here, pr, plan: picked });
 };
 
 /**
- * `shiplane` where it runs: on the default branch, the real release (or, for `shiplane test-release`, a
- * test version of what the next release ships); on another branch, a temporary npm version of the
- * packages it changes, for testers, commented on its pull request when it has one. False when
- * refused or failed.
+ * `shiplane` where it runs: on the default branch, the real release; elsewhere, or for `shiplane
+ * test-release`, a test version of the npm packages the pending changesets release, on the branch's
+ * channel (a snapshot unless `testRelease` says otherwise), commented on its pull request when it
+ * has one. False when refused or failed.
  */
 export const branchRelease = async (
   context: ReleaseContext,
-  { onDefault }: { onDefault: OnDefault },
+  {
+    onDefault,
+    channel: picked,
+    dryRun = false,
+  }: {
+    onDefault: OnDefault;
+    /** The channel for this run, over the one `testRelease` gives the branch. */
+    channel?: string;
+    /** Show what would publish, at which versions and tag, and publish nothing. */
+    dryRun?: boolean;
+  },
 ): Promise<boolean> => {
+  const problem = picked === undefined ? null : channelProblem(picked);
+  if (problem) {
+    fail(context, "Not a channel", problem);
+    return false;
+  }
   const here = await whereHere(context);
   const choice = branchChoice({
     onDefaultBranch: here.branch === here.defaultBranch,
@@ -116,6 +181,10 @@ export const branchRelease = async (
     interactive: context.prompter.interactive,
   });
   if (choice === "release") return releaseToPreview(context);
-  const pr = await context.services.codeHost.prForBranch(here.branch);
-  return publishTest(context, { here, pr, ask: choice === "ask" });
+  const channel = picked ?? channelFor(here.branch, context.release.testRelease);
+  const pr = dryRun ? null : await context.services.codeHost.prForBranch(here.branch);
+  // A channel named on the command line is the answer: nothing left to ask.
+  const ask = choice === "ask" && picked === undefined && !dryRun;
+  const pick = context.prompter.interactive && !context.options.yes && !dryRun;
+  return publishTest(context, { here, pr, ask, pick, channel, dryRun });
 };

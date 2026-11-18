@@ -1,5 +1,6 @@
 import type { DisplayChoice } from "../../domain/display";
 import type { TagFormatName } from "../../domain/tags";
+import type { TestReleaseBranches } from "../../domain/testChannel";
 import type { Feature, ReleaseFlow, ReleaseModule } from "../../modules/module";
 
 /** How a repository releases: the flow, what gets released in order, and what happens around it. */
@@ -23,6 +24,13 @@ export interface ReleaseConfig {
    * `comments.compact`, or text of your own with `{branch}`, `{commit}`, `{table}` and `{install}`.
    */
   testComment?: string;
+  /**
+   * Which channel each branch's test release (`shiplane test-release`) publishes on: a preset such
+   * as `testReleases.gitflow`, or a map such as `{ main: channels.nightly, "release/*": channels.beta }`.
+   * A key is a branch or a `*` pattern; a branch not listed publishes a snapshot. Without it, every
+   * branch does. `shiplane test-release <channel>` picks another for one run.
+   */
+  testRelease?: TestReleaseBranches;
   /**
    * How a unit ships when both ways can: `"ci"` (the flow's CI pipeline, such as GitHub Actions) or
    * `"local"` (this machine). Without it, each ship asks. `--via` still wins for one run; a way that

@@ -64,7 +64,9 @@ describe("the built shiplane CLI, installed in a repository", () => {
     const branch = repo.shiplane(["branch"]);
 
     expect(testRelease.status).toBe(0);
-    expect(testRelease.output).toContain("nothing to publish: the next release ships no change");
+    expect(testRelease.output).toContain(
+      "nothing pending: a test release publishes what the changesets release",
+    );
     expect(branch).toEqual(testRelease);
   });
 

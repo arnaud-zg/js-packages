@@ -5,6 +5,7 @@ import { createJiti } from "jiti";
 
 import type { DeployPath } from "../../domain/deploys";
 import type { DisplayChoice } from "../../domain/display";
+import type { TestReleaseBranches } from "../../domain/testChannel";
 import type { ReleaseUnit } from "../../domain/unit";
 import type { Feature, ReleaseFlow, ReleaseModule } from "../../modules/module";
 import type { ServiceAdapter } from "../../ports/adapter.port";
@@ -13,6 +14,7 @@ import type { ConfigProblem } from "./problem";
 import type { UnitFile } from "./readUnitFile";
 import { PrepareSchema } from "../../domain/prepare";
 import { DEFAULT_TAG_FORMAT, TAG_FORMATS, tagFormatNamed } from "../../domain/tags";
+import { channelProblem } from "../../domain/testChannel";
 import { releaseFlow } from "../releaseFlow";
 import { reasonOf } from "../say";
 import { sortProblems } from "./problem";
@@ -60,13 +62,23 @@ export interface Release {
   renames?: Rename[];
   /** The template of a test version's pull request comment; `comments.table` when unset. */
   testComment?: string;
+  /** Which channel each branch's test release publishes on; unset, every branch a snapshot. */
+  testRelease?: TestReleaseBranches;
   /** Run from the root before each unit ships from this machine, its placeholders filled. */
   prepare?: string;
 }
 
 type Composed = Pick<
   Release,
-  "flow" | "modules" | "features" | "display" | "tagFormat" | "testComment" | "via" | "prepare"
+  | "flow"
+  | "modules"
+  | "features"
+  | "display"
+  | "tagFormat"
+  | "testComment"
+  | "testRelease"
+  | "via"
+  | "prepare"
 > & {
   units?: string[];
 };
@@ -213,6 +225,7 @@ const readConfig = async (file: string, aliases: Record<string, string>): Promis
     display: { verbose: flag(display.verbose), mascot: mascotOf(display.mascot) },
     tagFormat: tagFormatOf(loaded.tag),
     ...testCommentOf(loaded.testComment),
+    ...testReleaseOf(loaded.testRelease),
     via: viaOf(loaded.via),
     ...prepareOf(loaded.prepare),
   };
@@ -232,6 +245,24 @@ const testCommentOf = (value: unknown) => {
     throw new Error('testComment is a template, such as comments.compact or "Try it: {install}"');
   }
   return { testComment: value };
+};
+
+/** The config's `testRelease`: a branch → channel map, every channel a name npm takes. */
+const testReleaseOf = (value: unknown) => {
+  if (value === undefined) return {};
+  if (!isRecord(value)) {
+    throw new Error(
+      'testRelease maps a branch to a channel, such as testReleases.gitflow or { main: "nightly" }',
+    );
+  }
+  const branches = Object.fromEntries(
+    Object.entries(value).map(([branch, channel]) => {
+      const problem = typeof channel === "string" ? channelProblem(channel) : "not a channel name";
+      if (problem) throw new Error(`testRelease "${branch}": ${problem}`);
+      return [branch, channel as string];
+    }),
+  );
+  return { testRelease: branches };
 };
 
 /** The config names a way by its port, never its provider: "ci" is whatever CI the flow uses. */
@@ -407,6 +438,7 @@ export const loadRelease = async (root: string, options: LoadOptions): Promise<R
     ),
     tagFormat: config.tagFormat,
     ...(config.testComment === undefined ? {} : { testComment: config.testComment }),
+    ...(config.testRelease === undefined ? {} : { testRelease: config.testRelease }),
     ...(config.prepare === undefined ? {} : { prepare: config.prepare }),
   };
 };

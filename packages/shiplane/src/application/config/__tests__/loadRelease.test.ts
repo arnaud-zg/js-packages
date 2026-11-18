@@ -291,6 +291,49 @@ describe("the test version's pull request comment", () => {
   });
 });
 
+describe("which channel a branch's test release publishes on", () => {
+  it("given a preset from shiplane, when the release loads, then it is the preset's branch map", async () => {
+    const { root } = setUp({
+      "shiplane.config.ts": MODULE_CONFIG.replace(
+        "  perEnv,",
+        "  perEnv,\n  testReleases,",
+      ).replace(
+        "modules: [",
+        'testRelease: { ...testReleases.gitflow, "feat/*": "alpha" },\n  modules: [',
+      ),
+    });
+
+    const release = await load(root);
+
+    expect(release.problems).toEqual([]);
+    expect(release.testRelease).toEqual({
+      develop: "nightly",
+      "release/*": "beta",
+      "hotfix/*": "rc",
+      "feat/*": "alpha",
+    });
+  });
+
+  it("given a branch mapped to latest, when the release loads, then it says latest is the real release's", async () => {
+    const { root } = setUp({
+      "shiplane.config.ts": MODULE_CONFIG.replace(
+        "modules: [",
+        'testRelease: { main: "latest" },\n  modules: [',
+      ),
+    });
+
+    const release = await load(root);
+
+    expect(release.problems[0]?.message).toContain('testRelease "main": latest');
+  });
+
+  it("given no testRelease, when the release loads, then it has none: every branch a snapshot", async () => {
+    const { root } = setUp({ "shiplane.config.ts": MODULE_CONFIG });
+
+    expect((await load(root)).testRelease).toBeUndefined();
+  });
+});
+
 describe("tags that would collide", () => {
   it("given a tag format without the name and two units, when the release loads, then it says their tags would collide", async () => {
     const { root } = setUp({

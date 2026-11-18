@@ -467,7 +467,9 @@ describe("Feature: releasing to preview and production step by step", () => {
       expect(await run(command)).toBe(0);
 
       expect(prompter.asked).toEqual([]);
-      expect(output.text).toContain("nothing to publish: the next release ships no change");
+      expect(output.text).toContain(
+        "nothing pending: a test release publishes what the changesets release",
+      );
     },
   );
 

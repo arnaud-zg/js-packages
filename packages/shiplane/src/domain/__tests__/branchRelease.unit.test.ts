@@ -146,12 +146,14 @@ describe("the pull request comment of a branch release", () => {
     expect(body).toContain("yarn add @acme/kit@feat-x @acme/ui@feat-x");
   });
 
-  it("given a changed unit that is not an npm package, when written, then it is named as not published here", () => {
-    expect(comment()).toContain("Not published here: `api` (not an npm package).");
+  it("given a pending unit that is not an npm package, when written, then it says its test release is not available yet", () => {
+    expect(comment()).toContain(
+      "Test release not available yet: `api` (npm packages only for now).",
+    );
   });
 
   it("given every changed unit published, when written, then there is no not-published line", () => {
-    expect(comment({ others: [] })).not.toContain("Not published here");
+    expect(comment({ others: [] })).not.toContain("not available yet");
   });
 
   it("given no repository address, when written, then the commit is named without a link", () => {

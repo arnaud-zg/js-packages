@@ -2,6 +2,7 @@ import path from "node:path";
 
 import type { BranchPublished } from "../domain/branchRelease";
 import type { OpenPr } from "../domain/releasePr";
+import type { Channel } from "../domain/testChannel";
 import type { ReleaseUnit } from "../domain/unit";
 import type { Files } from "../ports/files.port";
 import type { ReleaseContext } from "./context";
@@ -10,12 +11,10 @@ import type { Step } from "./steps";
 import {
   BRANCH_COMMENT_MARKER,
   branchComment,
-  branchSlug,
-  branchTag,
-  branchVersion,
   installLine,
   repositoryOfPr,
 } from "../domain/branchRelease";
+import { isNumbered, nextNumber, testTag, testVersion } from "../domain/testChannel";
 import { readManifest } from "./manifest";
 import { MANIFEST } from "./readScope";
 import { signIn, signInsOf } from "./requirements";
@@ -38,8 +37,9 @@ interface Candidate {
   version: string;
 }
 
-/** What a branch release publishes, under which npm tag, and the changed units it leaves out. */
+/** What a test release publishes, on which channel and npm tag, and the pending units it cannot test yet. */
 export interface BranchPlan {
+  channel: Channel;
   tag: string;
   publish: Candidate[];
   others: string[];
@@ -50,48 +50,67 @@ const REGISTRY = "package-registry";
 const isRegistry = (context: ReleaseContext, unit: ReleaseUnit) =>
   moduleOf(context, unit)?.capability === REGISTRY;
 
-/** The files this branch changed: from where it left the default branch, not what main did since. */
-const branchChanges = async ({ services }: ReleaseContext, here: Here) => {
-  const { sourceControl } = services;
-  const base = (await sourceControl.mergeBase?.(here.originMain, here.head)) ?? here.originMain;
-  return sourceControl.diffNames(base, here.head);
+/**
+ * The units a test version covers: what the pending changesets release, each at the version the
+ * next release gives it, so a test version always sorts above the last release. The same on every
+ * branch: a changeset says what is meant to ship, a diff only what moved.
+ */
+const pendingUnits = async (
+  context: ReleaseContext,
+): Promise<{ unit: ReleaseUnit; base: string }[]> => {
+  const { releases } = await context.services.versioning.plan([], []);
+  return context.release.units.flatMap((unit) => {
+    const next = releases.find(({ name }) => name === unit.packageName)?.newVersion;
+    return next ? [{ unit, base: next }] : [];
+  });
 };
 
-const touches = (files: readonly string[], { dir }: ReleaseUnit) =>
-  dir === "." || dir === "" ? files.length > 0 : files.some((file) => file.startsWith(`${dir}/`));
+/** The versions the unit's registry holds, to number a channel's next one. */
+const publishedVersionsOf = async (context: ReleaseContext, unit: ReleaseUnit, here: Here) => {
+  const target = unitTarget(context, {
+    unit,
+    environment: "preview",
+    commit: here.head,
+    defaultBranch: here.defaultBranch,
+  });
+  const read = target?.module.publishedVersions;
+  if (!target || !read) throw new Error(`${unit.name}'s registry cannot list its versions`);
+  return read(decideContext(context), target.input);
+};
 
 /**
- * The units this test version covers, each with the version its test version builds on. On a
- * branch: what it changed since it left the default branch, at its current version. On the default
- * branch, where that diff is empty: what the next release ships, at the version it will take.
+ * The units this test version covers, at test versions on the channel: npm packages publish, the
+ * other units are not available as test releases yet. A numbered channel reads each package's published versions for its next number.
  */
-const changedUnits = async (
+export const planBranch = async (
   context: ReleaseContext,
-  here: Here,
-): Promise<{ unit: ReleaseUnit; base: string }[]> => {
-  const { units } = context.release;
-  if (here.branch === here.defaultBranch) {
-    const { releases } = await context.services.versioning.plan([], []);
-    return units.flatMap((unit) => {
-      const next = releases.find(({ name }) => name === unit.packageName);
-      return next ? [{ unit, base: next.newVersion }] : [];
-    });
-  }
-  const files = await branchChanges(context, here);
-  return units.filter((unit) => touches(files, unit)).map((unit) => ({ unit, base: unit.version }));
-};
-
-/** The units this test version covers, at test versions: npm packages publish, the rest wait. */
-export const planBranch = async (context: ReleaseContext, here: Here): Promise<BranchPlan> => {
-  const changed = await changedUnits(context, here);
-  return {
-    tag: branchTag(branchSlug(here.branch)),
-    publish: changed
+  { here, channel }: { here: Here; channel: Channel },
+): Promise<BranchPlan> => {
+  const changed = await pendingUnits(context);
+  const publish = await Promise.all(
+    changed
       .filter(({ unit }) => isRegistry(context, unit))
-      .map(({ unit, base }) => ({
+      .map(async ({ unit, base }) => ({
         unit,
-        version: branchVersion({ current: base, branch: here.branch, sha: here.head }),
+        version: testVersion({
+          next: base,
+          channel,
+          branch: here.branch,
+          sha: here.head,
+          n: isNumbered(channel)
+            ? nextNumber({
+                published: await publishedVersionsOf(context, unit, here),
+                next: base,
+                channel,
+              })
+            : 0,
+        }),
       })),
+  );
+  return {
+    channel,
+    tag: testTag(channel, here.branch),
+    publish,
     others: changed.filter(({ unit }) => !isRegistry(context, unit)).map(({ unit }) => unit.name),
   };
 };
@@ -184,6 +203,23 @@ const padded = (rows: readonly string[][]) => {
   );
 };
 
+/** What a dry run shows: each package at the version it would take, and the npm tag; true. */
+export const printPlan = ({ output, progress }: ReleaseContext, plan: BranchPlan) => {
+  progress.say("resting", `Would publish on ${plan.channel}, npm tag ${plan.tag} (dry run)`);
+  const [header = "", ...rows] = padded([
+    ["Package", "Version", "Install"],
+    ...plan.publish.map(({ unit, version }) => [
+      unit.packageName,
+      version,
+      `npm i ${unit.packageName}@${plan.tag}`,
+    ]),
+  ]);
+  output.line(paint("dim", `  ${header}`));
+  rows.forEach((row) => output.line(`  ${row}`));
+  output.line(paint("dim", "  Nothing published."));
+  return true;
+};
+
 const printPublished = ({ output, progress }: ReleaseContext, published: BranchPublished[]) => {
   const [first] = published;
   progress.say("happy", `${paint("green", "✓")} Published under npm tag ${first?.tag ?? ""}`);
@@ -206,7 +242,14 @@ const commentOn = async (
     here,
     published,
     others,
-  }: { pr: OpenPr | null; here: Here; published: BranchPublished[]; others: readonly string[] },
+    channel,
+  }: {
+    pr: OpenPr | null;
+    here: Here;
+    published: BranchPublished[];
+    others: readonly string[];
+    channel: Channel;
+  },
 ) => {
   if (!pr) return;
   const body = branchComment({
@@ -215,6 +258,7 @@ const commentOn = async (
     repository: repositoryOfPr(pr.url),
     published,
     others,
+    channel,
     ...(release.testComment === undefined ? {} : { template: release.testComment }),
   });
   await services.codeHost
@@ -251,6 +295,12 @@ export const publishBranch = async (context: ReleaseContext, run: BranchRun) => 
   if (!(await publishAll(context, { plan: run.plan, publishing }))) return false;
   const published = publishing.map((entry) => entry.published);
   printPublished(context, published);
-  await commentOn(context, { pr: run.pr, here: run.here, published, others: run.plan.others });
+  await commentOn(context, {
+    pr: run.pr,
+    here: run.here,
+    published,
+    others: run.plan.others,
+    channel: run.plan.channel,
+  });
   return true;
 };

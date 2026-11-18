@@ -57,6 +57,16 @@ const distTags = async (context: DecideContext, name: string) => {
   return parsed.success ? parsed.data : {};
 };
 
+const Versions = z.union([z.array(z.string()), z.string().transform((one) => [one])]);
+
+/** Every version npm holds of the package; none when it is not published yet or npm failed. */
+const publishedVersions = async (context: DecideContext, input: JobInput<Options>) => {
+  const result = await context.shell.capture("npm", ["view", nameOf(input), "versions", "--json"]);
+  if (result.status !== 0) return [];
+  const parsed = parseJson({ text: result.stdout || "[]", schema: Versions });
+  return parsed.success ? parsed.data : [];
+};
+
 /**
  * Publish the version under the environment's tag, or a branch release's own, renamed for the
  * registry and back after.
@@ -154,6 +164,8 @@ export const npmPackageRegistry = (): NpmPackageRegistryAdapter =>
     describe: (input) => `${nameOf(input)} on npm (${input.options.tag})`,
     // A branch release publishes once under its own tag: there is no tag to move.
     publishedName: nameOf,
+    // A numbered test release, such as 0.6.0-beta.<n>, takes the next number npm does not hold.
+    publishedVersions,
     jobs: (input) => (input.distTag ? [publishJob(input)] : [publishJob(input), moveTagJob(input)]),
     decide,
     live,

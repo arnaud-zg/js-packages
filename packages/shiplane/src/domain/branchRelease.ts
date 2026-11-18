@@ -89,8 +89,7 @@ const row = (entry: BranchPublished) => {
 const notPublished = (others: readonly string[]) => {
   if (others.length === 0) return [];
   const names = others.map((name) => `\`${name}\``).join(", ");
-  const why = others.length === 1 ? "not an npm package" : "not npm packages";
-  return ["", `Not published here: ${names} (${why}).`];
+  return ["", `Test release not available yet: ${names} (npm packages only for now).`];
 };
 
 /**
@@ -100,7 +99,7 @@ const notPublished = (others: readonly string[]) => {
 export const comments = {
   table: [
     "### 📦 Published on npm for testing",
-    "Built from {commit} on `{branch}`. These are temporary test versions, not a release; pending changesets are untouched.",
+    "Built from {commit} on `{branch}`. These are test versions on the `{channel}` channel, not a release; pending changesets are untouched.",
     "",
     "{table}",
     "",
@@ -110,8 +109,18 @@ export const comments = {
   compact: "📦 Test version of `{branch}` ({commit}): {install}\n",
 } as const;
 
-/** The install table, the pin line, the pnpm and yarn lines, and the changed units left out. */
-const installTable = (published: readonly BranchPublished[], others: readonly string[]) => {
+/** Where `@<tag>` points: this branch's latest snapshot, or the channel's newest version. */
+const tagPoints = (tag: string, channel: string) =>
+  channel === "snapshot"
+    ? `\`@${tag}\` always points at this branch's latest publish.`
+    : `\`@${tag}\` moves to each new ${channel}.`;
+
+/** The install table, the pin line, the pnpm and yarn lines, and the pending units left out. */
+const installTable = (
+  published: readonly BranchPublished[],
+  others: readonly string[],
+  channel: string,
+) => {
   const [first] = published;
   const tags = published.map(({ name, tag }) => `${name}@${tag}`).join(" ");
   return [
@@ -121,7 +130,7 @@ const installTable = (published: readonly BranchPublished[], others: readonly st
     "",
     ...(first
       ? [
-          `\`@${first.tag}\` always points at this branch's latest publish. To stay on this exact build, install the version instead: \`npm i ${first.name}@${first.version}\`.`,
+          `${tagPoints(first.tag, channel)} To stay on this exact build, install the version instead: \`npm i ${first.name}@${first.version}\`.`,
           "",
         ]
       : []),
@@ -136,11 +145,11 @@ const installTable = (published: readonly BranchPublished[], others: readonly st
   ].join("\n");
 };
 
-const PLACEHOLDER = /\{(branch|commit|table|install)\}/g;
+const PLACEHOLDER = /\{(branch|commit|table|install|channel)\}/g;
 
 /**
  * The comment a test version keeps on its pull request, one per pull request: the template with
- * `{branch}`, `{commit}`, `{table}` and `{install}` filled in, always under the marker that finds
+ * `{branch}`, `{commit}`, `{table}`, `{install}` and `{channel}` filled in, always under the marker that finds
  * it again.
  */
 export const branchComment = ({
@@ -149,6 +158,7 @@ export const branchComment = ({
   repository,
   published,
   others,
+  channel = "snapshot",
   template = comments.table,
 }: {
   sha: string;
@@ -156,8 +166,10 @@ export const branchComment = ({
   /** The repository's web address, to link the commit; null names it plainly. */
   repository: string | null;
   published: readonly BranchPublished[];
-  /** The changed units that are not npm packages. */
+  /** The pending units that are not npm packages. */
   others: readonly string[];
+  /** The channel it published on: `snapshot` (the default) or a numbered one such as `beta`. */
+  channel?: string;
   /** A preset from `comments`, or text of your own. */
   template?: string;
 }) => {
@@ -165,7 +177,8 @@ export const branchComment = ({
   const values: Record<string, string> = {
     branch,
     commit: repository ? `[${short}](${repository}/commit/${sha})` : short,
-    table: installTable(published, others),
+    table: installTable(published, others, channel),
+    channel,
     install: `\`npm i ${published.map(({ name, tag }) => `${name}@${tag}`).join(" ")}\``,
   };
   const body = template.replace(PLACEHOLDER, (_, key: string) => values[key] ?? "");
