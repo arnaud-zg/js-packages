@@ -22,7 +22,7 @@ inputs:
     description: "Last resort: the install command, when the detected one does not fit"
     default: ""
   working-directory:
-    description: "Last resort: the folder holding shiplane.config.ts, when it is not the repo root"
+    description: "Last resort: the folder holding package.json, when it is not the repo root"
     default: "."
 
 outputs:
@@ -64,10 +64,6 @@ runs:
           }
           return null;
         };
-        const configs = ["ts", "mts", "js", "mjs"].map((ext) => `shiplane.config.${ext}`);
-        if (!configs.some((file) => fs.existsSync(path.join(here, file)))) {
-          fail(`no shiplane.config.ts in ${process.env.WORKING_DIRECTORY}`);
-        }
         const manifest = JSON.parse(read("package.json") ?? "{}");
         const lockfiles = {
           "pnpm-lock.yaml": "pnpm",

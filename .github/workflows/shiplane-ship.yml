@@ -90,6 +90,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Only here: the setup action serves repos without shiplane too.
+      - name: Find shiplane.config
+        env:
+          WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        run: |
+          for ext in ts mts js mjs; do [ -f "shiplane.config.$ext" ] && exit 0; done
+          echo "::error::no shiplane.config.ts in $WORKING_DIRECTORY (https://github.com/arnaud-zg/js-packages/blob/main/docs/shiplane/reference.md#github-actions-workflow)"
+          exit 1
+
       # The same steps as .github/actions/setup, which other repos import; a test keeps them equal.
       - name: Detect the package manager and Node version
         id: detect
@@ -115,10 +124,6 @@ jobs:
             }
             return null;
           };
-          const configs = ["ts", "mts", "js", "mjs"].map((ext) => `shiplane.config.${ext}`);
-          if (!configs.some((file) => fs.existsSync(path.join(here, file)))) {
-            fail(`no shiplane.config.ts in ${process.env.WORKING_DIRECTORY}`);
-          }
           const manifest = JSON.parse(read("package.json") ?? "{}");
           const lockfiles = {
             "pnpm-lock.yaml": "pnpm",
