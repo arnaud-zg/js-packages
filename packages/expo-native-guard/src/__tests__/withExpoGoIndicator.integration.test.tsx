@@ -37,6 +37,32 @@ describe("withExpoGoIndicator", () => {
     expect(screen.getByText("MascotView · Expo Go")).toBeTruthy();
   });
 
+  it("given a wrapped component, when rendered, then a dotted red frame surrounds it and a red badge with white text is pinned to its top-left corner", () => {
+    const Wrapped = withExpoGoIndicator(Stub, "CameraView");
+
+    render(<Wrapped label="hello" />);
+
+    const label = screen.getByText("CameraView · Expo Go");
+    const badge = label.parentElement;
+    const frame = badge?.parentElement;
+    expect(frame).toHaveStyle({
+      borderTopStyle: "dotted",
+      borderTopWidth: "2px",
+      borderTopColor: "rgb(255, 59, 48)",
+    });
+    expect(badge).toHaveStyle({
+      position: "absolute",
+      top: "4px",
+      left: "4px",
+      backgroundColor: "rgb(255, 59, 48)",
+    });
+    expect(label).toHaveStyle({
+      color: "rgb(255, 255, 255)",
+      fontSize: "10px",
+      fontWeight: "600",
+    });
+  });
+
   it("given a component name, when wrapped, then the wrapper's displayName identifies both the helper and the component", () => {
     const Wrapped = withExpoGoIndicator(Stub, "CameraView");
 
