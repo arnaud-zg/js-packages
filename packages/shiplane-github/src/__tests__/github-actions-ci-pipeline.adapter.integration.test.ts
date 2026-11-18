@@ -297,6 +297,44 @@ describe("writing the workflow a repository ships from", () => {
     });
   });
 
+  it("given a test version, when the caller workflow is made, then it pins the commit its short sha names", async () => {
+    const gh = fakeGh().seed(
+      "api repos/arnaud-zg/js-packages/commits/329aafb",
+      JSON.stringify({ sha: COMMIT }),
+    );
+
+    const made = await pipelineOn(gh).callerWorkflow?.("0.6.0-main.329aafb");
+
+    expect(made).toEqual({
+      file: ".github/workflows/ship.yml",
+      content: CALLER.replace("# shiplane@0.6.0", "# shiplane@0.6.0-main.329aafb"),
+      pin: COMMIT,
+    });
+    expect(gh.args).toEqual([["api", "repos/arnaud-zg/js-packages/commits/329aafb"]]);
+  });
+
+  it("given a test version whose short sha reads as a number, when the caller workflow is made, then it looks up the sha without its g", async () => {
+    const gh = fakeGh().seed(
+      "api repos/arnaud-zg/js-packages/commits/0123456",
+      JSON.stringify({ sha: COMMIT }),
+    );
+
+    expect(await pipelineOn(gh).callerWorkflow?.("0.6.0-feat-x.g0123456")).toMatchObject({
+      pin: COMMIT,
+    });
+  });
+
+  it("given a test version whose commit GitHub does not know, when the caller workflow is made, then it says to pin by hand", async () => {
+    const gh = fakeGh().seed("api repos/arnaud-zg/js-packages/commits/329aafb", {
+      status: 1,
+      stderr: "gh: No commit found for SHA: 329aafb (HTTP 422)\n",
+    });
+
+    expect(await pipelineOn(gh).callerWorkflow?.("0.6.0-main.329aafb")).toEqual({
+      error: "no commit 329aafb for shiplane@0.6.0-main.329aafb: pin shiplane-ship.yml by hand",
+    });
+  });
+
   it("given GitHub failing for another reason, when the caller workflow is made, then the failure is raised", async () => {
     const gh = fakeGh().seed(REF, { status: 1, stderr: "gh: Bad credentials (HTTP 401)\n" });
 

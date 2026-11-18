@@ -254,8 +254,11 @@ exits 1 when any failed.
 
 `shiplane setup` writes `.github/workflows/ship.yml` when it is missing, never over one there: a
 manual run (`units`, `environment`) calling `shiplane-ship.yml`, pinned to the commit of the
-installed shiplane's tag (`uses: …/shiplane-ship.yml@<sha> # shiplane@x.y.z`). An unreleased version
-has no tag: `no release tag shiplane@x.y.z: pin shiplane-ship.yml by hand`.
+installed shiplane's tag (`uses: …/shiplane-ship.yml@<sha> # shiplane@x.y.z`). A test version
+(`x.y.z-<branch>.<short sha>`) has no tag: it pins the commit its short sha names, or says
+`no commit <short sha> for shiplane@x.y.z-…: pin shiplane-ship.yml by hand` when GitHub does not
+know it. Any other unreleased version:
+`no release tag shiplane@x.y.z: pin shiplane-ship.yml by hand`.
 
 With ship.yml calling `shiplane-ship.yml`, setup adds the preset
 `github>arnaud-zg/js-packages//renovate/shiplane` to `extends` in a JSON Renovate config

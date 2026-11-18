@@ -16,6 +16,13 @@ const JobsSchema = z.array(
 );
 
 const RefSchema = z.object({ object: z.object({ sha: z.string(), type: z.string() }) });
+const CommitSchema = z.object({ sha: z.string() });
+
+/** A test version, `<version>-<branch>.<short sha>`, ends on the commit it was built from. */
+const TEST_VERSION = /^\d+\.\d+\.\d+-[0-9a-z-]+\.g?([0-9a-f]{7,40})$/;
+
+const isMissing = (error: unknown) =>
+  error instanceof Error && /HTTP 404|HTTP 422|Not Found|No commit found/.test(error.message);
 
 /** Where shiplane's own workflow and its release tags live. */
 const SHIPLANE_REPO = "arnaud-zg/js-packages";
@@ -100,11 +107,28 @@ const githubActions = (root: string, shell: Shell, shipWorkflow: string): CiPipe
     workflowRuns: runs,
     callerWorkflow: async (version) => {
       const tag = `shiplane@${version}`;
+      const orMissing = (error: unknown) => {
+        if (isMissing(error)) return null;
+        throw error;
+      };
+      // A test version has no release tag: it pins the commit its short sha names.
+      const short = TEST_VERSION.exec(version)?.[1];
+      if (short) {
+        const commit = await json(["api", `repos/${SHIPLANE_REPO}/commits/${short}`]).catch(
+          orMissing,
+        );
+        if (commit === null) {
+          return { error: `no commit ${short} for ${tag}: pin shiplane-ship.yml by hand` };
+        }
+        const { sha } = CommitSchema.parse(commit);
+        return {
+          file: `.github/workflows/${shipWorkflow}`,
+          content: callerContent(sha, version),
+          pin: sha,
+        };
+      }
       const ref = await json(["api", `repos/${SHIPLANE_REPO}/git/ref/tags/${tag}`]).catch(
-        (error: unknown) => {
-          if (error instanceof Error && /HTTP 404|Not Found/.test(error.message)) return null;
-          throw error;
-        },
+        orMissing,
       );
       if (ref === null) return { error: `no release tag ${tag}: pin shiplane-ship.yml by hand` };
       const { object } = RefSchema.parse(ref);
