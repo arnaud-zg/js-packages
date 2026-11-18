@@ -99,3 +99,75 @@ export const checkCallerWorkflow = async (
   output.line(`${bar}${created ? paint("green", "+") : paint("yellow", "~")} ${file}`);
   return true;
 };
+
+/** The Renovate preset that keeps the caller workflow's pin, commit and comment, current. */
+export const SHIPLANE_RENOVATE_PRESET = "github>arnaud-zg/js-packages//renovate/shiplane";
+
+/** Where Renovate looks for its config, in its order; JSON5 ones setup leaves to the person. */
+const RENOVATE_CONFIGS = [
+  "renovate.json",
+  "renovate.json5",
+  ".github/renovate.json",
+  ".github/renovate.json5",
+  ".gitlab/renovate.json",
+  ".gitlab/renovate.json5",
+  ".renovaterc",
+  ".renovaterc.json",
+  ".renovaterc.json5",
+];
+
+type RenovateConfig = Record<string, unknown> & { extends?: unknown };
+
+/** The config a JSON text holds, or null when it is not JSON. */
+const jsonObject = (text: string) => {
+  try {
+    return JSON.parse(text) as RenovateConfig | null;
+  } catch {
+    return null;
+  }
+};
+
+/** The repository's Renovate config: its file, its text, its JSON when setup may edit it. */
+const renovateConfigOf = ({ files }: SetupContext) => {
+  const file = RENOVATE_CONFIGS.find((name) => files.exists(name));
+  const text = files.read(file ?? "package.json") ?? "";
+  if (file) return { file, text, config: file.endsWith(".json5") ? null : jsonObject(text) };
+  return jsonObject(text)?.renovate === undefined
+    ? null
+    : { file: "package.json", text, config: null };
+};
+
+/**
+ * Renovate's part once ship.yml calls shiplane-ship.yml (`shipText`, else as on disk): the write
+ * adding the preset to a JSON config's `extends`, else null once what to do is said. A config is
+ * never created, and one setup cannot safely edit is named, never touched.
+ */
+export const renovateWrite = (context: SetupContext, release: Release, shipText?: string) => {
+  const caller = callerOf(context, release);
+  const text = shipText ?? (caller ? context.files.read(caller.file) : null);
+  if (!text?.includes(CALLS)) return null;
+  const found = renovateConfigOf(context);
+  const entry = `"${SHIPLANE_RENOVATE_PRESET}"`;
+  if (!found) {
+    context.output.line(
+      `  ${paint("dim", `shiplane doctor keeps the ship.yml pin current; on Renovate, add ${entry} to extends`)}`,
+    );
+    return null;
+  }
+  const { file, config } = found;
+  if (found.text.includes(entry)) return null;
+  if (!config) {
+    context.output.line(
+      `  ${paint("yellow", "!")} ${file}: add ${entry} to extends to keep the ship.yml pin current`,
+    );
+    return null;
+  }
+  const presets = Array.isArray(config.extends) ? (config.extends as unknown[]) : [];
+  const extended = { ...config, extends: [...presets, SHIPLANE_RENOVATE_PRESET] };
+  return {
+    file,
+    text: `${JSON.stringify(extended, null, 2)}\n`,
+    created: false,
+    reason: "Renovate keeps the ship.yml pin current",
+  };
+};
