@@ -1,0 +1,180 @@
+# .github/actions/setup/action.yml
+#
+# shiplane's setup as one step another repo's job imports, after its own checkout:
+#
+#   - uses: actions/checkout@v5
+#   - uses: arnaud-zg/js-packages/.github/actions/setup@<sha> # shiplane@x.y.z
+#
+# It detects the package manager and the Node version, sets them up, and installs the repo, reusing
+# node_modules installed from the same lockfile and Node. The same steps as shiplane-ship.yml, which
+# a test keeps equal. It reads no secret.
+# What is supported, and every error it can give:
+# https://github.com/arnaud-zg/js-packages/blob/main/docs/shiplane/reference.md#setup-action
+
+name: Shiplane setup
+description: Detect the package manager and Node version, set them up, and install the repo.
+
+inputs:
+  node-version:
+    description: "Last resort: a Node version, when the repo has no .nvmrc, .node-version or engines.node"
+    default: ""
+  install-command:
+    description: "Last resort: the install command, when the detected one does not fit"
+    default: ""
+  working-directory:
+    description: "Last resort: the folder holding shiplane.config.ts, when it is not the repo root"
+    default: "."
+
+outputs:
+  package-manager:
+    description: "pnpm, npm or yarn"
+    value: ${{ steps.detect.outputs.pm }}
+  exec:
+    description: "The prefix that runs an installed binary, such as `pnpm exec`"
+    value: ${{ steps.detect.outputs.exec }}
+  cache-hit:
+    description: "true when node_modules came from the cache and the install was skipped"
+    value: ${{ steps.modules.outputs.cache-hit }}
+
+runs:
+  using: composite
+  steps:
+    - name: Detect the package manager and Node version
+      id: detect
+      env:
+        NODE_VERSION_INPUT: ${{ inputs.node-version }}
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+      shell: node {0}
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        const fs = require("node:fs");
+        const path = require("node:path");
+        const docs =
+          "https://github.com/arnaud-zg/js-packages/blob/main/docs/shiplane/reference.md#github-actions-workflow";
+        const fail = (message) => {
+          console.log(`::error::${message} (${docs})`);
+          process.exit(1);
+        };
+        const here = process.cwd();
+        const root = process.env.GITHUB_WORKSPACE ?? here;
+        const read = (file) => {
+          for (const dir of [here, root]) {
+            const full = path.join(dir, file);
+            if (fs.existsSync(full)) return fs.readFileSync(full, "utf8");
+          }
+          return null;
+        };
+        const configs = ["ts", "mts", "js", "mjs"].map((ext) => `shiplane.config.${ext}`);
+        if (!configs.some((file) => fs.existsSync(path.join(here, file)))) {
+          fail(`no shiplane.config.ts in ${process.env.WORKING_DIRECTORY}`);
+        }
+        const manifest = JSON.parse(read("package.json") ?? "{}");
+        const lockfiles = {
+          "pnpm-lock.yaml": "pnpm",
+          "package-lock.json": "npm",
+          "yarn.lock": "yarn",
+          "bun.lock": "bun",
+          "bun.lockb": "bun",
+        };
+        const fromLock = Object.entries(lockfiles).find(([file]) => read(file) !== null)?.[1];
+        const pm = manifest.packageManager?.split("@")[0] ?? fromLock;
+        if (!pm) fail("no package manager: add packageManager to package.json, or a lockfile");
+        if (!["pnpm", "npm", "yarn"].includes(pm)) {
+          fail(`unsupported package manager "${pm}": pnpm, npm or yarn`);
+        }
+        const input = process.env.NODE_VERSION_INPUT;
+        const file = [".nvmrc", ".node-version"].find((name) => read(name) !== null);
+        const engines = manifest.engines?.node;
+        if (!input && !file && !engines) fail("no Node version: add .nvmrc or set node-version");
+        const execs = { pnpm: "pnpm exec", npm: "npx --no-install", yarn: "yarn" };
+        const out = [
+          `pm=${pm}`,
+          `has-manifest-pm=${Boolean(manifest.packageManager)}`,
+          `node-version=${input || (file ? "" : engines)}`,
+          `node-version-file=${input || !file ? "" : path.relative(root, path.join(fs.existsSync(path.join(here, file)) ? here : root, file))}`,
+          `exec=${execs[pm]}`,
+        ];
+        fs.appendFileSync(process.env.GITHUB_OUTPUT, out.join("\n") + "\n");
+        console.log(out.join("\n"));
+
+    # Before Node, so setup-node finds pnpm to cache its store. It reads packageManager and
+    # installs any pnpm version, which the corepack a Node release ships with may be too old for.
+    - name: Set up pnpm
+      if: ${{ steps.detect.outputs.pm == 'pnpm' }}
+      uses: pnpm/action-setup@v4
+      with:
+        version: ${{ steps.detect.outputs.has-manifest-pm != 'true' && 'latest' || '' }}
+
+    - name: Set up Node
+      uses: actions/setup-node@v5
+      with:
+        node-version: ${{ steps.detect.outputs.node-version }}
+        node-version-file: ${{ steps.detect.outputs.node-version-file }}
+        # pnpm and npm cache their store here; yarn installs without a cache.
+        cache: ${{ steps.detect.outputs.pm != 'yarn' && steps.detect.outputs.pm || '' }}
+        # Never guessed from packageManager: the line above says which cache.
+        package-manager-cache: false
+
+    - name: Set up yarn
+      if: ${{ steps.detect.outputs.pm == 'yarn' }}
+      env:
+        HAS_MANIFEST_PM: ${{ steps.detect.outputs.has-manifest-pm }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        # corepack reads packageManager; the one a Node release ships with may be too old.
+        if [ "$HAS_MANIFEST_PM" = "true" ]; then
+          npm install --global corepack@latest
+          corepack enable
+        else npm install --global yarn; fi
+        yarn --version
+
+    # The installed tree, keyed on the exact lockfile and Node: a hit skips the install.
+    - name: Node version
+      id: node
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: echo "version=$(node --version)" >> "$GITHUB_OUTPUT"
+
+    - name: Restore node_modules
+      id: modules
+      if: ${{ inputs.install-command == '' }}
+      uses: actions/cache/restore@v4
+      with:
+        path: |
+          node_modules
+          */node_modules
+          */*/node_modules
+        key: shiplane-modules-${{ runner.os }}-${{ steps.node.outputs.version }}-${{ hashFiles('**/pnpm-lock.yaml', '**/package-lock.json', '**/yarn.lock') }}
+
+    - name: Install
+      id: install
+      if: ${{ steps.modules.outputs.cache-hit != 'true' }}
+      env:
+        PM: ${{ steps.detect.outputs.pm }}
+        INSTALL_COMMAND: ${{ inputs.install-command }}
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        if [ -n "$INSTALL_COMMAND" ]; then
+          eval "$INSTALL_COMMAND"
+          exit
+        fi
+        case "$PM" in
+          pnpm) pnpm install --frozen-lockfile ;;
+          npm) npm ci ;;
+          yarn)
+            if [ "$(yarn --version | cut -d. -f1)" -ge 2 ]; then yarn install --immutable
+            else yarn install --frozen-lockfile; fi ;;
+        esac
+
+    # Only a tree installed from the lockfile, after a miss: never one a failed install left.
+    - name: Save node_modules
+      if: ${{ steps.modules.outcome == 'success' && steps.modules.outputs.cache-hit != 'true' && steps.install.outcome == 'success' }}
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          node_modules
+          */node_modules
+          */*/node_modules
+        key: ${{ steps.modules.outputs.cache-primary-key }}

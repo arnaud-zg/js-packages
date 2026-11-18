@@ -90,6 +90,7 @@ jobs:
         with:
           fetch-depth: 0
 
+      # The same steps as .github/actions/setup, which other repos import; a test keeps them equal.
       - name: Detect the package manager and Node version
         id: detect
         env:
@@ -185,7 +186,7 @@ jobs:
       - name: Restore node_modules
         id: modules
         if: ${{ inputs.install-command == '' }}
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             node_modules
@@ -194,6 +195,7 @@ jobs:
           key: shiplane-modules-${{ runner.os }}-${{ steps.node.outputs.version }}-${{ hashFiles('**/pnpm-lock.yaml', '**/package-lock.json', '**/yarn.lock') }}
 
       - name: Install
+        id: install
         if: ${{ steps.modules.outputs.cache-hit != 'true' }}
         env:
           PM: ${{ steps.detect.outputs.pm }}
@@ -210,6 +212,17 @@ jobs:
               if [ "$(yarn --version | cut -d. -f1)" -ge 2 ]; then yarn install --immutable
               else yarn install --frozen-lockfile; fi ;;
           esac
+
+      # Only a tree installed from the lockfile, after a miss: never one a failed install left.
+      - name: Save node_modules
+        if: ${{ steps.modules.outcome == 'success' && steps.modules.outputs.cache-hit != 'true' && steps.install.outcome == 'success' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            node_modules
+            */node_modules
+            */*/node_modules
+          key: ${{ steps.modules.outputs.cache-primary-key }}
 
       - name: Mint a GitHub App token
         id: app

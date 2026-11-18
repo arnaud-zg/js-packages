@@ -303,6 +303,30 @@ as written, and the `SHIPLANE_APP_*` secrets it passes.
 Pinned to the installed version and passing the secrets its adapters read, it prints one
 `✓ ship.yml` line. Source: `src/application/callerWorkflow.ts`.
 
+### Setup action
+
+`.github/actions/setup` is a composite action holding the steps `shiplane-ship.yml` runs before it
+ships: detect the package manager and Node version, set up pnpm, Node or yarn, restore
+`node_modules`, install, and save `node_modules` after a miss whose install succeeded. It fails on
+the same checks, run from a folder holding `shiplane.config.ts`. It checks nothing out and reads no
+secret. Pin it like the workflow, to a release commit:
+`uses: arnaud-zg/js-packages/.github/actions/setup@<sha> # shiplane@x.y.z`.
+
+| Input               | Default | Meaning                                                                                    |
+| ------------------- | ------- | ------------------------------------------------------------------------------------------ |
+| `node-version`      | `""`    | Last resort: a Node version, when there is no `.nvmrc`, `.node-version`, or `engines.node` |
+| `install-command`   | `""`    | Last resort: the install command; skips the `node_modules` cache                           |
+| `working-directory` | `.`     | Last resort: the folder holding `shiplane.config.ts`                                       |
+
+| Output            | Value                                                                             |
+| ----------------- | --------------------------------------------------------------------------------- |
+| `package-manager` | `pnpm`, `npm` or `yarn`                                                           |
+| `exec`            | The prefix that runs an installed binary: `pnpm exec`, `npx --no-install`, `yarn` |
+| `cache-hit`       | `true` when `node_modules` came from the cache, and the install was skipped       |
+
+The workflow keeps its own copy of these steps, since a reusable workflow cannot use an action from
+its own commit; a test fails when the two differ. Source: `.github/actions/setup/action.yml`.
+
 ## Example
 
 [`examples/render-server-hosting.ts`](../../packages/shiplane/examples/render-server-hosting.ts)
