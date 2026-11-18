@@ -21,7 +21,7 @@ describe("publishing a test release on a numbered channel", () => {
     expect(done).toBe(true);
     expect(publishes(shell)).toEqual(["publish @acme/lib 1.3.0-beta.0"]);
     expect(distTags).toEqual(["beta"]);
-    expect(output.text).toContain("npm i @acme/lib@beta");
+    expect(output.text).toContain("npm i @acme/lib@1.3.0-beta.0");
   });
 
   it("given beta.0 and beta.1 already on the registry, when beta publishes again, then it takes beta.2", async () => {
@@ -54,7 +54,7 @@ describe("publishing a test release on a numbered channel", () => {
     expect(world.distTags).toEqual(["rc"]);
   });
 
-  it("given a beta on the pull request, when it comments, then the comment names the channel and says the tag moves to each new beta", async () => {
+  it("given a beta on the pull request, when it comments, then the comment names the channel and offers its tag to follow each new beta", async () => {
     const { context, host } = branchWorld();
     host.seed({
       openPrs: [
@@ -70,7 +70,9 @@ describe("publishing a test release on a numbered channel", () => {
     const [event] = host.received;
     const body = event?.type === "upsert-comment" ? event.body : "";
     expect(body).toContain("test versions on the `beta` channel");
-    expect(body).toContain("`@beta` moves to each new beta.");
+    expect(body).toContain(
+      "To follow each new beta instead, install the tag: `npm i @acme/lib@beta`.",
+    );
   });
 });
 
