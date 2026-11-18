@@ -254,11 +254,26 @@ more, you pick which ones get a test release:
 │  ○ Switch to main            git switch main && git pull, then the real release
 ```
 
+### Which channel, when
+
+Each test release is one you run by hand with `pnpm shiplane test-release`, when you need it;
+nothing publishes one by itself. A snapshot is enough most of the time:
+
+| Channel   | Use it when                                                       | Skip it when                                |
+| --------- | ----------------------------------------------------------------- | ------------------------------------------- |
+| snapshot  | Someone tries one pull request before it merges                   | Never: it is the default                    |
+| `nightly` | Consumers want what is on main before the release                 | Main has not changed since the last nightly |
+| `alpha`   | A major version is under way and its API still changes            | Patches and minors                          |
+| `beta`    | The major's features are done; testers check them for 1–2 weeks   | Patches and minors                          |
+| `rc`      | The release is ready; it ships after a few quiet days with no fix | A small, low-risk patch                     |
+
+For a patch or a minor, snapshots and the real release are all you need.
+
 ### Give each branch a channel
 
-Without a setting, every branch publishes a snapshot. To make a branch publish on a channel by
-itself (in CI, a nightly job), pick a preset or write one map. Hover any name in your editor for
-what it publishes.
+Without a setting, every branch publishes a snapshot. To give a branch its own channel when you run
+`pnpm shiplane test-release` with no word, pick a preset or write one map. Hover any name in your
+editor for what it publishes.
 
 ```ts
 import { defineRelease, testReleases } from "shiplane";
