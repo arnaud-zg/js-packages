@@ -63,6 +63,41 @@ describe("the branch releases start from", () => {
     expect(await defaultBranchOf(seed)).toBe("main");
   });
 
+  it("given a clone of a repository whose default branch is develop, when a release picks the branch it starts from, then it is develop, as origin says", async () => {
+    const { dir, bare } = origin("develop");
+    git(["clone", "--quiet", bare, "clone"], dir);
+
+    expect(await defaultBranchOf(path.join(dir, "clone"))).toBe("develop");
+  });
+
+  it("given a checkout that never learned origin's default but has both main and master, when a release picks the branch it starts from, then it prefers main", async () => {
+    const { seed } = origin("master");
+    git(["branch", "main"], seed);
+
+    expect(await defaultBranchOf(seed)).toBe("main");
+  });
+
+  it("given a checkout whose only master is origin's, when a release picks the branch it starts from, then it is master", async () => {
+    const { seed } = origin("master");
+    git(["switch", "--quiet", "-c", "work"], seed);
+    git(["branch", "--quiet", "-D", "master"], seed);
+
+    expect(await defaultBranchOf(seed)).toBe("master");
+  });
+
+  it("given a local master never pushed anywhere, when a release picks the branch it starts from, then it is master", async () => {
+    const { seed } = origin("master");
+    git(["remote", "remove", "origin"], seed);
+
+    expect(await defaultBranchOf(seed)).toBe("master");
+  });
+
+  it("given a checkout with neither main nor master, when a release picks the branch it starts from, then it assumes main", async () => {
+    const { seed } = origin("trunk");
+
+    expect(await defaultBranchOf(seed)).toBe("main");
+  });
+
   it("given a main branch named in the config, when read, then it is that one", async () => {
     const { seed } = origin("master");
     const source = gitSourceControl({ main: "trunk" }).create({ root: seed, shell: systemShell });
