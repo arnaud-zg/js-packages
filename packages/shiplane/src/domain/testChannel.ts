@@ -6,8 +6,8 @@ import { branchTag, branchVersion } from "./branchRelease";
  */
 export const channels = {
   /**
-   * `<next>-<branch>.<sha>` under the npm tag `snapshot`, such as `0.6.0-feat-x.ae08284` on `feat-x`:
-   * one tag for every branch, so none piles up on npm; testers install the exact version.
+   * `<next>-<branch>.<sha>` with no npm tag, such as `0.6.0-feat-x.ae08284` on `feat-x`: it
+   * publishes under `snapshot` and drops it, so no tag piles up; testers install the exact version.
    * One per commit, temporary: what every branch publishes unless `testRelease` says otherwise.
    */
   snapshot: "snapshot",

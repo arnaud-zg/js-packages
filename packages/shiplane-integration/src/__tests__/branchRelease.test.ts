@@ -87,7 +87,7 @@ const branchComments = async (world: ReturnType<typeof setUp>) =>
     .filter((body) => body.includes(MARKER));
 
 describe("Feature: a branch release for testers", () => {
-  it("given a branch with an open pull request and --yes, when shiplane runs, then its npm package is published under the snapshot tag and git keeps no trace", async () => {
+  it("given a branch with an open pull request and --yes, when shiplane runs, then its npm package is published, its temporary npm tag removed, and git keeps no trace", async () => {
     // given
     const world = setUp();
     const before = world.files.all;
@@ -103,6 +103,12 @@ describe("Feature: a branch release for testers", () => {
       cwd: "/repo/packages/kit",
       env: undefined,
     });
+    expect(world.shell.calls).toContainEqual(
+      expect.objectContaining({
+        command: "npm",
+        args: ["dist-tag", "rm", "@acme/kit", "snapshot"],
+      }),
+    );
     expect(world.published).toEqual([expect.stringContaining('"version": "0.6.0-feat-x.ae08284"')]);
     expect(world.files.all).toEqual(before);
     expect(world.versioning.applied).toEqual([]);
@@ -196,7 +202,7 @@ describe("Feature: a branch release for testers", () => {
       {
         value: "publish",
         label: "Publish a test release",
-        hint: "0.6.0-feat-x.ae08284 → npm tag snapshot",
+        hint: "0.6.0-feat-x.ae08284 → no npm tag",
       },
       {
         value: "switch",

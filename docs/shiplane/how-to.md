@@ -237,23 +237,24 @@ pnpm shiplane test-release --dry-run    # each package's version and npm tag, no
 Each version builds on the version the changesets give the package next, so it always sorts above
 the last release. Two kinds of channel:
 
-| Channel                                    | Version              | npm tag    | Lifetime              |
-| ------------------------------------------ | -------------------- | ---------- | --------------------- |
-| `snapshot` (default)                       | `0.6.0-main.329aafb` | `snapshot` | one per commit        |
-| `nightly`, `alpha`, `beta`, `rc`, any word | `0.6.0-beta.<n>`     | the word   | `<n>` +1 each publish |
+| Channel                                    | Version              | npm tag  | Lifetime              |
+| ------------------------------------------ | -------------------- | -------- | --------------------- |
+| `snapshot` (default)                       | `0.6.0-main.329aafb` | none     | one per commit        |
+| `nightly`, `alpha`, `beta`, `rc`, any word | `0.6.0-beta.<n>`     | the word | `<n>` +1 each publish |
 
 `<n>` is the next number npm does not hold for that version and channel, from 0. Nothing is written
 to git: no tag, no commit; versions are written to `package.json` for the publish and put back
-after, even when it fails. `latest` stays the real release's: no test release can use it. Every
-branch's snapshot shares the one `snapshot` tag, so no branch leaves a tag behind on npm; testers
-install a snapshot by its exact version, which the install lines give.
+after, even when it fails. `latest` stays the real release's: no test release can use it. A snapshot
+keeps no npm tag: npm needs one to publish, so it goes out under `snapshot` and loses it right
+after, and no branch leaves a tag behind. Testers install it by its exact version, which the install
+lines give.
 
 In a terminal, plain `pnpm shiplane` on a feature branch asks first; with two pending packages or
 more, you pick which ones get a test release:
 
 ```text
 ◆  You're on feat/x, not main.
-│  ● Publish a test release    0.6.0-feat-x.ae08284 → npm tag snapshot
+│  ● Publish a test release    0.6.0-feat-x.ae08284 → no npm tag
 │  ○ Switch to main            git switch main && git pull, then the real release
 ```
 

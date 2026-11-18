@@ -10,7 +10,10 @@ const KIT = testUnit("kit", {
   module: "published-package",
 });
 
-const jobsFor = (options: Record<string, unknown>) =>
+const jobsFor = (
+  options: Record<string, unknown>,
+  input: { distTag?: string; dropTag?: boolean } = { distTag: "feat-x" },
+) =>
   npmPackageRegistry()
     .create({ root: "/repo", shell: new RecordingShell() })
     .jobs({
@@ -20,7 +23,7 @@ const jobsFor = (options: Record<string, unknown>) =>
       commit: "ae08284",
       defaultBranch: "main",
       options: { access: "public", tag: "latest", ...options },
-      distTag: "feat-x",
+      ...input,
     });
 
 describe("publishing a branch release to npm", () => {
@@ -36,6 +39,16 @@ describe("publishing a branch release to npm", () => {
       "public",
       "--tag",
       "feat-x",
+    ]);
+  });
+
+  it("given a tag to drop, when its jobs are built, then it publishes under the tag and removes it after", () => {
+    const [job] = jobsFor({}, { distTag: "snapshot", dropTag: true });
+
+    expect(job?.label).toBe("publish kit-workspace@0.6.0-feat-x.ae08284, no tag kept");
+    expect(job?.local.map(({ command, args }) => [command, ...args].join(" "))).toEqual([
+      "pnpm publish --no-git-checks --access public --tag snapshot",
+      "npm dist-tag rm kit-workspace snapshot",
     ]);
   });
 

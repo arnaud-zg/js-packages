@@ -70,8 +70,14 @@ export interface BranchPublished {
 const NPMJS = "https://www.npmjs.com/package";
 const FENCE = "```";
 
-/** The npm tag every branch's snapshot shares; its versions are installed exactly, never by tag. */
+/**
+ * The npm tag a snapshot publishes under, removed right after: npm needs one to publish, and a
+ * snapshot keeps none, so it is installed by its exact version.
+ */
 export const SNAPSHOT_TAG = "snapshot";
+
+/** How the tag reads to a person: `npm tag beta`, or `no npm tag` for a snapshot. */
+export const tagWords = (tag: string) => (tag === SNAPSHOT_TAG ? "no npm tag" : `npm tag ${tag}`);
 
 /**
  * What a tester installs: a snapshot's exact version, since `@snapshot` is whichever branch
