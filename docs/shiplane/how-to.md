@@ -226,7 +226,8 @@ never when main is behind the last preview build.
 
 A test release publishes what your **pending changesets** release, before the real release, for
 testers to install. From any branch, main included; no pull request needed. npm packages only for
-now: other pending units are listed as not available yet.
+now: other pending units are listed as not available yet. Snapshots are temporary, not a release to
+depend on: their tags are [cleaned up](#clean-up-old-snapshots) once old.
 
 ```sh
 pnpm shiplane test-release              # the branch's channel: a snapshot unless configured
@@ -327,7 +328,7 @@ export default defineRelease({
 | --------------------- | --------------------------------------------------------------------------- |
 | `comments.table`      | The install table above                                                     |
 | `comments.compact`    | `` 📦 Test version of `feat/x` ([`a1b2c3d`](…)): `npm i shiplane@feat-x` `` |
-| `"Try it: {install}"` | `` Try it: `npm i shiplane@feat-x` ``                                       |
+| `"Try it: {install}"` | `` Try it: `npm i shiplane@0.6.0-feat-x.ae08284` ``                         |
 
 Your own text takes `{branch}`, `{commit}` (linked), `{channel}`, `{table}` (the install table with
 its notes) and `{install}` (one `npm i` line for every package). A hidden marker goes on top, so the
@@ -336,6 +337,34 @@ same comment is edited whatever the text.
 It refuses uncommitted changes. With no pending changeset it says to add one (`pnpm changeset`). The
 default branch is read from git (`origin/HEAD`, else `main` or `master`);
 `gitSourceControl({ main })` sets it.
+
+### Clean up old snapshots
+
+> **Warning:** snapshots are for trying a change, not for depending on. A snapshot's npm tag, and in
+> time the version itself, can be removed at any point: never pin a snapshot in anything that must
+> keep installing. Depend on a released version, or on a numbered channel such as `beta`.
+
+Snapshots used to be tagged with their branch name, and a run that stops partway can leave the
+`snapshot` tag behind. `prune-snapshots` removes those npm tags once their version is old:
+
+```sh
+pnpm shiplane prune-snapshots --dry-run            # each old snapshot tag, nothing removed
+pnpm shiplane prune-snapshots --otp 123456         # remove them, one code for all
+pnpm shiplane prune-snapshots --older-than 60      # a longer wait than the 30-day default
+```
+
+- **What counts as old:** the version the tag points at was published 30 days ago or more. A branch
+  still under test publishes a newer snapshot well within that, so its testers are never cut off.
+  `--older-than` takes 7 days or more; a version npm gives no publish time for is never old.
+- **What it touches:** only tags a shiplane snapshot gives, on a snapshot version
+  (`0.6.0-feat-x.ae08284` under `feat-x`, `branch-feat-x` or `snapshot`). Never `latest`, a tag on
+  the version `latest` points at, a numbered channel such as `beta`, or a tag of your own.
+- **What stays:** the version. Only its tag goes, so `npm i shiplane@0.6.0-feat-x.ae08284` still
+  installs.
+- **Two-factor accounts:** pass the code with `--otp`. A code lasts about 30 seconds; in a terminal,
+  a removal that fails asks for a fresh one and retries. Anywhere else it stops, and running it
+  again with a fresh `--otp` picks up the tags still there.
+- **Asking first:** in a terminal it lists the tags and asks; elsewhere it needs `--yes`.
 
 ## Choose GitHub Actions or this machine
 

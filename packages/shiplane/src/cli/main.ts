@@ -16,6 +16,7 @@ import { pickScope } from "../application/pickScope";
 import { planShips } from "../application/planShips";
 import { prepareRelease } from "../application/prepareRelease";
 import { promote } from "../application/promote";
+import { pruneSnapshots } from "../application/pruneSnapshots";
 import { paint } from "../application/say";
 import { setup } from "../application/setup";
 import { CONFIG_FILE, refreshEditorSchema } from "../application/setupFiles";
@@ -48,6 +49,8 @@ const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, tri
                                   (on a branch: a test release, asked first)
   shiplane test-release [channel] publish what the changesets release for testers, npm packages only:
                                   a snapshot (0.6.0-main.329aafb) or a numbered channel (0.6.0-beta.2)
+  shiplane prune-snapshots        remove the npm tags of snapshots published 30 days ago or more:
+                                  --older-than <days> (7 or more), --otp <code>, --dry-run, --yes
   shiplane promote                production, from what preview runs (--channel production too)
   shiplane status [--json]        where every unit stands, and what to run next
   shiplane version                open the release PR for what is pending
@@ -104,6 +107,8 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
       via: { type: "string" },
       blank: { type: "boolean", default: false },
       ci: { type: "boolean", default: false },
+      "older-than": { type: "string" },
+      otp: { type: "string" },
     },
   });
 
@@ -124,6 +129,14 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
         ? branchRelease(context, { onDefault: "release" })
         : promote(context, via),
     "test-release": (context) => branchRelease(context, testRelease),
+    "prune-snapshots": (context) =>
+      pruneSnapshots(context, {
+        dryRun: values["dry-run"],
+        ...(values["older-than"] === undefined
+          ? {}
+          : { olderThanDays: Number(values["older-than"]) }),
+        ...(values.otp === undefined ? {} : { otp: values.otp }),
+      }),
     // The command's first name, kept working, left out of the help.
     branch: (context) => branchRelease(context, testRelease),
     promote: (context) => promote(context, via),

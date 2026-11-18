@@ -23,4 +23,8 @@ export const publishedPackage = ({
     }
     return registry.publishedVersions(context, input);
   },
+  tags: async (context, input) =>
+    (await context.open(packageRegistry).tags?.(context, input)) ?? [],
+  untagJob: (context, input, tag, otp) =>
+    context.open(packageRegistry).untagJob?.(input, tag, otp) ?? null,
 });

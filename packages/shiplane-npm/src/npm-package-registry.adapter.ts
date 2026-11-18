@@ -8,6 +8,7 @@ import type {
   RegistryFacts,
   RegistryShip,
   Resolved,
+  TaggedVersion,
 } from "shiplane/plugin";
 import {
   definePackageRegistry,
@@ -56,6 +57,42 @@ const distTags = async (context: DecideContext, name: string) => {
   const parsed = parseJson({ text: result.stdout || "{}", schema: DistTags });
   return parsed.success ? parsed.data : {};
 };
+
+const TagsAndTimes = z.object({
+  "dist-tags": DistTags.default({}),
+  time: z.record(z.string(), z.string()).default({}),
+});
+
+/** Every dist-tag with when its version was published; none when npm failed or never had it. */
+const tags = async (context: DecideContext, input: JobInput<Options>): Promise<TaggedVersion[]> => {
+  const result = await context.shell.capture("npm", [
+    "view",
+    nameOf(input),
+    "dist-tags",
+    "time",
+    "--json",
+  ]);
+  if (result.status !== 0) return [];
+  const parsed = parseJson({ text: result.stdout || "{}", schema: TagsAndTimes });
+  if (!parsed.success) return [];
+  const { "dist-tags": byTag, time } = parsed.data;
+  return Object.entries(byTag).map(([tag, version]) => ({
+    tag,
+    version,
+    publishedAt: time[version] ?? null,
+  }));
+};
+
+/** Removes one dist-tag; the version stays installable by its number. */
+const untagJob = (input: JobInput<Options>, tag: string, otp?: string): Job => ({
+  label: `remove the ${tag} tag from ${nameOf(input)}`,
+  local: [
+    {
+      command: "npm",
+      args: ["dist-tag", "rm", nameOf(input), tag, ...(otp ? [`--otp=${otp}`] : [])],
+    },
+  ],
+});
 
 const Versions = z.union([z.array(z.string()), z.string().transform((one) => [one])]);
 
@@ -171,6 +208,9 @@ export const npmPackageRegistry = (): NpmPackageRegistryAdapter =>
     publishedName: nameOf,
     // A numbered test release, such as 0.6.0-beta.<n>, takes the next number npm does not hold.
     publishedVersions,
+    // shiplane prune-snapshots reads every tag and removes the old snapshots' ones.
+    tags,
+    untagJob,
     jobs: (input) => (input.distTag ? [publishJob(input)] : [publishJob(input), moveTagJob(input)]),
     decide,
     live,

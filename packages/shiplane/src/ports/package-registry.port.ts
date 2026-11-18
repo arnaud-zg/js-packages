@@ -1,4 +1,5 @@
-import type { DecideContext, Decision, Delivery, JobInput } from "./delivery.port";
+import type { TaggedVersion } from "../domain/snapshotTags";
+import type { DecideContext, Decision, Delivery, Job, JobInput } from "./delivery.port";
 
 /** Publishes a package and points a dist-tag at it: npm today. */
 export interface PackageRegistryPort<Options = Record<string, unknown>> extends Delivery<Options> {
@@ -12,6 +13,13 @@ export interface PackageRegistryPort<Options = Record<string, unknown>> extends 
    * Without it, a test release only publishes snapshots.
    */
   publishedVersions?(context: DecideContext, input: JobInput<Options>): Promise<string[]>;
+  /**
+   * Every dist-tag of the package, with when its version was published, for
+   * `shiplane prune-snapshots`. Without it, that command skips the package.
+   */
+  tags?(context: DecideContext, input: JobInput<Options>): Promise<TaggedVersion[]>;
+  /** The job that removes one dist-tag; `otp` is the one-time code a two-factor account asks for. */
+  untagJob?(input: JobInput<Options>, tag: string, otp?: string): Job;
   /** The version is out on the environment: published, and its dist-tag points at it. */
   live(context: DecideContext, input: JobInput<Options>): Promise<boolean>;
 }
