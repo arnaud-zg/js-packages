@@ -21,7 +21,7 @@ export type {
   DeliveryAdapter,
   ServiceAdapter,
 } from "./ports/adapter.port";
-export type { CallerWorkflow, CiPipelinePort } from "./ports/ci-pipeline.port";
+export type { CallerNeeds, CallerWorkflow, CiPipelinePort } from "./ports/ci-pipeline.port";
 export type { CodeHostPort } from "./ports/code-host.port";
 export type { SourceControlPort } from "./ports/source-control.port";
 export type { VersioningPort } from "./ports/versioning.port";

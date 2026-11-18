@@ -1,4 +1,4 @@
-import type { CiPipelinePort, Deploy, ServiceAdapter, Shell } from "shiplane/plugin";
+import type { CallerNeeds, CiPipelinePort, Deploy, ServiceAdapter, Shell } from "shiplane/plugin";
 import { actionsMinutes, billedMinutes, z } from "shiplane/plugin";
 
 import { GH_REQUIREMENT, ghCli } from "./gh-cli";
@@ -27,8 +27,23 @@ const isMissing = (error: unknown) =>
 /** Where shiplane's own workflow and its release tags live. */
 const SHIPLANE_REPO = "arnaud-zg/js-packages";
 
+/** What shiplane's workflow may do: comment on PRs and issues only with release comments. */
+const permissionsOf = ({ features }: CallerNeeds) => [
+  "permissions:",
+  "  contents: read",
+  "  deployments: write",
+  "  actions: read",
+  ...(features.includes("release-comments") ? ["  issues: write", "  pull-requests: write"] : []),
+];
+
+/** Each secret its adapters read, passed by name: GitHub hands a called workflow no other. */
+const secretsOf = ({ secrets }: CallerNeeds) =>
+  secrets.length === 0
+    ? []
+    : ["    secrets:", ...secrets.map((name) => `      ${name}: \${{ secrets.${name} }}`)];
+
 /** The workflow a repository ships from: a manual run calling shiplane's, pinned to a commit. */
-const callerContent = (sha: string, version: string) =>
+const callerContent = (sha: string, version: string, needs: CallerNeeds) =>
   [
     "# Ships with shiplane: `pnpm shiplane ship --via ci`, or Run workflow here.",
     "# Written by `shiplane setup`; `shiplane doctor` keeps the pin current.",
@@ -48,12 +63,7 @@ const callerContent = (sha: string, version: string) =>
     "        options: [preview, production]",
     "        default: preview",
     "",
-    "permissions:",
-    "  contents: read",
-    "  deployments: write",
-    "  actions: read",
-    "  issues: write",
-    "  pull-requests: write",
+    ...permissionsOf(needs),
     "",
     "jobs:",
     "  ship:",
@@ -61,7 +71,7 @@ const callerContent = (sha: string, version: string) =>
     "    with:",
     "      units: ${{ inputs.units }}",
     "      environment: ${{ inputs.environment }}",
-    "    secrets: inherit",
+    ...secretsOf(needs),
     "",
   ].join("\n");
 
@@ -105,7 +115,7 @@ const githubActions = (root: string, shell: Shell, shipWorkflow: string): CiPipe
         ...Object.entries(inputs).map(([key, value]) => `-f ${key}=${value}`),
       ].join(" "),
     workflowRuns: runs,
-    callerWorkflow: async (version) => {
+    callerWorkflow: async (version, needs) => {
       const tag = `shiplane@${version}`;
       const orMissing = (error: unknown) => {
         if (isMissing(error)) return null;
@@ -123,7 +133,7 @@ const githubActions = (root: string, shell: Shell, shipWorkflow: string): CiPipe
         const { sha } = CommitSchema.parse(commit);
         return {
           file: `.github/workflows/${shipWorkflow}`,
-          content: callerContent(sha, version),
+          content: callerContent(sha, version, needs),
           pin: sha,
         };
       }
@@ -140,7 +150,7 @@ const githubActions = (root: string, shell: Shell, shipWorkflow: string): CiPipe
           : object.sha;
       return {
         file: `.github/workflows/${shipWorkflow}`,
-        content: callerContent(sha, version),
+        content: callerContent(sha, version, needs),
         pin: sha,
       };
     },

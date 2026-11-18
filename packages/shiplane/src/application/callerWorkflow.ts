@@ -1,8 +1,9 @@
 import path from "node:path";
 
-import type { CallerWorkflow } from "../ports/ci-pipeline.port";
+import type { CallerNeeds, CallerWorkflow } from "../ports/ci-pipeline.port";
 import type { Release } from "./config/loadRelease";
 import type { SetupContext } from "./setupContext";
+import { requirementsOf } from "./requirements";
 import { paint, reasonOf } from "./say";
 
 /** What a workflow calling shiplane's own holds in its `uses:` line. */
@@ -10,13 +11,31 @@ const CALLS = "/.github/workflows/shiplane-ship.yml@";
 const USES = /^([ \t]*)uses:[ \t]*\S*\/\.github\/workflows\/shiplane-ship\.yml@.*$/m;
 const PINNED = /shiplane-ship\.yml@\S+[ \t]+#[ \t]*shiplane@(\S+)/;
 
+/**
+ * What the release needs its caller workflow to pass: each secret its adapters read on a runner,
+ * sorted, but `GH_TOKEN`, which shiplane's workflow sets itself; and its features' names.
+ */
+export const callerNeedsOf = (release: Release): CallerNeeds => ({
+  secrets: [...new Set(requirementsOf(release).flatMap(({ secrets = [] }) => secrets))]
+    .filter((name) => name !== "GH_TOKEN")
+    .sort(),
+  features: release.features.map(({ name }) => name),
+});
+
 /** The workflow a repository ships from, as its CI pipeline writes it; null when it writes none. */
 const callerOf = ({ version, root, shell }: SetupContext, release: Release) => {
   const ci = release.flow.ciPipeline.create({ root, shell });
   const file = ci.workflowFile?.(ci.shipWorkflow);
   const make = ci.callerWorkflow;
   if (!version || !file || !make) return null;
-  return { file, name: path.posix.basename(file), version, make: () => make(version) };
+  const needs = callerNeedsOf(release);
+  return {
+    file,
+    name: path.posix.basename(file),
+    version,
+    needs,
+    make: (passing = needs) => make(version, passing),
+  };
 };
 
 /** The made workflow, or null once why it could not be made is said. */
@@ -35,7 +54,7 @@ const madeOrSaid = async (
 export const callerWrite = async (context: SetupContext, release: Release) => {
   const caller = callerOf(context, release);
   if (!caller || context.files.exists(caller.file)) return null;
-  const made = await madeOrSaid(context, caller.make, "  ");
+  const made = await madeOrSaid(context, () => caller.make(), "  ");
   return made ? { file: made.file, text: made.content, created: true } : null;
 };
 
@@ -45,31 +64,170 @@ const repinned = (text: string, content: string) => {
   return text.replace(USES, (_line, indent: string) => `${indent}${uses}`);
 };
 
-/** What is wrong with the caller workflow, its fix, and whether that fix may overwrite a person's. */
-const problemOf = (file: string, name: string, version: string, text: string | null) => {
+const SECRETS = /^[ \t]*secrets:/;
+const PERMISSIONS = /^permissions:/;
+const indentOf = (line = "") => /^[ \t]*/.exec(line)?.[0] ?? "";
+
+/** The lines of the block `opens` starts, as [start, end), or null when there is none. */
+const blockOf = (lines: readonly string[], opens: RegExp) => {
+  const start = lines.findIndex((line) => opens.test(line));
+  if (start === -1) return null;
+  const indent = indentOf(lines[start]);
+  let end = start + 1;
+  while (end < lines.length && lines[end]?.trim() && indentOf(lines[end]).length > indent.length) {
+    end += 1;
+  }
+  return { start, end, indent };
+};
+
+/** The secret names a caller workflow passes, null for `secrets: inherit`, which passes them all. */
+const passedOf = (lines: readonly string[]) => {
+  const block = blockOf(lines, SECRETS);
+  if (!block) return [];
+  const body = lines.slice(block.start, block.end).map((line) => line.replace(/#.*/, ""));
+  const [first = "", ...rest] = body;
+  const value = first.replace(SECRETS, "").trim();
+  if (value === "inherit") return null;
+  return [...[value, ...rest].join("\n").matchAll(/(?:^|[{,\s])([A-Za-z_]\w*)[ \t]*:/g)].map(
+    ([, name = ""]) => name,
+  );
+};
+
+/**
+ * `lines` with the block `opens` starts as `content` has it, re-indented, or dropped when `content`
+ * has none. A block `lines` lacks goes at `absent`, or nowhere when that is null.
+ */
+const withBlock = (
+  lines: readonly string[],
+  content: readonly string[],
+  opens: RegExp,
+  absent: { start: number; indent: string } | null,
+) => {
+  const place = blockOf(lines, opens) ?? (absent && { ...absent, end: absent.start });
+  if (!place) return [...lines];
+  const theirs = blockOf(content, opens);
+  const block = theirs
+    ? content
+        .slice(theirs.start, theirs.end)
+        .map((line) => `${place.indent}${line.slice(theirs.indent.length)}`)
+    : [];
+  return [...lines.slice(0, place.start), ...block, ...lines.slice(place.end)];
+};
+
+/** Where a job's `secrets:` goes when it has none: after the keys beside its `uses:` line. */
+const afterUses = (lines: readonly string[]) => {
+  const uses = lines.findIndex((line) => USES.test(line));
+  const indent = indentOf(lines[uses]);
+  let start = uses + 1;
+  while (
+    start < lines.length &&
+    lines[start]?.trim() &&
+    indentOf(lines[start]).length >= indent.length
+  ) {
+    start += 1;
+  }
+  return { start, indent };
+};
+
+/** `text` passing the secrets and asking the permissions `content` does, the rest as written. */
+const resecreted = (text: string, content: string) => {
+  const lines = text.split("\n");
+  const made = content.split("\n");
+  const secreted = withBlock(lines, made, SECRETS, afterUses(lines));
+  return withBlock(secreted, made, PERMISSIONS, null).join("\n");
+};
+
+/** `needs`, plus the GitHub App secrets `text` passes by hand: shiplane's own, kept as they are. */
+const withAppSecrets = (needs: CallerNeeds, text: string | null): CallerNeeds => {
+  const app = (text === null ? [] : (passedOf(text.split("\n")) ?? [])).filter((name) =>
+    name.startsWith("SHIPLANE_APP_"),
+  );
+  return { ...needs, secrets: [...new Set([...needs.secrets, ...app])].sort() };
+};
+
+/** Which app needs a secret, and what it ships with, as a person reads it. */
+const whoNeeds = (release: Release, secret: string) => {
+  for (const module of release.modules) {
+    const unit = release.units.find(
+      (app) =>
+        app.module === module.name &&
+        (module.requirements?.([app]) ?? []).some(({ secrets = [] }) => secrets.includes(secret)),
+    );
+    if (unit) return `${unit.dir} ships with ${module.provider}`;
+  }
+  return "the release needs it";
+};
+
+/** What is wrong with the secrets a caller workflow passes, said by name; null when nothing is. */
+const secretsSaid = (release: Release, name: string, text: string, needed: readonly string[]) => {
+  const passed = passedOf(text.split("\n"));
+  if (passed === null) {
+    return needed.length === 0
+      ? `${name} passes every secret (inherit), and its adapters need none`
+      : `${name} passes every secret (inherit), not only ${needed.join(", ")}`;
+  }
+  const said = [
+    ...needed
+      .filter((secret) => !passed.includes(secret))
+      .map((secret) => `passes no ${secret}, and ${whoNeeds(release, secret)}`),
+    ...passed
+      .filter((secret) => !needed.includes(secret))
+      .map((secret) => `passes ${secret}, which no adapter needs`),
+  ];
+  return said.length === 0 ? null : `${name} ${said.join("; ")}`;
+};
+
+interface Problem {
+  said: string;
+  ask: string;
+  /** The file once fixed, given it as it stands and as the pipeline makes it. */
+  fix: (text: string, content: string) => string;
+  /** Set when fixing it loses the person's own workflow. */
+  overwrites?: boolean;
+}
+
+type Caller = NonNullable<ReturnType<typeof callerOf>>;
+
+/** What is wrong with the caller workflow, each with its fix; one that overwrites comes alone. */
+const problemsOf = (release: Release, caller: Caller, text: string | null): Problem[] => {
+  const { file, name, version, needs } = caller;
   if (text === null) {
-    return { said: `${name} missing`, ask: `Write ${file}?`, fix: (content: string) => content };
+    return [{ said: `${name} missing`, ask: `Write ${file}?`, fix: (_text, content) => content }];
   }
   if (!text.includes(CALLS)) {
-    return {
-      said: `${name} does not call shiplane-ship.yml`,
-      ask: `Replace ${file} with one that calls shiplane-ship.yml? Your workflow is lost.`,
-      fix: (content: string) => content,
-      overwrites: true,
-    };
+    return [
+      {
+        said: `${name} does not call shiplane-ship.yml`,
+        ask: `Replace ${file} with one that calls shiplane-ship.yml? Your workflow is lost.`,
+        fix: (_text, content) => content,
+        overwrites: true,
+      },
+    ];
   }
+  const problems: Problem[] = [];
   const pinned = PINNED.exec(text)?.[1];
-  if (pinned === version) return null;
-  return {
-    said: `${name} pins ${pinned ? `shiplane@${pinned}` : "no shiplane version"}, installed ${version}`,
-    ask: `Re-pin ${file} to shiplane@${version}?`,
-    fix: (content: string) => repinned(text, content),
-  };
+  if (pinned !== version) {
+    problems.push({
+      said: `${name} pins ${pinned ? `shiplane@${pinned}` : "no shiplane version"}, installed ${version}`,
+      ask: `Re-pin ${file} to shiplane@${version}?`,
+      fix: repinned,
+    });
+  }
+  const said = secretsSaid(release, name, text, needs.secrets);
+  if (said) {
+    problems.push({
+      said,
+      ask: `Pass ${file} only the secrets its adapters need, with the permissions they need?`,
+      fix: resecreted,
+    });
+  }
+  return problems;
 };
 
 /**
  * Doctor's check of the caller workflow, on a laptop only: there, pinned to the shiplane installed,
- * each problem said with its fix offered. Replacing a person's own workflow is asked, never assumed.
+ * passing the secrets the configured adapters need, each problem said with its fix offered.
+ * Replacing a person's own workflow is asked, never assumed; re-pinning and the secrets are not.
  */
 export const checkCallerWorkflow = async (
   context: SetupContext,
@@ -82,22 +240,30 @@ export const checkCallerWorkflow = async (
   if (!caller) return true;
   const { file, name, version } = caller;
   const bar = `${paint("dim", "│")}  `;
-  const problem = problemOf(file, name, version, files.read(file));
-  if (!problem) {
+  const text = files.read(file);
+  const needs = withAppSecrets(caller.needs, text);
+  const problems = problemsOf(release, { ...caller, needs }, text);
+  if (problems.length === 0) {
     output.line(`${bar}${paint("green", "✓")} ${name}  ${paint("dim", `shiplane@${version}`)}`);
     return true;
   }
-  output.line(`${bar}${paint("red", "✗")} ${problem.said}`);
-  const agreed = problem.overwrites
-    ? !yes && prompter.interactive && (await prompter.confirm(problem.ask, false))
-    : yes || (prompter.interactive && (await prompter.confirm(problem.ask, true)));
-  if (!agreed) return false;
-  const made = await madeOrSaid(context, caller.make, bar);
+  problems.forEach(({ said }) => output.line(`${bar}${paint("red", "✗")} ${said}`));
+  const agreed: Problem[] = [];
+  for (const problem of problems) {
+    const fixing = problem.overwrites
+      ? !yes && prompter.interactive && (await prompter.confirm(problem.ask, false))
+      : yes || (prompter.interactive && (await prompter.confirm(problem.ask, true)));
+    if (fixing) agreed.push(problem);
+  }
+  if (agreed.length === 0) return false;
+  const made = await madeOrSaid(context, () => caller.make(needs), bar);
   if (!made) return false;
-  const created = !files.exists(file);
-  files.write(file, problem.fix(made.content));
-  output.line(`${bar}${created ? paint("green", "+") : paint("yellow", "~")} ${file}`);
-  return true;
+  files.write(
+    file,
+    agreed.reduce((fixed, { fix }) => fix(fixed, made.content), text ?? ""),
+  );
+  output.line(`${bar}${text === null ? paint("green", "+") : paint("yellow", "~")} ${file}`);
+  return agreed.length === problems.length;
 };
 
 /** The Renovate preset that keeps the caller workflow's pin, commit and comment, current. */

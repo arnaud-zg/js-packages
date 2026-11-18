@@ -44,6 +44,29 @@ describe("Feature: setup writes the workflow a repository ships from", () => {
     expect(output.lines).toContain(`  + ${SHIP_YML}`);
   });
 
+  it("given an app whose adapter reads a token on a runner, when setup writes ship.yml, then it passes that secret by name and no other", async () => {
+    const hosting = fly();
+    hosting.fake.seed({
+      requirements: [
+        {
+          label: "flyctl",
+          check: { command: "flyctl", args: ["auth", "whoami"] },
+          secrets: ["GH_TOKEN", "FLY_API_TOKEN"],
+        },
+      ],
+    });
+    const repo = memoryRepository(PROVEN, [hosting]);
+    repo.shell.seed("git remote get-url origin", { stdout: "git@github.com:acme/mono.git\n" });
+    const context = runningShiplane(repo.context, "0.6.0", callingPipeline(["0.6.0"]));
+    repo.prompter.answer(true, true);
+
+    expect(await setup(context, { yes: false })).toBe(true);
+
+    expect(repo.files.read(SHIP_YML)).toBe(
+      callerFor("0.6.0", { secrets: ["FLY_API_TOKEN"], features: [] }),
+    );
+  });
+
   it("given a new repository, when the person declines to write it, then ship.yml is not left behind", async () => {
     const { context, prompter, files } = given(PROVEN);
     prompter.answer(true, false);

@@ -37,6 +37,7 @@
     "prettier": "catalog:",
     "shiplane": "workspace:*",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "yaml": "catalog:"
   }
 }
