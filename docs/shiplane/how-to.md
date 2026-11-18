@@ -364,8 +364,19 @@ export default defineRelease({ prepare: "pnpm turbo run build typecheck --filter
 secrets `SHIPLANE_APP_ID` and `SHIPLANE_APP_PRIVATE_KEY` of a GitHub App installed on the repo, and
 the workflow uses its token instead.
 
-**Upgrade.** The workflow is pinned to the commit of a shiplane release, never a moving tag. After
-upgrading `shiplane`, `pnpm shiplane doctor` offers to re-pin it.
+**Keep the pin current.** The workflow is pinned to the commit of a shiplane release, never a moving
+tag. After upgrading `shiplane`, `pnpm shiplane doctor` offers to re-pin it. If your repository uses
+Renovate, add the preset shiplane publishes for it, and Renovate opens a PR that moves the commit
+and the `# shiplane@x.y.z` comment together:
+
+```json
+{ "extends": ["github>arnaud-zg/js-packages//renovate/shiplane"] }
+```
+
+`shiplane setup` adds it to `renovate.json`, `.github/renovate.json` or `.renovaterc(.json)` when
+you have one, prints the line for a JSON5 or `package.json` config, and never creates a Renovate
+config. Renovate alone cannot do it: it reads only `prefix-1.2.3` or `prefix/1.2.3` tags, and
+shiplane's are `shiplane@1.2.3`. Dependabot reads neither, so rely on `shiplane doctor`.
 
 **Not supported, or a repo that differs.** The first step checks everything and fails before
 anything ships, with what to change: see
