@@ -251,13 +251,15 @@ describe("telling PRs and issues a release shipped them", () => {
   });
 
   it("given a unit's first release, when it ships, then nothing is commented", async () => {
-    const { context, host, source, prompter } = setUp();
+    const { context, host, source, prompter, output } = setUp();
     source.seed({ tags: { "expo@0.4.2": "t42" } });
     prompter.answer(true);
 
     await shipTo(context, "preview", {});
 
     expect(posted(host.received)).toEqual([]);
+    expect(host.reads).toEqual([]);
+    expect(output.text).not.toContain("could not read");
   });
 
   it("given a plan, when it runs, then it lists the comments a ship would post and posts none", async () => {
@@ -327,11 +329,60 @@ describe("one comment per PR or issue, whatever the units that ship it", () => {
     expect(posted(host.received)).toHaveLength(first);
   });
 
+  it("given two units whose PRs interleave, when they ship, then the PRs are commented lowest number first, then their issues", async () => {
+    const { context, host, prompter } = setUp({ units: [EXPO, API] });
+    prompter.answer(true, true);
+
+    await shipTo(context, "preview", {});
+
+    expect(posted(host.received).map(({ issue }) => issue)).toEqual([
+      `${REPO}#1912`,
+      `${REPO}#1913`,
+      `${REPO}#1914`,
+      `${REPO}#1915`,
+      `${REPO}#1549`,
+      `${REPO}#1550`,
+      `${REPO}#1600`,
+    ]);
+  });
+
   it("given two units shipping the same PR, when the plan runs, then its one comment lists both tags", async () => {
     const { context, output } = setUp({ units: [EXPO, API] });
 
     await planShips(context, "preview");
 
     expect(output.text).toContain(`comment on ${REPO}#1912: expo@0.4.2, api@0.0.11 on preview`);
+  });
+});
+
+describe("doctor checking release comments can reach GitHub and git", () => {
+  const GH = { label: "gh", check: { command: "gh", args: ["auth", "status"] } };
+  const GIT = { label: "git", check: { command: "git", args: ["--version"] } };
+  const adapter = (name: string, requirements?: () => (typeof GH)[]) => ({
+    name,
+    create: () => {
+      throw new Error("not opened");
+    },
+    ...(requirements ? { requirements } : {}),
+  });
+
+  it("given GitHub and git each needing a tool, when doctor runs, then release comments ask for both", () => {
+    const codeHost = adapter("github", () => [GH]);
+    const sourceControl = adapter("git", () => [GIT]);
+
+    const feature = releaseComments({ codeHost, sourceControl });
+
+    expect(feature.name).toBe("release-comments");
+    expect(feature.adapters).toEqual([codeHost, sourceControl]);
+    expect(feature.requirements?.()).toEqual([GH, GIT]);
+  });
+
+  it("given a code host and source control that need nothing, when doctor runs, then release comments ask for nothing", () => {
+    const feature = releaseComments({
+      codeHost: adapter("github"),
+      sourceControl: adapter("git"),
+    });
+
+    expect(feature.requirements?.()).toEqual([]);
   });
 });
