@@ -123,47 +123,35 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_OUTPUT, out.join("\n") + "\n");
           console.log(out.join("\n"));
 
+      # Before Node, so setup-node finds pnpm to cache its store. It reads packageManager and
+      # installs any pnpm version, which the corepack a Node release ships with may be too old for.
+      - name: Set up pnpm
+        if: ${{ steps.detect.outputs.pm == 'pnpm' }}
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ steps.detect.outputs.has-manifest-pm != 'true' && 'latest' || '' }}
+
       - name: Set up Node
         uses: actions/setup-node@v5
         with:
           node-version: ${{ steps.detect.outputs.node-version }}
           node-version-file: ${{ steps.detect.outputs.node-version-file }}
-          # setup-node caches on its own when package.json names a packageManager, and fails
-          # because pnpm or yarn is not installed yet. The package store is restored below.
+          # pnpm and npm cache their store here; yarn installs without a cache.
+          cache: ${{ steps.detect.outputs.pm != 'yarn' && steps.detect.outputs.pm || '' }}
+          # Never guessed from packageManager: the line above says which cache.
           package-manager-cache: false
 
-      - name: Set up ${{ steps.detect.outputs.pm }}
-        if: ${{ steps.detect.outputs.pm != 'npm' }}
+      - name: Set up yarn
+        if: ${{ steps.detect.outputs.pm == 'yarn' }}
         env:
-          PM: ${{ steps.detect.outputs.pm }}
           HAS_MANIFEST_PM: ${{ steps.detect.outputs.has-manifest-pm }}
         run: |
-          # corepack reads packageManager; without it, the latest release of the tool.
+          # corepack reads packageManager; the one a Node release ships with may be too old.
           if [ "$HAS_MANIFEST_PM" = "true" ]; then
-            # Node 25 and later ship without corepack.
-            command -v corepack >/dev/null || npm install --global corepack
+            npm install --global corepack@latest
             corepack enable
-          else npm install --global "$PM"; fi
-          "$PM" --version
-
-      - name: Find the package store
-        id: store
-        env:
-          PM: ${{ steps.detect.outputs.pm }}
-        run: |
-          case "$PM" in
-            pnpm) dir=$(pnpm store path --silent) ;;
-            npm) dir=$(npm config get cache) ;;
-            yarn) dir=$(yarn config get cacheFolder 2>/dev/null || yarn cache dir) ;;
-          esac
-          echo "dir=$dir" >> "$GITHUB_OUTPUT"
-
-      - name: Restore the package store
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.store.outputs.dir }}
-          key: shiplane-${{ runner.os }}-${{ steps.detect.outputs.pm }}-${{ hashFiles('**/pnpm-lock.yaml', '**/package-lock.json', '**/yarn.lock') }}
-          restore-keys: shiplane-${{ runner.os }}-${{ steps.detect.outputs.pm }}-
+          else npm install --global yarn; fi
+          yarn --version
 
       - name: Install
         env:
