@@ -307,11 +307,10 @@ Pinned to the installed version and passing the secrets its adapters read, it pr
 
 `.github/actions/setup-node-project` is a composite action holding the steps `shiplane-ship.yml`
 runs before it ships: detect the package manager and Node version, set up pnpm, Node or yarn,
-restore `node_modules`, install, and save `node_modules` after a miss whose install succeeded.
-`node_modules` is the only cache: setup-node's package store cache is off, since it keys on the same
-lockfile and would only add a post-job upload. It fails on the same checks, except that it needs no
-`shiplane.config.ts`: any Node repository can use it. It checks nothing out and reads no secret. Pin
-it like the workflow, to a release commit:
+restore `node_modules`, and install. `actions/cache` saves `node_modules` at the end of the job, in
+its post step, after a miss and only when the job succeeded. It fails on the same checks, except
+that it needs no `shiplane.config.ts`: any Node repository can use it. It checks nothing out and
+reads no secret. Pin it like the workflow, to a release commit:
 `uses: arnaud-zg/js-packages/.github/actions/setup-node-project@<sha> # shiplane@x.y.z`.
 
 | Input               | Default | Meaning                                                                                    |

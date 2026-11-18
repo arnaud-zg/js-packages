@@ -23,7 +23,7 @@ const action = read<{
 }>("actions/setup-node-project/action.yml");
 
 const FIRST = "Detect the package manager and Node version";
-const LAST = "Save node_modules";
+const LAST = "Install";
 
 /** The steps from FIRST to LAST, without what only a composite step needs: `shell: bash` and the
  * working directory a workflow's `defaults.run` gives. Both read `inputs.x` the same way. */
@@ -62,8 +62,7 @@ describe("the setup-node-project action other repositories import", () => {
       "Set up Node",
       "Set up yarn",
       "Node version",
-      "Restore node_modules",
-      "Install",
+      "Cache node_modules",
       LAST,
     ]);
     expect(setupSteps(action.runs.steps)).toEqual(inline);
@@ -78,19 +77,10 @@ describe("the setup-node-project action other repositories import", () => {
     }
   });
 
-  it("given a restore miss, when the install succeeds, then the save step stores node_modules under the restored key", () => {
-    const [restore, save] = ["Restore node_modules", LAST].map((name) =>
-      action.runs.steps.find((step) => step.name === name),
-    ) as [Step, Step];
+  it("given node_modules, when the job runs, then one cache step restores it and saves it at the end of the job", () => {
+    const cache = action.runs.steps.find((step) => step.name === "Cache node_modules");
 
-    expect(restore.uses).toBe("actions/cache/restore@v4");
-    expect(save.uses).toBe("actions/cache/save@v4");
-    expect(save.if).toBe(
-      "${{ steps.modules.outcome == 'success' && steps.modules.outputs.cache-hit != 'true' && steps.install.outcome == 'success' }}",
-    );
-    expect(save.with).toEqual({
-      path: (restore.with as { path: string }).path,
-      key: "${{ steps.modules.outputs.cache-primary-key }}",
-    });
+    expect(cache?.uses).toBe("actions/cache@v4");
+    expect(JSON.stringify(action.runs.steps)).not.toMatch(/actions\/cache\/(restore|save)/);
   });
 });
