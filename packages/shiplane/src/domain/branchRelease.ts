@@ -70,8 +70,16 @@ export interface BranchPublished {
 const NPMJS = "https://www.npmjs.com/package";
 const FENCE = "```";
 
-/** The install line a tester copies. */
-export const installLine = ({ name, tag }: BranchPublished) => `npm i ${name}@${tag}`;
+/** What to install: the exact version, or the bare name when it is on latest. */
+export const installSpec = ({
+  name,
+  version,
+  tag,
+}: Pick<BranchPublished, "name" | "version" | "tag">) =>
+  tag === "latest" ? name : `${name}@${version}`;
+
+/** The install line a tester copies: the exact build, so it never moves under them. */
+export const installLine = (entry: BranchPublished) => `npm i ${installSpec(entry)}`;
 
 /** The repository a pull request address belongs to, such as `https://github.com/o/r`; else null. */
 export const repositoryOfPr = (url: string) =>
@@ -110,10 +118,8 @@ export const comments = {
 } as const;
 
 /** Where `@<tag>` points: this branch's latest snapshot, or the channel's newest version. */
-const tagPoints = (tag: string, channel: string) =>
-  channel === "snapshot"
-    ? `\`@${tag}\` always points at this branch's latest publish.`
-    : `\`@${tag}\` moves to each new ${channel}.`;
+const tagPoints = (channel: string) =>
+  channel === "snapshot" ? "this branch's latest publish" : `each new ${channel}`;
 
 /** The install table, the pin line, the pnpm and yarn lines, and the pending units left out. */
 const installTable = (
@@ -122,7 +128,7 @@ const installTable = (
   channel: string,
 ) => {
   const [first] = published;
-  const tags = published.map(({ name, tag }) => `${name}@${tag}`).join(" ");
+  const specs = published.map(installSpec).join(" ");
   return [
     "| Package | Version | Install |",
     "| --- | --- | --- |",
@@ -130,15 +136,15 @@ const installTable = (
     "",
     ...(first
       ? [
-          `${tagPoints(first.tag, channel)} To stay on this exact build, install the version instead: \`npm i ${first.name}@${first.version}\`.`,
+          `To follow ${tagPoints(channel)} instead, install the tag: \`npm i ${first.name}@${first.tag}\`.`,
           "",
         ]
       : []),
     "<details><summary>pnpm / yarn</summary>",
     "",
     FENCE,
-    `pnpm add ${tags}`,
-    `yarn add ${tags}`,
+    `pnpm add ${specs}`,
+    `yarn add ${specs}`,
     FENCE,
     "</details>",
     ...notPublished(others),
@@ -179,7 +185,7 @@ export const branchComment = ({
     commit: repository ? `[${short}](${repository}/commit/${sha})` : short,
     table: installTable(published, others, channel),
     channel,
-    install: `\`npm i ${published.map(({ name, tag }) => `${name}@${tag}`).join(" ")}\``,
+    install: `\`npm i ${published.map(installSpec).join(" ")}\``,
   };
   const body = template.replace(PLACEHOLDER, (_, key: string) => values[key] ?? "");
   return `${BRANCH_COMMENT_MARKER}\n${body}`;

@@ -38,7 +38,7 @@ describe("publishing a test version of a feature branch", () => {
       "  – web  test release not available yet: npm packages only",
       `✓ Published under npm tag ${TAG}`,
       "  Package    Version                        Install",
-      `  @acme/lib  ${LIB_VERSION}  npm i @acme/lib@${TAG}`,
+      `  @acme/lib  ${LIB_VERSION}  npm i @acme/lib@${LIB_VERSION}`,
     ]);
   });
 
@@ -105,8 +105,8 @@ describe("publishing a test version of a feature branch", () => {
     expect(output.lines).toEqual([
       `✓ Published under npm tag ${TAG}`,
       "  Package       Version                        Install",
-      `  @acme/lib     ${LIB_VERSION}  npm i @acme/lib@${TAG}`,
-      `  @acme/ui-kit  0.5.0-feat-login-page.abc1234  npm i @acme/ui-kit@${TAG}`,
+      `  @acme/lib     ${LIB_VERSION}  npm i @acme/lib@${LIB_VERSION}`,
+      `  @acme/ui-kit  0.5.0-feat-login-page.abc1234  npm i @acme/ui-kit@0.5.0-feat-login-page.abc1234`,
     ]);
   });
 
@@ -116,7 +116,7 @@ describe("publishing a test version of a feature branch", () => {
 
     await branchRelease(context, { onDefault: "release" });
 
-    expect(output.text).toContain(`npm i @pub/lib@${TAG}`);
+    expect(output.text).toContain(`npm i @pub/lib@${LIB_VERSION}`);
   });
 });
 
@@ -135,7 +135,7 @@ describe("telling reviewers how to install a test version", () => {
       `Built from [\`abc1234\`](https://github.com/acme/repo/commit/${HEAD}) on \`${BRANCH}\`.`,
     );
     expect(body).toContain(
-      `| [@acme/lib](https://www.npmjs.com/package/@acme/lib) | [${LIB_VERSION}](https://www.npmjs.com/package/@acme/lib/v/${LIB_VERSION}) | \`npm i @acme/lib@${TAG}\` |`,
+      `| [@acme/lib](https://www.npmjs.com/package/@acme/lib) | [${LIB_VERSION}](https://www.npmjs.com/package/@acme/lib/v/${LIB_VERSION}) | \`npm i @acme/lib@${LIB_VERSION}\` |`,
     );
     expect(body).toContain("Test release not available yet: `web` (npm packages only for now).");
     expect(output.lines.at(-1)).toBe("  The install lines are on #42 too.");
@@ -153,7 +153,7 @@ describe("telling reviewers how to install a test version", () => {
 
     expect(world.host.received).toEqual([
       expect.objectContaining({
-        body: `${BRANCH_COMMENT_MARKER}\nTry \`npm i @acme/lib@${TAG}\` from ${BRANCH}`,
+        body: `${BRANCH_COMMENT_MARKER}\nTry \`npm i @acme/lib@${LIB_VERSION}\` from ${BRANCH}`,
       }),
     ]);
   });
@@ -175,7 +175,7 @@ describe("telling reviewers how to install a test version", () => {
     expect(host.received).toEqual([
       expect.objectContaining({
         body: expect.stringContaining(
-          `| @acme/lib | ${LIB_VERSION} | \`npm i @acme/lib@${TAG}\` |`,
+          `| @acme/lib | ${LIB_VERSION} | \`npm i @acme/lib@${LIB_VERSION}\` |`,
         ) as string,
       }),
     ]);
