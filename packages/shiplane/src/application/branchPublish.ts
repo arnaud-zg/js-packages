@@ -18,6 +18,7 @@ import {
 } from "../domain/branchRelease";
 import { readManifest } from "./manifest";
 import { MANIFEST } from "./readScope";
+import { signIn, signInsOf } from "./requirements";
 import { paint, reasonOf } from "./say";
 import { runSteps } from "./steps";
 import { decideContext, moduleOf, runHere, shipPlanOf, unitTarget } from "./targets";
@@ -235,6 +236,15 @@ export interface BranchRun {
 
 /** Publishes the test version, prints its install lines and keeps them on the pull request, if any. */
 export const publishBranch = async (context: ReleaseContext, run: BranchRun) => {
+  // An expired npm token fails the publish as a 404: check the sign-in before writing a version.
+  const signedIn = await signIn(context, {
+    requirements: signInsOf(
+      context.release,
+      new Set(run.plan.publish.map(({ unit }) => unit.name)),
+    ),
+    again: "run shiplane again",
+  });
+  if (!signedIn) return false;
   const publishing = run.plan.publish.flatMap((candidate) =>
     publishingOf(context, { candidate, here: run.here, tag: run.plan.tag }),
   );
