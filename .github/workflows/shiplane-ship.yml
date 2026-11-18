@@ -153,8 +153,8 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_OUTPUT, out.join("\n") + "\n");
           console.log(out.join("\n"));
 
-      # Before Node, so setup-node finds pnpm to cache its store. It reads packageManager and
-      # installs any pnpm version, which the corepack a Node release ships with may be too old for.
+      # pnpm/action-setup reads packageManager and installs any pnpm version, which the corepack
+      # a Node release ships with may be too old for.
       - name: Set up pnpm
         if: ${{ steps.detect.outputs.pm == 'pnpm' }}
         uses: pnpm/action-setup@v4
@@ -166,9 +166,8 @@ jobs:
         with:
           node-version: ${{ steps.detect.outputs.node-version }}
           node-version-file: ${{ steps.detect.outputs.node-version-file }}
-          # pnpm and npm cache their store here; yarn installs without a cache.
-          cache: ${{ steps.detect.outputs.pm != 'yarn' && steps.detect.outputs.pm || '' }}
-          # Never guessed from packageManager: the line above says which cache.
+          # No package store cache: node_modules is cached below, keyed on the same lockfile, so
+          # a store cache would only add an upload after a miss and an empty-path warning after a hit.
           package-manager-cache: false
 
       - name: Set up yarn
