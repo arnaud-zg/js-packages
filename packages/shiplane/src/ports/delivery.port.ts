@@ -204,6 +204,13 @@ export interface Requirement {
   check: Command;
   /** What fixes it, offered to run. */
   fix?: Command;
+  /**
+   * How a Linux runner installs the tool when it is missing; `path` is the folder it lands in, put
+   * first on PATH afterwards (`$NAME` reads a variable, such as `$HOME/.fly/bin`).
+   */
+  install?: { command: Command; path?: string };
+  /** The variables a runner sets instead of signing in, such as `FLY_API_TOKEN`. */
+  secrets?: string[];
 }
 
 /** A value per environment becomes the value itself, at any depth. */

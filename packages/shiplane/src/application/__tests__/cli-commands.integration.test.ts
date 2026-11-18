@@ -186,6 +186,26 @@ describe("Feature: choosing how and where a command ships with flags", () => {
   });
 });
 
+describe("Feature: checking a runner before it ships", () => {
+  it("given a channel the config does not have, when doctor --ci runs, then it names the known ones and the docs, and exits 1", async () => {
+    const { run } = given();
+
+    expect(await run("doctor", "--ci", "api", "--channel", "qa")).toBe(1);
+
+    expect(stdout()).toContain("✓ units  api");
+    expect(stdout()).toContain('✗ unknown environment "qa": preview, production');
+    expect(stdout()).toContain("reference.md#github-actions-workflow");
+  });
+
+  it("given a person reading help all, when they look for the runner's check, then doctor --ci is listed", async () => {
+    const { run } = given();
+
+    expect(await run("help", "all")).toBe(0);
+
+    expect(stdout()).toContain("shiplane doctor --ci [unit...]");
+  });
+});
+
 describe("Feature: seeing where every unit stands and what to run next", () => {
   it("given an open release PR and an app with nothing new, when the person runs status, then they see each unit's state, the PR link and the next step", async () => {
     const { run, fakes, workspace: repo } = given();

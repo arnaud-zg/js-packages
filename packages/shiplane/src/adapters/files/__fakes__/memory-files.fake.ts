@@ -33,6 +33,8 @@ export class MemoryFiles implements Files {
     this.changes.push({ kind: "write", file });
   };
 
+  append = (file: string, text: string) => this.write(file, `${this.read(file) ?? ""}${text}`);
+
   remove = (file: string) => {
     this.texts.delete(path.posix.normalize(file));
     this.changes.push({ kind: "remove", file });

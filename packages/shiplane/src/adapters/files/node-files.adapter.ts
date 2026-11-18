@@ -13,6 +13,11 @@ export const nodeFiles = (root: string): Files => {
       fs.mkdirSync(path.dirname(at(file)), { recursive: true });
       fs.writeFileSync(at(file), text);
     },
+    append: (file, text) => {
+      const at = path.resolve(root, file);
+      fs.mkdirSync(path.dirname(at), { recursive: true });
+      fs.appendFileSync(at, text);
+    },
     remove: (file) => fs.rmSync(at(file), { force: true }),
     list: (dir) => (fs.existsSync(at(dir)) ? fs.readdirSync(at(dir)) : []),
     folders: (dir) =>

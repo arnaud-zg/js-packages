@@ -125,6 +125,11 @@ export const flyServerHosting = (): FlyServerHostingAdapter =>
         label: "flyctl",
         check: { command: "flyctl", args: ["auth", "whoami"] },
         fix: { command: "flyctl", args: ["auth", "login"] },
+        install: {
+          command: { command: "sh", args: ["-c", "curl -fsSL https://fly.io/install.sh | sh"] },
+          path: "$HOME/.fly/bin",
+        },
+        secrets: ["FLY_API_TOKEN"],
       },
     ],
     jobs: ({ unit, tag, options }) => [

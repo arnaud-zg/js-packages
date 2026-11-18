@@ -8,6 +8,7 @@ import { addUnit, removeUnit } from "../application/addUnit";
 import { branchRelease } from "../application/branchRelease";
 import { docsFor } from "../application/docsFor";
 import { doctor } from "../application/doctor";
+import { doctorCi } from "../application/doctorCi";
 import { initRelease } from "../application/initRelease";
 import { newAdapter } from "../application/newAdapter";
 import { openReleasePr } from "../application/openReleasePr";
@@ -57,6 +58,7 @@ const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, tri
                                   (shiplane init and shiplane add are now setup; both still run for now)
   shiplane remove <unit>          stop shipping a unit; it stays versioned
   shiplane doctor                 check the config, tools and sign-ins, offer each fix
+  shiplane doctor --ci [unit...]  on a runner: units, --channel, tools (installed when missing), secrets
   shiplane adapter new <name>     scaffold a server hosting adapter, its contract test and its module
   shiplane docs <name>            every key a module's or an adapter's unit files take
   shiplane help [all]             the main commands; all: this, every command and flag
@@ -99,11 +101,13 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
       channel: { type: "string", default: "preview" },
       via: { type: "string" },
       blank: { type: "boolean", default: false },
+      ci: { type: "boolean", default: false },
     },
   });
 
   const [command = "next", ...units] = positionals;
-  const environment = z.enum(ENVIRONMENTS).parse(values.channel);
+  // doctor --ci says an unknown channel itself, with the environments it knows.
+  const environment = command === "doctor" ? "preview" : z.enum(ENVIRONMENTS).parse(values.channel);
   const via = viaFlag(values.via);
 
   const commands: Record<string, (context: ReleaseContext) => Promise<boolean | void>> = {
@@ -150,7 +154,8 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
       return addUnit(context, first);
     },
     remove: (context) => removeUnit(context, first),
-    doctor: (context) => doctor(context),
+    doctor: (context) =>
+      values.ci ? doctorCi(context, { units, channel: values.channel }) : doctor(context),
     adapter: (context) => {
       if (first === "new" && units[1]) return newAdapter(context, units[1]);
       out(`${paint("red", "✗")}  shiplane adapter new <name>`);
@@ -169,7 +174,10 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
           planShips(context, command === "promote" ? "production" : environment)
       : commands[command];
   const setUp = setupCommands[firstRun ? "setup" : command];
-  if (setUp) return (await setUp(await composeSetup(root, io.setup))) ? 0 : 1;
+  if (setUp) {
+    const load = () => loadReleaseOnDisk(root, { aliases: io.aliases });
+    return (await setUp(await composeSetup(root, { load, ...io.setup }))) ? 0 : 1;
+  }
   if (command === "help") {
     out(first === "all" ? HELP : SHORT_HELP);
     return 0;

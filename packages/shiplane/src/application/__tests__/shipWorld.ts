@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import type { ReleaseModule } from "../../modules/module";
 import type { Decision, Job } from "../../ports/delivery.port";
+import { MemoryFiles } from "../../adapters/files/__fakes__/memory-files.fake";
 import { serverHostingFake } from "../../adapters/server-hosting/__fakes__/server-hosting.fake";
 import { backendService } from "../../modules/backend-service/backend-service.module";
 import { testContext, testUnit } from "../../testing/releaseContext";
@@ -43,15 +44,19 @@ export const shipWorld = (
     interactive = true,
     deciding,
     decided = [],
+    prepare,
   }: {
     yes?: boolean;
     interactive?: boolean;
     /** The module the `decided` units name. */
     deciding?: ReleaseModule;
     decided?: string[];
+    /** The config's `prepare`, run before each unit ships from this machine. */
+    prepare?: string;
   } = {},
 ) => {
   const hosting = serverHostingFake();
+  const files = new MemoryFiles();
   const all = [...names, ...decided];
   const world = testContext({
     units: [
@@ -63,10 +68,12 @@ export const shipWorld = (
     modules: [backendService({ serverHosting: hosting }), ...(deciding ? [deciding] : [])],
     yes,
     interactive,
+    files,
   });
+  if (prepare !== undefined) world.context.release.prepare = prepare;
   world.source.seed({
     tags: Object.fromEntries(all.map((name) => [`${name}@0.1.0`, `c-${name}`])),
     files: Object.fromEntries(all.map((name) => [`${name}@0.1.0:${SHIP_YML}`, "on: dispatch"])),
   });
-  return { ...world, hosting: hosting.fake };
+  return { ...world, hosting: hosting.fake, files };
 };

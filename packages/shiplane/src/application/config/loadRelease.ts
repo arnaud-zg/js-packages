@@ -11,6 +11,7 @@ import type { ServiceAdapter } from "../../ports/adapter.port";
 import type { ManifestReader } from "../../ports/manifest.port";
 import type { ConfigProblem } from "./problem";
 import type { UnitFile } from "./readUnitFile";
+import { PrepareSchema } from "../../domain/prepare";
 import { DEFAULT_TAG_FORMAT, TAG_FORMATS, tagFormatNamed } from "../../domain/tags";
 import { releaseFlow } from "../releaseFlow";
 import { reasonOf } from "../say";
@@ -59,11 +60,13 @@ export interface Release {
   renames?: Rename[];
   /** The template of a test version's pull request comment; `comments.table` when unset. */
   testComment?: string;
+  /** Run from the root before each unit ships from this machine, its placeholders filled. */
+  prepare?: string;
 }
 
 type Composed = Pick<
   Release,
-  "flow" | "modules" | "features" | "display" | "tagFormat" | "testComment" | "via"
+  "flow" | "modules" | "features" | "display" | "tagFormat" | "testComment" | "via" | "prepare"
 > & {
   units?: string[];
 };
@@ -211,7 +214,16 @@ const readConfig = async (file: string, aliases: Record<string, string>): Promis
     tagFormat: tagFormatOf(loaded.tag),
     ...testCommentOf(loaded.testComment),
     via: viaOf(loaded.via),
+    ...prepareOf(loaded.prepare),
   };
+};
+
+/** The config's `prepare`, its placeholders known; the first problem is thrown. */
+const prepareOf = (value: unknown) => {
+  if (value === undefined) return {};
+  const parsed = PrepareSchema.safeParse(value);
+  if (!parsed.success) throw new Error(parsed.error.issues[0]?.message);
+  return { prepare: parsed.data };
 };
 
 const testCommentOf = (value: unknown) => {
@@ -395,5 +407,6 @@ export const loadRelease = async (root: string, options: LoadOptions): Promise<R
     ),
     tagFormat: config.tagFormat,
     ...(config.testComment === undefined ? {} : { testComment: config.testComment }),
+    ...(config.prepare === undefined ? {} : { prepare: config.prepare }),
   };
 };

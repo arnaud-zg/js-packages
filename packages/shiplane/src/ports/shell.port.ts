@@ -18,6 +18,8 @@ export interface Shell {
   attach: (command: string, args: readonly string[], options?: RunOptions) => Promise<number>;
   /** A variable of this process's environment, such as a token a command needs. */
   env: (name: string) => string | undefined;
+  /** Puts a folder first on this process's PATH, so the commands run after it find a tool there. */
+  prependPath?: (dir: string) => void;
 }
 
 /** A command that exited non-zero, carrying all it printed so a failure can show why. */

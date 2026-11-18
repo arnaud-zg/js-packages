@@ -110,12 +110,17 @@ describe("recognising an app Fly ships", () => {
 });
 
 describe("checking this machine can deploy to Fly", () => {
-  it("given an app shipped with Fly, when shiplane doctor checks the machine, then it checks flyctl is signed in and offers flyctl auth login as the fix", () => {
+  it("given an app shipped with Fly, when shiplane doctor checks the machine, then it checks flyctl is signed in, offers flyctl auth login, and says how a runner installs flyctl and signs in", () => {
     expect(fly.requirements?.(testUnit("api", { module: "backend-service" }))).toEqual([
       {
         label: "flyctl",
         check: { command: "flyctl", args: ["auth", "whoami"] },
         fix: { command: "flyctl", args: ["auth", "login"] },
+        install: {
+          command: { command: "sh", args: ["-c", "curl -fsSL https://fly.io/install.sh | sh"] },
+          path: "$HOME/.fly/bin",
+        },
+        secrets: ["FLY_API_TOKEN"],
       },
     ]);
   });
