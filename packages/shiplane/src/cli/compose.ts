@@ -62,7 +62,7 @@ export const composeContext = (
     ci,
     noMotion: Boolean(systemShell.env("NO_MOTION")),
   });
-  const shell = io.shell ?? systemShell;
+  const { shell = systemShell } = io;
   const output = io.output ?? terminalOutput;
   const open = opener(release.root, shell);
   return {
