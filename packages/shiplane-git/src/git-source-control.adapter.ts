@@ -27,7 +27,6 @@ const gitSource = ({
   shell: Shell;
   options: GitOptions;
 }): SourceControlPort => {
-  // Stryker disable next-line ObjectLiteral: without cwd, a mutant runs git, push included, in this real repo.
   const run = (args: string[]) => shell.capture("git", args, { cwd: root });
   const must = async (args: string[]) =>
     (await mustCapture({ shell, command: "git", args, cwd: root })).trim();
@@ -134,7 +133,6 @@ const gitSource = ({
     commit: async (files, title, body, { skipHooks = false } = {}) => {
       const [command, ...args] = options.format ?? [];
       if (command && files.length > 0) {
-        // Stryker disable next-line ObjectLiteral: without cwd, the formatter rewrites this real repo.
         await shell.capture(command, [...args, ...files], { cwd: root });
       }
       await must(["add", "--", ...files]);
