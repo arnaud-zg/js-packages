@@ -44,9 +44,11 @@ function runExpoInstallFix({ manifestFile, resolved, appDir }: InstallFixRun): E
     spinner.stop();
     printSeparator();
 
+    // Stryker disable next-line ObjectLiteral: dropping cwd would run the real npx expo install in the repo
     execSync("npx expo install --fix", {
       cwd: appDir,
       stdio: "inherit",
+      // Stryker disable next-line ObjectLiteral: an empty env loses the test's fake PATH, so the real npx runs
       env: { ...process.env, APP_VARIANT: "development" },
     });
 
@@ -105,6 +107,7 @@ function applyUpdatesToYaml({ workspaceFile, workspace, updates }: YamlUpdate): 
 
 function runPnpmInstall(rootDir: string): void {
   printSeparator();
+  // Stryker disable next-line ObjectLiteral: dropping cwd would run the real pnpm install in the repo
   execSync("pnpm install", { cwd: rootDir, stdio: "inherit" });
   printSeparator();
 }

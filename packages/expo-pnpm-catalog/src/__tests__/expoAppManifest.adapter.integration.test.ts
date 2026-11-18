@@ -62,4 +62,15 @@ describe("swapping the expo app package.json on disk", () => {
       expect(fs.readFileSync(filePath, "utf-8")).toBe(original);
     });
   });
+
+  describe("given the expo app manifest was never loaded", () => {
+    it("when restored, then the file on disk is left as it is", () => {
+      const original = writeManifest(aPackageJson().build());
+      const file = createExpoAppManifestFile(filePath);
+
+      file.restore();
+
+      expect(fs.readFileSync(filePath, "utf-8")).toBe(original);
+    });
+  });
 });
