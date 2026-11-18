@@ -40,6 +40,25 @@ const ManifestSchema = z.object({
   main: z.unknown().optional(),
 });
 
+// npm takes a version of at most 256 characters (node-semver's MAX_LENGTH). A snapshot,
+// <next>-<slug>.<sha>, leaves the slug 256 - 50 (longest <next>) - 11 ("-", ".", 7-char sha,
+// two possible "g"s) = 195.
+const MAX_SLUG = 195;
+const HASH_LENGTH = 6;
+
+/** FNV-1a, 32 bits, as hex: a stable fingerprint, not a secret. */
+const fingerprint = (text: string) => {
+  let hash = 0x811c9dc5;
+  for (const char of text) hash = Math.imul(hash ^ (char.codePointAt(0) ?? 0), 0x01000193) >>> 0;
+  return hash.toString(16).padStart(8, "0");
+};
+
+/** A slug npm cannot version whole: its start and a hash of the whole, so long branches stay apart. */
+const fitSlug = (slug: string) =>
+  slug.length <= MAX_SLUG
+    ? slug
+    : `${slug.slice(0, MAX_SLUG - HASH_LENGTH - 1).replace(/-+$/, "")}-${fingerprint(slug).slice(0, HASH_LENGTH)}`;
+
 const nameOf = ({ unit, options }: JobInput<Options>) => options.publishAs ?? unit.packageName;
 
 const published = async (context: DecideContext, name: string, version: string) => {
@@ -166,6 +185,7 @@ export const npmPackageRegistry = (): NpmPackageRegistryAdapter =>
     publishedName: nameOf,
     // A numbered test release, such as 0.6.0-beta.<n>, takes the next number npm does not hold.
     publishedVersions,
+    fitSlug,
     jobs: (input) => (input.distTag ? [publishJob(input)] : [publishJob(input), moveTagJob(input)]),
     decide,
     live,

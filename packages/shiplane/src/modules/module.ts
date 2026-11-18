@@ -102,6 +102,8 @@ export interface ReleaseModule {
   readonly publishedName?: (context: DecideContext, input: AppInput) => string;
   /** Every version its registry holds, for a numbered test release; absent when it cannot say. */
   readonly publishedVersions?: (context: DecideContext, input: AppInput) => Promise<string[]>;
+  /** A branch slug its registry cannot take whole, shortened. */
+  readonly fitSlug?: (context: DecideContext, slug: string) => string;
   /** Where a tag lands and the jobs that ship it: data, never run by the module itself. */
   readonly ship: (context: DecideContext, input: AppInput) => ShipPlan;
   /** How the tagged version does on preview, read before promoting it. Null when nothing says. */

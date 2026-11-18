@@ -77,3 +77,25 @@ describe("the versions npm holds, for a numbered test release", () => {
     await expect(versionsFrom({ status: 1, stderr: "npm error code E404" })).resolves.toEqual([]);
   });
 });
+
+describe("a branch name too long for npm", () => {
+  const fit = (slug: string) =>
+    npmPackageRegistry().create({ root: "/repo", shell: new RecordingShell() }).fitSlug?.(slug);
+
+  it("given a slug npm takes, when fitted, then it is kept", () => {
+    expect(fit("feat-x")).toBe("feat-x");
+  });
+
+  it("given a slug too long, when fitted, then it keeps its start, ends in a hash and fits", () => {
+    const slug = fit(`feat-${"a".repeat(300)}`) ?? "";
+
+    expect(slug).toHaveLength(195);
+    expect(slug).toMatch(/^feat-a+-[0-9a-f]{6}$/);
+  });
+
+  it("given two long slugs that differ only past the cut, when fitted, then they stay apart", () => {
+    const start = "billing-".repeat(30);
+
+    expect(fit(`${start}a`)).not.toBe(fit(`${start}b`));
+  });
+});

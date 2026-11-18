@@ -11,6 +11,7 @@ import type { Step } from "./steps";
 import {
   BRANCH_COMMENT_MARKER,
   branchComment,
+  branchSlug,
   installLine,
   installSpec,
   repositoryOfPr,
@@ -79,6 +80,21 @@ const publishedVersionsOf = async (context: ReleaseContext, unit: ReleaseUnit, h
   return read(decideContext(context), target.input);
 };
 
+/** The branch's slug, shortened by any registry that cannot take it whole, with a warning. */
+const snapshotSlug = (context: ReleaseContext, branch: string, units: readonly ReleaseUnit[]) => {
+  const whole = branchSlug(branch);
+  const slug = units.reduce(
+    (fitted, unit) => moduleOf(context, unit)?.fitSlug?.(decideContext(context), fitted) ?? fitted,
+    whole,
+  );
+  if (slug !== whole) {
+    context.output.line(
+      `  ${paint("yellow", "!")} branch name too long for the registry, shortened to ${slug}`,
+    );
+  }
+  return slug;
+};
+
 /**
  * The units this test version covers, at test versions on the channel: npm packages publish, the
  * other units are not available as test releases yet. A numbered channel reads each package's published versions for its next number.
@@ -88,6 +104,13 @@ export const planBranch = async (
   { here, channel }: { here: Here; channel: Channel },
 ): Promise<BranchPlan> => {
   const changed = await pendingUnits(context);
+  const registryUnits = changed
+    .filter(({ unit }) => isRegistry(context, unit))
+    .map(({ unit }) => unit);
+  // A slug is its own slug, so the fitted one stands in for the branch name.
+  const branch = isNumbered(channel)
+    ? here.branch
+    : snapshotSlug(context, here.branch, registryUnits);
   const publish = await Promise.all(
     changed
       .filter(({ unit }) => isRegistry(context, unit))
@@ -96,7 +119,7 @@ export const planBranch = async (
         version: testVersion({
           next: base,
           channel,
-          branch: here.branch,
+          branch,
           sha: here.head,
           n: isNumbered(channel)
             ? nextNumber({
@@ -110,7 +133,7 @@ export const planBranch = async (
   );
   return {
     channel,
-    tag: testTag(channel, here.branch),
+    tag: testTag(channel, branch),
     publish,
     others: changed.filter(({ unit }) => !isRegistry(context, unit)).map(({ unit }) => unit.name),
   };

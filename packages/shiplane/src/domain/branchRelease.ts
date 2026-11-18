@@ -1,4 +1,3 @@
-const MAX_SLUG = 40;
 const SHORT_SHA = 7;
 // npm refuses a dist-tag it can read as a semver range; from [a-z0-9-] only these parse as one.
 const SEMVER_RANGE = /^v?(\d+|x)$/;
@@ -13,7 +12,6 @@ export const branchSlug = (branch: string) =>
   branch
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .slice(0, MAX_SLUG)
     .replace(/^-+|-+$/g, "") || "branch";
 
 const identifier = (text: string) => (LEADING_ZERO_NUMBER.test(text) ? `g${text}` : text);

@@ -12,6 +12,8 @@ export interface PackageRegistryPort<Options = Record<string, unknown>> extends 
    * Without it, a test release only publishes snapshots.
    */
   publishedVersions?(context: DecideContext, input: JobInput<Options>): Promise<string[]>;
+  /** A branch slug the registry cannot take whole, shortened; absent, it takes any length. */
+  fitSlug?(slug: string): string;
   /** The version is out on the environment: published, and its dist-tag points at it. */
   live(context: DecideContext, input: JobInput<Options>): Promise<boolean>;
 }

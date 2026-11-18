@@ -42,6 +42,18 @@ describe("publishing a test version of a feature branch", () => {
     ]);
   });
 
+  it("given a registry that shortens the branch name, when the test version publishes, then it publishes under the short one and warns", async () => {
+    const { context, registry, distTags, output } = branchWorld();
+    registry.fake.fitSlug = () => "feat-short";
+
+    await branchRelease(context, { onDefault: "release" });
+
+    expect(distTags).toEqual(["feat-short"]);
+    expect(output.lines).toContain(
+      "  ! branch name too long for the registry, shortened to feat-short",
+    );
+  });
+
   it("given a package to publish, when the test version publishes, then npm sees the branch version and the manifest is put back as it was after", async () => {
     const { context, files, manifestsAtRun } = branchWorld();
 

@@ -30,6 +30,8 @@ export class PackageRegistryFake implements PackageRegistryPort {
   private published = new Set<string>();
   private needs: Requirement[] = [];
   readonly received: Asked[] = [];
+  /** How it shortens a slug; set it to test a registry with a length limit. */
+  fitSlug?: (slug: string) => string;
 
   seed({
     published = [],

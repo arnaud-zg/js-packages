@@ -21,11 +21,8 @@ describe("a branch's name, as a version and an npm tag read it", () => {
     expect(branchSlug("--fix//login!!")).toBe("fix-login");
   });
 
-  it("given a very long name, when slugged, then it keeps 40 characters and never ends on a dash", () => {
-    const slug = branchSlug(`feat/${"a".repeat(34)}-tail-of-a-very-long-branch-name`);
-
-    expect(slug.length).toBeLessThanOrEqual(40);
-    expect(slug).toBe(`feat-${"a".repeat(34)}`);
+  it("given a very long name, when slugged, then it is kept whole: a registry shortens it if it must", () => {
+    expect(branchSlug(`feat/${"a".repeat(300)}`)).toBe(`feat-${"a".repeat(300)}`);
   });
 
   it("given a name of symbols only, when slugged, then it still names a branch", () => {

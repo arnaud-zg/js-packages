@@ -14,6 +14,7 @@ export const publishedPackage = ({
   live: (context, input) => context.open(packageRegistry).live(context, input),
   publishedName: (context, input) =>
     context.open(packageRegistry).publishedName?.(input) ?? input.unit.packageName,
+  fitSlug: (context, slug) => context.open(packageRegistry).fitSlug?.(slug) ?? slug,
   publishedVersions: async (context, input) => {
     const registry = context.open(packageRegistry);
     if (!registry.publishedVersions) {
