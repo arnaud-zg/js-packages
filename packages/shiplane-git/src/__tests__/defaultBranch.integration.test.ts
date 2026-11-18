@@ -63,6 +63,41 @@ describe("the branch releases start from", () => {
     expect(await defaultBranchOf(seed)).toBe("main");
   });
 
+  it("given a clone of a repository whose default branch is develop, when read, then it is develop, from origin/HEAD", async () => {
+    const { dir, bare } = origin("develop");
+    git(["clone", "--quiet", bare, "clone"], dir);
+
+    expect(await defaultBranchOf(path.join(dir, "clone"))).toBe("develop");
+  });
+
+  it("given a checkout with no origin/HEAD and both main and master, when read, then it is main", async () => {
+    const { seed } = origin("master");
+    git(["branch", "main"], seed);
+
+    expect(await defaultBranchOf(seed)).toBe("main");
+  });
+
+  it("given a checkout with only origin's master and no local one, when read, then it is master", async () => {
+    const { seed } = origin("master");
+    git(["switch", "--quiet", "-c", "work"], seed);
+    git(["branch", "--quiet", "-D", "master"], seed);
+
+    expect(await defaultBranchOf(seed)).toBe("master");
+  });
+
+  it("given a checkout with a local master never pushed, when read, then it is master", async () => {
+    const { seed } = origin("master");
+    git(["remote", "remove", "origin"], seed);
+
+    expect(await defaultBranchOf(seed)).toBe("master");
+  });
+
+  it("given a checkout with neither main nor master, when read, then it falls back to main", async () => {
+    const { seed } = origin("trunk");
+
+    expect(await defaultBranchOf(seed)).toBe("main");
+  });
+
   it("given a main branch named in the config, when read, then it is that one", async () => {
     const { seed } = origin("master");
     const source = gitSourceControl({ main: "trunk" }).create({ root: seed, shell: systemShell });

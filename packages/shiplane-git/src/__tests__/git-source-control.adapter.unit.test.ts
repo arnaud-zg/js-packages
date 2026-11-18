@@ -133,3 +133,14 @@ describe("finding where a branch started", () => {
     expect(await source.mergeBase?.("origin/main", "HEAD")).toBeNull();
   });
 });
+
+describe("checking the machine before a release", () => {
+  it("given the git plugin, when its requirements are read, then it asks for a git that answers --version", () => {
+    const adapter = gitSourceControl();
+
+    expect(adapter.name).toBe("git");
+    expect(adapter.requirements?.()).toEqual([
+      { label: "git", check: { command: "git", args: ["--version"] } },
+    ]);
+  });
+});
