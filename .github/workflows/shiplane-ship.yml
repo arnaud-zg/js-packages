@@ -153,7 +153,24 @@ jobs:
           else npm install --global yarn; fi
           yarn --version
 
+      # The installed tree, keyed on the exact lockfile and Node: a hit skips the install.
+      - name: Node version
+        id: node
+        run: echo "version=$(node --version)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore node_modules
+        id: modules
+        if: ${{ inputs.install-command == '' }}
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            */node_modules
+            */*/node_modules
+          key: shiplane-modules-${{ runner.os }}-${{ steps.node.outputs.version }}-${{ hashFiles('**/pnpm-lock.yaml', '**/package-lock.json', '**/yarn.lock') }}
+
       - name: Install
+        if: ${{ steps.modules.outputs.cache-hit != 'true' }}
         env:
           PM: ${{ steps.detect.outputs.pm }}
           INSTALL_COMMAND: ${{ inputs.install-command }}
