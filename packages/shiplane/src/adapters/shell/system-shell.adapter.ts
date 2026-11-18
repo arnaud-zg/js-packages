@@ -16,6 +16,7 @@ export const systemShell: Shell = {
       const child = execFile(
         command,
         [...args],
+        // Stryker disable next-line ObjectLiteral: without its cwd, git in a test's temp repo would run in the real repository
         { cwd: options.cwd, env: environment(options), maxBuffer: MAX_BUFFER },
         (error, stdout, stderr) => {
           // A command that is not installed answers 127, as a shell would.
@@ -31,6 +32,7 @@ export const systemShell: Shell = {
     liveLine.hold(
       () =>
         new Promise<number>((resolve) => {
+          // Stryker disable next-line ObjectLiteral: without its cwd, a command would run in the real repository
           const child = spawn(command, [...args], {
             cwd: options.cwd,
             env: environment(options),
