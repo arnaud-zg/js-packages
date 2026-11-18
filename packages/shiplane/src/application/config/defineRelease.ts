@@ -29,6 +29,12 @@ export interface ReleaseConfig {
    * cannot ship takes the other.
    */
   via?: "ci" | "local";
+  /**
+   * A shell command run from the root before each unit ships from this machine (a laptop or a
+   * runner), never before a CI dispatch: `{unit}` is the unit's name, `{dir}` its folder from the
+   * root, such as `"pnpm --filter {unit}... build"`. A failure fails that unit.
+   */
+  prepare?: string;
 }
 
 export const defineRelease = (config: ReleaseConfig): ReleaseConfig => config;

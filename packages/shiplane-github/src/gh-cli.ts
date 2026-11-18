@@ -11,6 +11,8 @@ export const GH_REQUIREMENT: Requirement = {
   label: "gh",
   check: { command: "gh", args: ["auth", "status"] },
   fix: { command: "gh", args: ["auth", "login"] },
+  // Every GitHub-hosted runner has gh already.
+  secrets: ["GH_TOKEN"],
 };
 
 export const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));

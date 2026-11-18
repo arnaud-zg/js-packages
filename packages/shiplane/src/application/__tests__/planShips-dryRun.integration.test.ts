@@ -44,6 +44,23 @@ describe("Feature: previewing with --dry-run every command a ship would run", ()
     expect(ci.received).toEqual([]);
   });
 
+  it("given a prepare in the config, when a ship is previewed, then this machine's commands start with it, filled in for the unit", async () => {
+    // given
+    const { context, output, shell } = shipWorld(["api"], { prepare: "make {unit} -C {dir}" });
+
+    // when
+    await planShips(context, "preview");
+
+    // then
+    const at = output.lines.indexOf("    this machine");
+    expect(output.lines.slice(at, at + 3)).toEqual([
+      "    this machine",
+      '      sh -c "make api -C apps/api"',
+      "      echo deploy acme-api api@0.1.0",
+    ]);
+    expect(shell.calls).toEqual([]);
+  });
+
   it("given web not tagged yet, when a ship to production is previewed, then web says to release it first", async () => {
     // given
     const { context, output, source } = shipWorld(["api", "web"]);

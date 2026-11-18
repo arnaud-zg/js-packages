@@ -20,6 +20,12 @@ export class RecordingShell implements Shell {
 
   env = (name: string) => this.variables[name];
 
+  /** Puts a folder first on the seeded PATH, as the system shell does to its process. */
+  prependPath = (dir: string) => {
+    const { PATH } = this.variables;
+    this.variables.PATH = PATH ? `${dir}:${PATH}` : dir;
+  };
+
   /** Answers every call whose `command args` line starts with `prefix`. */
   seed(prefix: string, result: Partial<ShellResult>) {
     this.answers.push({ prefix, result });

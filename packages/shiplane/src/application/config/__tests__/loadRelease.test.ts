@@ -388,3 +388,58 @@ describe("mistakes in a unit file", () => {
     ]);
   });
 });
+
+describe("preparing each unit before it ships", () => {
+  it("given a prepare naming {unit} and {dir}, when the release loads, then it keeps it as written", async () => {
+    const { root } = setUp({
+      "shiplane.config.ts": MODULE_CONFIG.replace(
+        "modules: [",
+        'prepare: "pnpm --filter {unit} build && ls {dir}",\n  modules: [',
+      ),
+    });
+
+    const release = await load(root);
+
+    expect(release.problems).toEqual([]);
+    expect(release.prepare).toBe("pnpm --filter {unit} build && ls {dir}");
+  });
+
+  it("given no prepare, when the release loads, then there is none", async () => {
+    const { root } = setUp({});
+
+    const release = await load(root);
+
+    expect(release.problems).toEqual([]);
+    expect(release).not.toHaveProperty("prepare");
+  });
+
+  it("given a prepare naming a placeholder it does not know, when the release loads, then it fails naming it", async () => {
+    const { root } = setUp({
+      "shiplane.config.ts": MODULE_CONFIG.replace(
+        "modules: [",
+        'prepare: "make {app} {unit}",\n  modules: [',
+      ),
+    });
+
+    const release = await load(root);
+
+    expect(release.problems).toEqual([
+      {
+        file: "shiplane.config.ts",
+        message: "it did not load: unknown placeholder {app} in prepare",
+      },
+    ]);
+  });
+
+  it("given a prepare that is not text, when the release loads, then it says it is a shell command", async () => {
+    const { root } = setUp({
+      "shiplane.config.ts": MODULE_CONFIG.replace("modules: [", "prepare: 1,\n  modules: ["),
+    });
+
+    const release = await load(root);
+
+    expect(release.problems[0]?.message).toBe(
+      'it did not load: prepare is a shell command, such as "pnpm --filter {unit} build"',
+    );
+  });
+});

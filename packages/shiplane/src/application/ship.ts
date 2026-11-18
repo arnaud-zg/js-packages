@@ -7,8 +7,10 @@ import type { Deploy } from "../ports/code-host.port";
 import type { Decision, Job, ShipKind } from "../ports/delivery.port";
 import type { Shipment } from "./askPath";
 import type { ReleaseContext } from "./context";
+import type { Outcomes, ShipStep } from "./shipSteps";
 import { onlyVersionFiles, shipsFrom, webShip } from "../domain/deploys";
 import { yesAllowed } from "../domain/governance";
+import { prepareLine } from "../domain/prepare";
 import { choosesPath, forcedPath, routeChoice, shipRuns } from "../domain/shipRoute";
 import { askPaths, ciLabel, pathLabel } from "./askPath";
 import { checkEnvBeforeDeploy } from "./checkEnvBeforeDeploy";
@@ -17,7 +19,8 @@ import { mapLimit } from "./mapLimit";
 import { pullRequestFirst } from "./pullRequestFirst";
 import { deployedOn } from "./readScope";
 import { signIn, signInsOf } from "./requirements";
-import { confirm, fail, listed, paint, reasonOf } from "./say";
+import { confirm, fail, paint } from "./say";
+import { runShipSteps, writePlan, writeResult } from "./shipSteps";
 import {
   checkout,
   decideContext,
@@ -310,10 +313,6 @@ const workflowJobs = async ({ services }: ReleaseContext, entries: readonly Read
   return jobs;
 };
 
-/** A failed ship left its tag unshipped: the next run's first question offers it again. */
-const offerAgain = ({ output }: ReleaseContext, tags: string[]) =>
-  output.line(`    ${paint("dim", `Run shiplane again: it offers ${listed(tags)} again`)}`);
-
 /** `Ship a through <the CI pipeline>`, or each tag with its way when they differ. */
 const shipQuestion = (
   going: Ready[],
@@ -412,27 +411,23 @@ const declined = async (
   return true;
 };
 
-/** One thing a ship runs: a job from this machine, or a workflow run dispatched. */
-interface ShipStep {
-  label: string;
-  run: () => Promise<unknown>;
-  /** The tags left unshipped when it fails. */
-  tags: string[];
-}
-
-/** Each step under its progress line, in order: the first failure is said and stops the rest. */
-const runShipSteps = async (context: ReleaseContext, steps: readonly ShipStep[]) => {
-  for (const [index, { label, run, tags }] of steps.entries()) {
-    try {
-      await context.progress.during(label, "working", run, { index, total: steps.length });
-    } catch (error) {
-      const reason = reasonOf(error);
-      fail(context, `${label} failed`, `${reason}, nothing after it ran.`);
-      offerAgain(context, tags);
-      return false;
-    }
-  }
-  return true;
+/** The unit's `prepare` from the config, run from the root before it ships from this machine. */
+const prepareStep = (context: ReleaseContext, { unit, input }: Ready): ShipStep[] => {
+  const { release, shell } = context;
+  if (release.prepare === undefined) return [];
+  const line = prepareLine(release.prepare, unit);
+  return [
+    {
+      label: `prepare ${input.tag}: ${line}`,
+      run: async () => {
+        const status = await shell.attach("sh", ["-c", line], { cwd: release.root });
+        if (status !== 0) throw new Error(`${line} exited with ${status}`);
+      },
+      tags: [input.tag],
+      unit: unit.name,
+      stage: "prepare",
+    },
+  ];
 };
 
 /**
@@ -521,20 +516,29 @@ export const shipTo = async (
   );
   const workflow = services.ciPipeline.shipWorkflow;
   const steps: ShipStep[] = [
-    ...here.flatMap(({ input, jobs }) =>
-      jobs.map((job) => ({
+    ...here.flatMap((entry) => [
+      ...prepareStep(context, entry),
+      ...entry.jobs.map((job) => ({
         label: job.label,
-        run: () => runHere(context, job, input),
-        tags: [input.tag],
+        run: () => runHere(context, job, entry.input),
+        tags: [entry.input.tag],
+        unit: entry.unit.name,
+        stage: "ship" as const,
       })),
-    ),
+    ]),
     ...runs.map((run) => ({
       label: `ship ${run.units.join(", ")} from ${run.ref} (${workflow})`,
       run: () => dispatchShip(context, run, environment),
       tags: going.filter(({ unit }) => run.units.includes(unit.name)).map(({ input }) => input.tag),
+      unit: run.units.join(", "),
+      stage: "ship" as const,
     })),
   ];
-  if (!(await runShipSteps(context, steps))) return false;
+  await writePlan(context, environment, new Set(going.map(({ unit }) => unit.name)));
+  const outcomes: Outcomes = new Map();
+  const shipped = await runShipSteps(context, steps, outcomes);
+  writeResult(context, outcomes);
+  if (!shipped) return false;
   const names = going.map(({ input }) => input.tag).join(", ");
   const where = destination(
     context,

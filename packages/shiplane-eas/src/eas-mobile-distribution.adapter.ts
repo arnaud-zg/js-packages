@@ -60,6 +60,7 @@ export const easMobileDistribution = (): EasMobileDistributionAdapter =>
         label: "eas",
         check: { command: "pnpm", args: ["exec", "eas", "whoami"], cwd: unit.dir },
         fix: { command: "pnpm", args: ["exec", "eas", "login"], cwd: unit.dir },
+        secrets: ["EXPO_TOKEN"],
       },
     ],
     env: easEnv,

@@ -37,6 +37,7 @@ describe("shipping through a GitHub Actions workflow", () => {
         label: "gh",
         check: { command: "gh", args: ["auth", "status"] },
         fix: { command: "gh", args: ["auth", "login"] },
+        secrets: ["GH_TOKEN"],
       },
     ]);
   });

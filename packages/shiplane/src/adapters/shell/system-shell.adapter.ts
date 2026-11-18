@@ -1,4 +1,5 @@
 import { execFile, spawn } from "node:child_process";
+import path from "node:path";
 
 import type { RunOptions, Shell } from "../../ports/shell.port";
 import { liveLine } from "../terminal/live-line";
@@ -43,4 +44,7 @@ export const systemShell: Shell = {
     ),
 
   env: (name) => process.env[name],
+  prependPath: (dir) => {
+    process.env.PATH = [dir, process.env.PATH].filter(Boolean).join(path.delimiter);
+  },
 };

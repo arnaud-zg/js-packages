@@ -90,9 +90,9 @@ The upload is the deploy: it returns in seconds. `setup` offers this adapter for
 
 ## 🔑 Tools and sign-ins
 
-| Tool       | Checked with                        | Fixed with                         | In CI                  |
-| ---------- | ----------------------------------- | ---------------------------------- | ---------------------- |
-| `wrangler` | `npx --yes wrangler@4.141.0 whoami` | `npx --yes wrangler@4.141.0 login` | `CLOUDFLARE_API_TOKEN` |
+| Tool       | Checked with                        | Fixed with                         | In CI                                           |
+| ---------- | ----------------------------------- | ---------------------------------- | ----------------------------------------------- |
+| `wrangler` | `npx --yes wrangler@4.141.0 whoami` | `npx --yes wrangler@4.141.0 login` | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` |
 
 Source: `requirements` in `src/cloudflare-pages-static-hosting.adapter.ts`; the version follows
 `wrangler`. `pnpm shiplane doctor` runs each check and offers the fix.

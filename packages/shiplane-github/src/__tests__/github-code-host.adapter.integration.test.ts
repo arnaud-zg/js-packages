@@ -22,6 +22,7 @@ describe("checking GitHub is ready before a release", () => {
         label: "gh",
         check: { command: "gh", args: ["auth", "status"] },
         fix: { command: "gh", args: ["auth", "login"] },
+        secrets: ["GH_TOKEN"],
       },
     ]);
   });

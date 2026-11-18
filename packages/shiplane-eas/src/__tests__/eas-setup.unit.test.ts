@@ -99,12 +99,13 @@ describe("checking an Expo app is ready to ship with EAS", () => {
     options: { versionFile: "binary-version.json", update: "eas:update" },
   });
 
-  it("given an app in its own folder, when shiplane checks it can ship, then it runs eas whoami there and offers eas login as the fix", () => {
+  it("given an app in its own folder, when shiplane checks it can ship, then it runs eas whoami there and offers eas login as the fix, and a runner signs in with EXPO_TOKEN", () => {
     expect(eas.requirements?.(unit)).toEqual([
       {
         label: "eas",
         check: { command: "pnpm", args: ["exec", "eas", "whoami"], cwd: "apps/expo" },
         fix: { command: "pnpm", args: ["exec", "eas", "login"], cwd: "apps/expo" },
+        secrets: ["EXPO_TOKEN"],
       },
     ]);
   });

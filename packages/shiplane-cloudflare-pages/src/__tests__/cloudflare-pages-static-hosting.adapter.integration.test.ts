@@ -97,7 +97,7 @@ describe("asking for what init could not find", () => {
 });
 
 describe("what doctor checks before a site ships to Cloudflare Pages", () => {
-  it("given a unit pinning its own wrangler, when doctor checks, then whoami runs on that wrangler, and login fixes it", () => {
+  it("given a unit pinning its own wrangler, when doctor checks, then whoami runs on that wrangler, login fixes it, and a runner signs in with its API token and account", () => {
     const unit = testUnit("site", {
       options: { project: "acme-site", wrangler: "wrangler@4.0.0" },
     });
@@ -107,6 +107,7 @@ describe("what doctor checks before a site ships to Cloudflare Pages", () => {
         label: "wrangler",
         check: { command: "npx", args: ["--yes", "wrangler@4.0.0", "whoami"] },
         fix: { command: "npx", args: ["--yes", "wrangler@4.0.0", "login"] },
+        secrets: ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"],
       },
     ]);
   });

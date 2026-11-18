@@ -109,6 +109,8 @@ export const cloudflarePagesStaticHosting = (): CloudflarePagesStaticHostingAdap
           label: "wrangler",
           check: { command: "npx", args: ["--yes", wrangler, "whoami"] },
           fix: { command: "npx", args: ["--yes", wrangler, "login"] },
+          // npx fetches wrangler itself: nothing to install.
+          secrets: ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"],
         },
       ];
     },
