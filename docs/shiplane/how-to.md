@@ -15,7 +15,8 @@
 [Retry a failed release](#retry-a-failed-release) ·
 [Publish a test version](#publish-a-test-version) ·
 [Choose GitHub Actions or this machine](#choose-github-actions-or-this-machine) ·
-[Ship with no laptop](#ship-with-no-laptop) · [Use it from a script](#use-it-from-a-script)
+[Ship from GitHub Actions](#ship-from-github-actions) · [Ship with no laptop](#ship-with-no-laptop)
+· [Use it from a script](#use-it-from-a-script)
 
 **Hosts:** [Publish a package to npm](#publish-a-package-to-npm) ·
 [Release Claude Code plugins](#release-claude-code-plugins) ·
@@ -293,6 +294,83 @@ same. Without `--via`, it asks per app and shows this month's CI minutes. To sto
 run. An app only one way can ship is not asked, and it says why. Through GitHub Actions, each run
 goes on a release tag, so a merge to `main` while it waits cannot change what ships; see
 [Explanation](./explanation.md#ci-and-your-laptop-run-the-same-jobs).
+
+## Ship from GitHub Actions
+
+```sh
+pnpm shiplane setup      # writes .github/workflows/ship.yml
+pnpm shiplane doctor     # checks it, offers each fix
+```
+
+`ship.yml` is about 30 lines that call shiplane's reusable workflow. You write no step: it checks
+out the repo, detects the package manager and Node version, installs, puts your secrets in the
+environment, installs the deploy tools your units need, then runs `shiplane ship`, the same command
+as your laptop.
+
+```yaml
+# .github/workflows/ship.yml, as setup writes it
+# Ships with shiplane: `pnpm shiplane ship --via ci`, or Run workflow here.
+# Written by `shiplane setup`; `shiplane doctor` keeps the pin current.
+name: Ship
+run-name: Ship ${{ inputs.units || 'every released unit' }} to ${{ inputs.environment }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      units:
+        description: "Units to ship, space separated (empty: every unit the environment lacks)"
+        type: string
+        default: ""
+      environment:
+        description: "Where to ship the ref this runs on"
+        type: choice
+        options: [preview, production]
+        default: preview
+
+permissions:
+  contents: read
+  deployments: write
+  actions: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  ship:
+    uses: arnaud-zg/js-packages/.github/workflows/shiplane-ship.yml@<commit> # shiplane@<version>
+    with:
+      units: ${{ inputs.units }}
+      environment: ${{ inputs.environment }}
+    secrets: inherit
+```
+
+1. **Create one GitHub Environment per channel** (Settings › Environments): `preview`, `production`.
+2. **Add each adapter's secret to it**, by the name in [the sign-ins table](#set-up-the-sign-ins):
+   `FLY_API_TOKEN`, `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, `EXPO_TOKEN`. Every secret
+   reaches shiplane under its own name; you list none in the workflow.
+3. **Ship:** `pnpm shiplane ship --via ci`, or Run workflow in the Actions tab.
+
+A unit that fails never stops the next one. The run page shows what ships before, and how each unit
+went after; the run fails when one did.
+
+**Build before shipping.** Set `prepare` in `shiplane.config.ts`. It runs before each unit ships,
+from the repo root, on your laptop and on the runner alike: `{unit}` is the unit's name, `{dir}` its
+folder.
+
+```ts
+export default defineRelease({ prepare: "pnpm turbo run build typecheck --filter=./{dir}" });
+```
+
+**Push as an app, not as Actions.** A push with the default token never starts another workflow. Add
+secrets `SHIPLANE_APP_ID` and `SHIPLANE_APP_PRIVATE_KEY` of a GitHub App installed on the repo, and
+the workflow uses its token instead.
+
+**Upgrade.** The workflow is pinned to the commit of a shiplane release, never a moving tag. After
+upgrading `shiplane`, `pnpm shiplane doctor` offers to re-pin it.
+
+**Not supported, or a repo that differs.** The first step checks everything and fails before
+anything ships, with what to change: see
+[GitHub Actions workflow](./reference.md#github-actions-workflow). Only as a last resort, pass
+`node-version`, `install-command` or `working-directory` under `with:`.
 
 ## Ship with no laptop
 
