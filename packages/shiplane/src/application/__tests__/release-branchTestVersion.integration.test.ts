@@ -35,7 +35,7 @@ describe("publishing a test version of a feature branch", () => {
       [`set lib ${LIB_VERSION}`, `publish @acme/lib@${LIB_VERSION} under latest (fake)`],
     );
     expect(output.lines).toEqual([
-      "  – web  not part of a test release",
+      "  – web  test release not available yet: npm packages only",
       `✓ Published under npm tag ${TAG}`,
       "  Package    Version                        Install",
       `  @acme/lib  ${LIB_VERSION}  npm i @acme/lib@${TAG}`,
@@ -86,7 +86,10 @@ describe("publishing a test version of a feature branch", () => {
   it("given two changed packages, when the test version publishes, then each gets its branch version and the install table stays aligned", async () => {
     const { context, output, shell } = branchWorld({
       units: [lib, kit],
-      changed: ["packages/lib/a.ts", "packages/kit/b.ts"],
+      pending: [
+        { name: "@acme/lib", newVersion: "1.3.0" },
+        { name: "@acme/ui-kit", newVersion: "0.5.0" },
+      ],
       files: {
         "packages/lib/package.json": LIB_MANIFEST,
         "packages/kit/package.json": manifest({ name: "@acme/ui-kit", version: "0.4.0" }),
@@ -97,13 +100,13 @@ describe("publishing a test version of a feature branch", () => {
 
     expect(shell.calls.map(({ args }) => args.join(" "))).toEqual([
       `publish @acme/lib ${LIB_VERSION}`,
-      "publish @acme/ui-kit 0.4.0-feat-login-page.abc1234",
+      "publish @acme/ui-kit 0.5.0-feat-login-page.abc1234",
     ]);
     expect(output.lines).toEqual([
       `✓ Published under npm tag ${TAG}`,
       "  Package       Version                        Install",
       `  @acme/lib     ${LIB_VERSION}  npm i @acme/lib@${TAG}`,
-      `  @acme/ui-kit  0.4.0-feat-login-page.abc1234  npm i @acme/ui-kit@${TAG}`,
+      `  @acme/ui-kit  0.5.0-feat-login-page.abc1234  npm i @acme/ui-kit@${TAG}`,
     ]);
   });
 
@@ -134,7 +137,7 @@ describe("telling reviewers how to install a test version", () => {
     expect(body).toContain(
       `| [@acme/lib](https://www.npmjs.com/package/@acme/lib) | [${LIB_VERSION}](https://www.npmjs.com/package/@acme/lib/v/${LIB_VERSION}) | \`npm i @acme/lib@${TAG}\` |`,
     );
-    expect(body).toContain("Not published here: `web` (not an npm package).");
+    expect(body).toContain("Test release not available yet: `web` (npm packages only for now).");
     expect(output.lines.at(-1)).toBe("  The install lines are on #42 too.");
   });
 
@@ -232,39 +235,47 @@ describe("knowing when a branch has no test version to publish", () => {
     ]);
   });
 
-  it("given a branch that changed nothing, when shiplane runs, then nothing publishes and it says nothing changed since main", async () => {
-    const { context, progress, shell } = branchWorld({ changed: [] });
+  it("given no pending changeset, when shiplane runs, then nothing publishes and it says to add one", async () => {
+    const { context, progress, shell } = branchWorld({ pending: [] });
 
     const done = await branchRelease(context, { onDefault: "release" });
 
     expect(done).toBe(true);
     expect(shell.calls).toEqual([]);
     expect(progress.events).toEqual([
-      { kind: "say", mood: "resting", text: "nothing changed since main" },
+      {
+        kind: "say",
+        mood: "resting",
+        text: "nothing pending: a test release publishes what the changesets release, add one with pnpm changeset",
+      },
     ]);
   });
 
-  it("given a branch that only changed the web app, when shiplane runs, then it says no changed app is an npm package", async () => {
-    const { context, progress, output } = branchWorld({ changed: ["apps/web/src/page.ts"] });
+  it("given only the web app pending, when shiplane runs, then it says a test release is not available for it yet", async () => {
+    const { context, progress, output } = branchWorld({
+      pending: [{ name: "@acme/web", newVersion: "0.2.0" }],
+    });
 
     await branchRelease(context, { onDefault: "release" });
 
     expect(output.lines).toEqual([
-      "  – web  not part of a test release",
-      "nothing to publish: no changed unit is an npm package",
+      "  – web  test release not available yet: npm packages only",
+      "nothing to publish: no pending unit is an npm package",
     ]);
     expect(progress.events.map(({ mood }) => mood)).toEqual(["resting"]);
   });
 
-  it("given a file outside every unit and a file whose name only starts like the package's folder, when shiplane runs, then nothing publishes", async () => {
-    const { context, shell } = branchWorld({ changed: ["README.md", "packages/library/x.ts"] });
+  it("given a branch that changed a package with no changeset, when shiplane runs, then only what the changesets release publishes", async () => {
+    const { context, shell } = branchWorld({
+      pending: [{ name: "@acme/other", newVersion: "1.0.0" }],
+    });
 
     await branchRelease(context, { onDefault: "release" });
 
     expect(shell.calls).toEqual([]);
   });
 
-  it("given a single package at the repository root, when any file changed, then its test version publishes and its manifest is put back", async () => {
+  it("given a single package at the repository root pending, when shiplane runs, then its test version publishes and its manifest is put back", async () => {
     const root = testUnit("root", {
       dir: ".",
       packageName: "@acme/root",
@@ -273,32 +284,22 @@ describe("knowing when a branch has no test version to publish", () => {
     });
     const { context, shell, files } = branchWorld({
       units: [root],
-      changed: ["README.md"],
+      pending: [{ name: "@acme/root", newVersion: "2.1.0" }],
       files: { "package.json": manifest({ name: "@acme/root", version: "2.0.0" }) },
     });
 
     await branchRelease(context, { onDefault: "release" });
 
     expect(shell.calls.map(({ args }) => args.join(" "))).toEqual([
-      "publish @acme/root 2.0.0-feat-login-page.abc1234",
+      "publish @acme/root 2.1.0-feat-login-page.abc1234",
     ]);
     expect(files.read("package.json")).toBe(manifest({ name: "@acme/root", version: "2.0.0" }));
-  });
-
-  it("given git cannot find where the branch forked, when shiplane runs, then what changed since origin's main still publishes", async () => {
-    const { context, source, shell } = branchWorld({ changed: [] });
-    source.seed({ diffs: { [`main-tip..${HEAD}`]: ["packages/lib/a.ts"] } });
-    Object.assign(source, { mergeBase: undefined });
-
-    await branchRelease(context, { onDefault: "release" });
-
-    expect(shell.calls).toHaveLength(1);
   });
 });
 
 describe("publishing a test version of what main will release next", () => {
   const onMain = (releases: { name: string; newVersion: string }[]) => {
-    const world = branchWorld({ changed: [] });
+    const world = branchWorld();
     world.source.seed({ position: { branch: "main", head: HEAD, originMain: HEAD } });
     world.versioning.seed({
       plan: () => ({
@@ -327,7 +328,7 @@ describe("publishing a test version of what main will release next", () => {
     expect(output.lines[0]).toBe("✓ Published under npm tag main");
   });
 
-  it("given main with nothing pending, when the person runs test-release there, then nothing publishes and it says the next release ships no change", async () => {
+  it("given main with nothing pending for its units, when the person runs test-release there, then nothing publishes and it says to add a changeset", async () => {
     const { context, progress, shell } = onMain([{ name: "@acme/other", newVersion: "9.0.0" }]);
 
     await branchRelease(context, { onDefault: "publish" });
@@ -337,7 +338,7 @@ describe("publishing a test version of what main will release next", () => {
       {
         kind: "say",
         mood: "resting",
-        text: "nothing to publish: the next release ships no change",
+        text: "nothing pending: a test release publishes what the changesets release, add one with pnpm changeset",
       },
     ]);
   });
@@ -363,13 +364,13 @@ describe("choosing between a test release and the real one on a feature branch",
     await branchRelease(context, { onDefault: "release" });
 
     expect(prompter.asked).toEqual([QUESTION]);
-    expect(prompter.initials[QUESTION]).toBe("publish");
+    expect(prompter.initials[QUESTION]).toBe("snapshot");
     expect(prompter.choices[QUESTION]).toEqual([
-      {
-        value: "publish",
-        label: "Publish a test release",
-        hint: `${LIB_VERSION} → npm tag ${TAG}`,
-      },
+      { value: "snapshot", label: "Publish a snapshot", hint: `${LIB_VERSION} → npm tag ${TAG}` },
+      { value: "nightly", label: "Publish on nightly", hint: "npm tag nightly" },
+      { value: "alpha", label: "Publish on alpha", hint: "npm tag alpha" },
+      { value: "beta", label: "Publish on beta", hint: "npm tag beta" },
+      { value: "rc", label: "Publish on rc", hint: "npm tag rc" },
       {
         value: "switch",
         label: "Switch to main",
@@ -381,7 +382,10 @@ describe("choosing between a test release and the real one on a feature branch",
   it("given two packages to publish, when the person is asked, then the test release says how many packages it publishes", async () => {
     const { context, prompter } = branchWorld({
       units: [lib, kit],
-      changed: ["packages/lib/a.ts", "packages/kit/b.ts"],
+      pending: [
+        { name: "@acme/lib", newVersion: "1.3.0" },
+        { name: "@acme/ui-kit", newVersion: "0.5.0" },
+      ],
       yes: false,
       interactive: true,
     });
@@ -409,7 +413,7 @@ describe("choosing between a test release and the real one on a feature branch",
 
   it("given the person picks the test release, when shiplane goes on, then the package publishes", async () => {
     const { context, prompter, shell } = branchWorld({ yes: false, interactive: true });
-    prompter.answer("publish");
+    prompter.answer("snapshot");
 
     expect(await branchRelease(context, { onDefault: "release" })).toBe(true);
     expect(shell.calls).toHaveLength(1);
@@ -467,7 +471,7 @@ describe("checking the npm sign-in before a test version publishes", () => {
     const { context, shell, registry, prompter } = branchWorld({ yes: false, interactive: true });
     registry.fake.seed({ requirements: [NPM] });
     shell.seedOnce("npm whoami", { status: 1 });
-    prompter.answer("publish", true);
+    prompter.answer("snapshot", true);
 
     const done = await branchRelease(context, { onDefault: "release" });
 

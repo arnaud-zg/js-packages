@@ -14,4 +14,13 @@ export const publishedPackage = ({
   live: (context, input) => context.open(packageRegistry).live(context, input),
   publishedName: (context, input) =>
     context.open(packageRegistry).publishedName?.(input) ?? input.unit.packageName,
+  publishedVersions: async (context, input) => {
+    const registry = context.open(packageRegistry);
+    if (!registry.publishedVersions) {
+      throw new Error(
+        `the ${packageRegistry.name} registry cannot list its versions: publish a snapshot instead`,
+      );
+    }
+    return registry.publishedVersions(context, input);
+  },
 });

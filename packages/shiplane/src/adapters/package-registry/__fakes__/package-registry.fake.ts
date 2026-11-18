@@ -67,6 +67,20 @@ export class PackageRegistryFake implements PackageRegistryPort {
 
   publishedName = ({ unit }: JobInput<Record<string, unknown>>) => unit.packageName;
 
+  /** Every `<version>` published of the unit's package, as the registry lists them. */
+  publishedVersions = (_context: DecideContext, { unit }: JobInput<Record<string, unknown>>) =>
+    Promise.resolve(
+      [...this.published].flatMap((entry) => {
+        const at = entry.lastIndexOf("@");
+        return entry.slice(0, at) === unit.packageName ? [entry.slice(at + 1)] : [];
+      }),
+    );
+
+  /** Records a publish, as a test release's jobs would: the next numbering reads it. */
+  publish(packageAt: string) {
+    this.published.add(packageAt);
+  }
+
   live = (_context: DecideContext, { unit }: JobInput<Record<string, unknown>>) =>
     Promise.resolve(this.published.has(`${unit.packageName}@${unit.version}`));
 

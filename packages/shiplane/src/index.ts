@@ -12,6 +12,8 @@ export { perEnv } from "./application/config/perEnv";
 export type { ReleaseConfig } from "./application/config/defineRelease";
 export { defineRelease } from "./application/config/defineRelease";
 export { comments } from "./domain/branchRelease";
+export type { Channel, TestReleaseBranches } from "./domain/testChannel";
+export { channels, testReleases } from "./domain/testChannel";
 export type { Feature, ReleaseFlow, ReleaseModule } from "./modules/module";
 export type {
   Adapter,

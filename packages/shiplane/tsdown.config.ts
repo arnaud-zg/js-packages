@@ -12,4 +12,7 @@ export default defineLibraryConfig({
   // The testing kit runs inside its importer's vitest.
   deps: { neverBundle: ["vitest"] },
   exports: false,
+  // Declaration maps point at the shipped src: Cmd/Ctrl-click on testReleases or channels in a
+  // config opens their source and its documentation, not a generated .d.ts.
+  dts: { sourcemap: true },
 });

@@ -223,37 +223,81 @@ never when main is behind the last preview build.
 
 ## Publish a test version
 
-From any branch, main included. No pull request and no changeset needed:
+A test release publishes what your **pending changesets** release, before the real release, for
+testers to install. From any branch, main included; no pull request needed. npm packages only for
+now: other pending units are listed as not available yet.
 
 ```sh
-pnpm shiplane test-release    # on a branch, plain pnpm shiplane offers it too, asked first
+pnpm shiplane test-release              # the branch's channel: a snapshot unless configured
+pnpm shiplane test-release beta         # this run on beta: 0.6.0-beta.2 under npm tag beta
+pnpm shiplane test-release --dry-run    # each package's version and npm tag, nothing published
 ```
+
+Each version builds on the version the changesets give the package next, so it always sorts above
+the last release. Two kinds of channel:
+
+| Channel                                    | Version              | npm tag     | Lifetime              |
+| ------------------------------------------ | -------------------- | ----------- | --------------------- |
+| `snapshot` (default)                       | `0.6.0-main.329aafb` | branch name | one per commit        |
+| `nightly`, `alpha`, `beta`, `rc`, any word | `0.6.0-beta.<n>`     | the word    | `<n>` +1 each publish |
+
+`<n>` is the next number npm does not hold for that version and channel, from 0. Nothing is written
+to git: no tag, no commit; versions are written to `package.json` for the publish and put back
+after, even when it fails. `latest` stays the real release's: no test release can use it.
+
+In a terminal, plain `pnpm shiplane` on a feature branch asks first; with two pending packages or
+more, you pick which ones get a test release:
 
 ```text
 ◆  You're on feat/x, not main.
-│  ● Publish a test release     0.5.2-feat-x.ae08284 → npm tag feat-x
-│  ○ Switch to main             git switch main && git pull, then the real release
+│  ● Publish a snapshot        0.6.0-feat-x.ae08284 → npm tag feat-x
+│  ○ Publish on nightly        npm tag nightly
+│  ○ Publish on beta           npm tag beta
+│  ○ Switch to main            git switch main && git pull, then the real release
 ```
 
-Each npm package whose files the branch changed since it left the default branch is published as
-`<version>-<branch>.<sha>`, its `package.json` version first, under an npm tag named after the
-branch (`branch-` in front when npm would read the name as a version, such as `v2`, and never
-`latest`). Testers install it with `npm i <package>@feat-x`; the terminal prints that table.
+### Give each branch a channel
 
-| Where you run it        | What is published                                                    | Asks first? | PR comment      |
-| ----------------------- | -------------------------------------------------------------------- | ----------- | --------------- |
-| a branch, in a terminal | what the branch changed, `0.5.2-feat-x.<sha>`, tag `feat-x`          | yes         | if a PR is open |
-| a branch, `--yes` or CI | the same                                                             | no          | if a PR is open |
-| the default branch      | what the next release ships, at its next version, `0.6.0-main.<sha>` | no          | if a PR is open |
-| nothing changed         | nothing                                                              | no          | none            |
+Without a setting, every branch publishes a snapshot. To make a branch publish on a channel by
+itself (in CI, a nightly job), pick a preset or write one map. Hover any name in your editor for
+what it publishes; Cmd/Ctrl-click opens its source.
 
-On the default branch the branch's own diff is empty, so it publishes the packages the pending
-changes would release, each at the version it will take. Plain `pnpm shiplane` there is still the
-real release.
+```ts
+import { defineRelease, testReleases } from "shiplane";
+
+export default defineRelease({
+  // …
+  testRelease: testReleases.gitflow,
+});
+```
+
+| Preset                    | Map                                                                   |
+| ------------------------- | --------------------------------------------------------------------- |
+| _(none)_                  | every branch a snapshot                                               |
+| `testReleases.nightly`    | `{ main: "nightly" }`                                                 |
+| `testReleases.prerelease` | `{ main: "nightly", next: "alpha", beta: "beta", "release/*": "rc" }` |
+| `testReleases.gitflow`    | `{ develop: "nightly", "release/*": "beta", "hotfix/*": "rc" }`       |
+
+Your own: a key is a branch or a `*` pattern, the value a channel. The exact name wins, then the
+longest pattern; a branch not listed publishes a snapshot.
+
+```ts
+import { channels, defineRelease } from "shiplane";
+
+export default defineRelease({
+  // …
+  testRelease: { main: channels.nightly, "release/*": channels.beta }, // or plain "nightly", "beta"
+});
+```
+
+`shiplane setup` asks this once when it finds an npm package, and writes the line.
+
+### The pull request comment
 
 With an open pull request, one comment on it, edited on each run, gives the commit, each package and
 version linked on npmjs (plain text for another registry), how to pin the exact build, the pnpm and
-yarn lines, and the changed units it did not publish. Pick another layout with `testComment`:
+yarn lines, and the pending units not available as test releases yet. Pick another layout with
+`testComment`:
 
 ```ts
 import { comments, defineRelease } from "shiplane";
@@ -270,17 +314,13 @@ export default defineRelease({
 | `comments.compact`    | `` 📦 Test version of `feat/x` ([`a1b2c3d`](…)): `npm i shiplane@feat-x` `` |
 | `"Try it: {install}"` | `` Try it: `npm i shiplane@feat-x` ``                                       |
 
-Your own text takes `{branch}`, `{commit}` (linked), `{table}` (the install table with its notes)
-and `{install}` (one `npm i` line for every package). A hidden marker goes on top, so the same
-comment is edited whatever the text.
+Your own text takes `{branch}`, `{commit}` (linked), `{channel}`, `{table}` (the install table with
+its notes) and `{install}` (one `npm i` line for every package). A hidden marker goes on top, so the
+same comment is edited whatever the text.
 
-Nothing reaches git: no tag, and the versions are written to `package.json` for the publish and put
-back after, even when it fails; any pending changesets stay for the real release, and none is
-needed.
-
-It refuses uncommitted changes. Changed units that ship elsewhere than npm are listed as not part of
-a test release, and nothing deploys them. The default branch is read from git (`origin/HEAD`, else
-`main` or `master`); `gitSourceControl({ main })` sets it.
+It refuses uncommitted changes. With no pending changeset it says to add one (`pnpm changeset`). The
+default branch is read from git (`origin/HEAD`, else `main` or `master`);
+`gitSourceControl({ main })` sets it.
 
 ## Choose GitHub Actions or this machine
 

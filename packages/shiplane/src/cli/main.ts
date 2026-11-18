@@ -33,7 +33,7 @@ const SHORT_HELP = `${paint("bold", "shiplane")}: detect what changed, version i
 
   shiplane                        the next step to preview: release PR, merge, tags, ship
   shiplane promote                production, from what preview runs
-  shiplane test-release           publish a temporary npm version for testers, from any branch
+  shiplane test-release [channel] publish what the changesets release for testers: a snapshot, or beta, nightly…
   shiplane status                 where every unit stands, and what to run next
   shiplane setup                  set up releases, or add an app
   shiplane doctor                 check the config, tools and sign-ins, offer each fix
@@ -46,7 +46,8 @@ const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, tri
 
   shiplane                        the next step to preview: release PR, merge, tags, ship
                                   (on a branch: a test release, asked first)
-  shiplane test-release           publish a temporary npm version for testers, from any branch
+  shiplane test-release [channel] publish what the changesets release for testers, npm packages only:
+                                  a snapshot (0.6.0-main.329aafb) or a numbered channel (0.6.0-beta.2)
   shiplane promote                production, from what preview runs (--channel production too)
   shiplane status [--json]        where every unit stands, and what to run next
   shiplane version                open the release PR for what is pending
@@ -66,7 +67,8 @@ const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, tri
   --channel preview|production    where status reads (preview by default)
   --via ci|local                  ship through the CI pipeline (such as GitHub Actions) or this machine, without asking
   --yes                           answer yes to every question (never on production)
-  --dry-run                       with shiplane, ship or promote: every command it would run, run nothing
+  --dry-run                       with shiplane, ship or promote: every command it would run, run nothing;
+                                  with test-release: each package's version and npm tag, publish nothing
                                   (shiplane plan before)
   --verbose / --no-verbose        say each thing it reads and runs, with a progress bar (on by default)
   --mascot / --no-mascot          the mascot beside it, still in CI or under NO_MOTION=1 (on by default)
@@ -109,15 +111,21 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
   // doctor --ci says an unknown channel itself, with the environments it knows.
   const environment = command === "doctor" ? "preview" : z.enum(ENVIRONMENTS).parse(values.channel);
   const via = viaFlag(values.via);
+  // shiplane test-release [channel] [--dry-run]
+  const testRelease = {
+    onDefault: "publish" as const,
+    dryRun: values["dry-run"],
+    ...(units[0] === undefined ? {} : { channel: units[0] }),
+  };
 
   const commands: Record<string, (context: ReleaseContext) => Promise<boolean | void>> = {
     next: (context) =>
       environment === "preview"
         ? branchRelease(context, { onDefault: "release" })
         : promote(context, via),
-    "test-release": (context) => branchRelease(context, { onDefault: "publish" }),
+    "test-release": (context) => branchRelease(context, testRelease),
     // The command's first name, kept working, left out of the help.
-    branch: (context) => branchRelease(context, { onDefault: "publish" }),
+    branch: (context) => branchRelease(context, testRelease),
     promote: (context) => promote(context, via),
     status: (context) => statusCommand(context, { environment, json: values.json }),
     version: async (context) => {

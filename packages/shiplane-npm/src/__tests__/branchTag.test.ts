@@ -46,3 +46,34 @@ describe("publishing a branch release to npm", () => {
     expect(job?.cleanup?.[0]?.args).toEqual(["pkg", "set", "name=kit-workspace"]);
   });
 });
+
+describe("the versions npm holds, for a numbered test release", () => {
+  const versionsFrom = (reply: { status?: number; stdout?: string; stderr?: string }) => {
+    const shell = new RecordingShell();
+    shell.seed("npm view kit-workspace versions", reply);
+    const port = npmPackageRegistry().create({ root: "/repo", shell });
+    return port.publishedVersions?.({ shell } as never, {
+      unit: KIT,
+      tag: "kit@0.6.0",
+      environment: "preview",
+      commit: "ae08284",
+      defaultBranch: "main",
+      options: { access: "public", tag: "latest" },
+    });
+  };
+
+  it("given several versions published, when read, then each is listed", async () => {
+    await expect(versionsFrom({ stdout: '["0.5.2","0.6.0-beta.0"]' })).resolves.toEqual([
+      "0.5.2",
+      "0.6.0-beta.0",
+    ]);
+  });
+
+  it("given a single version published, when read, then npm's lone string is one version", async () => {
+    await expect(versionsFrom({ stdout: '"0.5.2"' })).resolves.toEqual(["0.5.2"]);
+  });
+
+  it("given a package npm never got, when read, then none is listed", async () => {
+    await expect(versionsFrom({ status: 1, stderr: "npm error code E404" })).resolves.toEqual([]);
+  });
+});

@@ -100,6 +100,8 @@ export interface ReleaseModule {
   readonly decide?: (context: DecideContext, input: AppInput) => Promise<Decision>;
   /** The name its registry publishes an app under, when it is not the workspace name. */
   readonly publishedName?: (context: DecideContext, input: AppInput) => string;
+  /** Every version its registry holds, for a numbered test release; absent when it cannot say. */
+  readonly publishedVersions?: (context: DecideContext, input: AppInput) => Promise<string[]>;
   /** Where a tag lands and the jobs that ship it: data, never run by the module itself. */
   readonly ship: (context: DecideContext, input: AppInput) => ShipPlan;
   /** How the tagged version does on preview, read before promoting it. Null when nothing says. */
