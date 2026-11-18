@@ -8,7 +8,7 @@ import { testContext, testUnit } from "../../testing/releaseContext";
 
 export const BRANCH = "feat/Login_page";
 export const HEAD = "abc1234def";
-export const TAG = "feat-login-page";
+export const TAG = "snapshot";
 /** What the pending changesets give lib: a test version builds on it. */
 export const LIB_NEXT = "1.3.0";
 export const LIB_VERSION = "1.3.0-feat-login-page.abc1234";

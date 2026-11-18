@@ -20,7 +20,7 @@ const PR = { number: 42, url: "https://github.com/acme/repo/pull/42", head: HEAD
 const publishLine = (name: string, version: string) => `echo publish ${name} ${version}`;
 
 describe("publishing a test version of a feature branch", () => {
-  it("given a branch that changed an npm package and a web app, when shiplane runs with --yes, then the package publishes at its branch version under the branch's tag and the web app waits", async () => {
+  it("given a branch that changed an npm package and a web app, when shiplane runs with --yes, then the package publishes at its branch version under the shared snapshot tag and the web app waits", async () => {
     const { context, shell, distTags, output, progress } = branchWorld();
 
     const done = await branchRelease(context, { onDefault: "release" });
@@ -38,7 +38,7 @@ describe("publishing a test version of a feature branch", () => {
       "  – web  test release not available yet: npm packages only",
       `✓ Published under npm tag ${TAG}`,
       "  Package    Version                        Install",
-      `  @acme/lib  ${LIB_VERSION}  npm i @acme/lib@${TAG}`,
+      `  @acme/lib  ${LIB_VERSION}  npm i @acme/lib@${LIB_VERSION}`,
     ]);
   });
 
@@ -105,8 +105,8 @@ describe("publishing a test version of a feature branch", () => {
     expect(output.lines).toEqual([
       `✓ Published under npm tag ${TAG}`,
       "  Package       Version                        Install",
-      `  @acme/lib     ${LIB_VERSION}  npm i @acme/lib@${TAG}`,
-      `  @acme/ui-kit  0.5.0-feat-login-page.abc1234  npm i @acme/ui-kit@${TAG}`,
+      `  @acme/lib     ${LIB_VERSION}  npm i @acme/lib@${LIB_VERSION}`,
+      `  @acme/ui-kit  0.5.0-feat-login-page.abc1234  npm i @acme/ui-kit@0.5.0-feat-login-page.abc1234`,
     ]);
   });
 
@@ -116,7 +116,7 @@ describe("publishing a test version of a feature branch", () => {
 
     await branchRelease(context, { onDefault: "release" });
 
-    expect(output.text).toContain(`npm i @pub/lib@${TAG}`);
+    expect(output.text).toContain(`npm i @pub/lib@${LIB_VERSION}`);
   });
 });
 
@@ -135,7 +135,7 @@ describe("telling reviewers how to install a test version", () => {
       `Built from [\`abc1234\`](https://github.com/acme/repo/commit/${HEAD}) on \`${BRANCH}\`.`,
     );
     expect(body).toContain(
-      `| [@acme/lib](https://www.npmjs.com/package/@acme/lib) | [${LIB_VERSION}](https://www.npmjs.com/package/@acme/lib/v/${LIB_VERSION}) | \`npm i @acme/lib@${TAG}\` |`,
+      `| [@acme/lib](https://www.npmjs.com/package/@acme/lib) | [${LIB_VERSION}](https://www.npmjs.com/package/@acme/lib/v/${LIB_VERSION}) | \`npm i @acme/lib@${LIB_VERSION}\` |`,
     );
     expect(body).toContain("Test release not available yet: `web` (npm packages only for now).");
     expect(output.lines.at(-1)).toBe("  The install lines are on #42 too.");
@@ -153,7 +153,7 @@ describe("telling reviewers how to install a test version", () => {
 
     expect(world.host.received).toEqual([
       expect.objectContaining({
-        body: `${BRANCH_COMMENT_MARKER}\nTry \`npm i @acme/lib@${TAG}\` from ${BRANCH}`,
+        body: `${BRANCH_COMMENT_MARKER}\nTry \`npm i @acme/lib@${LIB_VERSION}\` from ${BRANCH}`,
       }),
     ]);
   });
@@ -175,7 +175,7 @@ describe("telling reviewers how to install a test version", () => {
     expect(host.received).toEqual([
       expect.objectContaining({
         body: expect.stringContaining(
-          `| @acme/lib | ${LIB_VERSION} | \`npm i @acme/lib@${TAG}\` |`,
+          `| @acme/lib | ${LIB_VERSION} | \`npm i @acme/lib@${LIB_VERSION}\` |`,
         ) as string,
       }),
     ]);
@@ -316,7 +316,7 @@ describe("publishing a test version of what main will release next", () => {
     return world;
   };
 
-  it("given main with a pending minor change to the package, when the person runs test-release there, then the version the next release takes publishes under the main tag", async () => {
+  it("given main with a pending minor change to the package, when the person runs test-release there, then the version the next release takes publishes under the snapshot tag", async () => {
     const { context, shell, output } = onMain([{ name: "@acme/lib", newVersion: "1.3.0" }]);
 
     const done = await branchRelease(context, { onDefault: "publish" });
@@ -325,7 +325,7 @@ describe("publishing a test version of what main will release next", () => {
     expect(shell.calls.map(({ args }) => args.join(" "))).toEqual([
       "publish @acme/lib 1.3.0-main.abc1234",
     ]);
-    expect(output.lines[0]).toBe("✓ Published under npm tag main");
+    expect(output.lines[0]).toBe("✓ Published under npm tag snapshot");
   });
 
   it("given main with nothing pending for its units, when the person runs test-release there, then nothing publishes and it says to add a changeset", async () => {

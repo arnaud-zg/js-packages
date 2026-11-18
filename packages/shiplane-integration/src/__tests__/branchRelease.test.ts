@@ -50,7 +50,7 @@ const API_CHANGE = "apps/api/src/server.ts";
 
 const KIT_MANIFEST = '{\n  "name": "@acme/kit",\n  "version": "0.5.2"\n}\n';
 const PR = { number: 42, url: "https://github.com/acme/repo/pull/42" };
-const PUBLISH = ["publish", "--no-git-checks", "--access", "public", "--tag", "feat-x"];
+const PUBLISH = ["publish", "--no-git-checks", "--access", "public", "--tag", "snapshot"];
 const MARKER = "<!-- shiplane:branch-release -->";
 
 const setUp = ({ yes = true, interactive = true, pr = true } = {}) => {
@@ -87,7 +87,7 @@ const branchComments = async (world: ReturnType<typeof setUp>) =>
     .filter((body) => body.includes(MARKER));
 
 describe("Feature: a branch release for testers", () => {
-  it("given a branch with an open pull request and --yes, when shiplane runs, then its npm package is published under the branch's tag and git keeps no trace", async () => {
+  it("given a branch with an open pull request and --yes, when shiplane runs, then its npm package is published under the snapshot tag and git keeps no trace", async () => {
     // given
     const world = setUp();
     const before = world.files.all;
@@ -108,10 +108,12 @@ describe("Feature: a branch release for testers", () => {
     expect(world.versioning.applied).toEqual([]);
     expect(world.source.received).toEqual([]);
     expect(world.output.text).toContain("api  test release not available yet");
-    expect(world.output.text).toContain("@acme/kit  0.6.0-feat-x.ae08284  npm i @acme/kit@feat-x");
+    expect(world.output.text).toContain(
+      "@acme/kit  0.6.0-feat-x.ae08284  npm i @acme/kit@0.6.0-feat-x.ae08284",
+    );
     expect(await branchComments(world)).toEqual([
       expect.stringContaining(
-        "| [@acme/kit](https://www.npmjs.com/package/@acme/kit) | [0.6.0-feat-x.ae08284](https://www.npmjs.com/package/@acme/kit/v/0.6.0-feat-x.ae08284) | `npm i @acme/kit@feat-x` |",
+        "| [@acme/kit](https://www.npmjs.com/package/@acme/kit) | [0.6.0-feat-x.ae08284](https://www.npmjs.com/package/@acme/kit/v/0.6.0-feat-x.ae08284) | `npm i @acme/kit@0.6.0-feat-x.ae08284` |",
       ),
     ]);
     expect((await branchComments(world))[0]).toContain(
@@ -132,10 +134,10 @@ describe("Feature: a branch release for testers", () => {
     await branchRelease(world.context, { onDefault: "release" });
 
     // then
-    expect(world.output.text).toContain("npm i @acme/kit-next@feat-x");
+    expect(world.output.text).toContain("npm i @acme/kit-next@0.6.0-feat-x.ae08284");
     expect(await branchComments(world)).toEqual([
       expect.stringContaining(
-        "| [@acme/kit-next](https://www.npmjs.com/package/@acme/kit-next) | [0.6.0-feat-x.ae08284](https://www.npmjs.com/package/@acme/kit-next/v/0.6.0-feat-x.ae08284) | `npm i @acme/kit-next@feat-x` |",
+        "| [@acme/kit-next](https://www.npmjs.com/package/@acme/kit-next) | [0.6.0-feat-x.ae08284](https://www.npmjs.com/package/@acme/kit-next/v/0.6.0-feat-x.ae08284) | `npm i @acme/kit-next@0.6.0-feat-x.ae08284` |",
       ),
     ]);
   });
@@ -153,7 +155,9 @@ describe("Feature: a branch release for testers", () => {
 
     // then
     expect(await branchComments(world)).toEqual([
-      expect.stringContaining("| @acme/kit | 0.6.0-feat-x.ae08284 | `npm i @acme/kit@feat-x` |"),
+      expect.stringContaining(
+        "| @acme/kit | 0.6.0-feat-x.ae08284 | `npm i @acme/kit@0.6.0-feat-x.ae08284` |",
+      ),
     ]);
   });
 
@@ -192,7 +196,7 @@ describe("Feature: a branch release for testers", () => {
       {
         value: "publish",
         label: "Publish a test release",
-        hint: "0.6.0-feat-x.ae08284 → npm tag feat-x",
+        hint: "0.6.0-feat-x.ae08284 → npm tag snapshot",
       },
       {
         value: "switch",
@@ -212,7 +216,9 @@ describe("Feature: a branch release for testers", () => {
     // then
     expect(done).toBe(true);
     expect(world.published).toEqual([expect.stringContaining('"version": "0.6.0-feat-x.ae08284"')]);
-    expect(world.output.text).toContain("@acme/kit  0.6.0-feat-x.ae08284  npm i @acme/kit@feat-x");
+    expect(world.output.text).toContain(
+      "@acme/kit  0.6.0-feat-x.ae08284  npm i @acme/kit@0.6.0-feat-x.ae08284",
+    );
     expect(world.output.text).not.toContain("The install lines are on");
     expect(world.host.received).not.toContainEqual(
       expect.objectContaining({ type: "upsert-comment" }),
@@ -243,7 +249,7 @@ describe("Feature: a branch release for testers", () => {
 
     // then
     expect(await branchComments(world)).toEqual([
-      `${MARKER}\n📦 Test version of \`feat/x\` ([\`ae08284\`](https://github.com/acme/repo/commit/ae08284f00d1)): \`npm i @acme/kit@feat-x\`\n`,
+      `${MARKER}\n📦 Test version of \`feat/x\` ([\`ae08284\`](https://github.com/acme/repo/commit/ae08284f00d1)): \`npm i @acme/kit@0.6.0-feat-x.ae08284\`\n`,
     ]);
   });
 
@@ -256,7 +262,9 @@ describe("Feature: a branch release for testers", () => {
     await branchRelease(world.context, { onDefault: "release" });
 
     // then
-    expect(await branchComments(world)).toEqual([`${MARKER}\nTry it: \`npm i @acme/kit@feat-x\``]);
+    expect(await branchComments(world)).toEqual([
+      `${MARKER}\nTry it: \`npm i @acme/kit@0.6.0-feat-x.ae08284\``,
+    ]);
   });
 
   it("given a repository whose default branch is master, when shiplane runs on master, then the real release runs from it", async () => {
@@ -383,12 +391,12 @@ describe("Feature: a branch release for testers", () => {
     // then
     expect(done).toBe(true);
     expect(world.prompter.asked).toEqual([]);
-    expect(world.shell.calls).toContainEqual(
-      expect.objectContaining({ args: [...PUBLISH.slice(0, -1), "main"] }),
-    );
+    expect(world.shell.calls).toContainEqual(expect.objectContaining({ args: PUBLISH }));
     expect(world.published).toEqual([expect.stringContaining('"version": "0.6.0-main.c0ffee1"')]);
     expect(world.output.text).toContain("api  test release not available yet");
-    expect(world.output.text).toContain("@acme/kit  0.6.0-main.c0ffee1  npm i @acme/kit@main");
+    expect(world.output.text).toContain(
+      "@acme/kit  0.6.0-main.c0ffee1  npm i @acme/kit@0.6.0-main.c0ffee1",
+    );
     expect(world.versioning.applied).toEqual([]);
     expect(world.source.received).toEqual([]);
     expect(world.host.received).not.toContainEqual(

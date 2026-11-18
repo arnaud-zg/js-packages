@@ -12,6 +12,7 @@ import {
   BRANCH_COMMENT_MARKER,
   branchComment,
   installLine,
+  installSpec,
   repositoryOfPr,
 } from "../domain/branchRelease";
 import { isNumbered, nextNumber, testTag, testVersion } from "../domain/testChannel";
@@ -109,7 +110,7 @@ export const planBranch = async (
   );
   return {
     channel,
-    tag: testTag(channel, here.branch),
+    tag: testTag(channel),
     publish,
     others: changed.filter(({ unit }) => !isRegistry(context, unit)).map(({ unit }) => unit.name),
   };
@@ -211,7 +212,7 @@ export const printPlan = ({ output, progress }: ReleaseContext, plan: BranchPlan
     ...plan.publish.map(({ unit, version }) => [
       unit.packageName,
       version,
-      `npm i ${unit.packageName}@${plan.tag}`,
+      `npm i ${installSpec({ name: unit.packageName, version, tag: plan.tag })}`,
     ]),
   ]);
   output.line(paint("dim", `  ${header}`));
