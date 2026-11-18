@@ -48,6 +48,7 @@
     "prepublishOnly": "pnpm build",
     "start": "node dist/cli.js",
     "test": "vitest run",
+    "test:mutate": "stryker run ../../stryker.config.mjs",
     "typecheck": "tsc -p tsconfig.lib.json --noEmit --emitDeclarationOnly false"
   },
   "prettier": "@arnaud-zg/configs/prettier",
