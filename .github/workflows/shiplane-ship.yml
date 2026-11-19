@@ -90,6 +90,16 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Only here: the setup-node-project action serves any Node project.
+      - name: Find shiplane.config
+        env:
+          WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        run: |
+          for ext in ts mts js mjs; do [ -f "shiplane.config.$ext" ] && exit 0; done
+          echo "::error::no shiplane.config.ts in $WORKING_DIRECTORY (https://github.com/arnaud-zg/js-packages/blob/main/docs/shiplane/reference.md#github-actions-workflow)"
+          exit 1
+
+      # The same steps as .github/actions/setup-node-project, which other repos import; a test keeps them equal.
       - name: Detect the package manager and Node version
         id: detect
         env:
@@ -114,10 +124,6 @@ jobs:
             }
             return null;
           };
-          const configs = ["ts", "mts", "js", "mjs"].map((ext) => `shiplane.config.${ext}`);
-          if (!configs.some((file) => fs.existsSync(path.join(here, file)))) {
-            fail(`no shiplane.config.ts in ${process.env.WORKING_DIRECTORY}`);
-          }
           const manifest = JSON.parse(read("package.json") ?? "{}");
           const lockfiles = {
             "pnpm-lock.yaml": "pnpm",
@@ -185,7 +191,7 @@ jobs:
       - name: Restore node_modules
         id: modules
         if: ${{ inputs.install-command == '' }}
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             node_modules
@@ -194,6 +200,7 @@ jobs:
           key: shiplane-modules-${{ runner.os }}-${{ steps.node.outputs.version }}-${{ hashFiles('**/pnpm-lock.yaml', '**/package-lock.json', '**/yarn.lock') }}
 
       - name: Install
+        id: install
         if: ${{ steps.modules.outputs.cache-hit != 'true' }}
         env:
           PM: ${{ steps.detect.outputs.pm }}
@@ -210,6 +217,17 @@ jobs:
               if [ "$(yarn --version | cut -d. -f1)" -ge 2 ]; then yarn install --immutable
               else yarn install --frozen-lockfile; fi ;;
           esac
+
+      # Only a tree installed from the lockfile, after a miss: never one a failed install left.
+      - name: Save node_modules
+        if: ${{ steps.modules.outcome == 'success' && steps.modules.outputs.cache-hit != 'true' && steps.install.outcome == 'success' }}
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            node_modules
+            */node_modules
+            */*/node_modules
+          key: ${{ steps.modules.outputs.cache-primary-key }}
 
       - name: Mint a GitHub App token
         id: app

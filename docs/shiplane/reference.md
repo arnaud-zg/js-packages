@@ -303,6 +303,31 @@ as written, and the `SHIPLANE_APP_*` secrets it passes.
 Pinned to the installed version and passing the secrets its adapters read, it prints one
 `✓ ship.yml` line. Source: `src/application/callerWorkflow.ts`.
 
+### Setup Node project action
+
+`.github/actions/setup-node-project` is a composite action holding the steps `shiplane-ship.yml`
+runs before it ships: detect the package manager and Node version, set up pnpm, Node or yarn,
+restore `node_modules`, install, and save `node_modules` after a miss whose install succeeded. It
+fails on the same checks, except that it needs no `shiplane.config.ts`: any Node repository can use
+it. It checks nothing out and reads no secret. Pin it like the workflow, to a release commit:
+`uses: arnaud-zg/js-packages/.github/actions/setup-node-project@<sha> # shiplane@x.y.z`.
+
+| Input               | Default | Meaning                                                                                    |
+| ------------------- | ------- | ------------------------------------------------------------------------------------------ |
+| `node-version`      | `""`    | Last resort: a Node version, when there is no `.nvmrc`, `.node-version`, or `engines.node` |
+| `install-command`   | `""`    | Last resort: the install command; skips the `node_modules` cache                           |
+| `working-directory` | `.`     | Last resort: the folder holding `package.json`                                             |
+
+| Output            | Value                                                                             |
+| ----------------- | --------------------------------------------------------------------------------- |
+| `package-manager` | `pnpm`, `npm` or `yarn`                                                           |
+| `exec`            | The prefix that runs an installed binary: `pnpm exec`, `npx --no-install`, `yarn` |
+| `cache-hit`       | `true` when `node_modules` came from the cache, and the install was skipped       |
+
+The workflow keeps its own copy of these steps, since a reusable workflow cannot use an action from
+its own commit; a test fails when the two differ. Source:
+`.github/actions/setup-node-project/action.yml`. The Renovate preset updates its pin too.
+
 ## Example
 
 [`examples/render-server-hosting.ts`](../../packages/shiplane/examples/render-server-hosting.ts)
