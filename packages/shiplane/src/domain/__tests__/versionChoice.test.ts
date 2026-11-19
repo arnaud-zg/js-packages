@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AppBump } from "../changes";
-import { forcedVersion, versionChoices } from "../versionChoice";
+import { forcedVersion, usualReason, versionChoices } from "../versionChoice";
 
 const moved = (app: string, from: string, to: string): AppBump => ({
   app,
@@ -79,5 +79,21 @@ describe("a version a person forced", () => {
       { name: "@acme/kit", type: "patch" },
       { name: "@acme/cli", type: "patch" },
     ]);
+  });
+});
+
+describe("the usual reason for a forced version", () => {
+  const choices = versionChoices([moved("kit", "0.4.0", "0.5.0")]);
+  if (!choices) throw new Error("0.4.0 to 0.5.0 is a minor");
+
+  it("given a bigger version, when offered, then it names what the changesets missed", () => {
+    expect(usualReason(choices, "major")).toBe("Breaking change the changesets missed");
+    expect(usualReason({ ...choices, computed: "patch" }, "minor")).toBe(
+      "New feature the changesets called a fix",
+    );
+  });
+
+  it("given a smaller version, when offered, then it says the changesets overstated", () => {
+    expect(usualReason(choices, "patch")).toBe("Changesets overstated the change");
   });
 });

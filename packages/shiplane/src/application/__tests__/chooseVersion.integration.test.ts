@@ -122,6 +122,18 @@ describe("forcing another version", () => {
     );
   });
 
+  it("given a forced version, when asked why, then the usual reason is already typed so Enter takes it", async () => {
+    const world = setUp();
+    world.prompter.answer("major", "Breaking change the changesets missed");
+
+    await release(world);
+
+    expect(world.prompter.initials[WHY_MAJOR]).toBe("Breaking change the changesets missed");
+    expect(bodies(world)[0]).toContain(
+      "Version forced to 1.0.0 instead of 0.5.0: Breaking change the changesets missed",
+    );
+  });
+
   it("given a smaller version and a reason, when the release opens, then the changeset's own bump gives way", async () => {
     const world = setUp();
     world.prompter.answer("patch", "Docs and wording only");

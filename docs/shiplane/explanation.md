@@ -46,11 +46,12 @@ Core only knows the versioning port, so where changesets come from is the adapte
 nothing in core reading a commit to release it.
 
 A changeset is written before anyone sees the whole release, so whoever releases has the last word:
-the computed version is selected, and picking another takes a typed line. It is typed, not picked
-from a list, because a list only repeats what the number says, major means breaking, while users
-need to know what broke. Going up adds a changeset, so the changes keep the sections they were
-written for. Going down caps every line, since a single minor left in a fixed group would hold the
-whole group up.
+the computed version is selected, and picking another takes a typed line. The line comes prefilled
+with the usual reason, so a hurried release costs one Enter, but it stays a line rather than a list:
+a list only repeats what the number says, major means breaking, while users need to know what broke,
+and a prefilled line invites typing over it. Going up adds a changeset, so the changes keep the
+sections they were written for. Going down caps every line, since a single minor left in a fixed
+group would hold the whole group up.
 
 ## A package or a plugin has no environment
 

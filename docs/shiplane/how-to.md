@@ -120,15 +120,18 @@ version selected:
 │  ○ 0.4.1  patch
 ```
 
-Enter releases the computed version. Pick another and it asks why, in one line:
+Enter releases the computed version. Pick another and it asks why, in one line, with the usual
+reason already typed:
 
 ```text
 ◆  Why 1.0.0? Tell users what changed, in one line.
-│  Drops subjectsSince from SourceControlPort
+│  Breaking change the changesets missed
 ```
 
-Esc or an empty line goes back to the versions. The line reaches the changelog, the release PR and
-the release notes, as
+Enter takes it; type over it to say what changed, like `Drops subjectsSince from SourceControlPort`.
+Going up to a minor offers `New feature the changesets called a fix`, going down
+`Changesets overstated the change`. Esc or an empty line goes back to the versions. The line reaches
+the changelog, the release PR and the release notes, as
 `Version forced to 1.0.0 instead of 0.5.0: Drops subjectsSince from SourceControlPort`. Everything
 the release moves takes the forced version, a whole fixed group included, and a changeset's own bump
 gives way when you go lower.

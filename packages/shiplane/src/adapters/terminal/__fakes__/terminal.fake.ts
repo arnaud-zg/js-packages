@@ -61,7 +61,10 @@ export class ScriptedPrompter implements Prompter {
     return Promise.resolve(this.next(message) as Value[] | null);
   };
 
-  text = (message: string) => Promise.resolve(this.next(message) as string | null);
+  text = (message: string, initial?: string) => {
+    this.initials[message] = initial;
+    return Promise.resolve(this.next(message) as string | null);
+  };
 
   /** No key is ever pressed: every wait times out, unless keys were queued with `press`. */
   private keys: string[] = [];

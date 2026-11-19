@@ -53,3 +53,11 @@ export const forcedVersion = (
     summary: `Version forced to ${versions[level]} instead of ${versions[computed]}: ${reason}`,
   },
 });
+
+/** The usual reason for forcing `level`, offered so one Enter is enough. */
+export const usualReason = ({ computed }: VersionChoices, level: BumpLevel) => {
+  if (LEVELS.indexOf(level) > LEVELS.indexOf(computed)) return "Changesets overstated the change";
+  return level === "major"
+    ? "Breaking change the changesets missed"
+    : "New feature the changesets called a fix";
+};

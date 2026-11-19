@@ -2,7 +2,7 @@ import type { BumpLevel } from "../domain/changes";
 import type { VersionChoices } from "../domain/versionChoice";
 import type { ReleaseContext } from "./context";
 import type { Prepared } from "./prepareRelease";
-import { forcedVersion, LEVELS, versionChoices } from "../domain/versionChoice";
+import { forcedVersion, LEVELS, usualReason, versionChoices } from "../domain/versionChoice";
 import { prepareRelease } from "./prepareRelease";
 import { confirm, fail, paint } from "./say";
 import { unattended } from "./unattended";
@@ -61,6 +61,7 @@ export const chooseVersion = async (
     if (level === computed) return prepared;
     const reason = await prompter.text(
       `Why ${versions[level]}? Tell users what changed, in one line.`,
+      usualReason(choices, level),
     );
     // Esc or an empty line goes back to the versions.
     if (reason?.trim()) return forceVersion(context, prepared, choices, level, reason.trim());
