@@ -80,8 +80,12 @@ const publishJob = (input: JobInput<Options>): Job => {
     args: ["pkg", "set", `name=${to}`],
     cwd: unit.dir,
   });
+  // npm needs a tag to publish under, so an untagged version goes out under one and loses it after.
+  const untag = { command: "npm", args: ["dist-tag", "rm", name, distTag] };
   return {
-    label: `publish ${name}@${unit.version} under ${distTag}`,
+    label: input.dropTag
+      ? `publish ${name}@${unit.version}, no tag kept`
+      : `publish ${name}@${unit.version} under ${distTag}`,
     local: [
       ...(options.publishAs ? [rename(options.publishAs)] : []),
       {
@@ -89,6 +93,7 @@ const publishJob = (input: JobInput<Options>): Job => {
         args: ["publish", "--no-git-checks", "--access", options.access, "--tag", distTag],
         cwd: unit.dir,
       },
+      ...(input.dropTag ? [untag] : []),
     ],
     ...(options.publishAs ? { cleanup: [rename(unit.packageName)] } : {}),
   };

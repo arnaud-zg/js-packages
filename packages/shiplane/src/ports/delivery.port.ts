@@ -55,6 +55,11 @@ export interface JobInput<Options> {
    * environment's, and moves no other tag.
    */
   distTag?: string;
+  /**
+   * Remove `distTag` again once published, so no tag is left on the registry: testers install the
+   * exact version. npm cannot publish without a tag, or it would take `latest`.
+   */
+  dropTag?: boolean;
 }
 
 /** What a module's per-app stages may read and run. */

@@ -70,6 +70,15 @@ export interface BranchPublished {
 const NPMJS = "https://www.npmjs.com/package";
 const FENCE = "```";
 
+/**
+ * The npm tag a snapshot publishes under, removed right after: npm needs one to publish, and a
+ * snapshot keeps none, so it is installed by its exact version.
+ */
+export const SNAPSHOT_TAG = "snapshot";
+
+/** How the tag reads to a person: `npm tag beta`, or `no npm tag` for a snapshot. */
+export const tagWords = (tag: string) => (tag === SNAPSHOT_TAG ? "no npm tag" : `npm tag ${tag}`);
+
 /** What to install: the exact version, or the bare name when it is on latest. */
 export const installSpec = ({
   name,
@@ -117,9 +126,11 @@ export const comments = {
   compact: "📦 Test version of `{branch}` ({commit}): {install}\n",
 } as const;
 
-/** Where `@<tag>` points: this branch's latest snapshot, or the channel's newest version. */
-const tagPoints = (channel: string) =>
-  channel === "snapshot" ? "this branch's latest publish" : `each new ${channel}`;
+/** How to follow a numbered channel by its tag; none for a snapshot, which keeps no tag. */
+const followLine = ({ name, tag }: BranchPublished, channel: string) =>
+  channel === SNAPSHOT_TAG
+    ? []
+    : [`To follow each new ${channel} instead, install the tag: \`npm i ${name}@${tag}\`.`, ""];
 
 /** The install table, the pin line, the pnpm and yarn lines, and the pending units left out. */
 const installTable = (
@@ -134,12 +145,7 @@ const installTable = (
     "| --- | --- | --- |",
     ...published.map(row),
     "",
-    ...(first
-      ? [
-          `To follow ${tagPoints(channel)} instead, install the tag: \`npm i ${first.name}@${first.tag}\`.`,
-          "",
-        ]
-      : []),
+    ...(first ? followLine(first, channel) : []),
     "<details><summary>pnpm / yarn</summary>",
     "",
     FENCE,

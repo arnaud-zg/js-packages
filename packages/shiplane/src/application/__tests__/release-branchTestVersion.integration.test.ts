@@ -20,7 +20,7 @@ const PR = { number: 42, url: "https://github.com/acme/repo/pull/42", head: HEAD
 const publishLine = (name: string, version: string) => `echo publish ${name} ${version}`;
 
 describe("publishing a test version of a feature branch", () => {
-  it("given a branch that changed an npm package and a web app, when shiplane runs with --yes, then the package publishes at its branch version under the branch's tag and the web app waits", async () => {
+  it("given a branch that changed an npm package and a web app, when shiplane runs with --yes, then the package publishes at its branch version under no npm tag and the web app waits", async () => {
     const { context, shell, distTags, output, progress } = branchWorld();
 
     const done = await branchRelease(context, { onDefault: "release" });
@@ -36,7 +36,7 @@ describe("publishing a test version of a feature branch", () => {
     );
     expect(output.lines).toEqual([
       "  – web  test release not available yet: npm packages only",
-      `✓ Published under npm tag ${TAG}`,
+      "✓ Published, no npm tag",
       "  Package    Version                        Install",
       `  @acme/lib  ${LIB_VERSION}  npm i @acme/lib@${LIB_VERSION}`,
     ]);
@@ -70,7 +70,7 @@ describe("publishing a test version of a feature branch", () => {
     expect(done).toBe(false);
     expect(files.read("packages/lib/package.json")).toBe(LIB_MANIFEST);
     expect(host.received).toEqual([]);
-    expect(output.text).not.toContain("Published under npm tag");
+    expect(output.text).not.toContain("✓ Published");
   });
 
   it("given a package whose manifest is gone, when the test version publishes, then no manifest is written for it", async () => {
@@ -103,7 +103,7 @@ describe("publishing a test version of a feature branch", () => {
       "publish @acme/ui-kit 0.5.0-feat-login-page.abc1234",
     ]);
     expect(output.lines).toEqual([
-      `✓ Published under npm tag ${TAG}`,
+      "✓ Published, no npm tag",
       "  Package       Version                        Install",
       `  @acme/lib     ${LIB_VERSION}  npm i @acme/lib@${LIB_VERSION}`,
       `  @acme/ui-kit  0.5.0-feat-login-page.abc1234  npm i @acme/ui-kit@0.5.0-feat-login-page.abc1234`,
@@ -316,7 +316,7 @@ describe("publishing a test version of what main will release next", () => {
     return world;
   };
 
-  it("given main with a pending minor change to the package, when the person runs test-release there, then the version the next release takes publishes under the main tag", async () => {
+  it("given main with a pending minor change to the package, when the person runs test-release there, then the version the next release takes publishes under no npm tag", async () => {
     const { context, shell, output } = onMain([{ name: "@acme/lib", newVersion: "1.3.0" }]);
 
     const done = await branchRelease(context, { onDefault: "publish" });
@@ -325,7 +325,7 @@ describe("publishing a test version of what main will release next", () => {
     expect(shell.calls.map(({ args }) => args.join(" "))).toEqual([
       "publish @acme/lib 1.3.0-main.abc1234",
     ]);
-    expect(output.lines[0]).toBe("✓ Published under npm tag main");
+    expect(output.lines[0]).toBe("✓ Published, no npm tag");
   });
 
   it("given main with nothing pending for its units, when the person runs test-release there, then nothing publishes and it says to add a changeset", async () => {
@@ -369,7 +369,7 @@ describe("choosing between a test release and the real one on a feature branch",
       {
         value: "publish",
         label: "Publish a test release",
-        hint: `${LIB_VERSION} → npm tag ${TAG}`,
+        hint: `${LIB_VERSION} → no npm tag`,
       },
       {
         value: "switch",
@@ -393,7 +393,7 @@ describe("choosing between a test release and the real one on a feature branch",
 
     await branchRelease(context, { onDefault: "release" });
 
-    expect(prompter.choices[QUESTION]?.[0]?.hint).toBe(`2 packages → npm tag ${TAG}`);
+    expect(prompter.choices[QUESTION]?.[0]?.hint).toBe(`2 packages → no npm tag`);
   });
 
   it("given the person cancels the question, when shiplane stops, then nothing runs", async () => {

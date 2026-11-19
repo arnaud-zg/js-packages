@@ -113,7 +113,7 @@ describe("the pull request comment of a branch release", () => {
   const KIT = {
     name: "@acme/kit",
     version: "0.5.2-feat-x.ae08284",
-    tag: "feat-x",
+    tag: "snapshot",
     onNpmjs: true,
   };
   const UI = { ...KIT, name: "@acme/ui", version: "1.2.0-feat-x.ae08284" };
@@ -149,14 +149,22 @@ describe("the pull request comment of a branch release", () => {
     );
   });
 
-  it("given several packages, when written, then it installs exact versions and offers the tag to follow", () => {
+  it("given several snapshots, when written, then every install names the exact version, for npm, pnpm and yarn", () => {
     const body = comment();
 
-    expect(body).toContain(
-      "To follow this branch's latest publish instead, install the tag: `npm i @acme/kit@feat-x`.",
-    );
+    expect(body).not.toContain("@snapshot");
     expect(body).toContain("pnpm add @acme/kit@0.5.2-feat-x.ae08284 @acme/ui@1.2.0-feat-x.ae08284");
     expect(body).toContain("yarn add @acme/kit@0.5.2-feat-x.ae08284 @acme/ui@1.2.0-feat-x.ae08284");
+  });
+
+  it("given a numbered channel, when written, then it installs the exact version and offers the channel's tag to follow", () => {
+    const beta = { ...KIT, version: "0.6.0-beta.2", tag: "beta" };
+    const body = comment({ published: [beta], channel: "beta" });
+
+    expect(body).toContain("`npm i @acme/kit@0.6.0-beta.2`");
+    expect(body).toContain(
+      "To follow each new beta instead, install the tag: `npm i @acme/kit@beta`.",
+    );
   });
 
   it("given a pending unit that is not an npm package, when written, then it says its test release is not available yet", () => {

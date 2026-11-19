@@ -14,6 +14,8 @@ import {
   installLine,
   installSpec,
   repositoryOfPr,
+  SNAPSHOT_TAG,
+  tagWords,
 } from "../domain/branchRelease";
 import { isNumbered, nextNumber, testTag, testVersion } from "../domain/testChannel";
 import { readManifest } from "./manifest";
@@ -110,7 +112,7 @@ export const planBranch = async (
   );
   return {
     channel,
-    tag: testTag(channel, here.branch),
+    tag: testTag(channel),
     publish,
     others: changed.filter(({ unit }) => !isRegistry(context, unit)).map(({ unit }) => unit.name),
   };
@@ -162,7 +164,11 @@ const publishingOf = (
     defaultBranch: here.defaultBranch,
   });
   if (!target) return [];
-  const input = { ...target.input, distTag: tag };
+  const input = {
+    ...target.input,
+    distTag: tag,
+    ...(tag === SNAPSHOT_TAG ? { dropTag: true } : {}),
+  };
   const name = target.module.publishedName?.(decideContext(context), input) ?? unit.packageName;
   const onNpmjs = publishesToNpmjs(readManifest({ files: context.files, dir: unit.dir }));
   const steps = shipPlanOf(context, target.module, input).jobs.map((job) => ({
@@ -206,7 +212,7 @@ const padded = (rows: readonly string[][]) => {
 
 /** What a dry run shows: each package at the version it would take, and the npm tag; true. */
 export const printPlan = ({ output, progress }: ReleaseContext, plan: BranchPlan) => {
-  progress.say("resting", `Would publish on ${plan.channel}, npm tag ${plan.tag} (dry run)`);
+  progress.say("resting", `Would publish on ${plan.channel}, ${tagWords(plan.tag)} (dry run)`);
   const [header = "", ...rows] = padded([
     ["Package", "Version", "Install"],
     ...plan.publish.map(({ unit, version }) => [
@@ -223,7 +229,10 @@ export const printPlan = ({ output, progress }: ReleaseContext, plan: BranchPlan
 
 const printPublished = ({ output, progress }: ReleaseContext, published: BranchPublished[]) => {
   const [first] = published;
-  progress.say("happy", `${paint("green", "✓")} Published under npm tag ${first?.tag ?? ""}`);
+  progress.say(
+    "happy",
+    `${paint("green", "✓")} Published${first?.tag === SNAPSHOT_TAG ? ", no npm tag" : ` under npm tag ${first?.tag ?? ""}`}`,
+  );
   const [header = "", ...rows] = padded([
     ["Package", "Version", "Install"],
     ...published.map((entry) => [entry.name, entry.version, installLine(entry)]),

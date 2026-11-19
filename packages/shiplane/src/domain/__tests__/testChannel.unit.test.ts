@@ -97,17 +97,13 @@ describe("the next number on a channel", () => {
 describe("a test release's version and npm tag", () => {
   const at = { next: "0.6.0", branch: "main", sha: "329aafb00e1", n: 3 };
 
-  it("given a snapshot, when versioned, then it is <next>-<branch>.<short sha> under the branch's tag", () => {
+  it("given a snapshot, when versioned, then it is <next>-<branch>.<short sha> under the one snapshot tag", () => {
     expect(testVersion({ ...at, channel: "snapshot" })).toBe("0.6.0-main.329aafb");
-    expect(testTag("snapshot", "feat/X")).toBe("feat-x");
+    expect(testTag("snapshot")).toBe("snapshot");
   });
 
   it("given a numbered channel, when versioned, then it is <next>-<channel>.<n> under the channel's tag", () => {
     expect(testVersion({ ...at, channel: "beta" })).toBe("0.6.0-beta.3");
-    expect(testTag("beta", "release/1.0")).toBe("beta");
-  });
-
-  it("given a snapshot of a branch named latest, when tagged, then the tag is never latest", () => {
-    expect(testTag("snapshot", "latest")).toBe("branch-latest");
+    expect(testTag("beta")).toBe("beta");
   });
 });

@@ -3,7 +3,7 @@ import type { OpenPr } from "../domain/releasePr";
 import type { Channel } from "../domain/testChannel";
 import type { BranchPlan, Here } from "./branchPublish";
 import type { ReleaseContext } from "./context";
-import { branchChoice } from "../domain/branchRelease";
+import { branchChoice, tagWords } from "../domain/branchRelease";
 import { channelFor, channelProblem } from "../domain/testChannel";
 import { plural } from "../domain/words";
 import { planBranch, printPlan, publishBranch } from "./branchPublish";
@@ -80,7 +80,7 @@ const askHow = ({ prompter }: ReleaseContext, { here, plan }: { here: Here; plan
       {
         value: "publish",
         label: "Publish a test release",
-        hint: `${whatPublishes(plan)} → npm tag ${plan.tag}`,
+        hint: `${whatPublishes(plan)} → ${tagWords(plan.tag)}`,
       },
       {
         value: "switch",

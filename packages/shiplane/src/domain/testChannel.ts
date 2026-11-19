@@ -1,4 +1,4 @@
-import { branchSlug, branchTag, branchVersion } from "./branchRelease";
+import { branchTag, branchVersion } from "./branchRelease";
 
 /**
  * Where a test release publishes. `snapshot` is one temporary version per commit; any other word is
@@ -6,7 +6,8 @@ import { branchSlug, branchTag, branchVersion } from "./branchRelease";
  */
 export const channels = {
   /**
-   * `<next>-<branch>.<sha>` under the branch's npm tag, such as `0.6.0-feat-x.ae08284` on `feat-x`.
+   * `<next>-<branch>.<sha>` with no npm tag, such as `0.6.0-feat-x.ae08284` on `feat-x`: it
+   * publishes under `snapshot` and drops it, so no tag piles up; testers install the exact version.
    * One per commit, temporary: what every branch publishes unless `testRelease` says otherwise.
    */
   snapshot: "snapshot",
@@ -128,6 +129,8 @@ export const testVersion = ({
 }) =>
   isNumbered(channel) ? `${next}-${channel}.${n}` : branchVersion({ current: next, branch, sha });
 
-/** The npm tag a test release publishes under: the channel, or the branch's for a snapshot. */
-export const testTag = (channel: Channel, branch: string) =>
-  isNumbered(channel) ? branchTag(channel) : branchTag(branchSlug(branch));
+/**
+ * The npm tag a test release publishes under: its channel, `snapshot` included, never the branch, so
+ * a branch leaves no tag of its own behind on npm.
+ */
+export const testTag = (channel: Channel) => branchTag(channel);
