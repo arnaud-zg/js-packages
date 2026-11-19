@@ -4,6 +4,7 @@ import type { AppBump } from "../domain/changes";
 import type { Environment } from "../domain/environment";
 import type { Approval } from "../domain/releasePr";
 import type { DecidedBy } from "../domain/scope";
+import type { TaggedVersion } from "../domain/snapshotTags";
 import type { ReleaseUnit } from "../domain/unit";
 import type { Adapter, AdapterContext, ServiceAdapter } from "../ports/adapter.port";
 import type { CiPipelinePort } from "../ports/ci-pipeline.port";
@@ -102,6 +103,15 @@ export interface ReleaseModule {
   readonly publishedName?: (context: DecideContext, input: AppInput) => string;
   /** Every version its registry holds, for a numbered test release; absent when it cannot say. */
   readonly publishedVersions?: (context: DecideContext, input: AppInput) => Promise<string[]>;
+  /** Every dist-tag its registry holds, for `shiplane prune-snapshots`; absent when it cannot say. */
+  readonly tags?: (context: DecideContext, input: AppInput) => Promise<TaggedVersion[]>;
+  /** The job that removes one dist-tag, `otp` passed to the registry; absent when it cannot. */
+  readonly untagJob?: (
+    context: DecideContext,
+    input: AppInput,
+    tag: string,
+    otp?: string,
+  ) => Job | null;
   /** Where a tag lands and the jobs that ship it: data, never run by the module itself. */
   readonly ship: (context: DecideContext, input: AppInput) => ShipPlan;
   /** How the tagged version does on preview, read before promoting it. Null when nothing says. */

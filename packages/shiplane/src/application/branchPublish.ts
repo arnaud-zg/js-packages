@@ -198,7 +198,7 @@ const publishAll = async (
 };
 
 /** Rows padded to their widest cell, two spaces apart. */
-const padded = (rows: readonly string[][]) => {
+export const padded = (rows: readonly string[][]) => {
   const widths = (rows[0] ?? []).map((_, column) =>
     Math.max(...rows.map((row) => (row[column] ?? "").length)),
   );

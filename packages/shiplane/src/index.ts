@@ -27,6 +27,7 @@ export type { SourceControlPort } from "./ports/source-control.port";
 export type { VersioningPort } from "./ports/versioning.port";
 export type { MobileDistributionPort } from "./ports/mobile-distribution.port";
 export type { PackageRegistryPort } from "./ports/package-registry.port";
+export type { TaggedVersion } from "./domain/snapshotTags";
 export type { ServerHostingPort } from "./ports/server-hosting.port";
 export type { StaticHostingPort } from "./ports/static-hosting.port";
 export {
