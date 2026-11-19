@@ -132,10 +132,12 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       run: echo "version=$(node --version)" >> "$GITHUB_OUTPUT"
 
-    - name: Restore node_modules
+    # Restores now; its post step saves node_modules at the end of the job, after a miss and
+    # only when the job succeeded, so a failed install is never cached.
+    - name: Cache node_modules
       id: modules
       if: ${{ inputs.install-command == '' }}
-      uses: actions/cache/restore@v4
+      uses: actions/cache@v4
       with:
         path: |
           node_modules
@@ -163,14 +165,3 @@ runs:
             if [ "$(yarn --version | cut -d. -f1)" -ge 2 ]; then yarn install --immutable
             else yarn install --frozen-lockfile; fi ;;
         esac
-
-    # Only a tree installed from the lockfile, after a miss: never one a failed install left.
-    - name: Save node_modules
-      if: ${{ steps.modules.outcome == 'success' && steps.modules.outputs.cache-hit != 'true' && steps.install.outcome == 'success' }}
-      uses: actions/cache/save@v4
-      with:
-        path: |
-          node_modules
-          */node_modules
-          */*/node_modules
-        key: ${{ steps.modules.outputs.cache-primary-key }}
