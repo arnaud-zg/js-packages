@@ -54,10 +54,30 @@ export const forcedVersion = (
   },
 });
 
-/** The usual reason for forcing `level`, offered so one Enter is enough. */
-export const usualReason = ({ computed }: VersionChoices, level: BumpLevel) => {
-  if (LEVELS.indexOf(level) > LEVELS.indexOf(computed)) return "Changesets overstated the change";
-  return level === "major"
-    ? "Breaking change the changesets missed"
-    : "New feature the changesets called a fix";
+/**
+ * The reason prefilled when a person forces a version, so one Enter is enough. Keyed by the level
+ * forced, then by whether it goes `up` from the computed version or `down`. Major has nothing below
+ * it and patch nothing above, so each has one side only. Edit a line here to change what is offered.
+ */
+export const USUAL_REASONS = {
+  major: {
+    // A changeset marked minor or patch hid a break: users must hear it before they upgrade.
+    up: "Breaking change the changesets missed",
+  },
+  minor: {
+    // A changeset marked patch added something users can use: a minor tells them to look.
+    up: "New feature the changesets called a fix",
+    // A changeset marked major broke nothing users touch, like an internal API.
+    down: "Changesets overstated the change",
+  },
+  patch: {
+    // Changesets marked minor carried only refactors, docs or tooling: nothing to look for.
+    down: "Nothing users see changed",
+  },
+} as const satisfies Record<BumpLevel, { up?: string; down?: string }>;
+
+/** The usual reason for forcing `level` instead of the computed version. */
+export const usualReason = ({ computed }: VersionChoices, level: BumpLevel): string | undefined => {
+  const reasons: { up?: string; down?: string } = USUAL_REASONS[level];
+  return LEVELS.indexOf(level) < LEVELS.indexOf(computed) ? reasons.up : reasons.down;
 };

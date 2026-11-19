@@ -129,9 +129,17 @@ reason already typed:
 ```
 
 Enter takes it; type over it to say what changed, like `Drops subjectsSince from SourceControlPort`.
-Going up to a minor offers `New feature the changesets called a fix`, going down
-`Changesets overstated the change`. Esc or an empty line goes back to the versions. The line reaches
-the changelog, the release PR and the release notes, as
+The usual reasons, set in `USUAL_REASONS` in `packages/shiplane/src/domain/versionChoice.ts`:
+
+| Forced      | Prefilled reason                          | When it fits                                           |
+| ----------- | ----------------------------------------- | ------------------------------------------------------ |
+| major, up   | `Breaking change the changesets missed`   | a changeset marked minor or patch hid a break          |
+| minor, up   | `New feature the changesets called a fix` | a changeset marked patch added something users can use |
+| minor, down | `Changesets overstated the change`        | a changeset marked major broke nothing users touch     |
+| patch, down | `Nothing users see changed`               | minor changesets carried only refactors, docs, tooling |
+
+Esc or an empty line goes back to the versions. The line reaches the changelog, the release PR and
+the release notes, as
 `Version forced to 1.0.0 instead of 0.5.0: Drops subjectsSince from SourceControlPort`. Everything
 the release moves takes the forced version, a whole fixed group included, and a changeset's own bump
 gives way when you go lower.
