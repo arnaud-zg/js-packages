@@ -28,6 +28,7 @@ export { systemShell } from "../adapters/shell/system-shell.adapter";
 export { addUnit, removeUnit } from "../application/addUnit";
 export { branchRelease } from "../application/branchRelease";
 export { loadReleaseOnDisk as loadRelease } from "../cli/compose";
+export { callerNeedsOf } from "../application/callerWorkflow";
 export { docsFor } from "../application/docsFor";
 export { doctor } from "../application/doctor";
 export { initRelease } from "../application/initRelease";

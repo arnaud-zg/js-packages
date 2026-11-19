@@ -10,6 +10,14 @@ export interface CallerWorkflow {
   pin: string;
 }
 
+/** What the release a caller workflow ships needs from it. */
+export interface CallerNeeds {
+  /** The secrets its adapters read on a runner, by name, sorted; never `GH_TOKEN`. */
+  secrets: readonly string[];
+  /** The names of its features, such as `release-comments`. */
+  features: readonly string[];
+}
+
 /** Where workflows run: dispatched on a ref, their runs read back, the minutes they cost. */
 export interface CiPipelinePort {
   /** The one workflow that ships on CI: `shiplane ship` on a runner, given units and an environment. */
@@ -27,6 +35,12 @@ export interface CiPipelinePort {
   workflowFile?: (workflow: string) => string;
   /** The command a dry run prints for a dispatch, as a person would type it. */
   dispatchLine?: (workflow: string, ref: string, inputs: Record<string, string>) => string;
-  /** The caller workflow for shiplane `version`, or why there is none; unwritten when unset. */
-  callerWorkflow?: (version: string) => Promise<CallerWorkflow | { error: string }>;
+  /**
+   * The caller workflow for shiplane `version`, passing only the secrets and permissions `needs`
+   * says, or why there is none; unwritten when unset.
+   */
+  callerWorkflow?: (
+    version: string,
+    needs: CallerNeeds,
+  ) => Promise<CallerWorkflow | { error: string }>;
 }

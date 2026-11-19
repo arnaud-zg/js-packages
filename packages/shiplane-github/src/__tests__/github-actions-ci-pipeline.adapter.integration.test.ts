@@ -250,14 +250,22 @@ jobs:
     with:
       units: \${{ inputs.units }}
       environment: \${{ inputs.environment }}
-    secrets: inherit
+    secrets:
+      CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
 `;
+
+/** A release shipping to Cloudflare Pages, commenting on what it ships. */
+const NEEDS = {
+  secrets: ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN"],
+  features: ["release-comments"],
+};
 
 describe("writing the workflow a repository ships from", () => {
   it("given a lightweight release tag, when the caller workflow is made, then it pins the commit the tag names", async () => {
     const gh = fakeGh().seed(REF, JSON.stringify({ object: { sha: COMMIT, type: "commit" } }));
 
-    const made = await pipelineOn(gh).callerWorkflow?.("0.6.0");
+    const made = await pipelineOn(gh).callerWorkflow?.("0.6.0", NEEDS);
 
     expect(made).toEqual({ file: ".github/workflows/ship.yml", content: CALLER, pin: COMMIT });
     expect(gh.args).toEqual([REF.split(" ")]);
@@ -271,10 +279,29 @@ describe("writing the workflow a repository ships from", () => {
         JSON.stringify({ object: { sha: COMMIT, type: "commit" } }),
       );
 
-    const made = await pipelineOn(gh).callerWorkflow?.("0.6.0");
+    const made = await pipelineOn(gh).callerWorkflow?.("0.6.0", NEEDS);
 
     expect(made).toEqual({ file: ".github/workflows/ship.yml", content: CALLER, pin: COMMIT });
     expect(gh.args[1]).toEqual(["api", "repos/arnaud-zg/js-packages/git/tags/7a90000"]);
+  });
+
+  it("given a release whose adapters read no secret, when the caller workflow is made, then it passes none", async () => {
+    const gh = fakeGh().seed(REF, JSON.stringify({ object: { sha: COMMIT, type: "commit" } }));
+
+    const made = await pipelineOn(gh).callerWorkflow?.("0.6.0", { ...NEEDS, secrets: [] });
+
+    expect(made).toMatchObject({ content: CALLER.slice(0, CALLER.indexOf("    secrets:\n")) });
+    expect(made && "content" in made && made.content).not.toContain("secrets");
+  });
+
+  it("given a release without release comments, when the caller workflow is made, then it may not write to issues or pull requests", async () => {
+    const gh = fakeGh().seed(REF, JSON.stringify({ object: { sha: COMMIT, type: "commit" } }));
+
+    const made = await pipelineOn(gh).callerWorkflow?.("0.6.0", { ...NEEDS, features: [] });
+
+    expect(made).toMatchObject({
+      content: CALLER.replace("  issues: write\n  pull-requests: write\n", ""),
+    });
   });
 
   it("given a ship workflow named, when the caller workflow is made, then it goes in that file", async () => {
@@ -284,7 +311,7 @@ describe("writing the workflow a repository ships from", () => {
       shell: gh.shell,
     });
 
-    expect(await port.callerWorkflow?.("0.6.0")).toMatchObject({
+    expect(await port.callerWorkflow?.("0.6.0", NEEDS)).toMatchObject({
       file: ".github/workflows/deploy.yml",
     });
   });
@@ -292,7 +319,7 @@ describe("writing the workflow a repository ships from", () => {
   it("given no release tag for the version, when the caller workflow is made, then it says to pin by hand", async () => {
     const gh = fakeGh().seed(REF, { status: 1, stderr: "gh: Not Found (HTTP 404)\n" });
 
-    expect(await pipelineOn(gh).callerWorkflow?.("0.6.0")).toEqual({
+    expect(await pipelineOn(gh).callerWorkflow?.("0.6.0", NEEDS)).toEqual({
       error: "no release tag shiplane@0.6.0: pin shiplane-ship.yml by hand",
     });
   });
@@ -303,7 +330,7 @@ describe("writing the workflow a repository ships from", () => {
       JSON.stringify({ sha: COMMIT }),
     );
 
-    const made = await pipelineOn(gh).callerWorkflow?.("0.6.0-main.329aafb");
+    const made = await pipelineOn(gh).callerWorkflow?.("0.6.0-main.329aafb", NEEDS);
 
     expect(made).toEqual({
       file: ".github/workflows/ship.yml",
@@ -319,7 +346,7 @@ describe("writing the workflow a repository ships from", () => {
       JSON.stringify({ sha: COMMIT }),
     );
 
-    expect(await pipelineOn(gh).callerWorkflow?.("0.6.0-feat-x.g0123456")).toMatchObject({
+    expect(await pipelineOn(gh).callerWorkflow?.("0.6.0-feat-x.g0123456", NEEDS)).toMatchObject({
       pin: COMMIT,
     });
   });
@@ -330,7 +357,7 @@ describe("writing the workflow a repository ships from", () => {
       stderr: "gh: No commit found for SHA: 329aafb (HTTP 422)\n",
     });
 
-    expect(await pipelineOn(gh).callerWorkflow?.("0.6.0-main.329aafb")).toEqual({
+    expect(await pipelineOn(gh).callerWorkflow?.("0.6.0-main.329aafb", NEEDS)).toEqual({
       error: "no commit 329aafb for shiplane@0.6.0-main.329aafb: pin shiplane-ship.yml by hand",
     });
   });
@@ -338,7 +365,7 @@ describe("writing the workflow a repository ships from", () => {
   it("given GitHub failing for another reason, when the caller workflow is made, then the failure is raised", async () => {
     const gh = fakeGh().seed(REF, { status: 1, stderr: "gh: Bad credentials (HTTP 401)\n" });
 
-    await expect(pipelineOn(gh).callerWorkflow?.("0.6.0")).rejects.toThrow(
+    await expect(pipelineOn(gh).callerWorkflow?.("0.6.0", NEEDS)).rejects.toThrow(
       "exited with 1: gh: Bad credentials (HTTP 401)",
     );
   });

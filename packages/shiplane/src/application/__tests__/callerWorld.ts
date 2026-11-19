@@ -1,5 +1,5 @@
 import type { ServiceAdapter } from "../../ports/adapter.port";
-import type { CiPipelinePort } from "../../ports/ci-pipeline.port";
+import type { CallerNeeds, CiPipelinePort } from "../../ports/ci-pipeline.port";
 import type { Release } from "../config/loadRelease";
 import type { SetupContext } from "../setupContext";
 import { CiPipelineFake } from "../../adapters/ci-pipeline/__fakes__/ci-pipeline.fake";
@@ -7,15 +7,24 @@ import { SHIP_YML } from "./shipWorld";
 
 export { SHIP_YML };
 
-/** A caller workflow pinned to `version`'s commit, standing in for the one GitHub's adapter writes. */
-export const callerFor = (version: string, sha = `sha-${version}`) =>
+const NOTHING: CallerNeeds = { secrets: [], features: [] };
+
+/**
+ * A caller workflow pinned to `version`'s commit, passing the secrets `needs` names, standing in
+ * for the one GitHub's adapter writes.
+ */
+export const callerFor = (version: string, needs = NOTHING, sha = `sha-${version}`) =>
   [
     "name: Ship",
     "on: workflow_dispatch",
+    "permissions:",
+    "  contents: read",
+    ...(needs.features.includes("release-comments") ? ["  issues: write"] : []),
     "jobs:",
     "  ship:",
     `    uses: acme/shiplane/.github/workflows/shiplane-ship.yml@${sha} # shiplane@${version}`,
-    "    secrets: inherit",
+    ...(needs.secrets.length > 0 ? ["    secrets:"] : []),
+    ...needs.secrets.map((name) => `      ${name}: \${{ secrets.${name} }}`),
     "",
   ].join("\n");
 
@@ -24,10 +33,10 @@ export const callingPipeline = (released: readonly string[]): ServiceAdapter<CiP
   name: "calling",
   create: () =>
     Object.assign(new CiPipelineFake(), {
-      callerWorkflow: (version: string) =>
+      callerWorkflow: (version: string, needs: CallerNeeds) =>
         Promise.resolve(
           released.includes(version)
-            ? { file: SHIP_YML, content: callerFor(version), pin: `sha-${version}` }
+            ? { file: SHIP_YML, content: callerFor(version, needs), pin: `sha-${version}` }
             : { error: `no release tag shiplane@${version}: pin shiplane-ship.yml by hand` },
         ),
     }),

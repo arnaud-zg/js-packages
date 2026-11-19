@@ -354,9 +354,9 @@ pnpm shiplane doctor     # checks it, offers each fix
 ```
 
 `ship.yml` is about 30 lines that call shiplane's reusable workflow. You write no step: it checks
-out the repo, detects the package manager and Node version, installs, puts your secrets in the
-environment, installs the deploy tools your units need, then runs `shiplane ship`, the same command
-as your laptop.
+out the repo, detects the package manager and Node version, installs, installs the deploy tools your
+units need, then runs `shiplane ship`, the same command as your laptop. It passes, by name, only the
+secrets your configured adapters read, and only the check and ship steps see them.
 
 ```yaml
 # .github/workflows/ship.yml, as setup writes it
@@ -382,8 +382,6 @@ permissions:
   contents: read
   deployments: write
   actions: read
-  issues: write
-  pull-requests: write
 
 jobs:
   ship:
@@ -391,13 +389,39 @@ jobs:
     with:
       units: ${{ inputs.units }}
       environment: ${{ inputs.environment }}
-    secrets: inherit
+    secrets:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 ```
+
+That one ships apps on Cloudflare Pages only. With apps on EAS, Fly and Cloudflare Pages, and
+`releaseComments` in `features`, setup writes four secrets, and lets the run comment:
+
+```yaml
+permissions:
+  contents: read
+  deployments: write
+  actions: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  ship:
+    # uses: and with: as above
+    secrets:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+```
+
+With no adapter that reads a secret, there is no `secrets:` key.
 
 1. **Create one GitHub Environment per channel** (Settings › Environments): `preview`, `production`.
 2. **Add each adapter's secret to it**, by the name in [the sign-ins table](#set-up-the-sign-ins):
-   `FLY_API_TOKEN`, `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, `EXPO_TOKEN`. Every secret
-   reaches shiplane under its own name; you list none in the workflow.
+   `FLY_API_TOKEN`, `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, `EXPO_TOKEN`. Setup lists
+   the ones your adapters read under `secrets:`; after adding an adapter, `pnpm shiplane doctor`
+   offers to add its secret there.
 3. **Ship:** `pnpm shiplane ship --via ci`, or Run workflow in the Actions tab.
 
 A unit that fails never stops the next one. The run page shows what ships before, and how each unit
@@ -412,8 +436,8 @@ export default defineRelease({ prepare: "pnpm turbo run build typecheck --filter
 ```
 
 **Push as an app, not as Actions.** A push with the default token never starts another workflow. Add
-secrets `SHIPLANE_APP_ID` and `SHIPLANE_APP_PRIVATE_KEY` of a GitHub App installed on the repo, and
-the workflow uses its token instead.
+secrets `SHIPLANE_APP_ID` and `SHIPLANE_APP_PRIVATE_KEY` of a GitHub App installed on the repo, pass
+both under `secrets:` in `ship.yml`, and the workflow uses its token instead.
 
 **Keep the pin current.** The workflow is pinned to the commit of a shiplane release, never a moving
 tag. After upgrading `shiplane`, `pnpm shiplane doctor` offers to re-pin it. If your repository uses

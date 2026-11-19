@@ -261,6 +261,27 @@ installed shiplane's tag (`uses: …/shiplane-ship.yml@<sha> # shiplane@x.y.z`).
 know it. Any other unreleased version:
 `no release tag shiplane@x.y.z: pin shiplane-ship.yml by hand`.
 
+It passes, by name, only the secrets the configured adapters read (their requirements' `secrets`,
+sorted, but `GH_TOKEN`, which `shiplane-ship.yml` sets itself), and no `secrets:` key when none
+does. Its `permissions:` are `contents: read`, `deployments: write`, `actions: read`, plus
+`issues: write` and `pull-requests: write` when `features` holds `releaseComments`.
+
+`shiplane-ship.yml` declares the secrets it accepts, and gives them, with `GH_TOKEN`, only to its
+`Check what ships` and `Ship` steps' `env:`; nothing goes to `$GITHUB_ENV`:
+
+| Secret                     | Read by                                                        |
+| -------------------------- | -------------------------------------------------------------- |
+| `FLY_API_TOKEN`            | `flyServerHosting`                                             |
+| `CLOUDFLARE_API_TOKEN`     | `cloudflarePagesStaticHosting`                                 |
+| `CLOUDFLARE_ACCOUNT_ID`    | `cloudflarePagesStaticHosting`                                 |
+| `EXPO_TOKEN`               | `easMobileDistribution`                                        |
+| `SHIPLANE_APP_ID`          | the App token step, when set; pass it by hand, doctor keeps it |
+| `SHIPLANE_APP_PRIVATE_KEY` | the App token step, with `SHIPLANE_APP_ID`                     |
+
+GitHub rejects a secret the called workflow does not declare: a third-party plugin's secret needs
+its name added to `on.workflow_call.secrets` and to both steps' `env:`, in a copy of
+`shiplane-ship.yml` that `ship.yml` calls instead.
+
 With ship.yml calling `shiplane-ship.yml`, setup adds the preset
 `github>arnaud-zg/js-packages//renovate/shiplane` to `extends` in a JSON Renovate config
 (`renovate.json`, `.github/`, `.gitlab/`, `.renovaterc`, `.renovaterc.json`) that lacks it, names
@@ -268,14 +289,19 @@ the entry to add for a JSON5 or `package.json` config, and creates none.
 
 `shiplane doctor` checks it on a laptop, not on a runner:
 
-| Found                                           | Fix offered                                                  |
-| ----------------------------------------------- | ------------------------------------------------------------ |
-| `ship.yml missing`                              | Write it (yes by default; `--yes` writes it)                 |
-| `ship.yml does not call shiplane-ship.yml`      | Replace it (no by default; never with `--yes` or unattended) |
-| `ship.yml pins shiplane@0.5.2, installed 0.6.0` | Re-pin: only the `uses:` line changes (`--yes` re-pins it)   |
+| Found                                                         | Fix offered                                                        |
+| ------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `ship.yml missing`                                            | Write it (yes by default; `--yes` writes it)                       |
+| `ship.yml does not call shiplane-ship.yml`                    | Replace it (no by default; never with `--yes` or unattended)       |
+| `ship.yml pins shiplane@0.5.2, installed 0.6.0`               | Re-pin: only the `uses:` line changes (`--yes` re-pins it)         |
+| `ship.yml passes no EXPO_TOKEN, and apps/expo ships with eas` | Rewrite only `secrets:` and `permissions:` (`--yes` rewrites them) |
 
-Pinned to the installed version, it prints one `✓ ship.yml` line. Source:
-`src/application/callerWorkflow.ts`.
+The secrets check also says `ship.yml passes SENTRY_TOKEN, which no adapter needs` and
+`ship.yml passes every secret (inherit), not only FLY_API_TOKEN`. Its fix keeps the rest of the file
+as written, and the `SHIPLANE_APP_*` secrets it passes.
+
+Pinned to the installed version and passing the secrets its adapters read, it prints one
+`✓ ship.yml` line. Source: `src/application/callerWorkflow.ts`.
 
 ## Example
 
