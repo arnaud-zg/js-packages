@@ -4,3 +4,4 @@ export type { GitHubActionsCiPipelineAdapter } from "./github-actions-ci-pipelin
 export { gitHubActionsCiPipeline } from "./github-actions-ci-pipeline.adapter";
 export type { ReleaseCommentsOptions } from "./release-comments.feature";
 export { releaseComments } from "./release-comments.feature";
+export { catalog } from "./catalog";
