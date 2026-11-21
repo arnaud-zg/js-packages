@@ -5,6 +5,7 @@ import type { DisplayChoice } from "../domain/display";
 import type { Open } from "../modules/module";
 import type { Shell } from "../ports/shell.port";
 import type { Output, Progress, Prompter } from "../ports/terminal.port";
+import { tsConfig } from "../adapters/config/ts-config.adapter";
 import { nodeFiles } from "../adapters/files/node-files.adapter";
 import { packageJsonManifest } from "../adapters/manifest/package-json-manifest.adapter";
 import { systemShell } from "../adapters/shell/system-shell.adapter";
@@ -22,7 +23,10 @@ import { installedAdapters } from "./plugins";
 
 /** The release as written on disk, each unit's name and version read from its package.json. */
 export const loadReleaseOnDisk = (root: string, options: Partial<LoadOptions> = {}) =>
-  loadRelease(root, { ...options, manifests: options.manifests ?? packageJsonManifest });
+  loadRelease(root, {
+    config: tsConfig({ aliases: options.aliases }),
+    manifests: options.manifests ?? packageJsonManifest,
+  });
 
 /** Creates each port the flow runs on, for this repository. */
 export const composeServices = (release: Release, open: Open): Services => ({

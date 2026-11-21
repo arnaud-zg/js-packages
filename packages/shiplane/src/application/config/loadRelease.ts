@@ -1,7 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { createJiti } from "jiti";
 
 import type { DeployPath } from "../../domain/deploys";
 import type { DisplayChoice } from "../../domain/display";
@@ -9,6 +7,7 @@ import type { TestReleaseBranches } from "../../domain/testChannel";
 import type { ReleaseUnit } from "../../domain/unit";
 import type { Feature, ReleaseFlow, ReleaseModule } from "../../modules/module";
 import type { ServiceAdapter } from "../../ports/adapter.port";
+import type { ConfigReader } from "../../ports/config.port";
 import type { ManifestReader } from "../../ports/manifest.port";
 import type { ConfigProblem } from "./problem";
 import type { UnitFile } from "./readUnitFile";
@@ -21,14 +20,6 @@ import { sortProblems } from "./problem";
 import { readUnitFile, UNIT_FILE, UNIT_FILES } from "./readUnitFile";
 import { isRecord, referencesIn, valueAt } from "./values";
 import { expandPatterns, workspacePatterns } from "./workspaceFolders";
-
-const EXTENSIONS = ["ts", "mts", "js", "mjs"];
-
-/** The config's names, the one from before shiplane last: still read, listed to rename. */
-export const CONFIG_FILES = [
-  ...EXTENSIONS.map((extension) => `shiplane.config.${extension}`),
-  ...EXTENSIONS.map((extension) => `release.config.${extension}`),
-];
 
 /** A file still under its name from before shiplane, and the name it takes. */
 export interface Rename {
@@ -90,32 +81,12 @@ export interface LoadOptions {
   manifests: ManifestReader;
 }
 
-export const findConfig = (root: string) =>
-  CONFIG_FILES.map((file) => path.join(root, file)).find((file) => fs.existsSync(file));
-
-// The name a config imports the CLI under.
-const NAMES = ["shiplane"];
-
-const resolves = (specifier: string) => {
-  try {
-    return fileURLToPath(import.meta.resolve(specifier));
-  } catch {
-    return null;
-  }
-};
-
-// One alias per entry: a bare "shiplane" alias would also rewrite "shiplane/fly" into a path
-// under index.js.
-const selfAliases = (): Record<string, string> => {
-  const own = NAMES.find((name) => resolves(name) !== null);
-  if (!own) return {};
-  return Object.fromEntries(
-    ["", "/plugin", "/testing"].flatMap((sub) => {
-      const target = resolves(`${own}${sub}`);
-      return target ? NAMES.map((name) => [`${name}${sub}`, target]) : [];
-    }),
-  );
-};
+/** What `loadRelease` reads through: the config's reader and each unit's manifest reader. */
+export interface LoadPorts {
+  /** Reads the config file, as `cli/compose` wires it. */
+  config: ConfigReader;
+  manifests: ManifestReader;
+}
 
 /** A port no flow fills yet: a release that never loaded has nothing to run on. */
 const unset = <Port>(port: string): ServiceAdapter<Port> => ({
@@ -198,9 +169,8 @@ const tagFormatOf = (tag: unknown) => {
   return format;
 };
 
-const readConfig = async (file: string, aliases: Record<string, string>): Promise<Composed> => {
-  const jiti = createJiti(import.meta.url, { alias: aliases, moduleCache: false, fsCache: false });
-  const loaded: unknown = await jiti.import(file, { default: true });
+/** What the config file declared, checked: the first problem is thrown. */
+const checkConfig = (loaded: unknown): Composed => {
   if (!isRecord(loaded)) throw new Error("its default export is not defineRelease({ modules })");
   for (const [key, message] of Object.entries(LEFTOVERS)) {
     if (key in loaded) throw new Error(message);
@@ -257,9 +227,11 @@ const testReleaseOf = (value: unknown) => {
   }
   const branches = Object.fromEntries(
     Object.entries(value).map(([branch, channel]) => {
-      const problem = typeof channel === "string" ? channelProblem(channel) : "not a channel name";
+      if (typeof channel !== "string")
+        throw new Error(`testRelease "${branch}": not a channel name`);
+      const problem = channelProblem(channel);
       if (problem) throw new Error(`testRelease "${branch}": ${problem}`);
-      return [branch, channel as string];
+      return [branch, channel];
     }),
   );
   return { testRelease: branches };
@@ -329,7 +301,7 @@ const referenceProblems = ({ unit, file }: Read, ordered: readonly Read[]): Conf
  * The release as written: what `shiplane.config.ts` composes, and one app per folder that holds a
  * `shiplane.unit.yml`, in release order. Every problem is collected, never thrown.
  */
-export const loadRelease = async (root: string, options: LoadOptions): Promise<Release> => {
+export const loadRelease = async (root: string, ports: LoadPorts): Promise<Release> => {
   const empty = (problems: ConfigProblem[]): Release => ({
     root,
     flow: unsetFlow(),
@@ -339,7 +311,7 @@ export const loadRelease = async (root: string, options: LoadOptions): Promise<R
     units: [],
     problems,
   });
-  const configFile = findConfig(root);
+  const configFile = ports.config.find(root);
   if (!configFile) {
     return empty([
       {
@@ -351,14 +323,14 @@ export const loadRelease = async (root: string, options: LoadOptions): Promise<R
   }
   let config: Composed;
   try {
-    config = await readConfig(configFile, options.aliases ?? selfAliases());
+    config = checkConfig(await ports.config.read(configFile));
   } catch (error) {
     const reason = reasonOf(error);
     return empty([
       { file: path.basename(configFile), message: `it did not load: ${reason.split("\n")[0]}` },
     ]);
   }
-  const { manifests } = options;
+  const { manifests } = ports;
   const problems: ConfigProblem[] = [];
   const features = config.features.map(({ name }) => name);
   const read: Read[] = expandPatterns(root, config.units ?? workspacePatterns(root)).flatMap(
