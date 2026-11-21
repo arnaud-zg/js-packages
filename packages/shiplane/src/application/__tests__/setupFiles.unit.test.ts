@@ -24,7 +24,11 @@ describe("Feature: the config setup writes", () => {
   it("given a custom CI pipeline, when the config is written, then it is imported from its own file, after the plugins", () => {
     const flow = {
       ...DEFAULT_FLOW,
-      ciPipeline: { factory: "jenkinsCiPipeline", from: "./shiplane/adapters/jenkins-ci-pipeline" },
+      ciPipeline: {
+        factory: "jenkinsCiPipeline",
+        from: "./shiplane/adapters/jenkins-ci-pipeline",
+        name: "./shiplane/adapters/jenkins-ci-pipeline.ts",
+      },
     };
 
     const text = renderConfig([], "shiplane", flow);

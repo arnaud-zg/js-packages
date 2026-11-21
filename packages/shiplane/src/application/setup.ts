@@ -10,7 +10,7 @@ import { moduleFor } from "../modules/suggest";
 import { callerWrite, renovateWrite } from "./callerWorkflow";
 import { UNIT_FILE, UNIT_FILES } from "./config/readUnitFile";
 import { expandPatterns, workspacePatterns } from "./config/workspaceFolders";
-import { YAML_CONFIG_FILES } from "./config/yamlDeclaration";
+import { YAML_CONFIG_FILE, YAML_CONFIG_FILES } from "./config/yamlDeclaration";
 import {
   CUSTOM_PORTS,
   customFiles,
@@ -41,7 +41,7 @@ import {
   schemaLineFor,
   schemaText,
 } from "./setupFiles";
-import { addToYamlConfig, renderYamlConfig, withCatalog, YAML_CONFIG_FILE } from "./setupYaml";
+import { addToYamlConfig, renderYamlConfig, withCatalog } from "./setupYaml";
 import { unattended } from "./unattended";
 
 /** A file setup writes: its text, and whether it is new. */
@@ -199,7 +199,7 @@ const chooseVersioning = async (
     const name = await askName(context, "versioning", suggestedName("versioning"));
     if (name === null) return null;
     writes.push(...customWrites("versioning", name, pkg));
-    return { factory: name, from: customFiles(name).from };
+    return { factory: name, from: customFiles(name).from, name: `${customFiles(name).from}.ts` };
   }
   writes.push(...changesetsWrites(context));
   return picked === "commits" ? COMMITS_VERSIONING : DEFAULT_FLOW.versioning;
@@ -261,7 +261,11 @@ const chooseFlow = async (
     if (picked === "custom") {
       const name = await askName(context, port, suggestedName(port));
       if (name === null) return null;
-      flow[port] = { factory: name, from: customFiles(name).from };
+      flow[port] = {
+        factory: name,
+        from: customFiles(name).from,
+        name: `${customFiles(name).from}.ts`,
+      };
       writes.push(...customWrites(port, name, pkg));
     }
   }

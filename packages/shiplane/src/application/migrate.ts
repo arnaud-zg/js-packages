@@ -4,10 +4,9 @@ import type { CatalogEntry } from "../ports/catalog.port";
 import type { Files } from "../ports/files.port";
 import type { Output } from "../ports/terminal.port";
 import type { Release } from "./config/loadRelease";
+import { YAML_CONFIG_FILE } from "./config/yamlDeclaration";
 import { yamlFromDeclaration } from "./config/yamlFromDeclaration";
 import { paint } from "./say";
-
-const YAML_FILE = "shiplane.yml";
 
 /** What migrate reads and loads, as `cli/main` wires them for this repository. */
 export interface MigratePorts {
@@ -56,9 +55,9 @@ export const migrate = async (
     if (hint) output.line(`   ${paint("dim", hint)}`);
     return false;
   };
-  if (files.exists(YAML_FILE))
+  if (files.exists(YAML_CONFIG_FILE))
     return fail(
-      `${YAML_FILE} already exists`,
+      `${YAML_CONFIG_FILE} already exists`,
       "shiplane migrate writes it from shiplane.config.ts; remove one of them",
     );
   if (!ports.tsFile)
@@ -89,23 +88,23 @@ export const migrate = async (
     );
   }
 
-  files.write(YAML_FILE, text);
+  files.write(YAML_CONFIG_FILE, text);
   const fromYaml = await ports.load("yaml");
   if (fromYaml.problems.length > 0 || composed(fromYaml) !== composed(fromTs)) {
-    files.remove(YAML_FILE);
+    files.remove(YAML_CONFIG_FILE);
     fromYaml.problems.forEach(({ file, line, message }) =>
       output.line(
         `${paint("red", "✗")}  ${line === undefined ? file : `${file}:${line}`}  ${message}`,
       ),
     );
     return fail(
-      `${YAML_FILE} would not release what ${tsName} does: nothing changed`,
+      `${YAML_CONFIG_FILE} would not release what ${tsName} does: nothing changed`,
       "please report it, with both configs",
     );
   }
   files.remove(tsName);
   output.line(
-    `${paint("green", "◇")}  Wrote ${YAML_FILE}: the same release as ${tsName}, which is removed`,
+    `${paint("green", "◇")}  Wrote ${YAML_CONFIG_FILE}: the same release as ${tsName}, which is removed`,
   );
   check.forEach((line) => output.line(`${paint("yellow", "!")}  ${line}`));
   output.line(
