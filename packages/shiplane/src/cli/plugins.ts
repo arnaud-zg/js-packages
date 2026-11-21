@@ -5,9 +5,12 @@ import { pathToFileURL } from "node:url";
 import { z } from "zod";
 
 import type { AnyDeliveryAdapter } from "../modules/suggest";
+import type { CatalogEntry } from "../ports/catalog.port";
 import { shellServerHosting } from "../adapters/server-hosting/shell-server-hosting.adapter";
+import { isCatalogEntry } from "../application/config/catalog";
 import { isRecord } from "../application/config/values";
 import { PackageJsonSchema } from "../application/manifest";
+import { catalog as ownCatalog } from "../modules/catalog";
 
 /** A plugin's own word on what setup may offer: `"shiplane": { "adapters": ["flyServerHosting"] }`. */
 const PluginManifestSchema = z.object({
@@ -46,4 +49,47 @@ export const installedAdapters = async (root: string): Promise<AnyDeliveryAdapte
     }),
   );
   return [...found.flat(), shellServerHosting()];
+};
+
+/** Every plugin this repository publishes, looked for whether or not package.json lists it. */
+const FIRST_PARTY = ["git", "github", "changesets", "npm", "fly", "cloudflare-pages", "eas"].map(
+  (name) => `@shiplane/${name}`,
+);
+
+/**
+ * What a shiplane.yml can name in this repository: shiplane's own modules, then the catalog of each
+ * first-party plugin installed, then of each dependency whose package.json has a `shiplane` key.
+ * A plugin that does not load, or exports no catalog, adds nothing.
+ */
+export const installedCatalog = async (root: string): Promise<CatalogEntry[]> => {
+  const manifestFile = path.join(root, "package.json");
+  const manifest = fs.existsSync(manifestFile)
+    ? PackageJsonSchema.safeParse(readJson(manifestFile)).data
+    : undefined;
+  const require = createRequire(manifestFile);
+  const declared = Object.keys({ ...manifest?.dependencies, ...manifest?.devDependencies }).filter(
+    (name) => {
+      try {
+        const own = PluginManifestSchema.safeParse(
+          readJson(require.resolve(`${name}/package.json`)),
+        );
+        return own.data?.shiplane !== undefined;
+      } catch {
+        return false;
+      }
+    },
+  );
+  const names = [...new Set([...FIRST_PARTY, ...declared])];
+  const found = await Promise.all(
+    names.map(async (name): Promise<CatalogEntry[]> => {
+      try {
+        const loaded: unknown = await import(pathToFileURL(require.resolve(name)).href);
+        const catalog = isRecord(loaded) ? loaded.catalog : undefined;
+        return Array.isArray(catalog) ? catalog.filter(isCatalogEntry) : [];
+      } catch {
+        return [];
+      }
+    }),
+  );
+  return [...ownCatalog, ...found.flat()];
 };

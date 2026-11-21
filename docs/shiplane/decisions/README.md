@@ -10,3 +10,4 @@ edited: a new one supersedes it, and the two link to each other.
 | ADR                                       | Decision              | Status   | Date       |
 | ----------------------------------------- | --------------------- | -------- | ---------- |
 | [001](./ADR-001-one-typescript-engine.md) | One TypeScript engine | Accepted | 2026-11-21 |
+| [002](./ADR-002-yaml-beside-ts.md)        | YAML beside TS        | Accepted | 2026-11-21 |

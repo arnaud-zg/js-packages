@@ -4,20 +4,24 @@ import { adapterEntry } from "shiplane/plugin";
 
 import { changesetsVersioning } from "./changesets-versioning.adapter";
 import { commitsVersioning } from "./commits-versioning.adapter";
+import { lines, presets } from "./thanks";
+
+/** A template, or the name of a ready-made one, such as whatsChanged. */
+const template = (named: Readonly<Record<string, string>>) => {
+  const byName = new Map(Object.entries(named));
+  return z
+    .string()
+    .transform((value) => byName.get(value) ?? value)
+    .optional();
+};
 
 const Notes = {
-  line: z
-    .string()
-    .optional()
-    .describe(
-      'A template for each change\'s line, with {summary}, {authors} and {pr}, such as "* {summary} by {authors} in {pr}"',
-    ),
-  thanks: z
-    .string()
-    .optional()
-    .describe(
-      'A template for the section that thanks contributors once, with {changes}, {contributors}, {list} and {avatars}, such as "{changes}"',
-    ),
+  line: template(lines).describe(
+    `A template for each change's line, with {summary}, {authors} and {pr}; or a ready-made one: ${Object.keys(lines).join(", ")}`,
+  ),
+  thanks: template(presets).describe(
+    `A template for the section that thanks contributors once, with {changes}, {contributors}, {list} and {avatars}; or a ready-made one: ${Object.keys(presets).join(", ")}`,
+  ),
 };
 
 /** What a shiplane.yml names from this plugin: `versioning: changesets` or `versioning: commits`. */

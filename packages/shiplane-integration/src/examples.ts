@@ -40,6 +40,10 @@ export const exampleRepository = (
     ...(branch ? { branch } : {}),
   });
 
+/** A consumer repository of these files only, every plugin installed. */
+export const installedRepository = (files: Record<string, string>): ConsumerRepository =>
+  consumerRepository({ files, packages: INSTALLED });
+
 /** Output as a page quotes it: no blank lines around it, no spaces at the end of a line. */
 export const quoted = (text: string) =>
   text

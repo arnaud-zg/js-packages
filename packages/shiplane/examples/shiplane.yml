@@ -1,0 +1,21 @@
+# examples/repository/shiplane.config.ts, as a shiplane.yml: each port names its adapter.
+flow:
+  sourceControl: git
+  codeHost: github
+  ciPipeline: github-actions
+  versioning: commits
+# What gets released, in this order. The first app is the repository's Latest release.
+modules:
+  - use: backend-service
+    with:
+      serverHosting: fly
+  - use: web-app
+    with:
+      staticHosting: cloudflare-pages
+  - use: mobile-app
+    with:
+      mobileDistribution: eas
+  - use: published-package
+    with:
+      packageRegistry: npm
+  - internal-tool
