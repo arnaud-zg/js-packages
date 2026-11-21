@@ -17,7 +17,7 @@ import {
   SNAPSHOT_TAG,
   tagWords,
 } from "../domain/branchRelease";
-import { isNumbered, nextNumber, testTag, testVersion } from "../domain/testChannel";
+import { isNumbered, nextNumber, sharedNumbers, testTag, testVersion } from "../domain/testChannel";
 import { readManifest } from "./manifest";
 import { MANIFEST } from "./readScope";
 import { signIn, signInsOf } from "./requirements";
@@ -83,33 +83,35 @@ const publishedVersionsOf = async (context: ReleaseContext, unit: ReleaseUnit, h
 
 /**
  * The units this test version covers, at test versions on the channel: npm packages publish, the
- * other units are not available as test releases yet. A numbered channel reads each package's published versions for its next number.
+ * other units are not available as test releases yet. A numbered channel reads each package's
+ * published versions for its next number; a fixed group's packages share one.
  */
 export const planBranch = async (
   context: ReleaseContext,
   { here, channel }: { here: Here; channel: Channel },
 ): Promise<BranchPlan> => {
   const changed = await pendingUnits(context);
-  const publish = await Promise.all(
+  const groups = (await context.services.versioning.fixedGroups?.()) ?? [];
+  const numbered = await Promise.all(
     changed
       .filter(({ unit }) => isRegistry(context, unit))
       .map(async ({ unit, base }) => ({
         unit,
-        version: testVersion({
-          next: base,
-          channel,
-          branch: here.branch,
-          sha: here.head,
-          n: isNumbered(channel)
-            ? nextNumber({
-                published: await publishedVersionsOf(context, unit, here),
-                next: base,
-                channel,
-              })
-            : 0,
-        }),
+        name: unit.packageName,
+        next: base,
+        number: isNumbered(channel)
+          ? nextNumber({
+              published: await publishedVersionsOf(context, unit, here),
+              next: base,
+              channel,
+            })
+          : 0,
       })),
   );
+  const publish = sharedNumbers(numbered, groups).map(({ unit, next, number }) => ({
+    unit,
+    version: testVersion({ next, channel, branch: here.branch, sha: here.head, n: number }),
+  }));
   return {
     channel,
     tag: testTag(channel),

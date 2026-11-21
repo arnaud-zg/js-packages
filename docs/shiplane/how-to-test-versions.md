@@ -32,11 +32,12 @@ the last release. Two kinds of channel:
 | `nightly`, `alpha`, `beta`, `rc`, any word | `0.6.0-beta.<n>`     | the word | `<n>` +1 each publish |
 
 `<n>` is the next number npm never took for that version and channel, from 0: an unpublished version
-keeps its number, as npm refuses it twice. Nothing is written to git: no tag, no commit; versions
-are written to `package.json` for the publish and put back after, even when it fails. `latest` stays
-the real release's: no test release can use it. A snapshot keeps no npm tag: npm needs one to
-publish, so it goes out under `snapshot` and loses it right after, and no branch leaves a tag
-behind. Testers install it by its exact version, which the install lines give.
+keeps its number, as npm refuses it twice. The packages of a changesets `fixed` group share one
+`<n>`, the highest any of them needs. Nothing is written to git: no tag, no commit; versions are
+written to `package.json` for the publish and put back after, even when it fails. `latest` stays the
+real release's: no test release can use it. A snapshot keeps no npm tag: npm needs one to publish,
+so it goes out under `snapshot` and loses it right after, and no branch leaves a tag behind. Testers
+install it by its exact version, which the install lines give.
 
 In a terminal, plain `pnpm shiplane` on a feature branch asks first; with two pending packages or
 more, you pick which ones get a test release:

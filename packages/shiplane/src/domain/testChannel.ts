@@ -113,6 +113,27 @@ export const nextNumber = ({
   }, 0);
 };
 
+/**
+ * The packages of a fixed group, such as changesets' `fixed`, share the highest of their next free
+ * numbers, so each publishes `0.6.0-nightly.3` and none reuses a number its registry took. A
+ * package in no group keeps its own.
+ */
+export const sharedNumbers = <T extends { name: string; number: number }>(
+  packages: readonly T[],
+  groups: readonly (readonly string[])[],
+): T[] => {
+  const groupOf = (name: string) => groups.findIndex((group) => group.includes(name));
+  const highest = new Map<number, number>();
+  packages.forEach(({ name, number }) => {
+    const group = groupOf(name);
+    if (group >= 0) highest.set(group, Math.max(number, highest.get(group) ?? 0));
+  });
+  return packages.map((item) => ({
+    ...item,
+    number: highest.get(groupOf(item.name)) ?? item.number,
+  }));
+};
+
 /** The version a test release publishes: a snapshot of the commit, or the channel's numbered one. */
 export const testVersion = ({
   next,
