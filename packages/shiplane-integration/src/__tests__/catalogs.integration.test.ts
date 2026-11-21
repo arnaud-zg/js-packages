@@ -20,7 +20,6 @@ const PLUGINS: Record<string, readonly CatalogEntry[]> = {
   npm,
 };
 
-const flowless = { flow: null };
 const adapters = Object.values(PLUGINS)
   .flat()
   .filter(({ kind }) => kind === "adapter");
@@ -52,17 +51,17 @@ describe("every first-party plugin's catalog", () => {
   it.each(adapters.map((entry) => [entry.name, entry] as const))(
     "given the %s entry and no options, when it is made, then it makes the adapter its factory makes",
     (name, entry) => {
-      expect(entry.make({}, {}, flowless)).toMatchObject({ name });
+      expect(entry.make({}, {})).toMatchObject({ name });
     },
   );
 
   it("given an option of the wrong type, when the git entry is made, then it refuses, naming the option", () => {
     const entry = git[0];
 
-    expect(() => entry?.make({ main: 3 }, {}, flowless)).toThrow(/main/);
+    expect(() => entry?.make({ main: 3 }, {})).toThrow(/main/);
   });
 
-  it("given release comments with no slot filled, when the entry is made, then it comments through the flow's code host", () => {
+  it("given release comments with its code host and source control, when the entry is made, then it comments through them", () => {
     const flow = releaseFlow({
       sourceControl: sourceControlFake(),
       codeHost: codeHostFake(),
@@ -71,7 +70,10 @@ describe("every first-party plugin's catalog", () => {
     });
     const entry = github.find(({ name }) => name === "release-comments");
 
-    const feature = entry?.make({ apps: ["api"] }, {}, { flow });
+    const feature = entry?.make(
+      { apps: ["api"] },
+      { codeHost: flow.codeHost, sourceControl: flow.sourceControl },
+    );
 
     expect(feature).toMatchObject({
       type: "feature",
@@ -80,9 +82,9 @@ describe("every first-party plugin's catalog", () => {
     });
   });
 
-  it("given release comments with no slot filled and no flow, when the entry is made, then it says what it needs", () => {
+  it("given release comments with no slot filled, when the entry is made, then it says what it needs", () => {
     const entry = github.find(({ name }) => name === "release-comments");
 
-    expect(() => entry?.make({}, {}, flowless)).toThrow("needs a codeHost and a sourceControl");
+    expect(() => entry?.make({}, {})).toThrow("needs a codeHost and a sourceControl");
   });
 });

@@ -22,7 +22,7 @@ export { retrying } from "./adapters/shell/retrying";
 export type { ParsedJson } from "./adapters/parse-json";
 export { parseJson } from "./adapters/parse-json";
 export type { AfterShipContext, FollowUp, Shipped } from "./modules/module";
-export type { CatalogEntry, MadeSlots, MakeContext, Slot, SlotPort } from "./ports/catalog.port";
+export type { CatalogEntry, MadeSlots, Slot, SlotPort } from "./ports/catalog.port";
 export {
   adapterEntry,
   deliveryIn,
