@@ -3,13 +3,7 @@ import type { z } from "zod";
 import type { Feature, ReleaseModule } from "../../modules/module";
 import type { AnyDeliveryAdapter } from "../../modules/suggest";
 import type { Adapter, ServiceAdapter } from "../../ports/adapter.port";
-import type {
-  CatalogEntry,
-  MadeSlots,
-  MakeContext,
-  Slot,
-  SlotPort,
-} from "../../ports/catalog.port";
+import type { CatalogEntry, MadeSlots, Slot, SlotPort } from "../../ports/catalog.port";
 
 /** An adapter a YAML config names, such as `sourceControl: git`: its options are `with`. */
 export const adapterEntry = <Options extends z.ZodObject>(entry: {
@@ -47,7 +41,7 @@ export const moduleEntry = <
   make: (options, slots) => entry.make(entry.options.parse(options), slots),
 });
 
-/** A feature a YAML config lists under `features`; a slot left out may come from the flow. */
+/** A feature a YAML config lists under `features`; a slot of a flow port left out takes the flow's. */
 export const featureEntry = <
   Options extends z.ZodObject,
   Slots extends Record<string, Slot>,
@@ -56,14 +50,14 @@ export const featureEntry = <
   description: string;
   options: Options;
   slots: Slots;
-  make: (options: z.output<Options>, slots: MadeSlots, context: MakeContext) => Feature;
+  make: (options: z.output<Options>, slots: MadeSlots) => Feature;
 }): CatalogEntry => ({
   kind: "feature",
   name: entry.name,
   description: entry.description,
   options: entry.options,
   slots: entry.slots,
-  make: (options, slots, context) => entry.make(entry.options.parse(options), slots, context),
+  make: (options, slots) => entry.make(entry.options.parse(options), slots),
 });
 
 type Capability = AnyDeliveryAdapter["capability"];

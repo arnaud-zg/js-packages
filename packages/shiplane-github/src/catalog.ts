@@ -41,14 +41,12 @@ export const catalog: readonly CatalogEntry[] = [
         .describe("The apps whose ships comment; every app when absent"),
     }),
     slots: {
-      codeHost: { port: "codeHost", optional: true },
-      sourceControl: { port: "sourceControl", optional: true },
+      codeHost: { port: "codeHost" },
+      sourceControl: { port: "sourceControl" },
     },
-    make: ({ apps }, slots, { flow }) => {
-      const codeHost = slots.codeHost ?? flow?.codeHost;
-      const sourceControl = slots.sourceControl ?? flow?.sourceControl;
+    make: ({ apps }, { codeHost, sourceControl }) => {
       if (!codeHost || !sourceControl) {
-        throw new Error("release-comments needs a codeHost and a sourceControl, or the flow's");
+        throw new Error("release-comments needs a codeHost and a sourceControl");
       }
       return releaseComments({
         codeHost: serviceIn<CodeHostPort>(codeHost),

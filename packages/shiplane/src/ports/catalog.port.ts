@@ -17,14 +17,15 @@ export const SLOT_PORTS = [
 
 export type SlotPort = (typeof SLOT_PORTS)[number];
 
-/** A key of `with` that names an adapter: the port it fills, and whether it may be left out. */
+/**
+ * A key of `with` that names an adapter: the port it fills. A slot of a port the flow fills
+ * (sourceControl, codeHost, ciPipeline, versioning) may be left out: it takes the flow's adapter.
+ */
 export interface Slot {
   port: SlotPort;
-  /** Left out, the entry fills it itself, such as from the flow. */
-  optional?: boolean;
 }
 
-/** The adapters a config named for an entry's slots, by key; a slot left out is absent. */
+/** The adapters a config named for an entry's slots, by key, the flow's filled in; one left out is absent. */
 export type MadeSlots = Readonly<Partial<Record<string, Adapter<unknown>>>>;
 
 /** What a catalog entry is told when a config makes it: the flow, once it is made. */
@@ -52,9 +53,5 @@ export interface CatalogEntry {
    * Makes it from `with`: its options as written, its slots already made into adapters. Throws
    * when an option is wrong, saying which.
    */
-  readonly make: (
-    options: Record<string, unknown>,
-    slots: MadeSlots,
-    context: MakeContext,
-  ) => unknown;
+  readonly make: (options: Record<string, unknown>, slots: MadeSlots) => unknown;
 }

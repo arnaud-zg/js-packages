@@ -10,8 +10,6 @@ const entry = (name: string) => {
   return found;
 };
 
-const flowless = { flow: null };
-
 describe("shiplane's own catalog", () => {
   it("given every module a config writes by hand, when the catalog lists them, then each one is there by its kind", () => {
     expect(catalog.filter(({ kind }) => kind === "module").map(({ name }) => name)).toEqual([
@@ -28,21 +26,19 @@ describe("shiplane's own catalog", () => {
     const module = entry("backend-service").make(
       { name: "api-eu" },
       { serverHosting: serverHostingFake() },
-      flowless,
     );
 
     expect(module).toMatchObject({ type: "module", name: "api-eu", kind: "backend-service" });
   });
 
   it("given a slot holding an adapter of another delivery, when the catalog makes the module, then it says which delivery the slot needs", () => {
-    const make = () =>
-      entry("backend-service").make({}, { serverHosting: staticHostingFake() }, flowless);
+    const make = () => entry("backend-service").make({}, { serverHosting: staticHostingFake() });
 
     expect(make).toThrow("its adapter does not do server-hosting");
   });
 
   it("given an option of the wrong type, when the catalog makes the module, then it refuses before making anything", () => {
-    const make = () => entry("internal-tool").make({ name: 3 }, {}, flowless);
+    const make = () => entry("internal-tool").make({ name: 3 }, {});
 
     expect(make).toThrow(/name/);
   });
@@ -51,7 +47,7 @@ describe("shiplane's own catalog", () => {
     const shell = entry("shell");
 
     expect(shell.port).toBe("serverHosting");
-    expect(shell.make({}, {}, flowless)).toMatchObject({
+    expect(shell.make({}, {})).toMatchObject({
       name: "shell",
       capability: "server-hosting",
     });
