@@ -2,6 +2,7 @@ import { parseArgs } from "node:util";
 import { z } from "zod";
 
 import type { ReleaseContext } from "../application/context";
+import type { SetupContext } from "../application/setupContext";
 import type { ContextIo } from "./compose";
 import { tsConfig } from "../adapters/config/ts-config.adapter";
 import { YAML_CONFIG_FILES } from "../adapters/config/yaml-config.adapter";
@@ -169,6 +170,11 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
   };
 
   const [first = ""] = units;
+  // A shiplane.yml setup or migrate wrote gets its editor schema too: autocomplete works at once.
+  const withSchema = async (context: SetupContext, done: boolean) =>
+    done && YAML_CONFIG_FILES.some((file) => context.files.exists(file))
+      ? writeConfigSchema(context, await schemaCatalog(context.root, io.aliases))
+      : done;
   const setupCommands: Record<
     string,
     (context: Awaited<ReturnType<typeof composeSetup>>) => Promise<boolean>
@@ -180,7 +186,8 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
         );
         return Promise.resolve(false);
       }
-      return setup(context, { yes: values.yes, format: values.format === "yaml" ? "yaml" : "ts" });
+      const format = values.format === "yaml" ? "yaml" : "ts";
+      return setup(context, { yes: values.yes, format }).then((done) => withSchema(context, done));
     },
     init: (context) => {
       if (values.blank) return initRelease(context, { yes: values.yes, blank: true });
@@ -205,12 +212,13 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
     migrate: async (context) => {
       const ts = tsConfig({ aliases: io.aliases });
       const tsFile = ts.find(context.root);
-      return migrate(context, {
+      const done = await migrate(context, {
         tsFile,
         declared: () => (tsFile ? ts.read(tsFile) : Promise.resolve(undefined)),
         catalog: await schemaCatalog(context.root, io.aliases),
         load: (from) => loadReleaseFrom(context.root, from, { aliases: io.aliases }),
       });
+      return withSchema(context, done);
     },
     schema: async (context) =>
       writeConfigSchema(context, await schemaCatalog(context.root, io.aliases)),

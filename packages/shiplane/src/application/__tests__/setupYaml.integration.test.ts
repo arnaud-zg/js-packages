@@ -48,7 +48,7 @@ describe("Feature: setting up with a YAML config", () => {
     expect(files.exists("shiplane.config.ts")).toBe(false);
     expect(files.read("shiplane.yml"))
       .toBe(`# yaml-language-server: $schema=node_modules/.cache/shiplane/shiplane.schema.json
-# How this repository releases. shiplane schema gives your editor every key.
+# How this repository releases. Your editor completes every key from the schema above.
 flow:
   sourceControl: git
   codeHost: github
