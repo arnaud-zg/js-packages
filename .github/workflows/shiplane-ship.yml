@@ -40,7 +40,7 @@ on:
         type: string
         default: ""
       working-directory:
-        description: "Last resort: the folder holding shiplane.config.ts, when it is not the repo root"
+        description: "Last resort: the folder holding shiplane.config.ts or shiplane.yml, when it is not the repo root"
         type: string
         default: "."
     # Every secret an official adapter reads on a runner, and the GitHub App's. A plugin's own
@@ -91,12 +91,14 @@ jobs:
           fetch-depth: 0
 
       # Only here: the setup-node-project action serves any Node project.
-      - name: Find shiplane.config
+      - name: Find the shiplane config
         env:
           WORKING_DIRECTORY: ${{ inputs.working-directory }}
         run: |
-          for ext in ts mts js mjs; do [ -f "shiplane.config.$ext" ] && exit 0; done
-          echo "::error::no shiplane.config.ts in $WORKING_DIRECTORY (https://github.com/arnaud-zg/js-packages/blob/main/docs/shiplane/reference.md#github-actions-workflow)"
+          for file in shiplane.config.ts shiplane.config.mts shiplane.config.js shiplane.config.mjs shiplane.yml shiplane.yaml; do
+            [ -f "$file" ] && exit 0
+          done
+          echo "::error::no shiplane.config.ts or shiplane.yml in $WORKING_DIRECTORY (https://github.com/arnaud-zg/js-packages/blob/main/docs/shiplane/reference.md#github-actions-workflow)"
           exit 1
 
       # The same steps as .github/actions/setup-node-project, which other repos import; a test keeps them equal.
