@@ -9,6 +9,9 @@ import { isRecord } from "./values";
 
 type Path = readonly (string | number)[];
 
+/** The names a YAML config takes; the first one found is read. */
+export const YAML_CONFIG_FILES = ["shiplane.yml", "shiplane.yaml"];
+
 /** The flow's ports, in the order a config writes them. */
 export const FLOW_SLOTS = ["sourceControl", "codeHost", "ciPipeline", "versioning"] as const;
 
@@ -191,9 +194,9 @@ export const yamlDeclaration = (
     });
   };
 
-  const { flow: _flow, modules: _modules, features: _features, ...rest } = document;
+  // The keys written as values pass as they are; the flow, modules and features are made.
   return {
-    ...rest,
+    ...document,
     flow,
     ...(document.modules === undefined ? {} : { modules: listOf("modules", "module") }),
     ...(document.features === undefined ? {} : { features: listOf("features", "feature") }),

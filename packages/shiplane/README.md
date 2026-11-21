@@ -103,6 +103,7 @@ Swap any piece:
 | To comment on each PR when it ships                     | [`releaseComments()`](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to-hosts.md#comment-on-what-shipped)                |
 | Your own host                                           | [Write a plugin](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to-hosts.md#write-a-plugin)                              |
 | To ship from this machine, not Actions                  | [`--via local`](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to-ci.md#choose-github-actions-or-this-machine)           |
+| A config in YAML, no TypeScript                         | [`shiplane.yml`](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to-yaml.md)                                              |
 | A quieter terminal                                      | [`display: { mascot: false }`](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to-terminal.md#turn-the-mascot-off)        |
 
 `pnpm shiplane plugins` in that repository shows what got injected where:

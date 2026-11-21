@@ -6,12 +6,15 @@ import type { CatalogEntry } from "../../ports/catalog.port";
 import type { ConfigReader } from "../../ports/config.port";
 import { isCatalogEntry } from "../../application/config/catalog";
 import { isRecord } from "../../application/config/values";
-import { isLocal, yamlDeclaration } from "../../application/config/yamlDeclaration";
+import {
+  isLocal,
+  YAML_CONFIG_FILES,
+  yamlDeclaration,
+} from "../../application/config/yamlDeclaration";
 import { ConfigError } from "../../ports/config.port";
 import { importTs } from "./ts-config.adapter";
 
-/** The names a YAML config takes; the first one found is read. */
-export const YAML_CONFIG_FILES = ["shiplane.yml", "shiplane.yaml"];
+export { YAML_CONFIG_FILES };
 
 /** Every local file the flow, the modules and the features name: `./x.ts` or `use: ./x.ts`. */
 export const localsIn = (document: unknown): string[] => {

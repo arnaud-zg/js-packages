@@ -94,7 +94,7 @@ import {
   versioningFake,
 } from "shiplane/testing";
 
-const pages = defineStaticHosting({
+export const pages = defineStaticHosting({
   name: "pages",
   settings: z.object({
     project: z.string(),
@@ -105,7 +105,7 @@ const pages = defineStaticHosting({
   jobs: () => [],
 });
 
-const server = defineServerHosting({
+export const server = defineServerHosting({
   name: "server",
   settings: z.object({ app: perEnv(z.string()), url: perEnv(z.string()) }),
   describe: () => "",
@@ -136,4 +136,25 @@ modules:
   - use: web-app
     with:
       staticHosting: ./shiplane/adapters/fakes.ts
+`;
+
+/** MODULE_CONFIG's release, its adapters imported from FAKES_CATALOG's file: what migrate converts. */
+export const MIGRATABLE_CONFIG = `
+import { backendService, comments, defineRelease, releaseFlow, webApp } from "shiplane";
+import { ciPipelineFake, codeHostFake, sourceControlFake, versioningFake } from "shiplane/testing";
+
+import { pages, server } from "./shiplane/adapters/fakes";
+
+export default defineRelease({
+  flow: releaseFlow({
+    sourceControl: sourceControlFake(),
+    codeHost: codeHostFake(),
+    ciPipeline: ciPipelineFake(),
+    versioning: versioningFake(),
+  }),
+  modules: [backendService({ name: "api-eu", serverHosting: server }), webApp({ staticHosting: pages })],
+  tag: "plugin",
+  testComment: comments.compact,
+  prepare: "pnpm --filter {unit}... build",
+});
 `;

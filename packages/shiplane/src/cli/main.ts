@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import type { ReleaseContext } from "../application/context";
 import type { ContextIo } from "./compose";
+import { tsConfig } from "../adapters/config/ts-config.adapter";
 import { YAML_CONFIG_FILES } from "../adapters/config/yaml-config.adapter";
 import { nodeFiles } from "../adapters/files/node-files.adapter";
 import { addUnit, removeUnit } from "../application/addUnit";
@@ -12,6 +13,7 @@ import { docsFor } from "../application/docsFor";
 import { doctor } from "../application/doctor";
 import { doctorCi } from "../application/doctorCi";
 import { initRelease } from "../application/initRelease";
+import { migrate } from "../application/migrate";
 import { newAdapter } from "../application/newAdapter";
 import { openReleasePr } from "../application/openReleasePr";
 import { pickScope } from "../application/pickScope";
@@ -25,7 +27,7 @@ import { CONFIG_FILE, refreshEditorSchema } from "../application/setupFiles";
 import { shipTo } from "../application/ship";
 import { missingTags, tagRelease } from "../application/tagRelease";
 import { ENVIRONMENTS } from "../domain/environment";
-import { composeContext, composeSetup, loadReleaseOnDisk } from "./compose";
+import { composeContext, composeSetup, loadReleaseFrom, loadReleaseOnDisk } from "./compose";
 import { findRoot } from "./findRoot";
 import { out, printProblems } from "./output";
 import { schemaCatalog } from "./plugins";
@@ -62,12 +64,14 @@ const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, tri
   shiplane plugins [--json]       the flow, the modules in release order and who uses each, the features
 
   shiplane setup [--yes]          set up, check, or add an app: asks only what it can't tell, rehearses, then writes
+                                  --format yaml writes shiplane.yml instead of shiplane.config.ts
                                   (shiplane init and shiplane add are now setup; both still run for now)
   shiplane remove <unit>          stop shipping a unit; it stays versioned
   shiplane doctor                 check the config, tools and sign-ins, offer each fix
   shiplane doctor --ci [unit...]  on a runner: units, --channel, tools (installed when missing), secrets
   shiplane adapter new <name>     scaffold a server hosting adapter, its contract test and its module
   shiplane docs <name>            every key a module's or an adapter's unit files take
+  shiplane migrate                write shiplane.yml from shiplane.config.ts, the same release, and remove the TS
   shiplane schema                 the editor schema of shiplane.yml, with the plugins installed and your own adapters
   shiplane help [all]             the main commands; all: this, every command and flag
 
@@ -113,6 +117,7 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
       ci: { type: "boolean", default: false },
       "older-than": { type: "string" },
       otp: { type: "string" },
+      format: { type: "string" },
     },
   });
 
@@ -168,7 +173,15 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
     string,
     (context: Awaited<ReturnType<typeof composeSetup>>) => Promise<boolean>
   > = {
-    setup: (context) => setup(context, { yes: values.yes }),
+    setup: (context) => {
+      if (values.format !== undefined && values.format !== "ts" && values.format !== "yaml") {
+        out(
+          `${paint("red", "✗")}  --format is ts (shiplane.config.ts, the default) or yaml (shiplane.yml)`,
+        );
+        return Promise.resolve(false);
+      }
+      return setup(context, { yes: values.yes, format: values.format === "yaml" ? "yaml" : "ts" });
+    },
     init: (context) => {
       if (values.blank) return initRelease(context, { yes: values.yes, blank: true });
       out(paint("dim", "init is now shiplane setup"));
@@ -189,6 +202,16 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
       return Promise.resolve(false);
     },
     docs: (context) => docsFor(context, first),
+    migrate: async (context) => {
+      const ts = tsConfig({ aliases: io.aliases });
+      const tsFile = ts.find(context.root);
+      return migrate(context, {
+        tsFile,
+        declared: () => (tsFile ? ts.read(tsFile) : Promise.resolve(undefined)),
+        catalog: await schemaCatalog(context.root, io.aliases),
+        load: (from) => loadReleaseFrom(context.root, from, { aliases: io.aliases }),
+      });
+    },
     schema: async (context) =>
       writeConfigSchema(context, await schemaCatalog(context.root, io.aliases)),
   };

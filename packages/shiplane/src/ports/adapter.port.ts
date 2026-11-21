@@ -20,6 +20,8 @@ export interface Adapter<Port> {
   /** The provider: "git", "fly". */
   readonly name: string;
   readonly create: (context: AdapterContext) => Port;
+  /** The options its factory was given, as `with` writes them: what `shiplane migrate` reads. */
+  readonly options?: object;
 }
 
 /** An adapter of a port the release flow runs on: source control, code host, CI, versioning. */

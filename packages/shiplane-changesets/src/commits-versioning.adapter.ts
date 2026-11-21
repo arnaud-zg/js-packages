@@ -116,5 +116,6 @@ export type CommitsVersioningAdapter = ServiceAdapter<VersioningPort>;
  */
 export const commitsVersioning = (options: ChangesetsOptions = {}): CommitsVersioningAdapter => ({
   name: "commits",
+  options,
   create: ({ root, shell }) => commitsFiles({ root, shell, options }),
 });

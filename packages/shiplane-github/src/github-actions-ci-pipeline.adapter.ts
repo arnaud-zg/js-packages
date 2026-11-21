@@ -220,10 +220,11 @@ export type GitHubActionsCiPipelineAdapter = ServiceAdapter<CiPipelinePort>;
  * Workflow runs, dispatches and the minutes budget on GitHub Actions, through the gh CLI. Shipping
  * through it dispatches `shipWorkflow` (default `ship.yml`) with `units` and `environment`.
  */
-export const gitHubActionsCiPipeline = ({
-  shipWorkflow = "ship.yml",
-}: { shipWorkflow?: string } = {}): GitHubActionsCiPipelineAdapter => ({
+export const gitHubActionsCiPipeline = (
+  options: { shipWorkflow?: string } = {},
+): GitHubActionsCiPipelineAdapter => ({
   name: "github-actions",
+  options,
   requirements: () => [GH_REQUIREMENT],
-  create: ({ root, shell }) => githubActions(root, shell, shipWorkflow),
+  create: ({ root, shell }) => githubActions(root, shell, options.shipWorkflow ?? "ship.yml"),
 });

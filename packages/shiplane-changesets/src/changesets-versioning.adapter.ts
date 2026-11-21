@@ -230,5 +230,6 @@ export const changesetsVersioning = (
   options: ChangesetsOptions = {},
 ): ChangesetsVersioningAdapter => ({
   name: "changesets",
+  options,
   create: ({ root, shell }) => changesetsFiles(root, shell, options),
 });

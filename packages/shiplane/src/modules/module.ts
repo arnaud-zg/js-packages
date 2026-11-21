@@ -126,6 +126,8 @@ export interface Feature {
   readonly name: string;
   /** The adapters it was given, for doctor to check. */
   readonly adapters: readonly Adapter<unknown>[];
+  /** Its options that are not adapters, as `with` writes them: what `shiplane migrate` reads. */
+  readonly options?: object;
   readonly requirements?: () => Requirement[];
   /** What to do once apps ship: it only reads, a ship runs each one, a plan lists them. */
   readonly afterShip: (
