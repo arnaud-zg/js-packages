@@ -24,7 +24,7 @@ export const renderYamlConfig = (
 ) =>
   [
     SCHEMA_MODELINE,
-    "# How this repository releases. shiplane schema gives your editor every key.",
+    "# How this repository releases. Your editor completes every key from the schema above.",
     body({ flow: Object.fromEntries(FLOW_PORTS.map((port) => [port, flow[port].name])) }),
     ...(units ? [body({ units: [...units] })] : []),
     "# What gets released, in this order. The first app is the repository's Latest release.",

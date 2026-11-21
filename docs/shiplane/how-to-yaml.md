@@ -77,6 +77,9 @@ Change each one in `shiplane.config.ts` and run it again, or keep the TS config.
 
 ## Get autocomplete in your editor
 
+`shiplane setup --format yaml` and `shiplane migrate` write the schema with `shiplane.yml`. After
+installing a plugin or adding an adapter, write it again:
+
 ```sh
 pnpm shiplane schema
 ```
@@ -90,8 +93,7 @@ own adapters (each file in `shiplane/adapters/` that exports a `catalog`, and ea
 ```
 
 Any editor running the YAML language server (VS Code with the Red Hat YAML extension, Zed, Neovim)
-then offers each port's adapters, and once `use:` names one, the keys its `with:` takes. Run it
-again after installing a plugin.
+then offers each port's adapters, and once `use:` names one, the keys its `with:` takes.
 
 **Check it worked:** type `serverHosting: ` under a module's `with:`; the editor offers `fly`,
 `shell` and the rest installed.

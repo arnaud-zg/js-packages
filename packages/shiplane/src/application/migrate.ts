@@ -107,8 +107,6 @@ export const migrate = async (
     `${paint("green", "◇")}  Wrote ${YAML_CONFIG_FILE}: the same release as ${tsName}, which is removed`,
   );
   check.forEach((line) => output.line(`${paint("yellow", "!")}  ${line}`));
-  output.line(
-    paint("dim", `   git restore ${tsName} brings it back; shiplane schema adds autocomplete`),
-  );
+  output.line(paint("dim", `   git restore ${tsName} brings it back`));
   return true;
 };

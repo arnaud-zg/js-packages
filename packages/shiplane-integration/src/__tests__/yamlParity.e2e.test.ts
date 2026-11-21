@@ -85,7 +85,7 @@ describe("shiplane migrate", () => {
       () => installedRepository({ ...OWN_FILES, "shiplane.config.ts": read("shiplane.config.ts") }),
     ],
   ])(
-    "given %s in TypeScript, when shiplane migrate runs, then shiplane.yml replaces it and plugins --json prints the same",
+    "given %s in TypeScript, when shiplane migrate runs, then shiplane.yml and its editor schema replace it and plugins --json prints the same",
     (_name, make) => {
       const repository = make();
       const before = pluginsJson(repository);
@@ -95,6 +95,9 @@ describe("shiplane migrate", () => {
       expect(migrated.output).toContain("Wrote shiplane.yml");
       expect(migrated.status).toBe(0);
       expect(fs.existsSync(path.join(repository.root, "shiplane.config.ts"))).toBe(false);
+      expect(repository.read("node_modules/.cache/shiplane/shiplane.schema.json")).toContain(
+        '"title": "shiplane.yml"',
+      );
       expect(pluginsJson(repository)).toEqual(before);
     },
   );
