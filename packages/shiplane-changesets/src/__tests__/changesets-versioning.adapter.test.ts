@@ -38,3 +38,37 @@ describe("changesets versioning a release", () => {
     expect(shell.calls.some(({ command }) => command === "gh")).toBe(false);
   });
 });
+
+describe("changesets versioning's fixed groups", () => {
+  const writeJson = (file: string, value: unknown) => {
+    fs.mkdirSync(path.dirname(path.join(root ?? "", file)), { recursive: true });
+    fs.writeFileSync(path.join(root ?? "", file), JSON.stringify(value));
+  };
+  const workspace = (fixed: string[][]) => {
+    const made = setUp();
+    writeJson("package.json", { name: "acme", private: true });
+    fs.writeFileSync(path.join(root ?? "", "pnpm-workspace.yaml"), "packages:\n  - packages/*\n");
+    ["kit", "kit-git", "app"].forEach((name) =>
+      writeJson(`packages/${name}/package.json`, {
+        name: name === "kit" ? "kit" : `@kit/${name.replace("kit-", "")}`,
+        version: "1.0.0",
+      }),
+    );
+    writeJson(".changeset/config.json", { fixed });
+    return made;
+  };
+
+  it("given a fixed group with a pattern, when read, then it names each package the pattern matches", async () => {
+    const { port } = workspace([["kit", "@kit/*"]]);
+
+    const groups = (await port.fixedGroups?.()) ?? [];
+
+    expect(groups.map((group) => [...group].sort())).toEqual([["@kit/app", "@kit/git", "kit"]]);
+  });
+
+  it("given no changesets config, when read, then nothing is fixed", async () => {
+    const { port } = setUp();
+
+    await expect(port.fixedGroups?.()).resolves.toEqual([]);
+  });
+});

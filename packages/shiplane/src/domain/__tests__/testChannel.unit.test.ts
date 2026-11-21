@@ -5,6 +5,7 @@ import {
   channelProblem,
   channels,
   nextNumber,
+  sharedNumbers,
   testReleases,
   testTag,
   testVersion,
@@ -91,6 +92,35 @@ describe("the next number on a channel", () => {
     const published = ["0.5.0-beta.7", "0.6.0-alpha.4", "0.6.0-beta.0.1", "0.6.0-beta.1"];
 
     expect(nextNumber({ published, next: "0.6.0", channel: "beta" })).toBe(2);
+  });
+});
+
+describe("the numbers of packages released together", () => {
+  const FIXED = [["shiplane", "@shiplane/changesets", "@shiplane/git"]];
+
+  it("given a fixed group whose packages took different numbers, when numbered, then all share the highest", () => {
+    const numbered = sharedNumbers(
+      [
+        { name: "shiplane", number: 3 },
+        { name: "@shiplane/changesets", number: 2 },
+        { name: "@shiplane/git", number: 0 },
+      ],
+      FIXED,
+    );
+
+    expect(numbered.map(({ number }) => number)).toEqual([3, 3, 3]);
+  });
+
+  it("given packages in no fixed group, when numbered, then each keeps its own", () => {
+    const numbered = sharedNumbers(
+      [
+        { name: "kit", number: 4 },
+        { name: "app", number: 0 },
+      ],
+      [],
+    );
+
+    expect(numbered.map(({ number }) => number)).toEqual([4, 0]);
   });
 });
 
