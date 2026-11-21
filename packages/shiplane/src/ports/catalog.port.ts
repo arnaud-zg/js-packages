@@ -1,6 +1,5 @@
 import type { z } from "zod";
 
-import type { ReleaseFlow } from "../modules/module";
 import type { Adapter } from "./adapter.port";
 
 /** Every port a YAML config fills by naming an adapter. */
@@ -28,9 +27,14 @@ export interface Slot {
 /** The adapters a config named for an entry's slots, by key, the flow's filled in; one left out is absent. */
 export type MadeSlots = Readonly<Partial<Record<string, Adapter<unknown>>>>;
 
-/** What a catalog entry is told when a config makes it: the flow, once it is made. */
+/** The adapters a release runs on, by port: what a feature may fall back on. */
+export type FlowAdapters = Readonly<
+  Record<"sourceControl" | "codeHost" | "ciPipeline" | "versioning", Adapter<unknown>>
+>;
+
+/** What a catalog entry is told when a config makes it: the flow's adapters, once made. */
 export interface MakeContext {
-  flow: ReleaseFlow | null;
+  flow: FlowAdapters | null;
 }
 
 /**

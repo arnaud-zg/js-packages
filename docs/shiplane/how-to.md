@@ -8,6 +8,7 @@ One page per area, one task per section. New here? Start with the [Tutorial](./t
 
 | Page                                             | Tasks                                                                                                                               |
 | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| [📝 YAML config](./how-to-yaml.md)               | Write the config in YAML, give an adapter options, name an adapter of your own, use a preset                                        |
 | [🧩 Apps](./how-to-apps.md)                      | Add an app, stop shipping one, set a value per environment, read another app's value, check env before deploy, hold an app back     |
 | [🚢 Release](./how-to-release.md)                | Force another version, preview every command, promote to production, widen a rollout, retry a failed release                        |
 | [🧪 Test versions](./how-to-test-versions.md)    | Publish a test version, pick its channel, shape its pull request comment, clean up old snapshots                                    |

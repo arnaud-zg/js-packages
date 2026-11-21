@@ -60,6 +60,19 @@ export const featureEntry = <
   make: (options, slots) => entry.make(entry.options.parse(options), slots),
 });
 
+/** A catalog entry as a plugin or a local file exports it, checked before a config uses it. */
+export const isCatalogEntry = (value: unknown): value is CatalogEntry =>
+  typeof value === "object" &&
+  value !== null &&
+  "kind" in value &&
+  ["adapter", "module", "feature"].includes(String(value.kind)) &&
+  "name" in value &&
+  typeof value.name === "string" &&
+  "make" in value &&
+  typeof value.make === "function" &&
+  "options" in value &&
+  "slots" in value;
+
 type Capability = AnyDeliveryAdapter["capability"];
 
 const delivers = <C extends Capability>(

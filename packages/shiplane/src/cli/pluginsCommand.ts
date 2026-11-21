@@ -38,7 +38,7 @@ export const pluginsCommand = (release: Release, { json }: { json: boolean }) =>
     out(paint("bold", title));
     out();
   };
-  section("Flow in shiplane.config.ts");
+  section(`Flow in ${release.configFile ?? "shiplane.config.ts"}`);
   Object.entries(ports).forEach(([port, name]) => out(`  ${port.padEnd(width)}${name}`));
   section("Modules, in release order");
   modules.forEach(({ name, provider, keys, apps }) => {

@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import type { ReleaseContext } from "../application/context";
 import type { ContextIo } from "./compose";
+import { YAML_CONFIG_FILES } from "../adapters/config/yaml-config.adapter";
 import { nodeFiles } from "../adapters/files/node-files.adapter";
 import { addUnit, removeUnit } from "../application/addUnit";
 import { branchRelease } from "../application/branchRelease";
@@ -189,7 +190,8 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
 
   const root = findRoot(cwd);
   const files = io.setup?.files ?? nodeFiles(root);
-  const firstRun = command === "next" && !files.exists(CONFIG_FILE);
+  const firstRun =
+    command === "next" && ![CONFIG_FILE, ...YAML_CONFIG_FILES].some((file) => files.exists(file));
   // A dry run prints every command a ship would run, the way it would go, and runs none.
   const run =
     values["dry-run"] && DRY_RUNS.has(command)
