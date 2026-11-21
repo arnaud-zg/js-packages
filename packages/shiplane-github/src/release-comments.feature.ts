@@ -134,6 +134,7 @@ export const releaseComments = ({
   type: "feature",
   name: "release-comments",
   adapters: [codeHost, sourceControl],
+  options: apps ? { apps } : {},
   requirements: () => [
     ...(codeHost.requirements?.() ?? []),
     ...(sourceControl.requirements?.() ?? []),

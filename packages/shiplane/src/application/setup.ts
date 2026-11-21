@@ -10,7 +10,9 @@ import { moduleFor } from "../modules/suggest";
 import { callerWrite, renovateWrite } from "./callerWorkflow";
 import { UNIT_FILE, UNIT_FILES } from "./config/readUnitFile";
 import { expandPatterns, workspacePatterns } from "./config/workspaceFolders";
+import { YAML_CONFIG_FILES } from "./config/yamlDeclaration";
 import {
+  CUSTOM_PORTS,
   customFiles,
   isFactoryName,
   kebab,
@@ -39,6 +41,7 @@ import {
   schemaLineFor,
   schemaText,
 } from "./setupFiles";
+import { addToYamlConfig, renderYamlConfig, withCatalog, YAML_CONFIG_FILE } from "./setupYaml";
 import { unattended } from "./unattended";
 
 /** A file setup writes: its text, and whether it is new. */
@@ -432,25 +435,55 @@ const configWrites = (
     pkg,
     flow,
     patterns,
+    yaml,
   }: {
     existing: boolean;
     entries: readonly ModuleEntry[];
     pkg: string;
     flow: Record<FlowPort, FlowChoice> | null;
     patterns: string[] | null;
+    /** Set when the config is, or is to be, shiplane.yml. */
+    yaml: boolean;
   },
 ): Write[] => {
+  const file = yaml ? YAML_CONFIG_FILE : CONFIG_FILE;
   if (!existing) {
     const units =
       patterns && patterns.join() !== workspacePatterns(files).join() ? patterns : undefined;
-    const text = renderConfig(entries, pkg, flow ?? DEFAULT_FLOW, units);
-    return [{ file: CONFIG_FILE, text, created: true }];
+    const text = yaml
+      ? renderYamlConfig(entries, flow ?? DEFAULT_FLOW, units)
+      : renderConfig(entries, pkg, flow ?? DEFAULT_FLOW, units);
+    return [{ file, text, created: true }];
   }
   if (entries.length === 0) return [];
-  const before = files.read(CONFIG_FILE) ?? "";
-  const config = entries.reduce((text, entry) => addToConfig(text, entry, pkg) ?? text, before);
-  return [{ file: CONFIG_FILE, text: config, created: false }];
+  const before = files.read(file) ?? "";
+  const add = (text: string, entry: ModuleEntry) =>
+    (yaml ? addToYamlConfig(text, entry) : addToConfig(text, entry, pkg)) ?? text;
+  return [{ file, text: entries.reduce(add, before), created: false }];
 };
+
+/** In a YAML config, each custom adapter's file also exports the catalog shiplane.yml names. */
+const withCatalogs = (
+  writes: readonly Write[],
+  entries: readonly ModuleEntry[],
+  flow: Record<FlowPort, FlowChoice> | null,
+  pkg: string,
+): Write[] => {
+  const custom = [
+    ...entries.map(({ port, adapter, from }) => ({ port, name: adapter, from })),
+    ...(flow
+      ? FLOW_PORTS.map((port) => ({ port, name: flow[port].factory, from: flow[port].from }))
+      : []),
+  ].filter(({ from }) => from.startsWith("."));
+  return writes.map((write) => {
+    const found = custom.find(({ name }) => customFiles(name).file === write.file);
+    return found && isCustomPort(found.port)
+      ? { ...write, text: withCatalog(write.text, found.port, found.name, pkg) }
+      : write;
+  });
+};
+
+const isCustomPort = (port: string): port is CustomPortKey => port in CUSTOM_PORTS;
 
 /** The command that builds a folder: its unit's, its package.json script's, or one asked once. */
 const buildFor = async (
@@ -472,7 +505,10 @@ const buildFor = async (
  * sign-ins) with nothing pushed or deployed. Files are kept only when the rehearsal passes. Run
  * again, it says all is set or offers what changed.
  */
-export const setup = async (context: SetupContext, { yes }: { yes: boolean }): Promise<boolean> => {
+export const setup = async (
+  context: SetupContext,
+  { yes, format = "ts" }: { yes: boolean; format?: "ts" | "yaml" },
+): Promise<boolean> => {
   const { output, prompter, files } = context;
   const pkg = releasePackage(files);
   const needsPerson: string[] = [];
@@ -481,7 +517,12 @@ export const setup = async (context: SetupContext, { yes }: { yes: boolean }): P
   output.line(`  ${paint("bold", "shiplane setup")}  ${paint("dim", path.basename(context.root))}`);
   output.line();
 
-  const existing = files.exists(CONFIG_FILE) ? await context.load() : null;
+  // The config in place decides its own format; --format only picks a new one's.
+  const configFile = files.exists(CONFIG_FILE)
+    ? CONFIG_FILE
+    : (YAML_CONFIG_FILES.find((file) => files.exists(file)) ?? null);
+  const yaml = configFile === null ? format === "yaml" : configFile !== CONFIG_FILE;
+  const existing = configFile ? await context.load() : null;
   if (existing && existing.problems.length > 0) {
     existing.problems.forEach(({ file, line, message, hint }) => {
       output.line(
@@ -494,7 +535,7 @@ export const setup = async (context: SetupContext, { yes }: { yes: boolean }): P
   }
 
   const flow = existing ? null : await chooseFlow(context, yes, needsPerson, writes, pkg);
-  if (existing) output.line(`  ${ok} flow  ${paint("dim", CONFIG_FILE)}`);
+  if (existing) output.line(`  ${ok} flow  ${paint("dim", configFile ?? CONFIG_FILE)}`);
   if (!existing && !flow && needsPerson.length === 0) return cancelled(context);
 
   const patterns = existing
@@ -540,8 +581,9 @@ export const setup = async (context: SetupContext, { yes }: { yes: boolean }): P
     return false;
   }
 
+  if (yaml) writes.splice(0, writes.length, ...withCatalogs(writes, entries, flow, pkg));
   writes.unshift(
-    ...configWrites(context, { existing: existing !== null, entries, pkg, flow, patterns }),
+    ...configWrites(context, { existing: existing !== null, entries, pkg, flow, patterns, yaml }),
   );
   placed.forEach(({ folder, module, options, reason }) =>
     writes.push({

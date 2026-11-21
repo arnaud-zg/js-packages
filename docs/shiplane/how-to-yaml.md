@@ -9,6 +9,8 @@ Write the release in `shiplane.yml` instead of `shiplane.config.ts`: no TypeScri
 release. Every key named here is in the [`shiplane.yml` reference](./reference-yaml.md).
 
 - [Write the config in YAML](#write-the-config-in-yaml)
+- [Set up a new repository in YAML](#set-up-a-new-repository-in-yaml)
+- [Move a TS config to YAML](#move-a-ts-config-to-yaml)
 - [Get autocomplete in your editor](#get-autocomplete-in-your-editor)
 - [Give an adapter options](#give-an-adapter-options)
 - [Name an adapter of your own](#name-an-adapter-of-your-own)
@@ -42,6 +44,36 @@ release. Every key named here is in the [`shiplane.yml` reference](./reference-y
 
 Every slot takes one of two shapes: a name (`fly`), or `use:` the name with `with:` its options. A
 module's `with` holds its adapter and, when two modules share a kind, its `name`.
+
+## Set up a new repository in YAML
+
+```sh
+pnpm shiplane setup --format yaml
+```
+
+Setup asks what it always asks and writes `shiplane.yml` instead of `shiplane.config.ts`. Run again,
+it adds each new app's module to the `modules` of the `shiplane.yml` there, its comments kept. A
+config already in place keeps its format: `--format` only picks a new one's.
+
+## Move a TS config to YAML
+
+```sh
+pnpm shiplane migrate
+```
+
+It writes `shiplane.yml` from `shiplane.config.ts`, loads it back, and removes the TS config only
+when both compose the same release. `git restore shiplane.config.ts` brings it back.
+
+What YAML cannot hold is listed, each with where it is, and nothing is written:
+
+```text
+✗  display.mascot  is a function: YAML holds values only
+   use true, false, frames per mood, or keep shiplane.config.ts
+✗  modules[0].with.serverHosting  the serverHosting adapter "my-host" is in no catalog
+   export a catalog from its file (adapterEntry from shiplane/plugin), then name it by its path in shiplane.yml
+```
+
+Change each one in `shiplane.config.ts` and run it again, or keep the TS config.
 
 ## Get autocomplete in your editor
 

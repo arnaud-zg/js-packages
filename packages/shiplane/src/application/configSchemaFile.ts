@@ -2,9 +2,8 @@ import type { CatalogEntry } from "../ports/catalog.port";
 import type { Files } from "../ports/files.port";
 import type { Output } from "../ports/terminal.port";
 import { CONFIG_SCHEMA_FILE, configSchemaText, SCHEMA_MODELINE } from "./config/configSchema";
+import { YAML_CONFIG_FILES } from "./config/yamlDeclaration";
 import { paint } from "./say";
-
-const YAML_FILES = ["shiplane.yml", "shiplane.yaml"];
 
 /**
  * `shiplane schema`: writes the editor schema of shiplane.yml for the plugins installed and the
@@ -20,7 +19,7 @@ export const writeConfigSchema = (
   output.line(
     `${paint("green", "◇")}  Wrote ${CONFIG_SCHEMA_FILE}: ${count("adapter")} adapters, ${count("module")} modules, ${count("feature")} features`,
   );
-  const config = YAML_FILES.find((file) => files.exists(file));
+  const config = YAML_CONFIG_FILES.find((file) => files.exists(file));
   const text = config ? files.read(config) : null;
   if (config && text !== null && !text.includes("yaml-language-server: $schema=")) {
     files.write(config, `${SCHEMA_MODELINE}\n${text}`);

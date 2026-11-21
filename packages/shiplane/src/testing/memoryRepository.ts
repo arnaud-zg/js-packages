@@ -52,7 +52,8 @@ export const memoryLoad =
   (root: string, files: MemoryFiles, compose: () => { modules: ReleaseModule[] }) =>
   (): Promise<Release> => {
     const empty = { root, flow: fakeFlow(), tagFormat: DEFAULT_TAG_FORMAT, features: [] };
-    if (!files.exists(CONFIG_FILE)) {
+    // A shiplane.yml holds the config as well: what it composes comes from the same adapters.
+    if (!files.exists(CONFIG_FILE) && !files.exists("shiplane.yml")) {
       return Promise.resolve({
         ...empty,
         modules: [],

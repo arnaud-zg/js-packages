@@ -35,6 +35,20 @@ export const loadReleaseOnDisk = (root: string, options: Partial<LoadOptions> = 
     manifests: options.manifests ?? packageJsonManifest,
   });
 
+/** The release from one kind of config file only: what `shiplane migrate` compares. */
+export const loadReleaseFrom = (
+  root: string,
+  from: "ts" | "yaml",
+  { aliases }: { aliases?: Record<string, string> } = {},
+) => {
+  const [ts, yaml] = configReaders({ aliases });
+  const reader = from === "ts" ? ts : yaml;
+  return loadRelease(root, {
+    configs: reader ? [reader] : [],
+    manifests: packageJsonManifest,
+  });
+};
+
 /** Creates each port the flow runs on, for this repository. */
 export const composeServices = (release: Release, open: Open): Services => ({
   sourceControl: open(release.flow.sourceControl),

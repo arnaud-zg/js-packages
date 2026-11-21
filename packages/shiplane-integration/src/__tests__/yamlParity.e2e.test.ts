@@ -76,3 +76,26 @@ describe("a shiplane.yml composes what its shiplane.config.ts composes", () => {
     expect(fromYaml).toEqual(fromTs);
   });
 });
+
+describe("shiplane migrate", () => {
+  it.each([
+    ["examples/repository", () => exampleRepository("packages/shiplane/examples/repository")],
+    [
+      "this repository's config",
+      () => installedRepository({ ...OWN_FILES, "shiplane.config.ts": read("shiplane.config.ts") }),
+    ],
+  ])(
+    "given %s in TypeScript, when shiplane migrate runs, then shiplane.yml replaces it and plugins --json prints the same",
+    (_name, make) => {
+      const repository = make();
+      const before = pluginsJson(repository);
+
+      const migrated = repository.shiplane(["migrate"]);
+
+      expect(migrated.output).toContain("Wrote shiplane.yml");
+      expect(migrated.status).toBe(0);
+      expect(fs.existsSync(path.join(repository.root, "shiplane.config.ts"))).toBe(false);
+      expect(pluginsJson(repository)).toEqual(before);
+    },
+  );
+});
