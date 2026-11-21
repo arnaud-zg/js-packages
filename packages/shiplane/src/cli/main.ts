@@ -7,6 +7,7 @@ import { YAML_CONFIG_FILES } from "../adapters/config/yaml-config.adapter";
 import { nodeFiles } from "../adapters/files/node-files.adapter";
 import { addUnit, removeUnit } from "../application/addUnit";
 import { branchRelease } from "../application/branchRelease";
+import { writeConfigSchema } from "../application/configSchemaFile";
 import { docsFor } from "../application/docsFor";
 import { doctor } from "../application/doctor";
 import { doctorCi } from "../application/doctorCi";
@@ -27,6 +28,7 @@ import { ENVIRONMENTS } from "../domain/environment";
 import { composeContext, composeSetup, loadReleaseOnDisk } from "./compose";
 import { findRoot } from "./findRoot";
 import { out, printProblems } from "./output";
+import { schemaCatalog } from "./plugins";
 import { pluginsCommand } from "./pluginsCommand";
 import { statusCommand } from "./statusCommand";
 
@@ -66,6 +68,7 @@ const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, tri
   shiplane doctor --ci [unit...]  on a runner: units, --channel, tools (installed when missing), secrets
   shiplane adapter new <name>     scaffold a server hosting adapter, its contract test and its module
   shiplane docs <name>            every key a module's or an adapter's unit files take
+  shiplane schema                 the editor schema of shiplane.yml, with the plugins installed and your own adapters
   shiplane help [all]             the main commands; all: this, every command and flag
 
   --channel preview|production    where status reads (preview by default)
@@ -186,6 +189,8 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
       return Promise.resolve(false);
     },
     docs: (context) => docsFor(context, first),
+    schema: async (context) =>
+      writeConfigSchema(context, await schemaCatalog(context.root, io.aliases)),
   };
 
   const root = findRoot(cwd);

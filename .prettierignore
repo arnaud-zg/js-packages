@@ -5,3 +5,4 @@ node_modules
 pnpm-lock.yaml
 **/CHANGELOG.md
 .claude/worktrees
+packages/shiplane/shiplane.schema.json

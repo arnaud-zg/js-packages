@@ -2,10 +2,12 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { parse } from "yaml";
 import { z } from "zod";
 
 import type { AnyDeliveryAdapter } from "../modules/suggest";
 import type { CatalogEntry } from "../ports/catalog.port";
+import { localEntries, localsIn, YAML_CONFIG_FILES } from "../adapters/config/yaml-config.adapter";
 import { shellServerHosting } from "../adapters/server-hosting/shell-server-hosting.adapter";
 import { isCatalogEntry } from "../application/config/catalog";
 import { isRecord } from "../application/config/values";
@@ -92,4 +94,40 @@ export const installedCatalog = async (root: string): Promise<CatalogEntry[]> =>
     }),
   );
   return [...ownCatalog, ...found.flat()];
+};
+
+/** The local files that export a catalog by convention: `shiplane/adapters/*.ts`. */
+const LOCAL_FOLDER = "shiplane/adapters";
+
+/**
+ * What `shiplane schema` offers: the installed catalog, then every local file shiplane.yml names
+ * or `shiplane/adapters/` holds that exports a catalog. A local file that does not load is skipped.
+ */
+export const schemaCatalog = async (
+  root: string,
+  aliases?: Record<string, string>,
+): Promise<CatalogEntry[]> => {
+  const folder = path.join(root, LOCAL_FOLDER);
+  const inFolder = fs.existsSync(folder)
+    ? fs
+        .readdirSync(folder)
+        .filter((file) => /\.(ts|mts|js|mjs)$/.test(file))
+        .map((file) => `./${LOCAL_FOLDER}/${file}`)
+    : [];
+  const yamlFile = YAML_CONFIG_FILES.map((file) => path.join(root, file)).find((file) =>
+    fs.existsSync(file),
+  );
+  const named = yamlFile
+    ? localsIn(parse(fs.readFileSync(yamlFile, "utf8"), { prettyErrors: false }))
+    : [];
+  const local = await Promise.all(
+    [...new Set([...named, ...inFolder])].map(async (use) => {
+      try {
+        return await localEntries(root, [use], aliases);
+      } catch {
+        return [];
+      }
+    }),
+  );
+  return [...(await installedCatalog(root)), ...local.flat()];
 };

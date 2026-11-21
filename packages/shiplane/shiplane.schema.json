@@ -1,0 +1,1092 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "shiplane.yml",
+  "description": "How a repository releases with shiplane: the flow, the modules in release order, the features.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "flow",
+    "modules"
+  ],
+  "properties": {
+    "flow": {
+      "description": "How the release itself runs: an adapter per port.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceControl",
+        "codeHost",
+        "ciPipeline",
+        "versioning"
+      ],
+      "properties": {
+        "sourceControl": {
+          "description": "The sourceControl adapter: a name, or use: the name with with: its options",
+          "anyOf": [
+            {
+              "const": "git",
+              "description": "Branches, commits and tags, through the git CLI"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "use"
+              ],
+              "properties": {
+                "use": {
+                  "anyOf": [
+                    {
+                      "const": "git",
+                      "description": "Branches, commits and tags, through the git CLI"
+                    }
+                  ]
+                },
+                "with": {
+                  "type": "object"
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "use": {
+                        "const": "git"
+                      }
+                    },
+                    "required": [
+                      "use"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "with": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "main": {
+                            "description": "The branch releases start from; origin's default branch, main or master, when absent",
+                            "type": "string"
+                          },
+                          "format": {
+                            "description": "Run on the files of a commit before it is made, such as a formatter",
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "retryDelays": {
+                            "description": "How long to wait before each new try of a push the network dropped, in ms",
+                            "type": "array",
+                            "items": {
+                              "type": "number"
+                            }
+                          }
+                        },
+                        "required": []
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "codeHost": {
+          "description": "The codeHost adapter: a name, or use: the name with with: its options",
+          "anyOf": [
+            {
+              "const": "github",
+              "description": "Pull requests, releases and deploy records on GitHub, through the gh CLI"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "use"
+              ],
+              "properties": {
+                "use": {
+                  "anyOf": [
+                    {
+                      "const": "github",
+                      "description": "Pull requests, releases and deploy records on GitHub, through the gh CLI"
+                    }
+                  ]
+                },
+                "with": {
+                  "type": "object"
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "use": {
+                        "const": "github"
+                      }
+                    },
+                    "required": [
+                      "use"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "with": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {},
+                        "required": []
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "ciPipeline": {
+          "description": "The ciPipeline adapter: a name, or use: the name with with: its options",
+          "anyOf": [
+            {
+              "const": "github-actions",
+              "description": "Ships through a GitHub Actions workflow, through the gh CLI"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "use"
+              ],
+              "properties": {
+                "use": {
+                  "anyOf": [
+                    {
+                      "const": "github-actions",
+                      "description": "Ships through a GitHub Actions workflow, through the gh CLI"
+                    }
+                  ]
+                },
+                "with": {
+                  "type": "object"
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "use": {
+                        "const": "github-actions"
+                      }
+                    },
+                    "required": [
+                      "use"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "with": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "shipWorkflow": {
+                            "description": "The workflow a ship through CI dispatches: ship.yml by default",
+                            "type": "string"
+                          }
+                        },
+                        "required": []
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "versioning": {
+          "description": "The versioning adapter: a name, or use: the name with with: its options",
+          "anyOf": [
+            {
+              "const": "changesets",
+              "description": "Versions from the changesets in .changeset/, written with each change"
+            },
+            {
+              "const": "commits",
+              "description": "Versions from conventional commit titles, with no changeset to write"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "use"
+              ],
+              "properties": {
+                "use": {
+                  "anyOf": [
+                    {
+                      "const": "changesets",
+                      "description": "Versions from the changesets in .changeset/, written with each change"
+                    },
+                    {
+                      "const": "commits",
+                      "description": "Versions from conventional commit titles, with no changeset to write"
+                    }
+                  ]
+                },
+                "with": {
+                  "type": "object"
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "use": {
+                        "const": "changesets"
+                      }
+                    },
+                    "required": [
+                      "use"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "with": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "version": {
+                            "description": "What versions the repository: changeset version by default",
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "line": {
+                            "description": "A template for each change's line, with {summary}, {authors} and {pr}; or a ready-made one: whatsChanged, compact",
+                            "type": "string"
+                          },
+                          "thanks": {
+                            "description": "A template for the section that thanks contributors once, with {changes}, {contributors}, {list} and {avatars}; or a ready-made one: sentence, list, avatars, none",
+                            "type": "string"
+                          }
+                        },
+                        "required": []
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "use": {
+                        "const": "commits"
+                      }
+                    },
+                    "required": [
+                      "use"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "with": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "line": {
+                            "description": "A template for each change's line, with {summary}, {authors} and {pr}; or a ready-made one: whatsChanged, compact",
+                            "type": "string"
+                          },
+                          "thanks": {
+                            "description": "A template for the section that thanks contributors once, with {changes}, {contributors}, {list} and {avatars}; or a ready-made one: sentence, list, avatars, none",
+                            "type": "string"
+                          }
+                        },
+                        "required": []
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "approval": {
+          "description": "\"required\" when someone else approves the release PR; \"none\", the default, merges it here.",
+          "enum": [
+            "none",
+            "required"
+          ]
+        }
+      }
+    },
+    "modules": {
+      "description": "What gets released, in this order. The first app is the repository's Latest release.",
+      "type": "array",
+      "items": {
+        "description": "A module: a name, or use: the name with with: its options",
+        "anyOf": [
+          {
+            "const": "internal-tool",
+            "description": "An app nothing deploys: versioned, tagged and noted, nothing more"
+          },
+          {
+            "const": "agent-plugin",
+            "description": "A plugin for coding agents, such as a Claude Code plugin"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "use"
+            ],
+            "properties": {
+              "use": {
+                "anyOf": [
+                  {
+                    "const": "backend-service",
+                    "description": "A long-lived service, such as an API: deployed from its tag"
+                  },
+                  {
+                    "const": "web-app",
+                    "description": "A site served as static files, such as a single-page app"
+                  },
+                  {
+                    "const": "mobile-app",
+                    "description": "A mobile app: a store build, or an update when its native layer did not change"
+                  },
+                  {
+                    "const": "published-package",
+                    "description": "A package published to a registry, such as npm"
+                  },
+                  {
+                    "const": "internal-tool",
+                    "description": "An app nothing deploys: versioned, tagged and noted, nothing more"
+                  },
+                  {
+                    "const": "agent-plugin",
+                    "description": "A plugin for coding agents, such as a Claude Code plugin"
+                  }
+                ]
+              },
+              "with": {
+                "type": "object"
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "use": {
+                      "const": "backend-service"
+                    }
+                  },
+                  "required": [
+                    "use"
+                  ]
+                },
+                "then": {
+                  "required": [
+                    "with"
+                  ],
+                  "properties": {
+                    "with": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "name": {
+                          "description": "What an app's unit file names; the module's kind by default",
+                          "type": "string"
+                        },
+                        "serverHosting": {
+                          "description": "The serverHosting adapter: a name, or use: the name with with: its options",
+                          "anyOf": [
+                            {
+                              "const": "shell",
+                              "description": "Deploys with the shell commands each app's unit file gives"
+                            },
+                            {
+                              "const": "fly",
+                              "description": "Deploys each app to Fly.io, through flyctl"
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "use"
+                              ],
+                              "properties": {
+                                "use": {
+                                  "anyOf": [
+                                    {
+                                      "const": "shell",
+                                      "description": "Deploys with the shell commands each app's unit file gives"
+                                    },
+                                    {
+                                      "const": "fly",
+                                      "description": "Deploys each app to Fly.io, through flyctl"
+                                    }
+                                  ]
+                                },
+                                "with": {
+                                  "type": "object"
+                                }
+                              },
+                              "allOf": [
+                                {
+                                  "if": {
+                                    "properties": {
+                                      "use": {
+                                        "const": "shell"
+                                      }
+                                    },
+                                    "required": [
+                                      "use"
+                                    ]
+                                  },
+                                  "then": {
+                                    "properties": {
+                                      "with": {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "properties": {},
+                                        "required": []
+                                      }
+                                    }
+                                  }
+                                },
+                                {
+                                  "if": {
+                                    "properties": {
+                                      "use": {
+                                        "const": "fly"
+                                      }
+                                    },
+                                    "required": [
+                                      "use"
+                                    ]
+                                  },
+                                  "then": {
+                                    "properties": {
+                                      "with": {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "properties": {},
+                                        "required": []
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "serverHosting"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "use": {
+                      "const": "web-app"
+                    }
+                  },
+                  "required": [
+                    "use"
+                  ]
+                },
+                "then": {
+                  "required": [
+                    "with"
+                  ],
+                  "properties": {
+                    "with": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "name": {
+                          "description": "What an app's unit file names; the module's kind by default",
+                          "type": "string"
+                        },
+                        "staticHosting": {
+                          "description": "The staticHosting adapter: a name, or use: the name with with: its options",
+                          "anyOf": [
+                            {
+                              "const": "cloudflare-pages",
+                              "description": "Deploys each site to Cloudflare Pages, through wrangler"
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "use"
+                              ],
+                              "properties": {
+                                "use": {
+                                  "anyOf": [
+                                    {
+                                      "const": "cloudflare-pages",
+                                      "description": "Deploys each site to Cloudflare Pages, through wrangler"
+                                    }
+                                  ]
+                                },
+                                "with": {
+                                  "type": "object"
+                                }
+                              },
+                              "allOf": [
+                                {
+                                  "if": {
+                                    "properties": {
+                                      "use": {
+                                        "const": "cloudflare-pages"
+                                      }
+                                    },
+                                    "required": [
+                                      "use"
+                                    ]
+                                  },
+                                  "then": {
+                                    "properties": {
+                                      "with": {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "properties": {},
+                                        "required": []
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "staticHosting"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "use": {
+                      "const": "mobile-app"
+                    }
+                  },
+                  "required": [
+                    "use"
+                  ]
+                },
+                "then": {
+                  "required": [
+                    "with"
+                  ],
+                  "properties": {
+                    "with": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "name": {
+                          "description": "What an app's unit file names; the module's kind by default",
+                          "type": "string"
+                        },
+                        "mobileDistribution": {
+                          "description": "The mobileDistribution adapter: a name, or use: the name with with: its options",
+                          "anyOf": [
+                            {
+                              "const": "eas",
+                              "description": "Builds, submits and updates each app with Expo Application Services"
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "use"
+                              ],
+                              "properties": {
+                                "use": {
+                                  "anyOf": [
+                                    {
+                                      "const": "eas",
+                                      "description": "Builds, submits and updates each app with Expo Application Services"
+                                    }
+                                  ]
+                                },
+                                "with": {
+                                  "type": "object"
+                                }
+                              },
+                              "allOf": [
+                                {
+                                  "if": {
+                                    "properties": {
+                                      "use": {
+                                        "const": "eas"
+                                      }
+                                    },
+                                    "required": [
+                                      "use"
+                                    ]
+                                  },
+                                  "then": {
+                                    "properties": {
+                                      "with": {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "properties": {},
+                                        "required": []
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "mobileDistribution"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "use": {
+                      "const": "published-package"
+                    }
+                  },
+                  "required": [
+                    "use"
+                  ]
+                },
+                "then": {
+                  "required": [
+                    "with"
+                  ],
+                  "properties": {
+                    "with": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "name": {
+                          "description": "What an app's unit file names; the module's kind by default",
+                          "type": "string"
+                        },
+                        "packageRegistry": {
+                          "description": "The packageRegistry adapter: a name, or use: the name with with: its options",
+                          "anyOf": [
+                            {
+                              "const": "npm",
+                              "description": "Publishes each package to npm, under its own dist-tag"
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "use"
+                              ],
+                              "properties": {
+                                "use": {
+                                  "anyOf": [
+                                    {
+                                      "const": "npm",
+                                      "description": "Publishes each package to npm, under its own dist-tag"
+                                    }
+                                  ]
+                                },
+                                "with": {
+                                  "type": "object"
+                                }
+                              },
+                              "allOf": [
+                                {
+                                  "if": {
+                                    "properties": {
+                                      "use": {
+                                        "const": "npm"
+                                      }
+                                    },
+                                    "required": [
+                                      "use"
+                                    ]
+                                  },
+                                  "then": {
+                                    "properties": {
+                                      "with": {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "properties": {},
+                                        "required": []
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "packageRegistry"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "use": {
+                      "const": "internal-tool"
+                    }
+                  },
+                  "required": [
+                    "use"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "with": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "name": {
+                          "description": "What an app's unit file names; the module's kind by default",
+                          "type": "string"
+                        }
+                      },
+                      "required": []
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "use": {
+                      "const": "agent-plugin"
+                    }
+                  },
+                  "required": [
+                    "use"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "with": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "name": {
+                          "description": "What an app's unit file names; the module's kind by default",
+                          "type": "string"
+                        }
+                      },
+                      "required": []
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "features": {
+      "description": "What happens around a release, after the ship, in this order.",
+      "type": "array",
+      "items": {
+        "description": "A feature: a name, or use: the name with with: its options",
+        "anyOf": [
+          {
+            "const": "release-comments",
+            "description": "Comments on each pull request and issue a ship releases"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "use"
+            ],
+            "properties": {
+              "use": {
+                "anyOf": [
+                  {
+                    "const": "release-comments",
+                    "description": "Comments on each pull request and issue a ship releases"
+                  }
+                ]
+              },
+              "with": {
+                "type": "object"
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "use": {
+                      "const": "release-comments"
+                    }
+                  },
+                  "required": [
+                    "use"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "with": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "apps": {
+                          "description": "The apps whose ships comment; every app when absent",
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "codeHost": {
+                          "description": "The codeHost adapter: a name, or use: the name with with: its options",
+                          "anyOf": [
+                            {
+                              "const": "github",
+                              "description": "Pull requests, releases and deploy records on GitHub, through the gh CLI"
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "use"
+                              ],
+                              "properties": {
+                                "use": {
+                                  "anyOf": [
+                                    {
+                                      "const": "github",
+                                      "description": "Pull requests, releases and deploy records on GitHub, through the gh CLI"
+                                    }
+                                  ]
+                                },
+                                "with": {
+                                  "type": "object"
+                                }
+                              },
+                              "allOf": [
+                                {
+                                  "if": {
+                                    "properties": {
+                                      "use": {
+                                        "const": "github"
+                                      }
+                                    },
+                                    "required": [
+                                      "use"
+                                    ]
+                                  },
+                                  "then": {
+                                    "properties": {
+                                      "with": {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "properties": {},
+                                        "required": []
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        "sourceControl": {
+                          "description": "The sourceControl adapter: a name, or use: the name with with: its options",
+                          "anyOf": [
+                            {
+                              "const": "git",
+                              "description": "Branches, commits and tags, through the git CLI"
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "use"
+                              ],
+                              "properties": {
+                                "use": {
+                                  "anyOf": [
+                                    {
+                                      "const": "git",
+                                      "description": "Branches, commits and tags, through the git CLI"
+                                    }
+                                  ]
+                                },
+                                "with": {
+                                  "type": "object"
+                                }
+                              },
+                              "allOf": [
+                                {
+                                  "if": {
+                                    "properties": {
+                                      "use": {
+                                        "const": "git"
+                                      }
+                                    },
+                                    "required": [
+                                      "use"
+                                    ]
+                                  },
+                                  "then": {
+                                    "properties": {
+                                      "with": {
+                                        "type": "object",
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "main": {
+                                            "description": "The branch releases start from; origin's default branch, main or master, when absent",
+                                            "type": "string"
+                                          },
+                                          "format": {
+                                            "description": "Run on the files of a commit before it is made, such as a formatter",
+                                            "type": "array",
+                                            "items": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "retryDelays": {
+                                            "description": "How long to wait before each new try of a push the network dropped, in ms",
+                                            "type": "array",
+                                            "items": {
+                                              "type": "number"
+                                            }
+                                          }
+                                        },
+                                        "required": []
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      "required": []
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "units": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Folders to look in, dir/* or exact. Without it, the workspace file decides."
+    },
+    "tag": {
+      "description": "How a tag names a version: a format's name, or a format of your own naming {version}.",
+      "anyOf": [
+        {
+          "enum": [
+            "package",
+            "plugin",
+            "single",
+            "module"
+          ]
+        },
+        {
+          "type": "string",
+          "pattern": "\\{version\\}"
+        }
+      ]
+    },
+    "via": {
+      "description": "How a unit ships when both ways can: ci (the flow's CI pipeline) or local (this machine).",
+      "enum": [
+        "ci",
+        "local"
+      ]
+    },
+    "display": {
+      "description": "How much the release says while it runs; --verbose and --mascot override.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "verbose": {
+          "type": "boolean",
+          "description": "Say each thing it reads and runs, with a progress bar."
+        },
+        "mascot": {
+          "description": "The mascot beside what is happening: true, false, or frames per mood.",
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "testComment": {
+      "description": "The pull request comment of a test version: a preset's name, or a template with {branch}, {commit}, {table} and {install}.",
+      "anyOf": [
+        {
+          "enum": [
+            "table",
+            "compact"
+          ]
+        },
+        {
+          "type": "string"
+        }
+      ]
+    },
+    "testRelease": {
+      "description": "Which channel each branch's test release publishes on: a preset's name, or a map of branch to channel.",
+      "anyOf": [
+        {
+          "enum": [
+            "nightly",
+            "prerelease",
+            "gitflow"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      ]
+    },
+    "prepare": {
+      "type": "string",
+      "description": "A shell command run from the root before each unit ships from this machine; {unit} and {dir} are filled."
+    }
+  }
+}
