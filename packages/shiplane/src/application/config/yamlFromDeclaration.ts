@@ -1,11 +1,10 @@
-import { stringify } from "yaml";
-
 import type { CatalogEntry, SlotPort } from "../../ports/catalog.port";
 import { comments } from "../../domain/branchRelease";
 import { testReleases } from "../../domain/testChannel";
 import { SCHEMA_MODELINE } from "./configSchema";
 import { isRecord } from "./values";
 import { FLOW_SLOTS, isFlowPort, isLocal } from "./yamlDeclaration";
+import { yamlText } from "./yamlText";
 
 /** The name of what an entry makes with no options, or null when it needs some. */
 const madeName = (entry: CatalogEntry) => {
@@ -194,7 +193,7 @@ export const yamlFromDeclaration = (
   const text = [
     SCHEMA_MODELINE,
     "# How this repository releases, written by shiplane migrate from shiplane.config.ts.",
-    stringify(document, { lineWidth: 100 }),
+    yamlText(document),
   ].join("\n");
   return { text, unconverted, check };
 };

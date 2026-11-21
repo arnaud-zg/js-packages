@@ -1,7 +1,8 @@
-import { isSeq, parseDocument, stringify } from "yaml";
+import { isSeq, parseDocument } from "yaml";
 
 import type { FlowChoice, FlowPort, ModuleEntry } from "./setupFiles";
 import { SCHEMA_MODELINE } from "./config/configSchema";
+import { oneLineLists, YAML_WRITE, yamlText } from "./config/yamlText";
 import { CUSTOM_PORTS, customFiles, kebab } from "./customAdapter";
 import { adapterNameOf, FLOW_PORTS } from "./setupFiles";
 
@@ -14,7 +15,7 @@ const moduleItem = ({ factory, port, adapter, name, from }: ModuleEntry) => ({
   },
 });
 
-const body = (value: Record<string, unknown>) => stringify(value, { lineWidth: 100 }).trimEnd();
+const body = (value: Record<string, unknown>) => yamlText(value).trimEnd();
 
 /** A root shiplane.yml with this flow and these modules, in the order given. */
 export const renderYamlConfig = (
@@ -37,8 +38,11 @@ export const addToYamlConfig = (text: string, entry: ModuleEntry): string | null
   const document = parseDocument(text);
   const modules = document.get("modules");
   if (!isSeq(modules)) return null;
-  modules.add(document.createNode(moduleItem(entry)));
-  return document.toString({ lineWidth: 100 });
+  // Only the new item: the lists already there keep the style they were written in.
+  const item = document.createNode(moduleItem(entry));
+  oneLineLists(item);
+  modules.add(item);
+  return document.toString(YAML_WRITE);
 };
 
 /** A custom adapter's file, with the catalog a shiplane.yml names it by. */
