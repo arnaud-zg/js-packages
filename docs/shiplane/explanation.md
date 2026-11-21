@@ -108,3 +108,10 @@ It reaches every user, so it cannot start by reflex or by `--yes`.
 
 Every port has a Fake and a contract suite. The suite runs on the Fake and on each real adapter, so
 a test passing on Fakes says something true about the real hosts.
+
+## One engine, in TypeScript
+
+A run waits on git, the code host, the registry and the deploys; shiplane's own work is about a
+tenth of a second of it. So the engine stays in one language and speed work goes to fewer tool
+calls. Why, with the timing: [ADR-001](./decisions/ADR-001-one-typescript-engine.md). Every
+decision: [🧭 Decisions](./decisions/README.md).
