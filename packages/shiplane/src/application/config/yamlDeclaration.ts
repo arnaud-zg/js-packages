@@ -9,8 +9,11 @@ import { isRecord } from "./values";
 
 type Path = readonly (string | number)[];
 
+/** The YAML config setup and migrate write. */
+export const YAML_CONFIG_FILE = "shiplane.yml";
+
 /** The names a YAML config takes; the first one found is read. */
-export const YAML_CONFIG_FILES = ["shiplane.yml", "shiplane.yaml"];
+export const YAML_CONFIG_FILES = [YAML_CONFIG_FILE, "shiplane.yaml"];
 
 /** The flow's ports, in the order a config writes them. */
 export const FLOW_SLOTS = ["sourceControl", "codeHost", "ciPipeline", "versioning"] as const;

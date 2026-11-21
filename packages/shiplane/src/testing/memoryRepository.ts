@@ -16,6 +16,7 @@ import { MemoryOutput, ScriptedPrompter } from "../adapters/terminal/__fakes__/t
 import { versioningFake } from "../adapters/versioning/__fakes__/versioning.fake";
 import { readUnitFile, UNIT_FILES } from "../application/config/readUnitFile";
 import { expandPatterns, workspacePatterns } from "../application/config/workspaceFolders";
+import { YAML_CONFIG_FILES } from "../application/config/yamlDeclaration";
 import { readManifest } from "../application/manifest";
 import { releaseFlow } from "../application/releaseFlow";
 import { CONFIG_FILE } from "../application/setupFiles";
@@ -53,7 +54,7 @@ export const memoryLoad =
   (): Promise<Release> => {
     const empty = { root, flow: fakeFlow(), tagFormat: DEFAULT_TAG_FORMAT, features: [] };
     // A shiplane.yml holds the config as well: what it composes comes from the same adapters.
-    if (!files.exists(CONFIG_FILE) && !files.exists("shiplane.yml")) {
+    if (!files.exists(CONFIG_FILE) && !YAML_CONFIG_FILES.some((file) => files.exists(file))) {
       return Promise.resolve({
         ...empty,
         modules: [],

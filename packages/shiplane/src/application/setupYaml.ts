@@ -3,46 +3,14 @@ import { isSeq, parseDocument, stringify } from "yaml";
 import type { FlowChoice, FlowPort, ModuleEntry } from "./setupFiles";
 import { SCHEMA_MODELINE } from "./config/configSchema";
 import { CUSTOM_PORTS, customFiles, kebab } from "./customAdapter";
-import { FLOW_PORTS } from "./setupFiles";
-
-/** The YAML config setup writes when asked for `--format yaml`. */
-export const YAML_CONFIG_FILE = "shiplane.yml";
-
-/** The name each official flow adapter has in a catalog, by the factory a TS config calls. */
-const FLOW_NAMES: Readonly<Record<string, string>> = {
-  gitSourceControl: "git",
-  gitHubCodeHost: "github",
-  gitHubActionsCiPipeline: "github-actions",
-  changesetsVersioning: "changesets",
-  commitsVersioning: "commits",
-};
-
-/** The kind of each module factory setup composes. */
-const MODULE_KINDS: Readonly<Record<string, string>> = {
-  backendService: "backend-service",
-  webApp: "web-app",
-  mobileApp: "mobile-app",
-  publishedPackage: "published-package",
-};
-
-const isLocalFrom = (from: string) => from.startsWith(".");
-
-/** A flow port's adapter as shiplane.yml names it: a catalog name, or a local file's path. */
-const flowName = ({ factory, from }: FlowChoice) =>
-  isLocalFrom(from) ? `${from}.ts` : (FLOW_NAMES[factory] ?? factory);
+import { adapterNameOf, FLOW_PORTS } from "./setupFiles";
 
 /** A module as a shiplane.yml lists it: its kind, its name when not its kind, its adapter. */
 const moduleItem = ({ factory, port, adapter, name, from }: ModuleEntry) => ({
-  use: MODULE_KINDS[factory] ?? factory,
+  use: kebab(factory),
   with: {
     ...(name ? { name } : {}),
-    [port]: isLocalFrom(from)
-      ? `${from}.ts`
-      : from.startsWith("@shiplane/")
-        ? from.slice("@shiplane/".length)
-        : adapter === "shellServerHosting"
-          ? "shell"
-          : adapter,
+    [port]: from.startsWith(".") ? `${from}.ts` : adapterNameOf(adapter, port),
   },
 });
 
@@ -57,7 +25,7 @@ export const renderYamlConfig = (
   [
     SCHEMA_MODELINE,
     "# How this repository releases. shiplane schema gives your editor every key.",
-    body({ flow: Object.fromEntries(FLOW_PORTS.map((port) => [port, flowName(flow[port])])) }),
+    body({ flow: Object.fromEntries(FLOW_PORTS.map((port) => [port, flow[port].name])) }),
     ...(units ? [body({ units: [...units] })] : []),
     "# What gets released, in this order. The first app is the repository's Latest release.",
     body({ modules: entries.map(moduleItem) }),
