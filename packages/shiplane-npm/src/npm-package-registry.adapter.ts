@@ -94,14 +94,19 @@ const untagJob = (input: JobInput<Options>, tag: string, otp?: string): Job => (
   ],
 });
 
-const Versions = z.union([z.array(z.string()), z.string().transform((one) => [one])]);
+/** When npm took each version, plus `created` and `modified`: unpublished versions stay listed. */
+const Times = z.record(z.string(), z.string());
+const NOT_VERSIONS = new Set(["created", "modified"]);
 
-/** Every version npm holds of the package; none when it is not published yet or npm failed. */
+/**
+ * Every version npm ever took of the package, unpublished ones included: npm never takes a number
+ * twice. None when it is not published yet or npm failed.
+ */
 const publishedVersions = async (context: DecideContext, input: JobInput<Options>) => {
-  const result = await context.shell.capture("npm", ["view", nameOf(input), "versions", "--json"]);
+  const result = await context.shell.capture("npm", ["view", nameOf(input), "time", "--json"]);
   if (result.status !== 0) return [];
-  const parsed = parseJson({ text: result.stdout || "[]", schema: Versions });
-  return parsed.success ? parsed.data : [];
+  const parsed = parseJson({ text: result.stdout || "{}", schema: Times });
+  return parsed.success ? Object.keys(parsed.data).filter((key) => !NOT_VERSIONS.has(key)) : [];
 };
 
 /**

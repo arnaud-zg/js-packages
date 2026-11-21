@@ -101,7 +101,7 @@ export interface ReleaseModule {
   readonly decide?: (context: DecideContext, input: AppInput) => Promise<Decision>;
   /** The name its registry publishes an app under, when it is not the workspace name. */
   readonly publishedName?: (context: DecideContext, input: AppInput) => string;
-  /** Every version its registry holds, for a numbered test release; absent when it cannot say. */
+  /** Every version its registry ever took, for a numbered test release; absent when it cannot say. */
   readonly publishedVersions?: (context: DecideContext, input: AppInput) => Promise<string[]>;
   /** Every dist-tag its registry holds, for `shiplane prune-snapshots`; absent when it cannot say. */
   readonly tags?: (context: DecideContext, input: AppInput) => Promise<TaggedVersion[]>;
