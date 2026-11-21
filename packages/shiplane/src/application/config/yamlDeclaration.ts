@@ -32,7 +32,8 @@ export const TOP_KEYS = [
 export const isLocal = (use: string) =>
   (use.startsWith("./") || use.startsWith("../")) && /\.(ts|mts|js|mjs)$/.test(use);
 
-const isFlowPort = (port: SlotPort): port is (typeof FLOW_SLOTS)[number] =>
+/** A port the flow fills: a slot of it may be left out, and takes the flow's adapter. */
+export const isFlowPort = (port: SlotPort): port is (typeof FLOW_SLOTS)[number] =>
   (FLOW_SLOTS as readonly string[]).includes(port);
 
 const isAdapter = (value: unknown): value is Adapter<unknown> =>

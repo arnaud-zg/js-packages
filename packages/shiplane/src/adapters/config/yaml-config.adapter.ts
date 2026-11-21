@@ -14,7 +14,7 @@ import { importTs } from "./ts-config.adapter";
 export const YAML_CONFIG_FILES = ["shiplane.yml", "shiplane.yaml"];
 
 /** Every local file the flow, the modules and the features name: `./x.ts` or `use: ./x.ts`. */
-const localsIn = (document: unknown): string[] => {
+export const localsIn = (document: unknown): string[] => {
   const walk = (value: unknown): string[] => {
     if (typeof value === "string") return isLocal(value) ? [value] : [];
     if (Array.isArray(value)) return value.flatMap(walk);
@@ -24,13 +24,13 @@ const localsIn = (document: unknown): string[] => {
   return [document.flow, document.modules, document.features].flatMap(walk);
 };
 
-/** Each `use: ./file.ts` the document names: the file's catalog, each entry named by that path. */
-const localEntries = async (
+/** Each local file's catalog, every entry named by the file's path from the root, `./x.ts`. */
+export const localEntries = async (
   root: string,
-  document: unknown,
+  uses: readonly string[],
   aliases?: Record<string, string>,
 ): Promise<CatalogEntry[]> => {
-  const files = [...new Set(localsIn(document))];
+  const files = [...new Set(uses)];
   const loaded = await Promise.all(
     files.map(async (use) => {
       const file = path.join(root, use);
@@ -83,7 +83,7 @@ export const yamlConfig = ({
     try {
       return yamlDeclaration(plain, [
         ...(await catalog(root)),
-        ...(await localEntries(root, plain, aliases)),
+        ...(await localEntries(root, localsIn(plain), aliases)),
       ]);
     } catch (error) {
       if (error instanceof ConfigError) {

@@ -8,7 +8,7 @@
 [Commands](#commands) · [Flags](#flags) · [Exit codes](#exit-codes) ·
 [`shiplane.config.ts`](#shiplaneconfigts) · [`shiplane.unit.yml`](#shiplaneunityml) ·
 [Modules](#modules) · [Safety](#safety) · [Mascot and `status --json`](./reference-output.md) ·
-[GitHub Actions workflow](#github-actions-workflow)
+[`shiplane.yml`](./reference-yaml.md) · [GitHub Actions workflow](#github-actions-workflow)
 
 ## Commands
 
@@ -30,6 +30,7 @@
 | `shiplane doctor --ci [unit...]`  | On a runner: units, `--channel`, tools, secrets. Stops at the first problem ([workflow](#github-actions-workflow))                                                                     |
 | `shiplane plugins`                | The flow, the modules in release order with their apps, the features                                                                                                                   |
 | `shiplane docs <name>`            | Every key a module's or an adapter's unit files take                                                                                                                                   |
+| `shiplane schema`                 | Write the editor schema of `shiplane.yml`: the plugins installed and your own adapters ([how-to](./how-to-yaml.md#get-autocomplete-in-your-editor))                                    |
 | `shiplane adapter new <name>`     | Scaffold a server hosting adapter, its contract test, its module                                                                                                                       |
 
 Source: `src/cli/main.ts`. Here, `pnpm shiplane` builds the CLI first when its sources changed.

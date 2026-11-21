@@ -6,9 +6,10 @@
 # 🛠️ How-to: YAML config
 
 Write the release in `shiplane.yml` instead of `shiplane.config.ts`: no TypeScript, the same
-release. Every option named here is in the [Reference](./reference.md).
+release. Every key named here is in the [`shiplane.yml` reference](./reference-yaml.md).
 
 - [Write the config in YAML](#write-the-config-in-yaml)
+- [Get autocomplete in your editor](#get-autocomplete-in-your-editor)
 - [Give an adapter options](#give-an-adapter-options)
 - [Name an adapter of your own](#name-an-adapter-of-your-own)
 - [Use a preset](#use-a-preset)
@@ -41,6 +42,30 @@ release. Every option named here is in the [Reference](./reference.md).
 
 Every slot takes one of two shapes: a name (`fly`), or `use:` the name with `with:` its options. A
 module's `with` holds its adapter and, when two modules share a kind, its `name`.
+
+## Get autocomplete in your editor
+
+```sh
+pnpm shiplane schema
+```
+
+It writes `node_modules/.cache/shiplane/shiplane.schema.json` from the plugins installed and your
+own adapters (each file in `shiplane/adapters/` that exports a `catalog`, and each local file
+`shiplane.yml` names), and puts its line on top of `shiplane.yml`:
+
+```yaml
+# yaml-language-server: $schema=node_modules/.cache/shiplane/shiplane.schema.json
+```
+
+Any editor running the YAML language server (VS Code with the Red Hat YAML extension, Zed, Neovim)
+then offers each port's adapters, and once `use:` names one, the keys its `with:` takes. Run it
+again after installing a plugin.
+
+**Check it worked:** type `serverHosting: ` under a module's `with:`; the editor offers `fly`,
+`shell` and the rest installed.
+
+The schema for the first-party plugins ships in the package as `shiplane/shiplane.schema.json`.
+Every key it holds is in the [`shiplane.yml` reference](./reference-yaml.md).
 
 ## Give an adapter options
 

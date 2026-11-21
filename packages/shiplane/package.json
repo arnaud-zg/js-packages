@@ -40,13 +40,15 @@
       "types": "./dist/testing.d.ts",
       "default": "./dist/testing.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./shiplane.schema.json": "./shiplane.schema.json"
   },
   "bin": {
     "shiplane": "./dist/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "shiplane.schema.json"
   ],
   "scripts": {
     "build": "tsdown",
