@@ -63,7 +63,7 @@ describe("publishing a branch release to npm", () => {
 describe("the versions npm holds, for a numbered test release", () => {
   const versionsFrom = (reply: { status?: number; stdout?: string; stderr?: string }) => {
     const shell = new RecordingShell();
-    shell.seed("npm view kit-workspace versions", reply);
+    shell.seed("npm view kit-workspace time", reply);
     const port = npmPackageRegistry().create({ root: "/repo", shell });
     return port.publishedVersions?.({ shell } as never, {
       unit: KIT,
@@ -76,14 +76,28 @@ describe("the versions npm holds, for a numbered test release", () => {
   };
 
   it("given several versions published, when read, then each is listed", async () => {
-    await expect(versionsFrom({ stdout: '["0.5.2","0.6.0-beta.0"]' })).resolves.toEqual([
-      "0.5.2",
-      "0.6.0-beta.0",
-    ]);
+    await expect(
+      versionsFrom({
+        stdout: JSON.stringify({
+          created: "2026-11-01T10:00:00.000Z",
+          "0.5.2": "2026-11-01T10:00:00.000Z",
+          "0.6.0-beta.0": "2026-11-02T10:00:00.000Z",
+          modified: "2026-11-02T10:00:00.000Z",
+        }),
+      }),
+    ).resolves.toEqual(["0.5.2", "0.6.0-beta.0"]);
   });
 
-  it("given a single version published, when read, then npm's lone string is one version", async () => {
-    await expect(versionsFrom({ stdout: '"0.5.2"' })).resolves.toEqual(["0.5.2"]);
+  it("given a version published then unpublished, when read, then it is still listed, as npm never takes its number again", async () => {
+    // npm view versions drops 0.6.0-nightly.0 once unpublished; its time entry stays.
+    await expect(
+      versionsFrom({
+        stdout: JSON.stringify({
+          "0.6.0-nightly.0": "2026-11-18T20:12:56.765Z",
+          "0.6.0-rc.0": "2026-11-19T18:36:19.837Z",
+        }),
+      }),
+    ).resolves.toEqual(["0.6.0-nightly.0", "0.6.0-rc.0"]);
   });
 
   it("given a package npm never got, when read, then none is listed", async () => {

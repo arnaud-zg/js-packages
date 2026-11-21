@@ -9,7 +9,8 @@ export interface PackageRegistryPort<Options = Record<string, unknown>> extends 
   /** The name it publishes the app under, when a rename it is told differs from the workspace name. */
   publishedName?(input: JobInput<Options>): string;
   /**
-   * Every version of the package the registry holds, for a test release to number its next one.
+   * Every version of the package the registry ever took, unpublished ones included, for a test
+   * release to number its next one without reusing a number the registry refuses.
    * Without it, a test release only publishes snapshots.
    */
   publishedVersions?(context: DecideContext, input: JobInput<Options>): Promise<string[]>;
