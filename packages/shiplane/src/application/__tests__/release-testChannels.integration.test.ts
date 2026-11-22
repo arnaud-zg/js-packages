@@ -101,6 +101,37 @@ describe("publishing a test release on a numbered channel", () => {
   });
 });
 
+describe("building what a test release publishes", () => {
+  it("given a prepare in the config, when a test release publishes, then each package is prepared before it publishes", async () => {
+    const world = branchWorld();
+    const context = {
+      ...world.context,
+      release: { ...world.context.release, prepare: "pnpm --filter ./{dir} build" },
+    };
+
+    await branchRelease(context, { onDefault: "publish", channel: "beta" });
+
+    expect(publishes(world.shell)).toEqual([
+      "-c pnpm --filter ./packages/lib build",
+      "publish @acme/lib 1.3.0-beta.0",
+    ]);
+  });
+
+  it("given a prepare that fails, when a test release runs, then nothing publishes", async () => {
+    const world = branchWorld();
+    world.shell.seedOnce("sh -c pnpm --filter ./packages/lib build", { status: 1 });
+    const context = {
+      ...world.context,
+      release: { ...world.context.release, prepare: "pnpm --filter ./{dir} build" },
+    };
+
+    const done = await branchRelease(context, { onDefault: "publish", channel: "beta" });
+
+    expect(done).toBe(false);
+    expect(publishes(world.shell)).not.toContain("publish @acme/lib 1.3.0-beta.0");
+  });
+});
+
 describe("refusing a channel a test release cannot take", () => {
   it("given latest on the command line, when it runs, then nothing publishes and it says latest is the real release's", async () => {
     const { context, shell, output } = branchWorld();
