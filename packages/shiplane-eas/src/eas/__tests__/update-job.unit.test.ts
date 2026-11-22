@@ -1,3 +1,5 @@
+import { spawnSync } from "node:child_process";
+import path from "node:path";
 import type { Workspace } from "shiplane/testing";
 import { createWorkspace, testUnit } from "shiplane/testing";
 import { afterEach, describe, expect, it } from "vitest";
@@ -30,7 +32,6 @@ describe("publishing an update off a terminal", () => {
     expect(argsWith("APP_VARIANT=preview eas update --channel preview")).toEqual([
       "run",
       "eas:update:preview",
-      "--",
       "--message",
       "expo@0.7.1",
     ]);
@@ -45,6 +46,22 @@ describe("publishing an update off a terminal", () => {
       ]);
     },
   );
+
+  it("given a script that names no message, when pnpm runs the update, then the script gets the message and no --", () => {
+    workspace = createWorkspace({
+      "apps/expo/package.json": JSON.stringify({
+        scripts: { "eas:update:preview": "node argv.js" },
+      }),
+      "apps/expo/argv.js": "console.log(JSON.stringify(process.argv.slice(2)));",
+    });
+    const [step] = updateJob(input, workspace.root).local;
+    const run = spawnSync(step?.command ?? "", step?.args ?? [], {
+      cwd: path.join(workspace.root, step?.cwd ?? ""),
+      encoding: "utf8",
+    });
+
+    expect(run.stdout.trim().split("\n").at(-1)).toBe(JSON.stringify(["--message", "expo@0.7.1"]));
+  });
 
   it("given no repository to read the script from, when the update is published, then it runs as written", () => {
     expect(updateJob(input).local[0]?.args).toEqual(["run", "eas:update:preview"]);
