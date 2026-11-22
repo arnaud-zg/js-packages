@@ -62,6 +62,10 @@ const callerContent = (sha: string, version: string, needs: CallerNeeds) =>
     "        type: choice",
     "        options: [preview, production]",
     "        default: preview",
+    "      ref:",
+    '        description: "The tag to ship; shiplane sets it (empty: the ref this runs on)"',
+    "        type: string",
+    '        default: ""',
     "",
     ...permissionsOf(needs),
     "",
@@ -71,9 +75,13 @@ const callerContent = (sha: string, version: string, needs: CallerNeeds) =>
     "    with:",
     "      units: ${{ inputs.units }}",
     "      environment: ${{ inputs.environment }}",
+    "      ref: ${{ inputs.ref }}",
     ...secretsOf(needs),
     "",
   ].join("\n");
+
+/** A caller that hands shiplane's workflow the tag to check out, so it can run from main. */
+const PASSES_REF = /^[ \t]+ref:[ \t]*\$\{\{[ \t]*inputs\.ref[ \t]*\}\}/m;
 
 type Run = z.infer<typeof RunsSchema>[number];
 
@@ -102,6 +110,25 @@ const githubActions = (root: string, shell: Shell, shipWorkflow: string): CiPipe
       title: run.displayTitle,
       state: runState(run),
     }));
+  };
+
+  /** The default branch, when its caller passes `ref` and it is not `ref` itself; else null. */
+  const fromMain = async (workflow: string, ref: string) => {
+    try {
+      const main = (
+        await must(["repo", "view", "--json", "defaultBranchRef", "--jq", ".defaultBranchRef.name"])
+      ).trim();
+      if (!main || main === ref) return null;
+      const caller = await must([
+        "api",
+        `repos/{owner}/{repo}/contents/.github/workflows/${workflow}?ref=${encodeURIComponent(main)}`,
+        "-H",
+        "Accept: application/vnd.github.raw",
+      ]);
+      return PASSES_REF.test(caller) ? main : null;
+    } catch {
+      return null;
+    }
   };
 
   return {
@@ -154,14 +181,18 @@ const githubActions = (root: string, shell: Shell, shipWorkflow: string): CiPipe
         pin: sha,
       };
     },
+    // A tag holds the workflow of its day: when main's caller passes `ref`, the run starts on main,
+    // with today's workflow, and checks out the tag. An older caller still runs on the tag.
     dispatch: async (workflow, ref, inputs) => {
+      const main = await fromMain(workflow, ref);
+      const run = main ? { ref: main, inputs: { ...inputs, ref } } : { ref, inputs };
       await must([
         "workflow",
         "run",
         workflow,
         "--ref",
-        ref,
-        ...Object.entries(inputs).flatMap(([key, value]) => ["-f", `${key}=${value}`]),
+        run.ref,
+        ...Object.entries(run.inputs).flatMap(([key, value]) => ["-f", `${key}=${value}`]),
       ]);
     },
     minutes: async () => {
