@@ -204,12 +204,19 @@ exits 1 when any failed.
 ### `ship.yml`
 
 `shiplane setup` writes `.github/workflows/ship.yml` when it is missing, never over one there: a
-manual run (`units`, `environment`) calling `shiplane-ship.yml`, pinned to the commit of the
+manual run (`units`, `environment`, `ref`) calling `shiplane-ship.yml`, pinned to the commit of the
 installed shiplane's tag (`uses: …/shiplane-ship.yml@<sha> # shiplane@x.y.z`). A test version
 (`x.y.z-<branch>.<short sha>`) has no tag: it pins the commit its short sha names, or says
 `no commit <short sha> for shiplane@x.y.z-…: pin shiplane-ship.yml by hand` when GitHub does not
 know it. Any other unreleased version:
 `no release tag shiplane@x.y.z: pin shiplane-ship.yml by hand`.
+
+A tag holds the `ship.yml` of the day it was cut. So that a ship, or its retry, runs today's
+workflow, `shiplane ship --via ci` starts the run on the default branch and passes the tag as `ref`:
+`gh workflow run ship.yml --ref main -f units=api -f environment=preview -f ref=api@1.2.0`.
+`shiplane-ship.yml` checks out `ref`, so what deploys is the tag's code, never main's. When the
+default branch's `ship.yml` does not pass `ref` on (`ref: ${{ inputs.ref }}` under `with:`), the run
+starts on the tag, as before.
 
 It passes, by name, only the secrets the configured adapters read (their requirements' `secrets`,
 sorted, but `GH_TOKEN`, which `shiplane-ship.yml` sets itself), and no `secrets:` key when none
@@ -243,7 +250,7 @@ the entry to add for a JSON5 or `package.json` config, and creates none.
 | ------------------------------------------------------------- | ------------------------------------------------------------------ |
 | `ship.yml missing`                                            | Write it (yes by default; `--yes` writes it)                       |
 | `ship.yml does not call shiplane-ship.yml`                    | Replace it (no by default; never with `--yes` or unattended)       |
-| `ship.yml pins shiplane@0.5.2, installed 0.6.0`               | Re-pin: only the `uses:` line changes (`--yes` re-pins it)         |
+| `ship.yml pins shiplane@0.5.2, installed 0.6.0`               | Re-pin: the `uses:` line, plus the `ref` input when missing        |
 | `ship.yml passes no EXPO_TOKEN, and apps/expo ships with eas` | Rewrite only `secrets:` and `permissions:` (`--yes` rewrites them) |
 
 The secrets check also says `ship.yml passes SENTRY_TOKEN, which no adapter needs` and

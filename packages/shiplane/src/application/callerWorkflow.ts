@@ -58,14 +58,12 @@ export const callerWrite = async (context: SetupContext, release: Release) => {
   return made ? { file: made.file, text: made.content, created: true } : null;
 };
 
-/** `text` with its `uses:` line pinned as `content`'s is, everything else as the person wrote it. */
-const repinned = (text: string, content: string) => {
-  const uses = USES.exec(content)?.[0].trim() ?? "";
-  return text.replace(USES, (_line, indent: string) => `${indent}${uses}`);
-};
-
 const SECRETS = /^[ \t]*secrets:/;
 const PERMISSIONS = /^permissions:/;
+const INPUTS = /^[ \t]+inputs:[ \t]*$/;
+const WITH = /^[ \t]+with:[ \t]*$/;
+const REF_INPUT = /^[ \t]+ref:[ \t]*$/;
+const PASSES_REF = /^[ \t]+ref:[ \t]*\$\{\{[ \t]*inputs\.ref[ \t]*\}\}/m;
 const indentOf = (line = "") => /^[ \t]*/.exec(line)?.[0] ?? "";
 
 /** The lines of the block `opens` starts, as [start, end), or null when there is none. */
@@ -112,6 +110,56 @@ const withBlock = (
         .map((line) => `${place.indent}${line.slice(theirs.indent.length)}`)
     : [];
   return [...lines.slice(0, place.start), ...block, ...lines.slice(place.end)];
+};
+
+/** `block`'s lines moved from the indent of its first line to `indent`. */
+const reindented = (block: readonly string[], indent: string) => {
+  const from = indentOf(block[0]).length;
+  return block.map((line) => `${indent}${line.slice(from)}`);
+};
+
+/**
+ * `text` taking the `ref` input and passing it on, as `content` does: a ship then runs from the
+ * default branch, today's workflow, and checks out the tag. Unchanged when it already does, when
+ * `content` does not, or when `text` declares no inputs to add it to.
+ */
+const withRef = (text: string, content: string) => {
+  if (!PASSES_REF.test(content) || PASSES_REF.test(text)) return text;
+  const lines = text.split("\n");
+  const made = content.split("\n");
+  const inputs = blockOf(lines, INPUTS);
+  const declared = blockOf(made, REF_INPUT);
+  const passes = made.find((line) => PASSES_REF.test(line));
+  if (!inputs || !declared || !passes || inputs.end === inputs.start + 1) return text;
+  const input = reindented(
+    made.slice(declared.start, declared.end),
+    indentOf(lines[inputs.start + 1]),
+  );
+  const added = [...lines.slice(0, inputs.end), ...input, ...lines.slice(inputs.end)];
+  const passing = blockOf(added, WITH);
+  if (passing && passing.end > passing.start + 1) {
+    const line = `${indentOf(added[passing.start + 1])}${passes.trim()}`;
+    return [...added.slice(0, passing.end), line, ...added.slice(passing.end)].join("\n");
+  }
+  const { start, indent } = afterUses(added);
+  return [
+    ...added.slice(0, start),
+    `${indent}with:`,
+    `${indent}  ${passes.trim()}`,
+    ...added.slice(start),
+  ].join("\n");
+};
+
+/**
+ * `text` with its `uses:` line pinned as `content`'s is, taking the tag to ship when `content`
+ * does; everything else as the person wrote it.
+ */
+const repinned = (text: string, content: string) => {
+  const uses = USES.exec(content)?.[0].trim() ?? "";
+  return withRef(
+    text.replace(USES, (_line, indent: string) => `${indent}${uses}`),
+    content,
+  );
 };
 
 /** Where a job's `secrets:` goes when it has none: after the keys beside its `uses:` line. */
