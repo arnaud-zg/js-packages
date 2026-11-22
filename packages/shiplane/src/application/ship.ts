@@ -411,18 +411,32 @@ const declined = async (
   return true;
 };
 
-/** The unit's `prepare` from the config, run from the root before it ships from this machine. */
-const prepareStep = (context: ReleaseContext, { unit, input }: Ready): ShipStep[] => {
-  const { release, shell } = context;
-  if (release.prepare === undefined) return [];
+/**
+ * The unit's `prepare` from the config, as a step run from the root before the unit ships or
+ * publishes from this machine; null when the config has none.
+ */
+export const preparing = (
+  { release, shell }: ReleaseContext,
+  unit: { name: string; dir: string },
+  tag: string,
+) => {
+  if (release.prepare === undefined) return null;
   const line = prepareLine(release.prepare, unit);
+  return {
+    label: `prepare ${tag}: ${line}`,
+    run: async () => {
+      const status = await shell.attach("sh", ["-c", line], { cwd: release.root });
+      if (status !== 0) throw new Error(`${line} exited with ${status}`);
+    },
+  };
+};
+
+const prepareStep = (context: ReleaseContext, { unit, input }: Ready): ShipStep[] => {
+  const step = preparing(context, unit, input.tag);
+  if (step === null) return [];
   return [
     {
-      label: `prepare ${input.tag}: ${line}`,
-      run: async () => {
-        const status = await shell.attach("sh", ["-c", line], { cwd: release.root });
-        if (status !== 0) throw new Error(`${line} exited with ${status}`);
-      },
+      ...step,
       tags: [input.tag],
       unit: unit.name,
       stage: "prepare",

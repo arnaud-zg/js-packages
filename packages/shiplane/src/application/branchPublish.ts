@@ -22,6 +22,7 @@ import { readManifest } from "./manifest";
 import { MANIFEST } from "./readScope";
 import { signIn, signInsOf } from "./requirements";
 import { paint, reasonOf } from "./say";
+import { preparing } from "./ship";
 import { runSteps } from "./steps";
 import { decideContext, moduleOf, runHere, shipPlanOf, unitTarget } from "./targets";
 
@@ -173,10 +174,15 @@ const publishingOf = (
   };
   const name = target.module.publishedName?.(decideContext(context), input) ?? unit.packageName;
   const onNpmjs = publishesToNpmjs(readManifest({ files: context.files, dir: unit.dir }));
-  const steps = shipPlanOf(context, target.module, input).jobs.map((job) => ({
-    label: job.label,
-    run: () => runHere(context, job, { tag: target.tag, environment: "preview" }),
-  }));
+  // What publishes is what the config's prepare builds now, never a dist left from before.
+  const prepare = preparing(context, unit, `${name}@${candidate.version}`);
+  const steps = [
+    ...(prepare ? [prepare] : []),
+    ...shipPlanOf(context, target.module, input).jobs.map((job) => ({
+      label: job.label,
+      run: () => runHere(context, job, { tag: target.tag, environment: "preview" }),
+    })),
+  ];
   return [{ published: { name, version: candidate.version, tag, onNpmjs }, steps }];
 };
 
