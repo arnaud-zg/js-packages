@@ -6,7 +6,7 @@
 #   jobs:
 #     ship:
 #       uses: arnaud-zg/js-packages/.github/workflows/shiplane-ship.yml@<sha> # shiplane@x.y.z
-#       with: { units: "${{ inputs.units }}", environment: "${{ inputs.environment }}" }
+#       with: { units: "${{ inputs.units }}", environment: "${{ inputs.environment }}", ref: "${{ inputs.ref }}" }
 #       secrets:
 #         FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 #
@@ -31,6 +31,10 @@ on:
         description: "The GitHub Environment and shiplane channel to ship to, such as preview"
         type: string
         required: true
+      ref:
+        description: "The tag to ship, checked out while this workflow runs from main (empty: the ref the run is on)"
+        type: string
+        default: ""
       node-version:
         description: "Last resort: a Node version, when the repo has no .nvmrc, .node-version or engines.node"
         type: string
@@ -84,10 +88,12 @@ jobs:
       run:
         working-directory: ${{ inputs.working-directory }}
     steps:
-      # Tags and history: a ship reads which commit each tag names.
+      # Tags and history: a ship reads which commit each tag names. A run started on main checks out
+      # the tag it ships: main's workflow, the tag's code.
       - name: Check out
         uses: actions/checkout@v5
         with:
+          ref: ${{ inputs.ref }}
           fetch-depth: 0
 
       # Only here: the setup-node-project action serves any Node project.
