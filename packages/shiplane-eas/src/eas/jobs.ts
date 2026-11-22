@@ -49,12 +49,13 @@ const scriptOf = (root: string, { unit, options }: EasInput) => {
 /**
  * Publishes the environment's update through its package script. Off a terminal, `eas update`
  * needs a message: the tag, unless the script names the update itself. With no `root` to read the
- * script from, it runs as written.
+ * script from, it runs as written. No `--` before it: pnpm passes that on to the script, and eas
+ * reads what follows as unexpected arguments.
  */
 export const updateJob = (input: EasInput, root?: string): Job => {
   const { unit, environment, options, tag } = input;
   const script = root === undefined ? null : scriptOf(root, input);
-  const message = script !== null && !NAMES_UPDATE.test(script) ? ["--", "--message", tag] : [];
+  const message = script !== null && !NAMES_UPDATE.test(script) ? ["--message", tag] : [];
   return {
     label: `publish the ${environment} update`,
     local: [
