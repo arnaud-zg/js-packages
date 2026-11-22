@@ -74,6 +74,21 @@ describe("Feature: shipping every unit on a runner, whatever fails", () => {
     );
   });
 
+  it("given the second of three units failed on a runner, when shipped again, then only it ships: the two that went are not deployed twice", async () => {
+    // given
+    const { context, shell } = threeUnits({ runner: true, failing: null });
+    shell.seedOnce("echo deploy acme-web", { status: 1 });
+    await shipTo(context, "preview", {});
+    const before = shell.calls.length;
+
+    // when
+    const ok = await shipTo(context, "preview", {});
+
+    // then
+    expect(ok).toBe(true);
+    expect(deploys(shell.calls.slice(before))).toEqual(["acme-web"]);
+  });
+
   it("given three units on a runner and none failing, when shipped, then the run passes and every ship says success", async () => {
     // given
     const { context, files } = threeUnits({ runner: true, failing: null });
