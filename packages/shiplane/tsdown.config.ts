@@ -1,4 +1,4 @@
-import { defineLibraryConfig } from "@arnaud-zg/configs/tsdown";
+import { defineLibraryConfig } from "../../tsdown.library.mjs";
 
 // package.json keeps its exports by hand: the config API, the plugin API and the testing kit.
 export default defineLibraryConfig({

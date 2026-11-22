@@ -39,7 +39,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsdown",
     "clean": "git clean -xdf .cache dist node_modules",
     "format": "prettier --write . --ignore-path ../../.prettierignore --cache --cache-location .cache/.prettiercache",
     "lint": "eslint --cache --cache-location .cache/.eslintcache",
