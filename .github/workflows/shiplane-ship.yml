@@ -6,7 +6,7 @@
 #   jobs:
 #     ship:
 #       uses: arnaud-zg/js-packages/.github/workflows/shiplane-ship.yml@<sha> # shiplane@x.y.z
-#       with: { units: "${{ inputs.units }}", environment: "${{ inputs.environment }}" }
+#       with: { units: "${{ inputs.units }}", environment: "${{ inputs.environment }}", ref: "${{ inputs.ref }}" }
 #       secrets:
 #         FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 #
@@ -31,6 +31,10 @@ on:
         description: "The GitHub Environment and shiplane channel to ship to, such as preview"
         type: string
         required: true
+      ref:
+        description: "The tag to ship, checked out while this workflow runs from main (empty: the ref the run is on)"
+        type: string
+        default: ""
       node-version:
         description: "Last resort: a Node version, when the repo has no .nvmrc, .node-version or engines.node"
         type: string
@@ -40,9 +44,13 @@ on:
         type: string
         default: ""
       working-directory:
-        description: "Last resort: the folder holding shiplane.config.ts, when it is not the repo root"
+        description: "Last resort: the folder holding shiplane.config.ts or shiplane.yml, when it is not the repo root"
         type: string
         default: "."
+      mascot:
+        description: "Draw the mascot beside each step in the log, as the config's display.mascot says (off by default: a log reads plainer)"
+        type: boolean
+        default: false
     # Every secret an official adapter reads on a runner, and the GitHub App's. A plugin's own
     # secret needs its name added here, in a copy of this workflow.
     secrets:
@@ -84,19 +92,23 @@ jobs:
       run:
         working-directory: ${{ inputs.working-directory }}
     steps:
-      # Tags and history: a ship reads which commit each tag names.
+      # Tags and history: a ship reads which commit each tag names. A run started on main checks out
+      # the tag it ships: main's workflow, the tag's code.
       - name: Check out
         uses: actions/checkout@v5
         with:
+          ref: ${{ inputs.ref }}
           fetch-depth: 0
 
       # Only here: the setup-node-project action serves any Node project.
-      - name: Find shiplane.config
+      - name: Find the shiplane config
         env:
           WORKING_DIRECTORY: ${{ inputs.working-directory }}
         run: |
-          for ext in ts mts js mjs; do [ -f "shiplane.config.$ext" ] && exit 0; done
-          echo "::error::no shiplane.config.ts in $WORKING_DIRECTORY (https://github.com/arnaud-zg/js-packages/blob/main/docs/shiplane/reference.md#github-actions-workflow)"
+          for file in shiplane.config.ts shiplane.config.mts shiplane.config.js shiplane.config.mjs shiplane.yml shiplane.yaml; do
+            [ -f "$file" ] && exit 0
+          done
+          echo "::error::no shiplane.config.ts or shiplane.yml in $WORKING_DIRECTORY (https://github.com/arnaud-zg/js-packages/blob/main/docs/shiplane/reference.md#github-actions-workflow)"
           exit 1
 
       # The same steps as .github/actions/setup-node-project, which other repos import; a test keeps them equal.
@@ -235,6 +247,8 @@ jobs:
           EXEC: ${{ steps.detect.outputs.exec }}
           UNITS: ${{ inputs.units }}
           ENVIRONMENT: ${{ inputs.environment }}
+          # A log reads plainer without the mascot: --no-mascot wins over the config's display.mascot.
+          MASCOT: ${{ inputs.mascot && '--mascot' || '--no-mascot' }}
           # gh and every adapter calling it read GH_TOKEN.
           GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
@@ -249,4 +263,4 @@ jobs:
         env: *ship-env
         run: |
           # shellcheck disable=SC2086 # one word per unit, and the exec prefix's words
-          $EXEC shiplane ship $UNITS --channel "$ENVIRONMENT" --yes
+          $EXEC shiplane ship $UNITS --channel "$ENVIRONMENT" --yes "$MASCOT"

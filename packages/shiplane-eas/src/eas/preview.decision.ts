@@ -64,7 +64,12 @@ export const previewDecision = async ({
         : { action: "ship", kind: "build", jobs: [buildJob(input)], ...notLocal };
     }
     case "update":
-      return { action: "ship", kind: "update", jobs: [updateJob(input)], ...notLocal };
+      return {
+        action: "ship",
+        kind: "update",
+        jobs: [updateJob(input, context.root)],
+        ...notLocal,
+      };
     case "wait":
       return {
         action: "none",

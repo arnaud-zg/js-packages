@@ -13,4 +13,6 @@ export default defineRelease({
     versioning: changesetsVersioning({ line: lines.whatsChanged, thanks: presets.none }),
   }),
   modules: [publishedPackage({ packageRegistry: npmPackageRegistry() })],
+  // Each package is built before it publishes: npm gets what this commit holds, not an older dist.
+  prepare: "pnpm --filter ./{dir} build",
 });

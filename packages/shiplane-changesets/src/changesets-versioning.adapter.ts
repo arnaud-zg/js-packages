@@ -8,6 +8,7 @@ import type {
   Shell,
   VersioningPort,
 } from "shiplane/plugin";
+import { readConfig } from "@changesets/config";
 import { expandPatterns, workspacePatterns, z } from "shiplane/plugin";
 
 import { changesetText } from "./changeset-text";
@@ -56,6 +57,7 @@ const PackageSchema = z.object({
 });
 
 const LINE = /^"([^"]+)":\s*(\w+)\s*$/;
+
 const BUMP_AT_LINE_END = /(major|minor|patch)(\s*)$/;
 const SMALLEST_FIRST: readonly string[] = ["patch", "minor", "major"];
 
@@ -212,6 +214,14 @@ const changesetsFiles = (
           ]),
         ),
       );
+    },
+    // changesets' own reading: `@shiplane/*` in `fixed` comes back as the package names it matches.
+    fixedGroups: async () => {
+      try {
+        return (await readConfig(root)).config?.fixed ?? [];
+      } catch {
+        return [];
+      }
     },
     folders: () =>
       Promise.resolve(

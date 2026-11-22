@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 
+import type { ServiceAdapter } from "../../ports/adapter.port";
+import type { CiPipelinePort } from "../../ports/ci-pipeline.port";
+import { CiPipelineFake } from "../../adapters/ci-pipeline/__fakes__/ci-pipeline.fake";
 import { serverHostingFake } from "../../adapters/server-hosting/__fakes__/server-hosting.fake";
 import { memoryRepository } from "../../testing/memoryRepository";
 import { doctor } from "../doctor";
@@ -24,6 +27,40 @@ const OWN_PINNED = [
   "    with: { environment: preview }",
   "",
 ].join("\n");
+
+/** A caller workflow as GitHub's adapter writes it, taking the tag to ship when `ref` is set. */
+const callerTaking = (version: string, { ref }: { ref: boolean }) =>
+  [
+    "name: Ship",
+    "on:",
+    "  workflow_dispatch:",
+    "    inputs:",
+    "      units:",
+    '        default: ""',
+    ...(ref ? ["      ref:", '        description: "The tag to ship"', '        default: ""'] : []),
+    "",
+    "jobs:",
+    "  ship:",
+    `    uses: acme/shiplane/.github/workflows/shiplane-ship.yml@sha-${version} # shiplane@${version}`,
+    "    with:",
+    "      units: ${{ inputs.units }}",
+    ...(ref ? ["      ref: ${{ inputs.ref }}"] : []),
+    "",
+  ].join("\n");
+
+/** A CI pipeline whose caller workflow takes the tag to ship. */
+const refPipeline: ServiceAdapter<CiPipelinePort> = {
+  name: "calling",
+  create: () =>
+    Object.assign(new CiPipelineFake(), {
+      callerWorkflow: (version: string) =>
+        Promise.resolve({
+          file: SHIP_YML,
+          content: callerTaking(version, { ref: true }),
+          pin: `sha-${version}`,
+        }),
+    }),
+};
 
 const given = ({
   files = {},
@@ -136,6 +173,32 @@ describe("Feature: doctor checks the workflow a repository ships from", () => {
       OWN_PINNED.replace("@sha-0.5.2 # shiplane@0.5.2", "@sha-0.6.0 # shiplane@0.6.0"),
     );
     expect(output.lines).toContain(`│  ~ ${SHIP_YML}`);
+  });
+
+  it("given ship.yml from before the tag input, when it is re-pinned, then it takes the tag to ship and passes it on, the rest as written", async () => {
+    const repo = memoryRepository(
+      { ...REPO, [SHIP_YML]: callerTaking("0.5.2", { ref: false }) },
+      [serverHostingFake()],
+      { interactive: true },
+    );
+    const context = runningShiplane(repo.context, "0.6.0", refPipeline);
+
+    expect(await doctor(context, { yes: true })).toBe(true);
+
+    expect(repo.files.read(SHIP_YML)).toBe(callerTaking("0.6.0", { ref: true }));
+  });
+
+  it("given ship.yml already taking the tag, when it is re-pinned, then only its uses line changes", async () => {
+    const repo = memoryRepository(
+      { ...REPO, [SHIP_YML]: callerTaking("0.5.2", { ref: true }) },
+      [serverHostingFake()],
+      { interactive: true },
+    );
+    const context = runningShiplane(repo.context, "0.6.0", refPipeline);
+
+    expect(await doctor(context, { yes: true })).toBe(true);
+
+    expect(repo.files.read(SHIP_YML)).toBe(callerTaking("0.6.0", { ref: true }));
   });
 
   it("given ship.yml pinned to an older shiplane, when doctor runs with --yes, then it is re-pinned without asking", async () => {

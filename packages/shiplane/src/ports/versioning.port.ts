@@ -25,6 +25,11 @@ export interface VersioningPort {
   write: (changeset: PlannedChangeset) => Promise<void>;
   /** Each workspace package's runtime workspace dependencies, by package name. */
   dependencies: () => Promise<Record<string, string[]>>;
+  /**
+   * The packages that always release at one version, by name, such as changesets' `fixed`; each
+   * group's test releases share one number. Absent or empty when nothing is fixed.
+   */
+  fixedGroups?: () => Promise<readonly (readonly string[])[]>;
   /** Each workspace package's folder, relative to the root, by package name. */
   folders: () => Promise<Record<string, string>>;
   /** A pending changeset's file, relative to the root. */

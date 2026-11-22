@@ -353,7 +353,10 @@ describe("Feature: a branch release for testers", () => {
   it("given beta.0 already on npm, when a beta test release runs, then npm gets 0.6.0-beta.1 under the beta tag", async () => {
     // given
     const world = setUp();
-    world.shell.seed("npm view @acme/kit versions", { stdout: '["0.5.2","0.6.0-beta.0"]' });
+    world.shell.seed("npm view @acme/kit time", {
+      stdout:
+        '{"created":"2026-11-01T10:00:00.000Z","0.5.2":"2026-11-01T10:00:00.000Z","0.6.0-beta.0":"2026-11-02T10:00:00.000Z"}',
+    });
 
     // when
     const done = await branchRelease(world.context, { onDefault: "publish", channel: "beta" });

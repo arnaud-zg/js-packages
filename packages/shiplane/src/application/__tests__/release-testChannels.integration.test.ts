@@ -33,6 +33,31 @@ describe("publishing a test release on a numbered channel", () => {
     expect(publishes(shell)).toEqual(["publish @acme/lib 1.3.0-beta.2"]);
   });
 
+  it("given a fixed group whose packages took different numbers, when beta publishes, then each takes the group's highest", async () => {
+    const world = branchWorld({
+      units: [lib, kit],
+      pending: [
+        { name: "@acme/lib", newVersion: "1.3.0" },
+        { name: "@acme/ui-kit", newVersion: "1.3.0" },
+      ],
+      files: {
+        "packages/lib/package.json": LIB_MANIFEST,
+        "packages/kit/package.json": manifest({ name: "@acme/ui-kit", version: "1.2.0" }),
+      },
+    });
+    world.registry.fake.seed({ published: ["@acme/lib@1.3.0-beta.0", "@acme/lib@1.3.0-beta.1"] });
+    Object.assign(world.versioning, {
+      fixedGroups: () => Promise.resolve([["@acme/lib", "@acme/ui-kit"]]),
+    });
+
+    await branchRelease(world.context, { onDefault: "publish", channel: "beta" });
+
+    expect(publishes(world.shell)).toEqual([
+      "publish @acme/lib 1.3.0-beta.2",
+      "publish @acme/ui-kit 1.3.0-beta.2",
+    ]);
+  });
+
   it("given a branch the config maps to a channel, when it publishes without naming one, then it takes the config's channel", async () => {
     const world = branchWorld();
     world.source.seed({ position: { branch: "release/1.3", head: HEAD, originMain: "main-tip" } });
@@ -73,6 +98,37 @@ describe("publishing a test release on a numbered channel", () => {
     expect(body).toContain(
       "To follow each new beta instead, install the tag: `npm i @acme/lib@beta`.",
     );
+  });
+});
+
+describe("building what a test release publishes", () => {
+  it("given a prepare in the config, when a test release publishes, then each package is prepared before it publishes", async () => {
+    const world = branchWorld();
+    const context = {
+      ...world.context,
+      release: { ...world.context.release, prepare: "pnpm --filter ./{dir} build" },
+    };
+
+    await branchRelease(context, { onDefault: "publish", channel: "beta" });
+
+    expect(publishes(world.shell)).toEqual([
+      "-c pnpm --filter ./packages/lib build",
+      "publish @acme/lib 1.3.0-beta.0",
+    ]);
+  });
+
+  it("given a prepare that fails, when a test release runs, then nothing publishes", async () => {
+    const world = branchWorld();
+    world.shell.seedOnce("sh -c pnpm --filter ./packages/lib build", { status: 1 });
+    const context = {
+      ...world.context,
+      release: { ...world.context.release, prepare: "pnpm --filter ./{dir} build" },
+    };
+
+    const done = await branchRelease(context, { onDefault: "publish", channel: "beta" });
+
+    expect(done).toBe(false);
+    expect(publishes(world.shell)).not.toContain("publish @acme/lib 1.3.0-beta.0");
   });
 });
 

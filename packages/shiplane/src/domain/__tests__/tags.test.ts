@@ -129,6 +129,90 @@ describe("the tags and release notes", () => {
   });
 });
 
+const section = (body: string) => `# @acme/app\n\n## 0.7.1\n\n${body}\n\n## 0.7.0\n\n- Older.\n`;
+
+describe("release notes read from a hard-wrapped changelog", () => {
+  it("given a prettier-wrapped list item with its pull request, commit and thanks, when its notes are read, then the item is one line", () => {
+    const changelog = section(
+      [
+        "### Patch Changes",
+        "",
+        "- [#2460](https://github.com/OWNER/REPO/pull/2460)",
+        "  [`5f26d0c`](https://github.com/OWNER/REPO/commit/5f26d0c)",
+        "  Thanks [@user](https://github.com/user)! - The preview update ships again: the 0.7.1",
+        "  update failed before it was published.",
+      ].join("\n"),
+    );
+
+    expect(changelogSection(changelog, "0.7.1")).toBe(
+      [
+        "### Patch Changes",
+        "",
+        "- [#2460](https://github.com/OWNER/REPO/pull/2460) [`5f26d0c`](https://github.com/OWNER/REPO/commit/5f26d0c) Thanks [@user](https://github.com/user)! - The preview update ships again: the 0.7.1 update failed before it was published.",
+      ].join("\n"),
+    );
+  });
+
+  it("given updated dependencies wrapped before their nested list, when the notes are read, then the item is one line and the nested items stay", () => {
+    const changelog = section(
+      [
+        "- Updated dependencies",
+        "  [[`dc4c44f`](https://github.com/OWNER/REPO/commit/dc4c44f)]:",
+        "  - @acme/app@0.3.1",
+        "  - @acme/ui@1.2.0",
+      ].join("\n"),
+    );
+
+    expect(changelogSection(changelog, "0.7.1")).toBe(
+      [
+        "- Updated dependencies [[`dc4c44f`](https://github.com/OWNER/REPO/commit/dc4c44f)]:",
+        "  - @acme/app@0.3.1",
+        "  - @acme/ui@1.2.0",
+      ].join("\n"),
+    );
+  });
+
+  it("given a nested list whose items wrap, when the notes are read, then each item is one line at its own depth", () => {
+    const changelog = section(
+      [
+        "- A parent item that wraps",
+        "  onto a second line.",
+        "  - A child item that also",
+        "    wraps.",
+        "",
+        "  A second paragraph of the parent",
+        "  that wraps too.",
+      ].join("\n"),
+    );
+
+    expect(changelogSection(changelog, "0.7.1")).toBe(
+      [
+        "- A parent item that wraps onto a second line.",
+        "  - A child item that also wraps.",
+        "",
+        "  A second paragraph of the parent that wraps too.",
+      ].join("\n"),
+    );
+  });
+
+  it("given a fenced code block and a table, when the notes are read, then their lines are left untouched", () => {
+    const body = [
+      "- Run the new command:",
+      "",
+      "  ```sh",
+      "  shiplane ship",
+      "    --dry-run",
+      "  ```",
+      "",
+      "| Option | Default |",
+      "| ------ | ------- |",
+      "| a      | b       |",
+    ].join("\n");
+
+    expect(changelogSection(section(body), "0.7.1")).toBe(body);
+  });
+});
+
 describe("a repository's own tag format", () => {
   it("given a single package tagged v<version>, when its version is tagged, then the tag is v0.4.0", () => {
     const commit = { sha: "9a1b2c3", subject: "chore(configs): release v0.4.0 (#40)" };

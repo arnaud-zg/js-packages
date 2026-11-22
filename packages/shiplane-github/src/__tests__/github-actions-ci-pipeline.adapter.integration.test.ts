@@ -101,15 +101,55 @@ describe("knowing which versions a workflow already deployed", () => {
 });
 
 describe("dispatching a workflow", () => {
-  it("given a version to ship, when the workflow is dispatched, then gh runs it on that tag with each input", async () => {
-    const gh = fakeGh();
+  const MAIN_CALLER = [
+    "jobs:",
+    "  ship:",
+    "    uses: arnaud-zg/js-packages/.github/workflows/shiplane-ship.yml@abc # shiplane@1.0.0",
+    "    with:",
+    "      units: ${{ inputs.units }}",
+    "      ref: ${{ inputs.ref }}",
+  ].join("\n");
+  const runs = (gh: ReturnType<typeof fakeGh>) =>
+    gh.args.filter(([command, action]) => command === "workflow" && action === "run");
+
+  it("given main's caller passes the tag on, when a tag is shipped, then the run starts on main with today's workflow and checks out the tag", async () => {
+    const gh = fakeGh()
+      .seed("repo view", "main\n")
+      .seed("api repos/{owner}/{repo}/contents/.github/workflows/ship.yml?ref=main", MAIN_CALLER);
 
     await pipelineOn(gh).dispatch("ship.yml", "api@1.0.0", {
       units: "api",
       environment: "preview",
     });
 
-    expect(gh.args).toEqual([
+    expect(runs(gh)).toEqual([
+      [
+        "workflow",
+        "run",
+        "ship.yml",
+        "--ref",
+        "main",
+        "-f",
+        "units=api",
+        "-f",
+        "environment=preview",
+        "-f",
+        "ref=api@1.0.0",
+      ],
+    ]);
+  });
+
+  it("given main's caller predates the tag input, when a tag is shipped, then gh runs it on that tag with each input", async () => {
+    const gh = fakeGh()
+      .seed("repo view", "main\n")
+      .seed("api repos/", MAIN_CALLER.replace("      ref: ${{ inputs.ref }}", ""));
+
+    await pipelineOn(gh).dispatch("ship.yml", "api@1.0.0", {
+      units: "api",
+      environment: "preview",
+    });
+
+    expect(runs(gh)).toEqual([
       [
         "workflow",
         "run",
@@ -122,6 +162,24 @@ describe("dispatching a workflow", () => {
         "environment=preview",
       ],
     ]);
+  });
+
+  it("given GitHub cannot say what main holds, when a tag is shipped, then gh runs it on that tag", async () => {
+    const gh = fakeGh().seed("repo view", { status: 1, stderr: "HTTP 404" });
+
+    await pipelineOn(gh).dispatch("ship.yml", "api@1.0.0", { units: "api" });
+
+    expect(runs(gh)).toEqual([
+      ["workflow", "run", "ship.yml", "--ref", "api@1.0.0", "-f", "units=api"],
+    ]);
+  });
+
+  it("given main itself is shipped, when the workflow is dispatched, then it runs on main with no tag to check out", async () => {
+    const gh = fakeGh().seed("repo view", "main\n").seed("api repos/", MAIN_CALLER);
+
+    await pipelineOn(gh).dispatch("ship.yml", "main", { units: "api" });
+
+    expect(runs(gh)).toEqual([["workflow", "run", "ship.yml", "--ref", "main", "-f", "units=api"]]);
   });
 
   it("given GitHub refuses the dispatch, when the workflow is dispatched, then the ship fails saying why", async () => {
@@ -236,6 +294,10 @@ on:
         type: choice
         options: [preview, production]
         default: preview
+      ref:
+        description: "The tag to ship; shiplane sets it (empty: the ref this runs on)"
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -250,6 +312,7 @@ jobs:
     with:
       units: \${{ inputs.units }}
       environment: \${{ inputs.environment }}
+      ref: \${{ inputs.ref }}
     secrets:
       CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}

@@ -182,10 +182,12 @@ Source: `src/application/steps.ts`, `src/application/requirements.ts`, `src/appl
 ## GitHub Actions workflow
 
 On a runner (`GITHUB_ACTIONS=true`) the workflow runs
-`shiplane doctor --ci <units> --channel <env>`, then `shiplane ship <units> --channel <env> --yes`.
-`ship` there ships every unit even when one fails, each in its own log group, writes a plan table
-and a result table (`Prepare`, `Ship`: success, failed or skipped) to `GITHUB_STEP_SUMMARY`, and
-exits 1 when any failed.
+`shiplane doctor --ci <units> --channel <env>`, then
+`shiplane ship <units> --channel <env> --yes --no-mascot`: a log reads plainer without the mascot,
+whatever `display.mascot` says. A caller passing `mascot: true` gets it back (`--mascot`). `ship`
+there ships every unit even when one fails, each in its own log group, writes a plan table and a
+result table (`Prepare`, `Ship`: success, failed or skipped) to `GITHUB_STEP_SUMMARY`, and exits 1
+when any failed.
 
 | Check             | Supported                                                                                                                    | Fails with                                                                                                                         |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
@@ -196,7 +198,7 @@ exits 1 when any failed.
 | Prepare           | `prepare` with `{unit}` and `{dir}`, run before each unit                                                                    | `unknown placeholder {app} in prepare`                                                                                             |
 | Deploy tools      | Each picked unit's tools; a missing one runs its Linux install, its folder added to `PATH` and `GITHUB_PATH`                 | `flyctl missing and no install for linux`                                                                                          |
 | Secrets           | Each picked unit's: `FLY_API_TOKEN`, `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, `EXPO_TOKEN`; the flow's `GH_TOKEN` | `api ships with fly: FLY_API_TOKEN missing in "preview"`                                                                           |
-| Working directory | The repository root, or the `working-directory` input naming a folder holding `shiplane.config.ts`                           | `no shiplane.config.ts in apps/x`                                                                                                  |
+| Working directory | The repository root, or the `working-directory` input naming a folder holding `shiplane.config.ts` or `shiplane.yml`         | `no shiplane.config.ts or shiplane.yml in apps/x`                                                                                  |
 
 `doctor --ci` stops at the first problem and prints this section's link. Source:
 `src/application/doctorCi.ts`, `src/application/shipSteps.ts`.
@@ -204,12 +206,19 @@ exits 1 when any failed.
 ### `ship.yml`
 
 `shiplane setup` writes `.github/workflows/ship.yml` when it is missing, never over one there: a
-manual run (`units`, `environment`) calling `shiplane-ship.yml`, pinned to the commit of the
+manual run (`units`, `environment`, `ref`) calling `shiplane-ship.yml`, pinned to the commit of the
 installed shiplane's tag (`uses: …/shiplane-ship.yml@<sha> # shiplane@x.y.z`). A test version
 (`x.y.z-<branch>.<short sha>`) has no tag: it pins the commit its short sha names, or says
 `no commit <short sha> for shiplane@x.y.z-…: pin shiplane-ship.yml by hand` when GitHub does not
 know it. Any other unreleased version:
 `no release tag shiplane@x.y.z: pin shiplane-ship.yml by hand`.
+
+A tag holds the `ship.yml` of the day it was cut. So that a ship, or its retry, runs today's
+workflow, `shiplane ship --via ci` starts the run on the default branch and passes the tag as `ref`:
+`gh workflow run ship.yml --ref main -f units=api -f environment=preview -f ref=api@1.2.0`.
+`shiplane-ship.yml` checks out `ref`, so what deploys is the tag's code, never main's. When the
+default branch's `ship.yml` does not pass `ref` on (`ref: ${{ inputs.ref }}` under `with:`), the run
+starts on the tag, as before.
 
 It passes, by name, only the secrets the configured adapters read (their requirements' `secrets`,
 sorted, but `GH_TOKEN`, which `shiplane-ship.yml` sets itself), and no `secrets:` key when none
@@ -243,7 +252,7 @@ the entry to add for a JSON5 or `package.json` config, and creates none.
 | ------------------------------------------------------------- | ------------------------------------------------------------------ |
 | `ship.yml missing`                                            | Write it (yes by default; `--yes` writes it)                       |
 | `ship.yml does not call shiplane-ship.yml`                    | Replace it (no by default; never with `--yes` or unattended)       |
-| `ship.yml pins shiplane@0.5.2, installed 0.6.0`               | Re-pin: only the `uses:` line changes (`--yes` re-pins it)         |
+| `ship.yml pins shiplane@0.5.2, installed 0.6.0`               | Re-pin: the `uses:` line, plus the `ref` input when missing        |
 | `ship.yml passes no EXPO_TOKEN, and apps/expo ships with eas` | Rewrite only `secrets:` and `permissions:` (`--yes` rewrites them) |
 
 The secrets check also says `ship.yml passes SENTRY_TOKEN, which no adapter needs` and

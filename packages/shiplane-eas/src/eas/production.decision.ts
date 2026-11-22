@@ -206,7 +206,7 @@ export const productionDecision = async ({
     case "promote":
       return promotion({ context, input });
     case "update":
-      return { action: "ship", kind: "update", jobs: [updateJob(input)] };
+      return { action: "ship", kind: "update", jobs: [updateJob(input, context.root)] };
     case "build": {
       const refusal = await buildRefusal({ context, analysis, input });
       return refusal ? refuse(refusal) : { action: "ship", kind: "build", jobs: [buildJob(input)] };
