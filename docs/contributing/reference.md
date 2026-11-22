@@ -21,10 +21,13 @@ Every package `tsconfig` extends `@arnaud-zg/configs`, then the root `tsconfig.b
 turns `noUncheckedIndexedAccess` back on: an indexed read stays `T | undefined`, so guards on it
 keep checking a real case.
 
-Each package's `dist/` (gitignored) is what its `package.json` `exports` actually resolve to.
-`expo-native-guard` and `vite-workspace-resolver` build through `tsdown`; `expo-pnpm-catalog` and
-`agent-context-budget` build through `tsc` directly, since their `bin` entry point (`dist/cli.js`)
-isn't part of the `exports` map `tsdown` generates from.
+Each package's `dist/` (gitignored) is what its `package.json` `exports` actually resolve to. Every
+package builds through `tsdown`, from `tsdown.library.mjs` at the root: the shared
+`@arnaud-zg/configs/tsdown` build, minified. The output stays ES modules with `sideEffects: false`,
+so a bundler still drops what a consumer does not import; functions and classes keep their names;
+source maps map back to the source. `expo-pnpm-catalog` and `agent-context-budget` build CommonJS
+(`format: ["cjs"]`) and keep their hand-written `exports` and `bin` (`exports: false`), since their
+`dist/cli.js` isn't part of the `exports` map `tsdown` would generate.
 
 ## Scripts (for contributors to this repo)
 
@@ -36,7 +39,7 @@ isn't part of the `exports` map `tsdown` generates from.
 | `pnpm typecheck`               | `tsc` (or the package's typecheck config) in every package                      |
 | `pnpm test`                    | `vitest run` in every package                                                   |
 | `pnpm test:mutate`             | Stryker mutation testing, one package at a time; fails under 70%, by hand only  |
-| `pnpm build`                   | builds every package (`tsdown` or `tsc`, per package)                           |
+| `pnpm build`                   | builds every package with `tsdown`, minified                                    |
 | `pnpm verify`                  | typecheck, lint, lint:md, format:check, test, build                             |
 | `pnpm changeset`               | records a pending version bump, see [How-to](./how-to.md#release-a-new-version) |
 | `pnpm release`                 | `pnpm build && shiplane`, see [How-to](./how-to.md#release-a-new-version)       |
