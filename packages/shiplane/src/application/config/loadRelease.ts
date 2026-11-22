@@ -14,6 +14,7 @@ import type { UnitFile } from "./readUnitFile";
 import { PrepareSchema } from "../../domain/prepare";
 import { DEFAULT_TAG_FORMAT, TAG_FORMATS, tagFormatNamed } from "../../domain/tags";
 import { channelProblem } from "../../domain/testChannel";
+import { ConfigError } from "../../ports/config.port";
 import { releaseFlow } from "../releaseFlow";
 import { reasonOf } from "../say";
 import { sortProblems } from "./problem";
@@ -51,6 +52,8 @@ export interface Release {
   display?: DisplayChoice;
   /** Files still under their name from before shiplane. */
   renames?: Rename[];
+  /** The config file it was read from, from the root: `shiplane.config.ts` or `shiplane.yml`. */
+  configFile?: string;
   /** The template of a test version's pull request comment; `comments.table` when unset. */
   testComment?: string;
   /** Which channel each branch's test release publishes on; unset, every branch a snapshot. */
@@ -81,10 +84,10 @@ export interface LoadOptions {
   manifests: ManifestReader;
 }
 
-/** What `loadRelease` reads through: the config's reader and each unit's manifest reader. */
+/** What `loadRelease` reads through: the config's readers and each unit's manifest reader. */
 export interface LoadPorts {
-  /** Reads the config file, as `cli/compose` wires it. */
-  config: ConfigReader;
+  /** One reader per kind of config file, as `cli/compose` wires them; a repository holds one. */
+  configs: readonly ConfigReader[];
   manifests: ManifestReader;
 }
 
@@ -311,8 +314,22 @@ export const loadRelease = async (root: string, ports: LoadPorts): Promise<Relea
     units: [],
     problems,
   });
-  const configFile = ports.config.find(root);
-  if (!configFile) {
+  const found = ports.configs.flatMap((reader) => {
+    const file = reader.find(root);
+    return file ? [{ reader, file }] : [];
+  });
+  if (found.length > 1) {
+    const names = found.map(({ file }) => path.basename(file));
+    return empty([
+      {
+        file: names[1] ?? "",
+        message: `${names.join(" and ")} both hold the config: shiplane reads one`,
+        hint: "keep one; shiplane migrate writes shiplane.yml from shiplane.config.ts",
+      },
+    ]);
+  }
+  const [chosen] = found;
+  if (!chosen) {
     return empty([
       {
         file: "shiplane.config.ts",
@@ -321,14 +338,24 @@ export const loadRelease = async (root: string, ports: LoadPorts): Promise<Relea
       },
     ]);
   }
+  const configFile = chosen.file;
   let config: Composed;
   try {
-    config = checkConfig(await ports.config.read(configFile));
+    config = checkConfig(await chosen.reader.read(configFile));
   } catch (error) {
+    const file = path.basename(configFile);
+    if (error instanceof ConfigError) {
+      return empty([
+        {
+          file,
+          ...(error.line === undefined ? {} : { line: error.line }),
+          message: error.message,
+          ...(error.hint === undefined ? {} : { hint: error.hint }),
+        },
+      ]);
+    }
     const reason = reasonOf(error);
-    return empty([
-      { file: path.basename(configFile), message: `it did not load: ${reason.split("\n")[0]}` },
-    ]);
+    return empty([{ file, message: `it did not load: ${reason.split("\n")[0]}` }]);
   }
   const { manifests } = ports;
   const problems: ConfigProblem[] = [];
@@ -405,6 +432,7 @@ export const loadRelease = async (root: string, ports: LoadPorts): Promise<Relea
     units: ordered.map(({ unit }) => unit),
     problems: sortProblems(problems),
     display: config.display,
+    configFile: path.basename(configFile),
     renames: [path.basename(configFile), ...ordered.map(({ unit }) => unit.file)].flatMap(
       (file) => renameOf(file) ?? [],
     ),

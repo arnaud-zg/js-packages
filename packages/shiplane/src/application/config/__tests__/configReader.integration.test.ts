@@ -31,7 +31,7 @@ describe("reading the config through its port", () => {
   it("given a config its reader holds in memory, when the release loads, then it composes from what the reader read", async () => {
     const config = memoryConfig(declared());
 
-    const release = await loadRelease(root, { config, manifests: noManifests });
+    const release = await loadRelease(root, { configs: [config], manifests: noManifests });
 
     expect(release.problems).toEqual([]);
     expect(config.reads).toEqual(["/repo/shiplane.config.ts"]);
@@ -42,7 +42,7 @@ describe("reading the config through its port", () => {
 
   it("given a reader that finds no config, when the release loads, then it says setup writes one", async () => {
     const release = await loadRelease(root, {
-      config: memoryConfig(undefined),
+      configs: [memoryConfig(undefined)],
       manifests: noManifests,
     });
 
@@ -56,15 +56,33 @@ describe("reading the config through its port", () => {
       file: "shiplane.config.mts",
     });
 
-    const release = await loadRelease(root, { config, manifests: noManifests });
+    const release = await loadRelease(root, { configs: [config], manifests: noManifests });
 
     expect(release.problems).toEqual([
       { file: "shiplane.config.mts", message: "it did not load: Unexpected token" },
     ]);
   });
 
+  it("given two readers that each find a config, when the release loads, then it names both and says to keep one", async () => {
+    const configs = [memoryConfig(declared()), memoryConfig(declared(), { file: "shiplane.yml" })];
+
+    const release = await loadRelease(root, { configs, manifests: noManifests });
+
+    expect(release.problems).toEqual([
+      {
+        file: "shiplane.yml",
+        message: "shiplane.config.ts and shiplane.yml both hold the config: shiplane reads one",
+        hint: "keep one; shiplane migrate writes shiplane.yml from shiplane.config.ts",
+      },
+    ]);
+    expect(configs.flatMap(({ reads }) => reads)).toEqual([]);
+  });
+
   it("given a config whose declaration is not a release, when the release loads, then the check refuses it whatever read it", async () => {
-    const release = await loadRelease(root, { config: memoryConfig(42), manifests: noManifests });
+    const release = await loadRelease(root, {
+      configs: [memoryConfig(42)],
+      manifests: noManifests,
+    });
 
     expect(release.problems[0]?.message).toContain("is not defineRelease");
   });

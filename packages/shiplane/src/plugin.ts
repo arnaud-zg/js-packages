@@ -22,6 +22,14 @@ export { retrying } from "./adapters/shell/retrying";
 export type { ParsedJson } from "./adapters/parse-json";
 export { parseJson } from "./adapters/parse-json";
 export type { AfterShipContext, FollowUp, Shipped } from "./modules/module";
+export type { CatalogEntry, MadeSlots, Slot, SlotPort } from "./ports/catalog.port";
+export {
+  adapterEntry,
+  deliveryIn,
+  featureEntry,
+  moduleEntry,
+  serviceIn,
+} from "./application/config/catalog";
 export type { AppBump, BumpLevel, PlannedChangeset, StatusPlan } from "./domain/changes";
 export { appBumps } from "./domain/changes";
 export type { GitPosition } from "./domain/governance";

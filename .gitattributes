@@ -1,0 +1,3 @@
+# Written by `shiplane schema` from the catalogs; configSchema.e2e.test.ts fails when it drifts.
+# GitHub collapses it in diffs: `SHIPLANE_WRITE_SCHEMA=1 pnpm --filter shiplane-integration test` writes it again.
+packages/shiplane/shiplane.schema.json linguist-generated=true

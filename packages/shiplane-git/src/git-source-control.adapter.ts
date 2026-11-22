@@ -180,6 +180,7 @@ export type GitSourceControlAdapter = ServiceAdapter<SourceControlPort>;
 /** The repository through the git CLI. */
 export const gitSourceControl = (options: GitOptions = {}): GitSourceControlAdapter => ({
   name: "git",
+  options,
   requirements: () => [{ label: "git", check: { command: "git", args: ["--version"] } }],
   create: ({ root, shell }) => gitSource({ root, shell, options }),
 });

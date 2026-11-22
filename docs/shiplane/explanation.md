@@ -115,3 +115,9 @@ A run waits on git, the code host, the registry and the deploys; shiplane's own 
 tenth of a second of it. So the engine stays in one language and speed work goes to fewer tool
 calls. Why, with the timing: [ADR-001](./decisions/ADR-001-one-typescript-engine.md). Every
 decision: [🧭 Decisions](./decisions/README.md).
+
+## YAML and TS hold the same release
+
+`shiplane.yml` names each adapter, module and feature from the plugins' catalogs;
+`shiplane.config.ts` imports them. Both become the same declaration, checked the same way, so a team
+picks the form it can write. Why: [ADR-002](./decisions/ADR-002-yaml-beside-ts.md).

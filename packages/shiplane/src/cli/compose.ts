@@ -6,6 +6,7 @@ import type { Open } from "../modules/module";
 import type { Shell } from "../ports/shell.port";
 import type { Output, Progress, Prompter } from "../ports/terminal.port";
 import { tsConfig } from "../adapters/config/ts-config.adapter";
+import { yamlConfig } from "../adapters/config/yaml-config.adapter";
 import { nodeFiles } from "../adapters/files/node-files.adapter";
 import { packageJsonManifest } from "../adapters/manifest/package-json-manifest.adapter";
 import { systemShell } from "../adapters/shell/system-shell.adapter";
@@ -19,14 +20,34 @@ import {
 import { loadRelease } from "../application/config/loadRelease";
 import { resolveDisplay } from "../domain/display";
 import { installedVersion } from "./installed";
-import { installedAdapters } from "./plugins";
+import { installedAdapters, installedCatalog } from "./plugins";
+
+/** The config files a repository may hold, each with its reader: shiplane.config.ts, shiplane.yml. */
+export const configReaders = ({ aliases }: { aliases?: Record<string, string> } = {}) => [
+  tsConfig({ aliases }),
+  yamlConfig({ catalog: installedCatalog, aliases }),
+];
 
 /** The release as written on disk, each unit's name and version read from its package.json. */
 export const loadReleaseOnDisk = (root: string, options: Partial<LoadOptions> = {}) =>
   loadRelease(root, {
-    config: tsConfig({ aliases: options.aliases }),
+    configs: configReaders({ aliases: options.aliases }),
     manifests: options.manifests ?? packageJsonManifest,
   });
+
+/** The release from one kind of config file only: what `shiplane migrate` compares. */
+export const loadReleaseFrom = (
+  root: string,
+  from: "ts" | "yaml",
+  { aliases }: { aliases?: Record<string, string> } = {},
+) => {
+  const [ts, yaml] = configReaders({ aliases });
+  const reader = from === "ts" ? ts : yaml;
+  return loadRelease(root, {
+    configs: reader ? [reader] : [],
+    manifests: packageJsonManifest,
+  });
+};
 
 /** Creates each port the flow runs on, for this repository. */
 export const composeServices = (release: Release, open: Open): Services => ({

@@ -25,6 +25,13 @@ export const factoryName = (name: string) =>
 export const adapterFactory = ({ name, capability }: AnyDeliveryAdapter) =>
   `${factoryName(name)}${factoryName(`-${capability}`)}`;
 
+/** The adapter's name back from its factory and port: `cloudflarePagesStaticHosting` is `cloudflare-pages`. */
+export const adapterNameOf = (factory: string, port: string) =>
+  factory
+    .slice(0, -port.length)
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .toLowerCase();
+
 /** A module as a config writes it: its factory, its name when not its kind, its adapter. */
 export interface ModuleEntry {
   /** `webApp`. */
@@ -91,6 +98,8 @@ const importLine = (names: Iterable<string>, from: string) =>
 export interface FlowChoice {
   factory: string;
   from: string;
+  /** What shiplane.yml names it: its catalog name, `git`, or its local file, `./x.ts`. */
+  name: string;
 }
 
 export type FlowPort = "sourceControl" | "codeHost" | "ciPipeline" | "versioning";
@@ -104,16 +113,25 @@ export const FLOW_PORTS: readonly FlowPort[] = [
 
 /** The flow setup writes when nothing else is chosen: git, GitHub, GitHub Actions, changesets. */
 export const DEFAULT_FLOW: Record<FlowPort, FlowChoice> = {
-  sourceControl: { factory: "gitSourceControl", from: pluginPackage("git") },
-  codeHost: { factory: "gitHubCodeHost", from: pluginPackage("github") },
-  ciPipeline: { factory: "gitHubActionsCiPipeline", from: pluginPackage("github") },
-  versioning: { factory: "changesetsVersioning", from: pluginPackage("changesets") },
+  sourceControl: { factory: "gitSourceControl", from: pluginPackage("git"), name: "git" },
+  codeHost: { factory: "gitHubCodeHost", from: pluginPackage("github"), name: "github" },
+  ciPipeline: {
+    factory: "gitHubActionsCiPipeline",
+    from: pluginPackage("github"),
+    name: "github-actions",
+  },
+  versioning: {
+    factory: "changesetsVersioning",
+    from: pluginPackage("changesets"),
+    name: "changesets",
+  },
 };
 
 /** Versioning from commits: same plugin, and setup offers it when no changesets config exists. */
 export const COMMITS_VERSIONING: FlowChoice = {
   factory: "commitsVersioning",
   from: pluginPackage("changesets"),
+  name: "commits",
 };
 
 /** Both ways of versioning run on changesets. Private packages, such as plugins, version too. */

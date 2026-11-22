@@ -2,14 +2,19 @@ import { parseArgs } from "node:util";
 import { z } from "zod";
 
 import type { ReleaseContext } from "../application/context";
+import type { SetupContext } from "../application/setupContext";
 import type { ContextIo } from "./compose";
+import { tsConfig } from "../adapters/config/ts-config.adapter";
+import { YAML_CONFIG_FILES } from "../adapters/config/yaml-config.adapter";
 import { nodeFiles } from "../adapters/files/node-files.adapter";
 import { addUnit, removeUnit } from "../application/addUnit";
 import { branchRelease } from "../application/branchRelease";
+import { writeConfigSchema } from "../application/configSchemaFile";
 import { docsFor } from "../application/docsFor";
 import { doctor } from "../application/doctor";
 import { doctorCi } from "../application/doctorCi";
 import { initRelease } from "../application/initRelease";
+import { migrate } from "../application/migrate";
 import { newAdapter } from "../application/newAdapter";
 import { openReleasePr } from "../application/openReleasePr";
 import { pickScope } from "../application/pickScope";
@@ -23,9 +28,10 @@ import { CONFIG_FILE, refreshEditorSchema } from "../application/setupFiles";
 import { shipTo } from "../application/ship";
 import { missingTags, tagRelease } from "../application/tagRelease";
 import { ENVIRONMENTS } from "../domain/environment";
-import { composeContext, composeSetup, loadReleaseOnDisk } from "./compose";
+import { composeContext, composeSetup, loadReleaseFrom, loadReleaseOnDisk } from "./compose";
 import { findRoot } from "./findRoot";
 import { out, printProblems } from "./output";
+import { schemaCatalog } from "./plugins";
 import { pluginsCommand } from "./pluginsCommand";
 import { statusCommand } from "./statusCommand";
 
@@ -59,12 +65,15 @@ const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, tri
   shiplane plugins [--json]       the flow, the modules in release order and who uses each, the features
 
   shiplane setup [--yes]          set up, check, or add an app: asks only what it can't tell, rehearses, then writes
+                                  --format yaml writes shiplane.yml instead of shiplane.config.ts
                                   (shiplane init and shiplane add are now setup; both still run for now)
   shiplane remove <unit>          stop shipping a unit; it stays versioned
   shiplane doctor                 check the config, tools and sign-ins, offer each fix
   shiplane doctor --ci [unit...]  on a runner: units, --channel, tools (installed when missing), secrets
   shiplane adapter new <name>     scaffold a server hosting adapter, its contract test and its module
   shiplane docs <name>            every key a module's or an adapter's unit files take
+  shiplane migrate                write shiplane.yml from shiplane.config.ts, the same release, and remove the TS
+  shiplane schema                 the editor schema of shiplane.yml, with the plugins installed and your own adapters
   shiplane help [all]             the main commands; all: this, every command and flag
 
   --channel preview|production    where status reads (preview by default)
@@ -109,6 +118,7 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
       ci: { type: "boolean", default: false },
       "older-than": { type: "string" },
       otp: { type: "string" },
+      format: { type: "string" },
     },
   });
 
@@ -160,11 +170,25 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
   };
 
   const [first = ""] = units;
+  // A shiplane.yml setup or migrate wrote gets its editor schema too: autocomplete works at once.
+  const withSchema = async (context: SetupContext, done: boolean) =>
+    done && YAML_CONFIG_FILES.some((file) => context.files.exists(file))
+      ? writeConfigSchema(context, await schemaCatalog(context.root, io.aliases))
+      : done;
   const setupCommands: Record<
     string,
     (context: Awaited<ReturnType<typeof composeSetup>>) => Promise<boolean>
   > = {
-    setup: (context) => setup(context, { yes: values.yes }),
+    setup: (context) => {
+      if (values.format !== undefined && values.format !== "ts" && values.format !== "yaml") {
+        out(
+          `${paint("red", "✗")}  --format is ts (shiplane.config.ts, the default) or yaml (shiplane.yml)`,
+        );
+        return Promise.resolve(false);
+      }
+      const format = values.format === "yaml" ? "yaml" : "ts";
+      return setup(context, { yes: values.yes, format }).then((done) => withSchema(context, done));
+    },
     init: (context) => {
       if (values.blank) return initRelease(context, { yes: values.yes, blank: true });
       out(paint("dim", "init is now shiplane setup"));
@@ -185,11 +209,25 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
       return Promise.resolve(false);
     },
     docs: (context) => docsFor(context, first),
+    migrate: async (context) => {
+      const ts = tsConfig({ aliases: io.aliases });
+      const tsFile = ts.find(context.root);
+      const done = await migrate(context, {
+        tsFile,
+        declared: () => (tsFile ? ts.read(tsFile) : Promise.resolve(undefined)),
+        catalog: await schemaCatalog(context.root, io.aliases),
+        load: (from) => loadReleaseFrom(context.root, from, { aliases: io.aliases }),
+      });
+      return withSchema(context, done);
+    },
+    schema: async (context) =>
+      writeConfigSchema(context, await schemaCatalog(context.root, io.aliases)),
   };
 
   const root = findRoot(cwd);
   const files = io.setup?.files ?? nodeFiles(root);
-  const firstRun = command === "next" && !files.exists(CONFIG_FILE);
+  const firstRun =
+    command === "next" && ![CONFIG_FILE, ...YAML_CONFIG_FILES].some((file) => files.exists(file));
   // A dry run prints every command a ship would run, the way it would go, and runs none.
   const run =
     values["dry-run"] && DRY_RUNS.has(command)

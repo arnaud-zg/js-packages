@@ -37,6 +37,14 @@ const selfAliases = (): Record<string, string> => {
   );
 };
 
+/** Imports a TypeScript or JavaScript file as a config does, `shiplane` resolved by `aliases`. */
+export const importTs = (file: string, aliases?: Record<string, string>): Promise<unknown> =>
+  createJiti(import.meta.url, {
+    alias: aliases ?? selfAliases(),
+    moduleCache: false,
+    fsCache: false,
+  }).import(file);
+
 /**
  * `shiplane.config.ts` (or .mts, .js, .mjs), run through jiti: its default export, as written.
  * `aliases` says where `shiplane` resolves from inside the config; by default, this very package.
