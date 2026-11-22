@@ -124,7 +124,7 @@ export const retryChoice = async ({
   const jobs =
     named.ships === "build"
       ? retryJobs({ input, steps, fromTag: true })
-      : [{ ...updateJob(input), from: tag }];
+      : [{ ...updateJob(input, context.root), from: tag }];
   const line =
     named.ships === "build"
       ? retryLine({ steps, notes })

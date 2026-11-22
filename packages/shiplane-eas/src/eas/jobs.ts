@@ -1,4 +1,7 @@
+import fs from "node:fs";
+import path from "node:path";
 import type { Job } from "shiplane/plugin";
+import { z } from "shiplane/plugin";
 
 import type { Platform, RetryStep } from "./decide";
 import type { EasInput } from "./options";
@@ -29,14 +32,35 @@ export const buildJob = (input: EasInput): Job => ({
   local: [easBuild({ input, platform: "all" })],
 });
 
-export const updateJob = (input: EasInput): Job => {
-  const { unit, environment, options } = input;
+const Scripts = z.object({ scripts: z.record(z.string(), z.string()).default({}) });
+/** A script that names its update itself: `--message`, `-m` or `--auto`. */
+const NAMES_UPDATE = /(^|\s)(--message|-m|--auto)(?=[\s=]|$)/;
+
+/** The update script's command, as the unit's package.json holds it; null when it cannot be read. */
+const scriptOf = (root: string, { unit, options }: EasInput) => {
+  try {
+    const file = path.join(root, unit.dir, "package.json");
+    return Scripts.parse(JSON.parse(fs.readFileSync(file, "utf8"))).scripts[options.update] ?? null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * Publishes the environment's update through its package script. Off a terminal, `eas update`
+ * needs a message: the tag, unless the script names the update itself. With no `root` to read the
+ * script from, it runs as written.
+ */
+export const updateJob = (input: EasInput, root?: string): Job => {
+  const { unit, environment, options, tag } = input;
+  const script = root === undefined ? null : scriptOf(root, input);
+  const message = script !== null && !NAMES_UPDATE.test(script) ? ["--", "--message", tag] : [];
   return {
     label: `publish the ${environment} update`,
     local: [
       {
         command: "pnpm",
-        args: ["run", options.update],
+        args: ["run", options.update, ...message],
         cwd: unit.dir,
         env: { APP_VARIANT: environment },
       },
