@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { findConfig } from "../application/config/loadRelease";
+import { tsConfig } from "../adapters/config/ts-config.adapter";
 
 /** The nearest folder up from here with a release config, else the git root, else here. */
 export const findRoot = (from: string): string => {
@@ -10,8 +10,9 @@ export const findRoot = (from: string): string => {
     return parent === dir ? [dir] : [dir, ...ancestors(parent)];
   };
   const chain = ancestors(path.resolve(from));
+  const config = tsConfig();
   return (
-    chain.find((dir) => findConfig(dir)) ??
+    chain.find((dir) => config.find(dir) !== null) ??
     chain.find((dir) => fs.existsSync(path.join(dir, ".git"))) ??
     path.resolve(from)
   );

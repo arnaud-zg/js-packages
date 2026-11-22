@@ -99,5 +99,5 @@ pnpm shiplane
 Say yes, then squash merge the release PR on GitHub. shiplane tags `vite-workspace-resolver@0.1.1`,
 publishes its notes, and publishes it to npm under `latest`.
 
-🎉 Released. Next: [add an app that deploys](./how-to.md#add-an-app), or
-[promote to production](./how-to.md#promote-to-production).
+🎉 Released. Next: [add an app that deploys](./how-to-apps.md#add-an-app), or
+[promote to production](./how-to-release.md#promote-to-production).

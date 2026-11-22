@@ -7,30 +7,30 @@
 
 [Commands](#commands) · [Flags](#flags) · [Exit codes](#exit-codes) ·
 [`shiplane.config.ts`](#shiplaneconfigts) · [`shiplane.unit.yml`](#shiplaneunityml) ·
-[Modules](#modules) · [Safety](#safety) · [`status --json`](#status---json) ·
+[Modules](#modules) · [Safety](#safety) · [Mascot and `status --json`](./reference-output.md) ·
 [GitHub Actions workflow](#github-actions-workflow)
 
 ## Commands
 
-| Command                           | Does                                                                                                                                                                     |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `shiplane`                        | The next step to preview: release PR, merge, tags, ship                                                                                                                  |
-| `shiplane test-release [channel]` | Publish what the pending changesets release, npm only, as a snapshot or on a channel; `--dry-run` (alias `branch`)                                                       |
-| `shiplane prune-snapshots`        | Remove the npm tags of snapshots published 30 days ago or more; `--older-than <days>` (7+), `--otp`, `--dry-run`, `--yes` ([how-to](./how-to.md#clean-up-old-snapshots)) |
-| `shiplane promote`                | Production, from what preview runs                                                                                                                                       |
-| `shiplane status`                 | Where every unit stands, and what to run next. Reads only                                                                                                                |
-| `shiplane plan`                   | Deprecated: it still runs; use `ship --dry-run` instead                                                                                                                  |
-| `shiplane version`                | Open the release PR for what is pending                                                                                                                                  |
-| `shiplane tag`                    | Tag merged versions, publish their notes                                                                                                                                 |
-| `shiplane ship [unit...]`         | Trigger each tagged unit's deploy, then return                                                                                                                           |
-| `shiplane setup`                  | Find what ships, write the config and unit files, rehearse a release                                                                                                     |
-| `shiplane init`, `add`            | Deprecated: they still run; use `setup` instead                                                                                                                          |
-| `shiplane remove <unit>`          | Stop shipping a unit; it stays versioned                                                                                                                                 |
-| `shiplane doctor`                 | Check the config, tools, sign-ins and [`ship.yml`](#shipyml), offer each fix                                                                                             |
-| `shiplane doctor --ci [unit...]`  | On a runner: units, `--channel`, tools, secrets. Stops at the first problem ([workflow](#github-actions-workflow))                                                       |
-| `shiplane plugins`                | The flow, the modules in release order with their apps, the features                                                                                                     |
-| `shiplane docs <name>`            | Every key a module's or an adapter's unit files take                                                                                                                     |
-| `shiplane adapter new <name>`     | Scaffold a server hosting adapter, its contract test, its module                                                                                                         |
+| Command                           | Does                                                                                                                                                                                   |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `shiplane`                        | The next step to preview: release PR, merge, tags, ship                                                                                                                                |
+| `shiplane test-release [channel]` | Publish what the pending changesets release, npm only, as a snapshot or on a channel; `--dry-run` (alias `branch`)                                                                     |
+| `shiplane prune-snapshots`        | Remove the npm tags of snapshots published 30 days ago or more; `--older-than <days>` (7+), `--otp`, `--dry-run`, `--yes` ([how-to](./how-to-test-versions.md#clean-up-old-snapshots)) |
+| `shiplane promote`                | Production, from what preview runs                                                                                                                                                     |
+| `shiplane status`                 | Where every unit stands, and what to run next. Reads only                                                                                                                              |
+| `shiplane plan`                   | Deprecated: it still runs; use `ship --dry-run` instead                                                                                                                                |
+| `shiplane version`                | Open the release PR for what is pending                                                                                                                                                |
+| `shiplane tag`                    | Tag merged versions, publish their notes                                                                                                                                               |
+| `shiplane ship [unit...]`         | Trigger each tagged unit's deploy, then return                                                                                                                                         |
+| `shiplane setup`                  | Find what ships, write the config and unit files, rehearse a release                                                                                                                   |
+| `shiplane init`, `add`            | Deprecated: they still run; use `setup` instead                                                                                                                                        |
+| `shiplane remove <unit>`          | Stop shipping a unit; it stays versioned                                                                                                                                               |
+| `shiplane doctor`                 | Check the config, tools, sign-ins and [`ship.yml`](#shipyml), offer each fix                                                                                                           |
+| `shiplane doctor --ci [unit...]`  | On a runner: units, `--channel`, tools, secrets. Stops at the first problem ([workflow](#github-actions-workflow))                                                                     |
+| `shiplane plugins`                | The flow, the modules in release order with their apps, the features                                                                                                                   |
+| `shiplane docs <name>`            | Every key a module's or an adapter's unit files take                                                                                                                                   |
+| `shiplane adapter new <name>`     | Scaffold a server hosting adapter, its contract test, its module                                                                                                                       |
 
 Source: `src/cli/main.ts`. Here, `pnpm shiplane` builds the CLI first when its sources changed.
 
@@ -102,9 +102,9 @@ export default defineRelease({
 | `features`    | What runs after a ship, in order, such as `releaseComments()`                                                                                                                                                                                                                                          |
 | `units`       | Folders to look in. Default: the pnpm workspace, then `package.json` workspaces                                                                                                                                                                                                                        |
 | `tag`         | Tag format: `"package"` (`{name}@{version}`, default), `"plugin"` (`{name}--v{version}`, for Claude Code, Gemini CLI and Codex), `"single"` (`v{version}`), `"module"` (`{name}/v{version}`, Go modules), or your own. A format without `{name}` takes one unit                                        |
-| `display`     | `{ verbose, mascot }` defaults for the flags; `mascot` may be your own ([Mascot](#mascot))                                                                                                                                                                                                             |
-| `testComment` | The test version's PR comment: `comments.table` (default), `comments.compact`, or your own text with `{branch}` `{commit}` `{table}` `{install}` ([how-to](./how-to.md#publish-a-test-version))                                                                                                        |
-| `testRelease` | Which channel each branch's test release takes: `testReleases.nightly`, `.prerelease`, `.gitflow`, or `{ branch: channel }` with `*` patterns; unlisted branches publish a snapshot ([how-to](./how-to.md#give-each-branch-a-channel))                                                                 |
+| `display`     | `{ verbose, mascot }` defaults for the flags; `mascot` may be your own ([Mascot](./reference-output.md#mascot))                                                                                                                                                                                        |
+| `testComment` | The test version's PR comment: `comments.table` (default), `comments.compact`, or your own text with `{branch}` `{commit}` `{table}` `{install}` ([how-to](./how-to-test-versions.md#publish-a-test-version))                                                                                          |
+| `testRelease` | Which channel each branch's test release takes: `testReleases.nightly`, `.prerelease`, `.gitflow`, or `{ branch: channel }` with `*` patterns; unlisted branches publish a snapshot ([how-to](./how-to-test-versions.md#give-each-branch-a-channel))                                                   |
 | `via`         | `"ci"` (the flow's CI pipeline) or `"local"` (this machine): how an app ships when both ways can, so a ship stops asking. `--via` wins for one run; a way that cannot ship takes the other                                                                                                             |
 | `prepare`     | A shell command run from the root before each unit ships from this machine or a runner, never before a CI dispatch: `{unit}` its name, `{dir}` its folder, such as `"pnpm --filter {unit}... build"`. A failure fails that unit. Any other `{…}` fails loading: `unknown placeholder {app} in prepare` |
 
@@ -113,33 +113,6 @@ saying to rename it.
 
 **Release order:** by module in `modules` order, then by name. An app reading another's value
 (`${units.api.url}`) must come after it, or loading fails and names the module to move.
-
-## Mascot
-
-`display.mascot` in `shiplane.config.ts`:
-
-| Value                  | Draws                                                |
-| ---------------------- | ---------------------------------------------------- |
-| `true` (default)       | the built-in mascot                                  |
-| `false`                | nothing                                              |
-| `{ [mood]: string[] }` | your frames, looped by tick; missing moods: built-in |
-| `(moment) => string`   | what the function returns for each moment            |
-
-`--no-mascot` hides any of them for one run; `--mascot` shows the configured one, or the built-in
-one.
-
-| Mood       | When                                    |
-| ---------- | --------------------------------------- |
-| `thinking` | reading: git, the code host, the config |
-| `working`  | something runs: a build, a deploy       |
-| `waiting`  | on a person, a merge or CI              |
-| `happy`    | done                                    |
-| `worried`  | failed                                  |
-| `resting`  | nothing to do                           |
-
-A moment is `{ mood, tick, label }`: `tick` counts frames from 0 and stays 0 when motion is off;
-`label` is what runs, such as `deploy api@1.2.0 to production`. Every frame is padded to the widest
-one. Type: `Mascot` from `shiplane`. Source: `src/domain/display.ts`.
 
 ## `shiplane.unit.yml`
 
@@ -164,7 +137,7 @@ checkEnvBeforeDeploy: # env var names a deploy waits for, read on the platform
 - A `release.unit.yml` still loads, with a line saying to rename it.
 - `checkEnvBeforeDeploy` belongs to shiplane, not to the module. It is one list for every
   environment, or `all` plus a list per environment. Each name is UPPER_SNAKE. A name not listed is
-  never checked. See [Check env before deploy](./how-to.md#check-env-before-deploy).
+  never checked. See [Check env before deploy](./how-to-apps.md#check-env-before-deploy).
 
 ## Modules
 
@@ -203,32 +176,6 @@ Each takes an optional `name`, for two modules of one kind:
 
 Source: `src/application/steps.ts`, `src/application/requirements.ts`, `src/application/ship.ts`,
 `src/application/chooseVersion.ts`.
-
-## `status --json`
-
-From `pnpm -s shiplane status --json`, trimmed to one unit:
-
-```json
-{
-  "environment": "preview",
-  "units": [
-    {
-      "unit": "api",
-      "target": "fly",
-      "version": "0.0.12",
-      "tag": "api@0.0.12",
-      "tagged": true,
-      "changesets": 3,
-      "pending": true,
-      "hint": "3 changesets"
-    }
-  ],
-  "next": { "step": "release-pr" }
-}
-```
-
-`next.step` is `release-pr`, `wait-merge` or `ship`. A unit whose plugin reads its platform (EAS)
-adds `live`. Source: `src/application/readStatus.ts`.
 
 ## GitHub Actions workflow
 
