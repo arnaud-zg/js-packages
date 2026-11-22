@@ -38,20 +38,37 @@ export const builtCli = (): string => {
   return cli;
 };
 
-// No global git config, signing key, token or CI marker leaks in: a run sees only this repository.
+// No global git config, signing key, token, CI marker or hook's GIT_DIR leaks in: a run sees only
+// this repository.
 const LEAKS = new Set(["GITHUB_ACTIONS", "CI", "GITHUB_TOKEN", "GH_TOKEN"]);
 
-const hermeticEnv = (home: string, bin: string): NodeJS.ProcessEnv => ({
-  ...Object.fromEntries(Object.entries(process.env).filter(([name]) => !LEAKS.has(name))),
-  PATH: [bin, systemShell.env("PATH") ?? ""].join(path.delimiter),
-  HOME: home,
-  GIT_CONFIG_GLOBAL: path.join(home, ".gitconfig"),
-  GIT_CONFIG_NOSYSTEM: "1",
-  NO_COLOR: "1",
-  // A fixed date makes each commit's hash depend on its files only, so docs can quote a run.
-  GIT_AUTHOR_DATE: "2026-01-01T00:00:00Z",
-  GIT_COMMITTER_DATE: "2026-01-01T00:00:00Z",
-});
+/**
+ * The variables that point git at a repository, such as GIT_DIR, which git sets while a hook runs.
+ * Left in, they turn `git init --bare` on the repository the hook runs in, not on this one.
+ */
+const gitRepositoryEnv = () =>
+  new Set(
+    execFileSync("git", ["rev-parse", "--local-env-vars"], { encoding: "utf8" })
+      .split("\n")
+      .filter(Boolean),
+  );
+
+const hermeticEnv = (home: string, bin: string): NodeJS.ProcessEnv => {
+  const repository = gitRepositoryEnv();
+  return {
+    ...Object.fromEntries(
+      Object.entries(process.env).filter(([name]) => !LEAKS.has(name) && !repository.has(name)),
+    ),
+    PATH: [bin, systemShell.env("PATH") ?? ""].join(path.delimiter),
+    HOME: home,
+    GIT_CONFIG_GLOBAL: path.join(home, ".gitconfig"),
+    GIT_CONFIG_NOSYSTEM: "1",
+    NO_COLOR: "1",
+    // A fixed date makes each commit's hash depend on its files only, so docs can quote a run.
+    GIT_AUTHOR_DATE: "2026-01-01T00:00:00Z",
+    GIT_COMMITTER_DATE: "2026-01-01T00:00:00Z",
+  };
+};
 
 // The tools that reach a platform answer offline, so a run that would call one fails at once.
 const OFFLINE = ["gh", "npm", "flyctl"];
