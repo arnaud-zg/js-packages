@@ -146,8 +146,40 @@ export const releaseTags = (
         : [];
     });
 
+const FENCE = /^\s*(```|~~~)/;
+/** A line that opens its own block: heading, list item, quote, table row, rule or HTML. */
+const BLOCK_START = /^\s*(#{1,6}\s|[-*+]\s|\d+[.)]\s|>|\||<|(?:[-*_]\s*){3,}$)/;
+/** A line whose break is kept: heading, table row, or a hard break (two spaces or a backslash). */
+const KEEPS_BREAK = /^\s*(#{1,6}\s|\|)|( {2}|\\)$/;
+
+/**
+ * Joins the soft line breaks of hard-wrapped markdown, so each paragraph or list item is one line.
+ * GitHub release notes and pull request bodies render every newline as a break, which splits a
+ * prettier-wrapped CHANGELOG mid-sentence. Blank lines, headings, nested list items, tables and
+ * fenced code stay as written.
+ */
+export const unwrapSoftBreaks = (markdown: string) => {
+  const lines: string[] = [];
+  let fenced = false;
+  let joinable = false;
+  for (const line of markdown.split("\n")) {
+    if (FENCE.test(line)) {
+      fenced = !fenced;
+      lines.push(line);
+      joinable = false;
+    } else if (fenced || line.trim() === "" || BLOCK_START.test(line) || !joinable) {
+      lines.push(line);
+      joinable = !fenced && line.trim() !== "" && !KEEPS_BREAK.test(line);
+    } else {
+      lines[lines.length - 1] = `${lines[lines.length - 1]} ${line.trim()}`;
+      joinable = !KEEPS_BREAK.test(line);
+    }
+  }
+  return lines.join("\n");
+};
+
 /** One version's section of a changesets CHANGELOG.md, used as its release notes. */
 export const changelogSection = (changelog: string, version: string) => {
   const section = changelog.split(`\n## ${version}\n`)[1]?.split("\n## ")[0]?.trim();
-  return section || `No changelog entry for ${version}.`;
+  return section ? unwrapSoftBreaks(section) : `No changelog entry for ${version}.`;
 };
