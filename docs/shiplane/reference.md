@@ -182,10 +182,12 @@ Source: `src/application/steps.ts`, `src/application/requirements.ts`, `src/appl
 ## GitHub Actions workflow
 
 On a runner (`GITHUB_ACTIONS=true`) the workflow runs
-`shiplane doctor --ci <units> --channel <env>`, then `shiplane ship <units> --channel <env> --yes`.
-`ship` there ships every unit even when one fails, each in its own log group, writes a plan table
-and a result table (`Prepare`, `Ship`: success, failed or skipped) to `GITHUB_STEP_SUMMARY`, and
-exits 1 when any failed.
+`shiplane doctor --ci <units> --channel <env>`, then
+`shiplane ship <units> --channel <env> --yes --no-mascot`: a log reads plainer without the mascot,
+whatever `display.mascot` says. A caller passing `mascot: true` gets it back (`--mascot`). `ship`
+there ships every unit even when one fails, each in its own log group, writes a plan table and a
+result table (`Prepare`, `Ship`: success, failed or skipped) to `GITHUB_STEP_SUMMARY`, and exits 1
+when any failed.
 
 | Check             | Supported                                                                                                                    | Fails with                                                                                                                         |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
