@@ -18,6 +18,7 @@ import {
   tagWords,
 } from "../domain/branchRelease";
 import { isNumbered, nextNumber, sharedNumbers, testTag, testVersion } from "../domain/testChannel";
+import { buildingIfNeeded } from "./buildIfNeeded";
 import { readManifest } from "./manifest";
 import { MANIFEST } from "./readScope";
 import { signIn, signInsOf } from "./requirements";
@@ -174,11 +175,14 @@ const publishingOf = (
   };
   const name = target.module.publishedName?.(decideContext(context), input) ?? unit.packageName;
   const onNpmjs = publishesToNpmjs(readManifest({ files: context.files, dir: unit.dir }));
-  // What publishes is what the config's prepare builds now, never a dist left from before.
-  const prepare = preparing(context, unit, `${name}@${candidate.version}`);
+  const { jobs } = shipPlanOf(context, target.module, input);
+  const tagged = `${name}@${candidate.version}`;
+  // What publishes is built from this commit, never a dist left from before.
+  const prepare =
+    preparing(context, unit, tagged) ?? buildingIfNeeded(context, { unit, tag: tagged, jobs });
   const steps = [
     ...(prepare ? [prepare] : []),
-    ...shipPlanOf(context, target.module, input).jobs.map((job) => ({
+    ...jobs.map((job) => ({
       label: job.label,
       run: () => runHere(context, job, { tag: target.tag, environment: "preview" }),
     })),

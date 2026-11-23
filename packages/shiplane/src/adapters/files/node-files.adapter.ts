@@ -9,6 +9,7 @@ export const nodeFiles = (root: string): Files => {
   return {
     exists: (file) => fs.existsSync(at(file)),
     read: (file) => (fs.existsSync(at(file)) ? fs.readFileSync(at(file), "utf8") : null),
+    modifiedAt: (file) => fs.statSync(at(file), { throwIfNoEntry: false })?.mtimeMs ?? null,
     write: (file, text) => {
       fs.mkdirSync(path.dirname(at(file)), { recursive: true });
       fs.writeFileSync(at(file), text);

@@ -27,6 +27,11 @@ export interface Job {
   local: Command[];
   /** The ref the CI pipeline's ship workflow runs these commands from; absent when only here can. */
   ci?: { ref: string };
+  /**
+   * `local` publishes what the unit's build wrote: without a `prepare` in the config, shiplane
+   * first builds it when that build is missing or older than its sources.
+   */
+  needsBuild?: boolean;
   /** Record the deploy in the host's deploy records once it ran from this machine. */
   record?: boolean;
   /** Runs after `local` whether it failed or not, such as putting a manifest back. */

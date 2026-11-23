@@ -137,6 +137,7 @@ const publishJob = (input: JobInput<Options>): Job => {
       },
       ...(input.dropTag ? [untag] : []),
     ],
+    needsBuild: true,
     ...(options.publishAs ? { cleanup: [rename(unit.packageName)] } : {}),
   };
 };

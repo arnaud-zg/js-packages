@@ -5,6 +5,8 @@ import type { Files } from "../../../ports/files.port";
 /** A repository held in memory, one entry per file: nothing touches the disk. */
 export class MemoryFiles implements Files {
   private readonly texts = new Map<string, string>();
+  /** When each file was last written: the first ones at 0, each write one later. */
+  private readonly times = new Map<string, number>();
   /** Every write and removal, in order, for a test to read back. */
   readonly changes: { kind: "write" | "remove"; file: string }[] = [];
 
@@ -28,9 +30,14 @@ export class MemoryFiles implements Files {
 
   read = (file: string) => this.texts.get(path.posix.normalize(file)) ?? null;
 
+  modifiedAt = (file: string) => {
+    const at = path.posix.normalize(file);
+    return this.texts.has(at) ? (this.times.get(at) ?? 0) : null;
+  };
+
   write = (file: string, text: string) => {
     this.texts.set(path.posix.normalize(file), text);
-    this.changes.push({ kind: "write", file });
+    this.times.set(path.posix.normalize(file), this.changes.push({ kind: "write", file }));
   };
 
   append = (file: string, text: string) => this.write(file, `${this.read(file) ?? ""}${text}`);
