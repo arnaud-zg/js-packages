@@ -248,12 +248,12 @@ the entry to add for a JSON5 or `package.json` config, and creates none.
 
 `shiplane doctor` checks it on a laptop, not on a runner:
 
-| Found                                                         | Fix offered                                                        |
-| ------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `ship.yml missing`                                            | Write it (yes by default; `--yes` writes it)                       |
-| `ship.yml does not call shiplane-ship.yml`                    | Replace it (no by default; never with `--yes` or unattended)       |
-| `ship.yml pins shiplane@0.5.2, installed 0.6.0`               | Re-pin: the `uses:` line, plus the `ref` input when missing        |
-| `ship.yml passes no EXPO_TOKEN, and apps/expo ships with eas` | Rewrite only `secrets:` and `permissions:` (`--yes` rewrites them) |
+| Found                                                         | Fix offered                                                                  |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `ship.yml missing`                                            | Write it (yes by default; `--yes` writes it). Not said when `via` is `local` |
+| `ship.yml does not call shiplane-ship.yml`                    | Replace it (no by default; never with `--yes` or unattended)                 |
+| `ship.yml pins shiplane@0.5.2, installed 0.6.0`               | Re-pin: the `uses:` line, plus the `ref` input when missing                  |
+| `ship.yml passes no EXPO_TOKEN, and apps/expo ships with eas` | Rewrite only `secrets:` and `permissions:` (`--yes` rewrites them)           |
 
 The secrets check also says `ship.yml passes SENTRY_TOKEN, which no adapter needs` and
 `ship.yml passes every secret (inherit), not only FLY_API_TOKEN`. Its fix keeps the rest of the file

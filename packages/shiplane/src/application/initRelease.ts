@@ -16,6 +16,7 @@ import {
   CONFIG_FILE,
   editorSettingsFile,
   folderView,
+  githubRepository,
   placeModule,
   releasePackage,
   renderBlankUnit,
@@ -92,7 +93,11 @@ export const askOptions = async (
 ) => {
   const options = structuredClone(found);
   const repository = repositoryName(context.files, context.root);
-  for (const question of adapter.questions?.(folder, options, repository) ?? []) {
+  const { stdout } = await context.shell.capture("git", ["remote", "get-url", "origin"], {
+    cwd: context.root,
+  });
+  const remote = githubRepository(stdout) ?? undefined;
+  for (const question of adapter.questions?.(folder, options, repository, remote) ?? []) {
     const answer = yes
       ? (question.initial ?? null)
       : await context.prompter.text(`${folder.dir} · ${question.message}`, question.initial);

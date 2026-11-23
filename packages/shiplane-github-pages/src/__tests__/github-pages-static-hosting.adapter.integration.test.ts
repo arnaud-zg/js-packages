@@ -54,13 +54,19 @@ describe("recognising a site", () => {
     expect(pages.detect?.(folder(["index.ts"]))).toBeNull();
   });
 
-  it("given a user site's repository, when setup asks for the address, then it offers it", () => {
-    expect(pages.questions?.(folder([]), {}, "acme.github.io")).toEqual([
-      { key: "url", message: "Address of the site?", initial: "https://acme.github.io/" },
-    ]);
-  });
+  it.each([
+    ["acme/acme.github.io", "https://acme.github.io/"],
+    ["acme/docs", "https://acme.github.io/docs/"],
+  ])(
+    "given the repository %s, when setup asks for the address, then it offers %s",
+    (remote, initial) => {
+      expect(pages.questions?.(folder([]), {}, "site", remote)).toEqual([
+        { key: "url", message: "Address of the site?", initial },
+      ]);
+    },
+  );
 
-  it("given any other repository, when setup asks for the address, then it guesses nothing", () => {
+  it("given a repository not on GitHub, when setup asks for the address, then it guesses nothing", () => {
     expect(pages.questions?.(folder([]), {}, "site")).toEqual([
       { key: "url", message: "Address of the site?" },
     ]);

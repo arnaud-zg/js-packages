@@ -135,21 +135,22 @@ export const COMMITS_VERSIONING: FlowChoice = {
 };
 
 /** Both ways of versioning run on changesets. Private packages, such as plugins, version too. */
-export const CHANGESETS_CONFIG = `${JSON.stringify(
-  {
-    changelog: "@changesets/cli/changelog",
-    commit: false,
-    fixed: [],
-    linked: [],
-    access: "restricted",
-    baseBranch: "main",
-    updateInternalDependencies: "patch",
-    ignore: [],
-    privatePackages: { version: true, tag: false },
-  },
-  null,
-  2,
-)}\n`;
+export const changesetsConfig = (baseBranch: string) =>
+  `${JSON.stringify(
+    {
+      changelog: "@changesets/cli/changelog",
+      commit: false,
+      fixed: [],
+      linked: [],
+      access: "restricted",
+      baseBranch,
+      updateInternalDependencies: "patch",
+      ignore: [],
+      privatePackages: { version: true, tag: false },
+    },
+    null,
+    2,
+  )}\n`;
 
 export const CHANGESETS_CLI = { name: "@changesets/cli", version: "^3.0.1" };
 
@@ -376,6 +377,10 @@ export const folderView = (files: Files, dir: string): FolderView => ({
   has: (file) => files.exists(path.posix.join(dir, file)),
   read: (file) => files.read(path.posix.join(dir, file)),
 });
+
+/** `owner/name` from a GitHub remote, over ssh or https; null for any other. */
+export const githubRepository = (remote: string) =>
+  /github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?\/?$/.exec(remote.trim())?.[1] ?? null;
 
 /** The repository's short name: its package name without scope, else its folder's. */
 export const repositoryName = (files: Files, root: string) => {

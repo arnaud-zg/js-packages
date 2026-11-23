@@ -32,6 +32,12 @@ const addressOf = (url: string, environment: string) => {
   return environment === PREVIEW ? `${root}${PREVIEW}/` : root;
 };
 
+/** Where GitHub serves a repository's site: a user's or organisation's is named by its address. */
+const siteOf = (remote: string) => {
+  const [owner = "", name = ""] = remote.split("/");
+  return name.endsWith(".github.io") ? `https://${name}/` : `https://${owner}.github.io/${name}/`;
+};
+
 // On a branch that does not exist, gh-pages starts from the repository's own files and publishes
 // them. So the branch is there first, empty. An existing one refuses this push: it is not forced.
 const START =
@@ -62,14 +68,13 @@ export const githubPagesStaticHosting = (): GithubPagesStaticHostingAdapter =>
         options: {},
       };
     },
-    questions: (_folder, found, repository) =>
+    questions: (_folder, found, _repository, remote) =>
       found.url === undefined
         ? [
             {
               key: "url",
               message: "Address of the site?",
-              // Only a user or organisation site is named by its repository.
-              ...(repository.endsWith(".github.io") ? { initial: `https://${repository}/` } : {}),
+              ...(remote ? { initial: siteOf(remote) } : {}),
             },
           ]
         : [],

@@ -27,12 +27,13 @@ import { paint } from "./say";
 import {
   addToConfig,
   CHANGESETS_CLI,
-  CHANGESETS_CONFIG,
+  changesetsConfig,
   COMMITS_VERSIONING,
   CONFIG_FILE,
   DEFAULT_FLOW,
   FLOW_PORTS,
   folderView,
+  githubRepository,
   placeModule,
   releasePackage,
   renderConfig,
@@ -56,6 +57,9 @@ export interface Write {
 const ok = paint("green", "✓");
 const unsure = paint("yellow", "?");
 
+/** A folder as a column, always with room before what follows. */
+const column = (dir: string) => `${dir} `.padEnd(18);
+
 const CHANGESETS_CONFIG_FILE = ".changeset/config.json";
 
 /** What a flow port is called, and what proves the ready-made adapter fits. */
@@ -72,7 +76,7 @@ const APP_KINDS = [
   { value: "static-hosting", label: "Web application", hint: "static files on a CDN" },
   { value: "mobile-distribution", label: "Mobile application", hint: "store builds and updates" },
   { value: "package-registry", label: "Published package", hint: "a library others install" },
-  { value: "skip", label: "Internal tool", hint: "versioned, never deployed" },
+  { value: "skip", label: "Nothing to release", hint: "left out: no version, no deploy" },
 ] as const;
 
 type AppKind = (typeof APP_KINDS)[number]["value"];
@@ -95,18 +99,34 @@ const MODULE_OF: Record<CustomPortKey, string> = {
   packageRegistry: "publishedPackage",
 };
 
+/** Files of another CI service: with one of them, GitHub alone does not mean GitHub Actions. */
+const OTHER_CI = [
+  ".circleci",
+  ".gitlab-ci.yml",
+  ".travis.yml",
+  ".buildkite",
+  "azure-pipelines.yml",
+  "bitbucket-pipelines.yml",
+  "Jenkinsfile",
+];
+
 /** What proves each ready-made flow adapter fits this repository: hard evidence only. */
 const flowEvidence = async (context: SetupContext): Promise<Record<FlowPort, string | null>> => {
   const { files, shell, root } = context;
   const remote = files.exists(".git")
     ? (await shell.capture("git", ["remote", "get-url", "origin"], { cwd: root })).stdout.trim()
     : "";
-  const github = /github\.com[:/]([^/]+\/[^/.]+)/.exec(remote)?.[1];
+  const github = githubRepository(remote);
   const workflows = files.list(".github/workflows").filter((file) => /\.ya?ml$/.test(file));
   return {
     sourceControl: files.exists(".git") ? ".git" : null,
     codeHost: github ? `remote github.com/${github}` : null,
-    ciPipeline: workflows[0] ? `.github/workflows/${workflows[0]}` : null,
+    // On GitHub, Actions is there to use: no workflow has to exist yet.
+    ciPipeline: workflows[0]
+      ? `.github/workflows/${workflows[0]}`
+      : github && !OTHER_CI.some((file) => files.exists(file))
+        ? `comes with GitHub`
+        : null,
     versioning: files.exists(CHANGESETS_CONFIG_FILE) ? CHANGESETS_CONFIG_FILE : null,
   };
 };
@@ -140,11 +160,17 @@ const customWrites = (port: CustomPortKey, name: string, pkg: string): Write[] =
 ];
 
 /** What both ways of versioning need: the changesets config, and its CLI when it is missing. */
-const changesetsWrites = ({ files }: SetupContext): Write[] => {
+const changesetsWrites = async ({ files, shell, root }: SetupContext): Promise<Write[]> => {
+  const head = await shell.capture(
+    "git",
+    ["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"],
+    { cwd: root },
+  );
+  const baseBranch = head.stdout.trim().replace(/^origin\//, "") || "main";
   const manifest = readManifest({ files, dir: "." });
   const present = { ...manifest?.dependencies, ...manifest?.devDependencies }[CHANGESETS_CLI.name];
   return [
-    { file: CHANGESETS_CONFIG_FILE, text: CHANGESETS_CONFIG, created: true },
+    { file: CHANGESETS_CONFIG_FILE, text: changesetsConfig(baseBranch), created: true },
     ...(manifest === null || present
       ? []
       : [
@@ -201,7 +227,7 @@ const chooseVersioning = async (
     writes.push(...customWrites("versioning", name, pkg));
     return { factory: name, from: customFiles(name).from, name: `${customFiles(name).from}.ts` };
   }
-  writes.push(...changesetsWrites(context));
+  writes.push(...(await changesetsWrites(context)));
   return picked === "commits" ? COMMITS_VERSIONING : DEFAULT_FLOW.versioning;
 };
 
@@ -236,9 +262,9 @@ const chooseFlow = async (
     return null;
   }
   const flow = { ...DEFAULT_FLOW };
-  // Only how it versions is left open: the rest is proven, so nothing else is asked.
-  for (const port of missing.length > 0 ? FLOW_PORTS : (["versioning"] as const)) {
-    if (port === "versioning" && !evidence.versioning) {
+  // What is proven is not asked.
+  for (const port of FLOW_PORTS.filter((port) => !evidence[port])) {
+    if (port === "versioning") {
       const choice = await chooseVersioning(context, yes, writes, pkg);
       if (choice === null) return null;
       flow.versioning = choice;
@@ -251,11 +277,11 @@ const chooseFlow = async (
         {
           value: "ready",
           label: ready,
-          hint: `${DEFAULT_FLOW[port].from}${evidence[port] ? "" : ", not found here"}`,
+          hint: `${DEFAULT_FLOW[port].from}, not found here`,
         },
         { value: "custom", label: "Custom", hint: "a no-op in memory you implement" },
       ],
-      evidence[port] ? "ready" : "custom",
+      "custom",
     );
     if (picked === null) return null;
     if (picked === "custom") {
@@ -327,6 +353,10 @@ interface Placed {
   reason?: string;
 }
 
+/** A package npm never publishes: with no sign of a host either, it ships inside the others. */
+const isPrivate = (folder: FolderView) =>
+  /"private"\s*:\s*true/.test(folder.read("package.json") ?? "");
+
 /** How a folder ships: taken when an adapter is sure, asked otherwise. Null: not shipped. */
 const placeFolder = async (
   context: SetupContext,
@@ -341,9 +371,11 @@ const placeFolder = async (
   },
 ): Promise<Placed | "skip" | null> => {
   const { prompter, output, adapters } = context;
-  const sure = adapters
-    .map((adapter) => ({ adapter, detection: adapter.detect?.(folder) ?? null }))
-    .find(({ detection }) => detection?.certainty === "found");
+  const detected = adapters.map((adapter) => ({
+    adapter,
+    detection: adapter.detect?.(folder) ?? null,
+  }));
+  const sure = detected.find(({ detection }) => detection?.certainty === "found");
   const place = (adapter: AnyDeliveryAdapter) => {
     const { name, entry } = placeModule(adapter, state.modules, state.pkg);
     if (entry) {
@@ -355,7 +387,7 @@ const placeFolder = async (
   if (sure?.detection) {
     const kind = APP_KINDS.find(({ value }) => value === sure.adapter.capability)?.label ?? "";
     output.line(
-      `  ${ok} ${folder.dir.padEnd(18)}${kind} → ${sure.adapter.name}   ${paint("dim", `proof: ${sure.detection.reason}`)}`,
+      `  ${ok} ${column(folder.dir)}${kind} → ${sure.adapter.name}   ${paint("dim", `proof: ${sure.detection.reason}`)}`,
     );
     const options = await askOptions(
       context,
@@ -375,16 +407,27 @@ const placeFolder = async (
     state.needsPerson.push(`${folder.dir} (no adapter is sure what it is)`);
     return null;
   }
-  output.line(`  ${unsure} ${folder.dir.padEnd(18)}${paint("dim", "not sure what this is")}`);
+  // Not proof enough to take, but enough to suggest.
+  const guess = (["likely", "possible"] as const)
+    .map((certainty) => detected.find(({ detection }) => detection?.certainty === certainty))
+    .find(Boolean);
+  const said = guess?.detection
+    ? `maybe ${guess.adapter.name}: ${guess.detection.reason}`
+    : "not sure what this is";
+  output.line(`  ${unsure} ${column(folder.dir)}${paint("dim", said)}`);
   // The modules the config already has come first: your own adapters included.
-  const answer = await prompter.select<string>(`What is ${folder.dir}?`, [
-    ...state.modules.map((module) => ({
-      value: `module:${module.name}`,
-      label: `Like ${module.name}`,
-      hint: `${module.kind} on ${module.provider}, already in your config`,
-    })),
-    ...APP_KINDS.map(({ value, label, hint }) => ({ value, label, hint })),
-  ]);
+  const answer = await prompter.select<string>(
+    `What is ${folder.dir}?`,
+    [
+      ...state.modules.map((module) => ({
+        value: `module:${module.name}`,
+        label: `Like ${module.name}`,
+        hint: `${module.kind} on ${module.provider}, already in your config`,
+      })),
+      ...APP_KINDS.map(({ value, label, hint }) => ({ value, label, hint })),
+    ],
+    guess?.adapter.capability ?? (isPrivate(folder) ? "skip" : undefined),
+  );
   if (answer === null) return null;
   if (answer.startsWith("module:")) {
     return { folder, module: answer.slice("module:".length), options: {} };
@@ -401,12 +444,13 @@ const placeFolder = async (
             ...fitting.map((adapter) => ({ value: adapter.name, label: adapter.name })),
             { value: "custom", label: "Custom", hint: "a no-op adapter you implement" },
           ],
-          fitting[0]?.name,
+          (fitting.find(({ name }) => name === guess?.adapter.name) ?? fitting[0])?.name,
         );
   if (picked === null) return null;
   const adapter = fitting.find(({ name }) => name === picked);
   if (adapter) {
-    const options = await askOptions(context, folder, adapter, {}, false);
+    const known = guess?.adapter === adapter ? (guess.detection?.options ?? {}) : {};
+    const options = await askOptions(context, folder, adapter, known, false);
     return { folder, module: place(adapter), options };
   }
   const port = CUSTOM_PORT_OF[kind];

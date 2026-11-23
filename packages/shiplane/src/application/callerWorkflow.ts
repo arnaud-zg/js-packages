@@ -23,11 +23,13 @@ export const callerNeedsOf = (release: Release): CallerNeeds => ({
 });
 
 /** The workflow a repository ships from, as its CI pipeline writes it; null when it writes none. */
-const callerOf = ({ version, root, shell }: SetupContext, release: Release) => {
+const callerOf = ({ version, root, shell, files }: SetupContext, release: Release) => {
   const ci = release.flow.ciPipeline.create({ root, shell });
   const file = ci.workflowFile?.(ci.shipWorkflow);
   const make = ci.callerWorkflow;
   if (!version || !file || !make) return null;
+  // A release that ships from this machine runs no workflow; one already there is still checked.
+  if (release.via === "local" && !files.exists(file)) return null;
   const needs = callerNeedsOf(release);
   return {
     file,
