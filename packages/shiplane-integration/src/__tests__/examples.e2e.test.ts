@@ -53,6 +53,13 @@ const EXAMPLES: Example[] = [
     runs: [["ship", "--dry-run"]],
   },
   {
+    name: "shiplane-github-pages",
+    package: "packages/shiplane-github-pages",
+    folder: "examples",
+    shows: ["shiplane.config.ts", "apps/site/shiplane.unit.yml"],
+    runs: [["ship", "--dry-run"]],
+  },
+  {
     name: "shiplane-eas",
     package: "packages/shiplane-eas",
     folder: "examples",

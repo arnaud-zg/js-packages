@@ -34,9 +34,9 @@ in the first table, then pick the page that matches what you need right now.
 
 Each is a dependency of your project, not of the others: installing one never pulls in another.
 
-shiplane plugins (`@shiplane/git`, `github`, `changesets`, `fly`, `cloudflare-pages`, `eas`, `npm`):
-each README has its install, options and an example; [shiplane § Plugins](./shiplane/plugins.md)
-lists them all.
+shiplane plugins (`@shiplane/git`, `github`, `changesets`, `fly`, `cloudflare-pages`,
+`github-pages`, `eas`, `npm`): each README has its install, options and an example;
+[shiplane § Plugins](./shiplane/plugins.md) lists them all.
 
 ## 🤝 Contributing to this repo
 

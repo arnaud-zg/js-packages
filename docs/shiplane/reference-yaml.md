@@ -65,6 +65,7 @@ your own adapters for your editor. How to write one: [How-to: YAML config](./how
 | Name               | What it does                                            | `with`  |
 | ------------------ | ------------------------------------------------------- | ------- |
 | `cloudflare-pages` | Deploys each site to Cloudflare Pages, through wrangler | nothing |
+| `github-pages`     | Deploys each site to GitHub Pages, through a branch     | nothing |
 
 ### `mobileDistribution`
 

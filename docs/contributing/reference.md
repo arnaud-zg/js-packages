@@ -12,7 +12,7 @@ packages/
   vite-workspace-resolver/  src/index.ts (Vite plugin)
   agent-context-budget/     src/index.ts (programmatic API), src/cli.ts (bin entry point)
   shiplane/                 src/cli.ts (bin entry point), the release core
-  shiplane-<host>/          one plugin per host: changesets, cloudflare-pages, eas, fly, git, github, npm
+  shiplane-<host>/          one plugin per host: changesets, cloudflare-pages, eas, fly, git, github, github-pages, npm
   shiplane-integration/     private: tests across several plugins
 docs/                       this documentation
 ```

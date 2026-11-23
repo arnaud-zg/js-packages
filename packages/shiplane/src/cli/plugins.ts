@@ -54,9 +54,16 @@ export const installedAdapters = async (root: string): Promise<AnyDeliveryAdapte
 };
 
 /** Every plugin this repository publishes, looked for whether or not package.json lists it. */
-const FIRST_PARTY = ["git", "github", "changesets", "npm", "fly", "cloudflare-pages", "eas"].map(
-  (name) => `@shiplane/${name}`,
-);
+const FIRST_PARTY = [
+  "git",
+  "github",
+  "changesets",
+  "npm",
+  "fly",
+  "cloudflare-pages",
+  "github-pages",
+  "eas",
+].map((name) => `@shiplane/${name}`);
 
 /**
  * What a shiplane.yml can name in this repository: shiplane's own modules, then the catalog of each
