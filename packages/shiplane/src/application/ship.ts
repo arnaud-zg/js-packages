@@ -13,6 +13,7 @@ import { yesAllowed } from "../domain/governance";
 import { prepareLine } from "../domain/prepare";
 import { choosesPath, forcedPath, routeChoice, shipRuns } from "../domain/shipRoute";
 import { askPaths, ciLabel, pathLabel } from "./askPath";
+import { buildingIfNeeded } from "./buildIfNeeded";
 import { checkEnvBeforeDeploy } from "./checkEnvBeforeDeploy";
 import { runFollowUps } from "./followUps";
 import { mapLimit } from "./mapLimit";
@@ -431,8 +432,10 @@ export const preparing = (
   };
 };
 
-const prepareStep = (context: ReleaseContext, { unit, input }: Ready): ShipStep[] => {
-  const step = preparing(context, unit, input.tag);
+const prepareStep = (context: ReleaseContext, { unit, input, jobs }: Ready): ShipStep[] => {
+  const step =
+    preparing(context, unit, input.tag) ??
+    buildingIfNeeded(context, { unit, tag: input.tag, jobs });
   if (step === null) return [];
   return [
     {

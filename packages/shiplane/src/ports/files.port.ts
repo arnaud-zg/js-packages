@@ -2,6 +2,8 @@
 export interface Files {
   exists: (file: string) => boolean;
   read: (file: string) => string | null;
+  /** When a file or folder last changed, in milliseconds; null when it does not exist. */
+  modifiedAt: (file: string) => number | null;
   write: (file: string, text: string) => void;
   /**
    * Adds text at the end of a file, made when missing. An absolute path may sit outside the

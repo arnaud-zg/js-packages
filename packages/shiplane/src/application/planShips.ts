@@ -3,6 +3,7 @@ import type { Shipped } from "../modules/module";
 import type { ReleaseContext } from "./context";
 import { prepareLine } from "../domain/prepare";
 import { ciLabel } from "./askPath";
+import { neededBuild } from "./buildIfNeeded";
 import { planFollowUps } from "./followUps";
 import { releaseOrder } from "./releaseOrder";
 import { paint } from "./say";
@@ -33,10 +34,14 @@ export const planShips = async (context: ReleaseContext, environment: Environmen
     output.line(
       `  ${paint("bold", tag)} → ${plan.where}${tagged ? "" : paint("yellow", "  (not tagged yet: release first)")}`,
     );
+    const build = neededBuild(context, unit, plan.jobs);
     plan.jobs.forEach((job, index) => {
       output.line(`    ${paint("dim", "this machine")}`);
       if (index === 0 && release.prepare !== undefined) {
         output.line(`      sh -c ${JSON.stringify(prepareLine(release.prepare, unit))}`);
+      }
+      if (index === 0 && build) {
+        output.line(`      ${build.shown}  ${paint("dim", `(in ${unit.dir}, if needed)`)}`);
       }
       job.local.forEach((command) => output.line(`      ${commandLine(command)}`));
       if (job.record)

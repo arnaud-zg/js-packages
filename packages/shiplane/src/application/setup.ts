@@ -7,6 +7,7 @@ import type { CustomPortKey } from "./customAdapter";
 import type { SetupContext } from "./setupContext";
 import type { FlowChoice, FlowPort, ModuleEntry } from "./setupFiles";
 import { moduleFor } from "../modules/suggest";
+import { runner } from "./buildCommand";
 import { callerWrite, renovateWrite } from "./callerWorkflow";
 import { UNIT_FILE, UNIT_FILES } from "./config/readUnitFile";
 import { expandPatterns, workspacePatterns } from "./config/workspaceFolders";
@@ -22,7 +23,7 @@ import {
 } from "./customAdapter";
 import { askOptions } from "./initRelease";
 import { readManifest } from "./manifest";
-import { rehearse, runner } from "./rehearse";
+import { rehearse } from "./rehearse";
 import { paint } from "./say";
 import {
   addToConfig,

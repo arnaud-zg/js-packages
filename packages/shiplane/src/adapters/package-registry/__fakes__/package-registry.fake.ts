@@ -59,6 +59,7 @@ export class PackageRegistryFake implements PackageRegistryPort {
       {
         label: `publish ${unit.packageName}@${unit.version} under ${PackageSettings.parse(options).tag} (fake)`,
         local: [{ command: "echo", args: ["publish", unit.packageName, unit.version] }],
+        needsBuild: true,
       },
     ];
   };

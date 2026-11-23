@@ -116,6 +116,23 @@ saying to rename it.
 **Release order:** by module in `modules` order, then by name. An app reading another's value
 (`${units.api.url}`) must come after it, or loading fails and names the module to move.
 
+### Build before publishing
+
+Right before a package publishes, shiplane runs its `buildCommand`, else its `build` script, when
+its build is missing or out of date. It never runs when the config has a `prepare`, which always
+runs instead, and never for an app its host builds.
+
+| It builds when                                                               | Compared with            |
+| ---------------------------------------------------------------------------- | ------------------------ |
+| An entry file (`main`, `module`, `types`, `bin`, `exports`) is missing       | `publishConfig` wins     |
+| A source, a root file or a workspace package it uses is newer than an entry  | Entries git ignores only |
+| No entry is a file git ignores, so nothing says whether the build is current |                          |
+
+The workspace packages it uses are checked and built first, development ones included. A failed
+build publishes nothing. `--dry-run` shows the command, marked "if needed".
+
+Source: `src/application/buildIfNeeded.ts`.
+
 ## `shiplane.unit.yml`
 
 One per app, next to its `package.json`, which gives its name and version. Every module has one;

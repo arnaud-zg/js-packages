@@ -117,6 +117,9 @@ folder.
 export default defineRelease({ prepare: "pnpm turbo run build typecheck --filter=./{dir}" });
 ```
 
+Without `prepare`, a package about to publish from this machine, the runner, or as a test release
+[builds only if needed](./reference.md#build-before-publishing).
+
 **Push as an app, not as Actions.** A push with the default token never starts another workflow. Add
 secrets `SHIPLANE_APP_ID` and `SHIPLANE_APP_PRIVATE_KEY` of a GitHub App installed on the repo, pass
 both under `secrets:` in `ship.yml`, and the workflow uses its token instead.

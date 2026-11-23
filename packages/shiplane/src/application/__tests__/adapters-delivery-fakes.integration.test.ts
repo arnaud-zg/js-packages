@@ -178,6 +178,7 @@ describe("rehearsing a delivery in memory while a custom adapter is written", ()
         {
           label: "publish @acme/app@1.1.0 under next (fake)",
           local: [{ command: "echo", args: ["publish", "@acme/app", "1.1.0"] }],
+          needsBuild: true,
         },
       ],
     });

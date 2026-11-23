@@ -2,7 +2,7 @@ import path from "node:path";
 
 import type { ReleaseUnit } from "../domain/unit";
 import type { SetupContext } from "./setupContext";
-import { readManifest } from "./manifest";
+import { buildCommandOf } from "./buildCommand";
 import { checkStatus, requirementsOf } from "./requirements";
 import { paint, reasonOf } from "./say";
 import { checkout, commandLine, shipPlanOf, unitTarget } from "./targets";
@@ -33,25 +33,6 @@ const check = async (context: SetupContext, label: string, work: () => Promise<b
     sayFailed(context, { label, error });
     return false;
   }
-};
-
-/** The package manager this repository runs scripts with. */
-export const runner = (context: SetupContext) =>
-  context.files.exists("pnpm-lock.yaml")
-    ? "pnpm"
-    : context.files.exists("yarn.lock")
-      ? "yarn"
-      : context.files.exists("bun.lock") || context.files.exists("bun.lockb")
-        ? "bun"
-        : "npm";
-
-/** How a unit builds: its `buildCommand:`, else its package.json "build" script, else nothing. */
-export const buildCommandOf = (context: SetupContext, unit: ReleaseUnit) => {
-  if (unit.buildCommand)
-    return { command: "sh", args: ["-c", unit.buildCommand], shown: unit.buildCommand };
-  if (!readManifest({ files: context.files, dir: unit.dir })?.scripts?.build) return null;
-  const pm = runner(context);
-  return { command: pm, args: ["run", "build"], shown: `${pm} run build` };
 };
 
 /**
