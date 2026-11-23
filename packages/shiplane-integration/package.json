@@ -31,6 +31,7 @@
     "@shiplane/fly": "workspace:*",
     "@shiplane/git": "workspace:*",
     "@shiplane/github": "workspace:*",
+    "@shiplane/github-pages": "workspace:*",
     "@shiplane/npm": "workspace:*",
     "@types/node": "catalog:node",
     "eslint": "catalog:",

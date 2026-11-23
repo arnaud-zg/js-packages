@@ -67,6 +67,7 @@ the environment.
 | shiplane-npm              | `npm login`                      | none: it publishes from this machine            |
 | shiplane-fly              | `flyctl auth login`              | `FLY_API_TOKEN`                                 |
 | shiplane-cloudflare-pages | `npx wrangler login`             | `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` |
+| shiplane-github-pages     | `git push` access                | none: it ships from this machine                |
 | shiplane-eas              | `pnpm exec eas login` in the app | `EXPO_TOKEN`                                    |
 
 `pnpm shiplane doctor` checks each one and offers its fix; `pnpm shiplane` checks them before it

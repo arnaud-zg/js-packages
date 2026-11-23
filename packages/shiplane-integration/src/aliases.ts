@@ -1,7 +1,16 @@
 import { createRequire } from "node:module";
 
 /** Every plugin this repository publishes, by its name under `@shiplane/`. */
-export const PLUGINS = ["git", "github", "changesets", "fly", "cloudflare-pages", "eas", "npm"];
+export const PLUGINS = [
+  "git",
+  "github",
+  "changesets",
+  "fly",
+  "cloudflare-pages",
+  "github-pages",
+  "eas",
+  "npm",
+];
 
 /** Resolves a package as this workspace installed it. */
 export const resolved = createRequire(import.meta.url).resolve;

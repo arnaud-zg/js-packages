@@ -5,6 +5,7 @@ import { catalog as eas } from "@shiplane/eas";
 import { catalog as fly } from "@shiplane/fly";
 import { catalog as git } from "@shiplane/git";
 import { catalog as github } from "@shiplane/github";
+import { catalog as githubPages } from "@shiplane/github-pages";
 import { catalog as npm } from "@shiplane/npm";
 import { releaseFlow } from "shiplane";
 import { ciPipelineFake, codeHostFake, sourceControlFake, versioningFake } from "shiplane/testing";
@@ -17,6 +18,7 @@ const PLUGINS: Record<string, readonly CatalogEntry[]> = {
   fly,
   git,
   github,
+  "github-pages": githubPages,
   npm,
 };
 
@@ -44,6 +46,7 @@ describe("every first-party plugin's catalog", () => {
         "adapter github-actions → ciPipeline",
         "feature release-comments",
       ],
+      "github-pages": ["adapter github-pages → staticHosting"],
       npm: ["adapter npm → packageRegistry"],
     });
   });

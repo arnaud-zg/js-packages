@@ -1,0 +1,61 @@
+{
+  "name": "@shiplane/github-pages",
+  "version": "0.5.2",
+  "description": "GitHub Pages plugin for shiplane: deploy a static site and its preview to one branch.",
+  "keywords": [
+    "shiplane",
+    "github-pages",
+    "static-site",
+    "deploy"
+  ],
+  "homepage": "https://github.com/arnaud-zg/packages/tree/main/packages/shiplane-github-pages#readme",
+  "bugs": {
+    "url": "https://github.com/arnaud-zg/packages/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arnaud-zg/packages.git",
+    "directory": "packages/shiplane-github-pages"
+  },
+  "license": "MIT",
+  "author": "Arnaud Zheng <arnaud.zg@gmail.com>",
+  "sideEffects": false,
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.js",
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "clean": "git clean -xdf .cache .turbo dist node_modules",
+    "format": "prettier --write . --cache --cache-location .cache/.prettiercache",
+    "lint": "eslint --cache --cache-location .cache/.eslintcache",
+    "test": "vitest run",
+    "test:mutate": "stryker run ../../stryker.config.mjs",
+    "typecheck": "tsc -p tsconfig.typecheck.json"
+  },
+  "devDependencies": {
+    "@arnaud-zg/configs": "catalog:",
+    "@types/node": "catalog:node",
+    "eslint": "catalog:",
+    "gh-pages": "6.3.0",
+    "prettier": "catalog:",
+    "shiplane": "workspace:*",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "shiplane": "workspace:*"
+  },
+  "shiplane": {
+    "adapters": [
+      "githubPagesStaticHosting"
+    ]
+  }
+}

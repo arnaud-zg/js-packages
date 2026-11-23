@@ -16,6 +16,7 @@ flowchart LR
     CS["shiplane-changesets"] --> VE["Versioning"]
     FLY["shiplane-fly"] --> SH["Server hosting"]
     CF["shiplane-cloudflare-pages"] --> ST["Static hosting"]
+    GHP["shiplane-github-pages"] --> ST
     EAS["shiplane-eas"] --> MD["Mobile distribution"]
     NPM["shiplane-npm"] --> PR["Package registry"]
 ```
@@ -30,6 +31,7 @@ flowchart LR
 | [shiplane-changesets](../../packages/shiplane-changesets/README.md)             | `changesetsVersioning()`, `commitsVersioning()` | Versioning          | `releaseFlow`      |
 | [shiplane-fly](../../packages/shiplane-fly/README.md)                           | `flyServerHosting()`                            | Server hosting      | `backendService`   |
 | [shiplane-cloudflare-pages](../../packages/shiplane-cloudflare-pages/README.md) | `cloudflarePagesStaticHosting()`                | Static hosting      | `webApp`           |
+| [shiplane-github-pages](../../packages/shiplane-github-pages/README.md)         | `githubPagesStaticHosting()`                    | Static hosting      | `webApp`           |
 | [shiplane-eas](../../packages/shiplane-eas/README.md)                           | `easMobileDistribution()`                       | Mobile distribution | `mobileApp`        |
 | [shiplane-npm](../../packages/shiplane-npm/README.md)                           | `npmPackageRegistry()`                          | Package registry    | `publishedPackage` |
 

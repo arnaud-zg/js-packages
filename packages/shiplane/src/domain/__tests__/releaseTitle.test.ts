@@ -11,7 +11,16 @@ const bump = (app: string, to = "0.1.0"): AppBump => ({
   notes: [],
   movedWith: [],
 });
-const PLUGINS = ["changesets", "cloudflare-pages", "eas", "fly", "git", "github", "npm"];
+const PLUGINS = [
+  "changesets",
+  "cloudflare-pages",
+  "eas",
+  "fly",
+  "git",
+  "github",
+  "github-pages",
+  "npm",
+];
 const shiplane = (to = "0.1.0") => [
   bump("shiplane", to),
   ...PLUGINS.map((name) => bump(`shiplane-${name}`, to)),
