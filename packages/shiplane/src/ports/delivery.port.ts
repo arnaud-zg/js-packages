@@ -216,6 +216,10 @@ export interface Requirement {
   install?: { command: Command; path?: string };
   /** The variables a runner sets instead of signing in, such as `FLY_API_TOKEN`. */
   secrets?: string[];
+  /** What the runner's token must be allowed, such as `{ contents: "write" }`. */
+  permissions?: Record<string, "read" | "write">;
+  /** Variables, not secrets, the runner takes from its CI's settings, such as `PUBLIC_API_URL`. */
+  variables?: string[];
 }
 
 /** A value per environment becomes the value itself, at any depth. */

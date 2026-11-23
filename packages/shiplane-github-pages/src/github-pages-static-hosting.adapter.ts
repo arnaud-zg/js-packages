@@ -25,6 +25,10 @@ const GithubPagesOptions = z.object({
     .record(z.string(), perEnv(z.string()))
     .optional()
     .describe("Variables the build reads, per environment"),
+  variables: z
+    .array(z.string().regex(/^[A-Z][A-Z0-9_]*$/, "a variable name is UPPER_SNAKE, like SITE_KEY"))
+    .default([])
+    .describe("Variables the build reads from this machine or, on CI, from GitHub's variables"),
 });
 
 const addressOf = (url: string, environment: string) => {
@@ -41,7 +45,14 @@ const siteOf = (remote: string) => {
 // On a branch that does not exist, gh-pages starts from the repository's own files and publishes
 // them. So the branch is there first, empty. An existing one refuses this push: it is not forced.
 const START =
-  'git ls-remote --exit-code --heads origin "$1" >/dev/null || git push origin "$(git commit-tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904 -m "start $1")":"refs/heads/$1"';
+  // A runner has no identity and no sign-in of its own outside its checkout.
+  '[ -z "$GITHUB_ACTIONS" ] || { git config --global user.name "github-actions[bot]" && git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com" && git config --global credential.https://github.com.helper "!gh auth git-credential"; } && ' +
+  '{ git ls-remote --exit-code --heads origin "$1" >/dev/null || git push origin "$(git commit-tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904 -m "start $1")":"refs/heads/$1"; }';
+
+// A push made with a workflow's token builds no Pages site: it is asked for. Not asked, or refused,
+// the files are there all the same.
+const ASK =
+  '[ -z "$GITHUB_ACTIONS" ] || gh api -X POST "repos/$GITHUB_REPOSITORY/pages/builds" --silent || echo "Pages was not asked to build: ship again, or build it from Settings > Pages"';
 
 const startBranch = (branch: string): Command => ({
   command: "sh",
@@ -78,6 +89,18 @@ export const githubPagesStaticHosting = (): GithubPagesStaticHostingAdapter =>
             },
           ]
         : [],
+    requirements: (unit) => {
+      const { variables } = GithubPagesOptions.partial({ url: true }).parse(unit.options);
+      return [
+        {
+          label: "GitHub Pages",
+          check: { command: "git", args: ["ls-remote", "--quiet", "origin", "HEAD"] },
+          secrets: ["GH_TOKEN"],
+          permissions: { contents: "write", pages: "write" },
+          ...(variables.length > 0 ? { variables } : {}),
+        },
+      ];
+    },
     jobs: ({ unit, tag, environment, options, defaultBranch }) => {
       const { branch, domain } = options;
       if (branch === defaultBranch) {
@@ -111,7 +134,9 @@ export const githubPagesStaticHosting = (): GithubPagesStaticHostingAdapter =>
                 environment === PREVIEW ? `--dest=${PREVIEW}` : `--remove={${KEPT},${KEPT}/**}`,
               ],
             },
+            { command: "sh", args: ["-c", ASK] },
           ],
+          ci: { ref: tag },
           record: true,
         },
       ];

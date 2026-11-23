@@ -223,7 +223,9 @@ starts on the tag, as before.
 It passes, by name, only the secrets the configured adapters read (their requirements' `secrets`,
 sorted, but `GH_TOKEN`, which `shiplane-ship.yml` sets itself), and no `secrets:` key when none
 does. Its `permissions:` are `contents: read`, `deployments: write`, `actions: read`, plus
-`issues: write` and `pull-requests: write` when `features` holds `releaseComments`.
+`issues: write` and `pull-requests: write` when `features` holds `releaseComments`. An adapter can
+ask for more, such as `contents: write` and `pages: write` for GitHub Pages. The `variables` a
+unit's build reads are passed by name too, from the repository's or the environment's variables.
 
 `shiplane-ship.yml` declares the secrets it accepts, and gives them, with `GH_TOKEN`, only to its
 `Check what ships` and `Ship` steps' `env:`; nothing goes to `$GITHUB_ENV`:

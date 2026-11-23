@@ -28,13 +28,16 @@ const isMissing = (error: unknown) =>
 const SHIPLANE_REPO = "arnaud-zg/js-packages";
 
 /** What shiplane's workflow may do: comment on PRs and issues only with release comments. */
-const permissionsOf = ({ features }: CallerNeeds) => [
-  "permissions:",
-  "  contents: read",
-  "  deployments: write",
-  "  actions: read",
-  ...(features.includes("release-comments") ? ["  issues: write", "  pull-requests: write"] : []),
-];
+const permissionsOf = ({ features, permissions = {} }: CallerNeeds) => {
+  const allowed = {
+    contents: "read",
+    deployments: "write",
+    actions: "read",
+    ...(features.includes("release-comments") ? { issues: "write", "pull-requests": "write" } : {}),
+    ...permissions,
+  };
+  return ["permissions:", ...Object.entries(allowed).map(([name, level]) => `  ${name}: ${level}`)];
+};
 
 /** Each secret its adapters read, passed by name: GitHub hands a called workflow no other. */
 const secretsOf = ({ secrets }: CallerNeeds) =>
@@ -76,6 +79,7 @@ const callerContent = (sha: string, version: string, needs: CallerNeeds) =>
     "      units: ${{ inputs.units }}",
     "      environment: ${{ inputs.environment }}",
     "      ref: ${{ inputs.ref }}",
+    ...(needs.variables ? [`      variables: ${needs.variables.join(" ")}`] : []),
     ...secretsOf(needs),
     "",
   ].join("\n");
