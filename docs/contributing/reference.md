@@ -45,6 +45,19 @@ source maps map back to the source. `expo-pnpm-catalog` and `agent-context-budge
 | `pnpm release`                 | `pnpm build && shiplane`, see [How-to](./how-to.md#release-a-new-version)       |
 | `pnpm shiplane status`         | what each package would release next                                            |
 
+## Maturity indicators
+
+Three signs of outside traction, per package. Not strict: **2 of the 3** open the discussion about a
+dedicated repo. Why: see [Explanation](./explanation.md#why-this-repo-is-an-incubator).
+
+| Indicator            | Reached at                                         | Where to look                                    |
+| -------------------- | -------------------------------------------------- | ------------------------------------------------ |
+| npm downloads        | 5,000 a month, 3 months in a row                   | `https://npm-stat.com/charts.html?package=<pkg>` |
+| Issues from users    | 10 in total, not opened by the maintainer or a bot | The `pkg: <name>` label                          |
+| Outside contributors | 3 people with a merged pull request                | Merged pull requests touching `packages/<dir>`   |
+
+A family counts as one package: `shiplane` and its `@shiplane/*` plugins move together.
+
 ## Findability rules
 
 For every published package. Why: see
