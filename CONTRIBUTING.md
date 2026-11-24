@@ -58,7 +58,7 @@ gh pr create
 
 - Keep one change per pull request, with a
   [conventional commit](https://www.conventionalcommits.org) title such as `fix(shiplane): ...`: it
-  becomes the commit on `main`.
+  becomes the commit on `main`. The scope is required.
 - Say what changes and why, and link the issue (`Closes #123`).
 - Run `pnpm verify` before asking for a review: no CI runs it on pull requests.
 
