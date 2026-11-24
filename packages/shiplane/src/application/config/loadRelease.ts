@@ -377,7 +377,9 @@ export const loadRelease = async (root: string, ports: LoadPorts): Promise<Relea
       if (!manifest) {
         problems.push({
           file: relative,
-          message: "no package.json next to it to read its name and version",
+          message: fs.existsSync(path.join(root, dir, "package.json"))
+            ? "the package.json next to it needs a name and a version"
+            : "no package.json next to it to read its name and version",
         });
       }
       if (!result.unit || !manifest) return [];

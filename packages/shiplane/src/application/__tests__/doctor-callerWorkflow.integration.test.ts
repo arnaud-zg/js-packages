@@ -82,6 +82,17 @@ describe("Feature: doctor checks the workflow a repository ships from", () => {
     expect(prompter.asked).toEqual([]);
   });
 
+  it("given a release that ships from this machine and no ship.yml, when doctor runs, then it asks for none", async () => {
+    const { context, output, prompter } = given();
+    const load = context.load;
+    context.load = async () => ({ ...(await load()), via: "local" });
+
+    expect(await doctor(context)).toBe(true);
+
+    expect(output.text).not.toContain("ship.yml");
+    expect(prompter.asked).toEqual([]);
+  });
+
   it("given no ship.yml, when doctor runs and the person agrees, then it is written", async () => {
     const { context, output, prompter, files } = given();
     prompter.answer(true);

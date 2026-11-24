@@ -128,8 +128,8 @@ describe("Feature: setting up a new repository", () => {
 describe("Feature: custom adapters", () => {
   it("given a CI pipeline nothing proves, when Custom is picked and named, then its adapter and contract test are written and imported", async () => {
     const { ".github/workflows/ci.yml": _ci, ...noActions } = PROVEN;
-    const { context, prompter, files } = given(noActions);
-    prompter.answer("ready", "ready", "custom", "jenkinsCiPipeline", "ready", true, true);
+    const { context, prompter, files } = given({ ...noActions, Jenkinsfile: "pipeline {}" });
+    prompter.answer("custom", "jenkinsCiPipeline", true, true);
 
     expect(await setup(context, { yes: false })).toBe(true);
 
@@ -144,8 +144,8 @@ describe("Feature: custom adapters", () => {
 
   it("given a name that is not a factory name, when it is typed, then it is asked again", async () => {
     const { ".github/workflows/ci.yml": _ci, ...noActions } = PROVEN;
-    const { context, prompter, output } = given(noActions);
-    prompter.answer("ready", "ready", "custom", "jenkins-ci", "jenkinsCi", "ready", true, true);
+    const { context, prompter, output } = given({ ...noActions, Jenkinsfile: "pipeline {}" });
+    prompter.answer("custom", "jenkins-ci", "jenkinsCi", true, true);
 
     expect(await setup(context, { yes: false })).toBe(true);
 

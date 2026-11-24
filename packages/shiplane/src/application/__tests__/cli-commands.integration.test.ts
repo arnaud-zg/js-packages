@@ -117,6 +117,26 @@ const given = ({
 };
 
 describe("Feature: finding the right command from the help", () => {
+  it.each([[["--help"]], [["setup", "--help"]], [["-h"]]])(
+    "given %j, when it is run, then the help is shown and nothing else happens",
+    async (argv) => {
+      const { run } = given();
+
+      expect(await run(...argv)).toBe(0);
+
+      expect(stdout()).toContain("shiplane help all");
+    },
+  );
+
+  it("given a flag shiplane does not know, when it is run, then it says so in one line and shows the help", async () => {
+    const { run } = given();
+
+    expect(await run("status", "--chanel")).toBe(1);
+
+    expect(stdout()).toContain("✗  Unknown option '--chanel'");
+    expect(stdout()).toContain("shiplane help all");
+  });
+
   it("given a person who needs a reminder, when they run shiplane help, then the day-to-day commands are listed and the rarer ones are kept for help all", async () => {
     const { run } = given();
 

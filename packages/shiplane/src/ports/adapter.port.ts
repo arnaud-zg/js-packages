@@ -47,6 +47,8 @@ export interface DeliveryAdapter<Port extends { capability: string }> extends Ad
     folder: FolderView,
     found: Record<string, unknown>,
     repository: string,
+    /** `owner/name` on GitHub, when that is where the repository is. */
+    remote?: string,
   ) => Question[];
   /** Tools and sign-ins it needs for an app. */
   readonly requirements?: (unit: ReleaseUnit) => Requirement[];

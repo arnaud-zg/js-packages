@@ -22,7 +22,7 @@ import { planShips } from "../application/planShips";
 import { prepareRelease } from "../application/prepareRelease";
 import { promote } from "../application/promote";
 import { pruneSnapshots } from "../application/pruneSnapshots";
-import { paint } from "../application/say";
+import { paint, reasonOf } from "../application/say";
 import { setup } from "../application/setup";
 import { CONFIG_FILE, refreshEditorSchema } from "../application/setupFiles";
 import { shipTo } from "../application/ship";
@@ -100,9 +100,8 @@ const viaFlag = (value: string | undefined) => {
   return z.enum(["ci", "local"]).parse(value);
 };
 
-/** The CLI as a person runs it, from its arguments and folder; resolves to its exit code. */
-export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): Promise<number> => {
-  const { values, positionals } = parseArgs({
+const parse = (argv: string[]) =>
+  parseArgs({
     args: argv,
     allowPositionals: true,
     allowNegative: true,
@@ -121,6 +120,29 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
       format: { type: "string" },
     },
   });
+
+/** The arguments read, or why they cannot be, in one line. */
+const readArgs = (argv: string[]) => {
+  try {
+    return parse(argv);
+  } catch (error) {
+    return reasonOf(error).split(". ")[0] ?? "";
+  }
+};
+
+/** The CLI as a person runs it, from its arguments and folder; resolves to its exit code. */
+export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): Promise<number> => {
+  if (argv.includes("--help") || argv.includes("-h")) {
+    out(SHORT_HELP);
+    return 0;
+  }
+  const parsed = readArgs(argv);
+  if (typeof parsed === "string") {
+    out(`${paint("red", "✗")}  ${parsed}`);
+    out(SHORT_HELP);
+    return 1;
+  }
+  const { values, positionals } = parsed;
 
   const [command = "next", ...units] = positionals;
   // doctor --ci says an unknown channel itself, with the environments it knows.

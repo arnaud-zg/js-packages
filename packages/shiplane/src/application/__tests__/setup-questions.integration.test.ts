@@ -116,26 +116,16 @@ describe("Feature: setup says what it found", () => {
       { ...noCi, ".github/workflows/README.md": "notes" },
       { remote: "git@gitlab.com:acme/mono.git\n" },
     );
-    prompter.answer("ready", "ready", "ready", "ready", true, true);
+    prompter.answer("ready", "ready", true, true);
 
     expect(await setup(context, { yes: false })).toBe(true);
 
     expect(output.lines).toContain("  ? Code host       not sure: nothing here proves one");
     expect(output.lines).toContain("  ? CI pipeline     not sure: nothing here proves one");
-    expect(prompter.asked.slice(0, 4)).toEqual([
-      "Source control?",
-      "Code host?",
-      "CI pipeline?",
-      "Versioning?",
-    ]);
-    expect(prompter.choices["Versioning?"]?.[0]).toEqual({
-      value: "ready",
-      label: "Changesets",
-      hint: "@shiplane/changesets",
-    });
-    expect(prompter.initials["Source control?"]).toBe("ready");
+    expect(prompter.asked.slice(0, 2)).toEqual(["Code host?", "CI pipeline?"]);
+    expect(prompter.asked).not.toContain("Source control?");
+    expect(prompter.asked).not.toContain("Versioning?");
     expect(prompter.initials["Code host?"]).toBe("custom");
-    expect(prompter.choices["Source control?"]?.[0]?.hint).toBe("@shiplane/git");
     expect(prompter.choices["Code host?"]?.[0]?.hint).toBe("@shiplane/github, not found here");
   });
 
@@ -173,6 +163,86 @@ describe("Feature: setup says what it found", () => {
       cwd: "/memory/acme",
       env: undefined,
     });
+  });
+});
+
+describe("Feature: a first run on a new repository", () => {
+  const noCi = without(PROVEN, ".github/workflows/ci.yml");
+
+  it.each([
+    ["git@github.com:acme/acme.github.io.git\n", "acme/acme.github.io"],
+    ["https://github.com/acme/acme.github.io\n", "acme/acme.github.io"],
+  ])(
+    "given the remote %s, when setup reads it, then the repository keeps its dots",
+    async (remote, name) => {
+      const { context, prompter, output } = given(PROVEN, { remote });
+      prompter.answer(true, true);
+
+      await setup(context, { yes: false });
+
+      expect(output.lines).toContain(`  ✓ GitHub          remote github.com/${name}`);
+    },
+  );
+
+  it("given GitHub and no workflow yet, when setup runs, then GitHub Actions is taken without a question", async () => {
+    const { context, prompter, files } = given(noCi);
+    prompter.answer(true, true);
+
+    expect(await setup(context, { yes: false })).toBe(true);
+
+    expect(prompter.asked).not.toContain("CI pipeline?");
+    expect(files.read("shiplane.config.ts")).toContain("gitHubActionsCiPipeline()");
+  });
+
+  it("given GitHub and another CI's file, when setup runs, then the CI pipeline is asked", async () => {
+    const { context, prompter } = given({ ...noCi, Jenkinsfile: "pipeline {}" });
+    prompter.answer("ready", true, true);
+
+    await setup(context, { yes: false });
+
+    expect(prompter.asked[0]).toBe("CI pipeline?");
+  });
+
+  it("given a site an adapter finds likely, when setup asks what it is, then that answer is offered first", async () => {
+    const likely = {
+      ...pages(),
+      detect: () => ({ certainty: "likely" as const, reason: "astro.config.mjs", options: {} }),
+    };
+    const repo = memoryRepository(
+      { ...PROVEN, "apps/api/fly.toml": "", "apps/web/package.json": manifest("@acme/web") },
+      [fly(), likely],
+    );
+    repo.shell.seed("git remote get-url origin", { stdout: "git@github.com:acme/mono.git\n" });
+    repo.prompter.answer(true, "static-hosting", "pages", "acme", true);
+
+    await setup(repo.context, { yes: false });
+
+    expect(repo.prompter.initials["What is apps/web?"]).toBe("static-hosting");
+    expect(repo.output.lines).toContain("  ? apps/web          maybe pages: astro.config.mjs");
+  });
+
+  it("given a private package nothing recognises, when setup asks what it is, then nothing to release is offered first", async () => {
+    const { context, prompter, files } = given({
+      ...PROVEN,
+      "packages/ui/package.json": '{ "name": "@acme/ui", "private": true }',
+      "pnpm-workspace.yaml": "packages:\n  - apps/*\n  - packages/*\n",
+    });
+    prompter.answer(true, "skip", true);
+
+    expect(await setup(context, { yes: false })).toBe(true);
+
+    expect(prompter.initials["What is packages/ui?"]).toBe("skip");
+    expect(files.exists("packages/ui/shiplane.unit.yml")).toBe(false);
+  });
+
+  it("given a default branch that is not main, when setup configures changesets, then they start from it", async () => {
+    const { context, prompter, files, shell } = given(without(PROVEN, ".changeset/config.json"));
+    shell.seed("git symbolic-ref", { stdout: "origin/develop\n" });
+    prompter.answer("changesets", true, true);
+
+    expect(await setup(context, { yes: false })).toBe(true);
+
+    expect(files.read(".changeset/config.json")).toContain('"baseBranch": "develop"');
   });
 });
 
@@ -235,7 +305,7 @@ describe("Feature: what setup asks when nothing proves the flow", () => {
         hint: "store builds and updates",
       },
       { value: "package-registry", label: "Published package", hint: "a library others install" },
-      { value: "skip", label: "Internal tool", hint: "versioned, never deployed" },
+      { value: "skip", label: "Nothing to release", hint: "left out: no version, no deploy" },
     ]);
     expect(prompter.choices["Where does apps/web go?"]).toEqual([
       { value: "pages", label: "pages" },
