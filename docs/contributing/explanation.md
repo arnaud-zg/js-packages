@@ -10,6 +10,21 @@ never pulls in another, and each publishes and versions independently. A monorep
 dev tooling (lint, format, release process, CI) instead of duplicating it per package; nothing about
 any package's own code depends on the others existing.
 
+## Why this repo is an incubator
+
+A new idea should not need a new repo. Here it gets a toolchain and a release process from day one,
+so it can be tried, published and dropped cheaply. Some packages stay small for good, and that is
+fine: this repo is a good home for them.
+
+A package that grows needs what a shared repo cannot give it: its own issue tracker, roadmap,
+release notes, stars and maintainers. From there this repo is too small for it, and moving it out is
+the successful end of the incubation.
+
+The [maturity indicators](./reference.md#maturity-indicators) say when to have that conversation.
+They are a hint, not a gate: numbers start the discussion, the maintainer decides. They only count
+what people outside do, and downloads alone are not enough: npm counts bots, mirrors and CI installs
+too.
+
 ## Versioning policy
 
 Each package versions independently through [Changesets](https://github.com/changesets/changesets),

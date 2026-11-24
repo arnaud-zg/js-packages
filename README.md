@@ -39,10 +39,18 @@
 
 ## 👋 What is this?
 
-This repository is the home of every npm package I publish. Each package solves one specific
-problem, ships its own README, and is versioned and released independently. They share a single
-toolchain (TypeScript, ESLint, Prettier, Vitest, Changesets) so every package gets the same quality
-bar.
+This repository is an incubator: a place to experiment with small libraries and publish them to npm.
+Each package solves one specific problem, ships its own README, and is versioned and released
+independently. They share a single toolchain (TypeScript, ESLint, Prettier, Vitest, Changesets) so
+every package gets the same quality bar.
+
+```mermaid
+flowchart LR
+  A[Experiment] --> B[Publish to npm] --> C[Grow with real users] --> D[Mature: its own repo]
+```
+
+Once a package has outgrown this repo, it moves to a dedicated one: `js-packages` has served its
+purpose. See the [maturity indicators](./docs/contributing/reference.md#maturity-indicators).
 
 ## 📦 Packages
 
@@ -84,18 +92,21 @@ four pages.
 **Does installing one package pull in the others?** No. Packages have no shared runtime and no
 dependencies on each other.
 
-**Are they production ready?** Yes. Every package is written in TypeScript, fully typed, tested with
-Vitest, and released with semantic versioning and a changelog.
+**Are they production ready?** Every package is written in TypeScript, fully typed, tested with
+Vitest, and released with semantic versioning and a changelog. Below `1.0.0`, a minor version may
+break: pin it and read the changelog. See
+[Versioning policy](./docs/contributing/explanation.md#versioning-policy).
+
+**What happens when a package moves out?** It gets its own repo and keeps its npm name, so your
+install does not change. Its README here will link to the new home.
 
 **Found a bug or have an idea?** [Open an issue](https://github.com/arnaud-zg/packages/issues).
 Feedback is very welcome.
 
 ## 🤝 Contributing
 
-```sh
-pnpm install
-pnpm verify
-```
+Issues and pull requests are welcome: [CONTRIBUTING.md](./CONTRIBUTING.md) walks through your first
+pull request.
 
 Each package is released independently with [Changesets](https://github.com/changesets/changesets);
 see [How-to § Release a new version](./docs/contributing/how-to.md#release-a-new-version).

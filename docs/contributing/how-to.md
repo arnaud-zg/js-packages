@@ -69,6 +69,17 @@ on another. Each starts at `0.1.0`: usable, not yet stable, expect breaking chan
 `0.x` minor bump until `1.0.0`. See
 [Explanation § Versioning policy](./explanation.md#versioning-policy) for why.
 
+## Move a mature package to its own repo
+
+When a package reaches enough [maturity indicators](./reference.md#maturity-indicators):
+
+1. Open an issue with the numbers, and decide there.
+2. Create the new repo, keeping the package's git history and npm name.
+3. Update `homepage` and `repository` in its `package.json`, publish from the new repo, and transfer
+   its open issues.
+4. Here, remove the package, leave a link to the new home in the root README and
+   `packages/<dir>/README.md`, and run `pnpm sync-issues`.
+
 ## Keep a package findable
 
 When you add a package or change what one does, check it against the
