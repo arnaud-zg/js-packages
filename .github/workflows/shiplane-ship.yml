@@ -47,6 +47,10 @@ on:
         description: "Last resort: the folder holding shiplane.config.ts or shiplane.yml, when it is not the repo root"
         type: string
         default: "."
+      variables:
+        description: "Names of the repository's or environment's variables the build reads, space separated. Not for secrets"
+        type: string
+        default: ""
       mascot:
         description: "Draw the mascot beside each step in the log, as the config's display.mascot says (off by default: a log reads plainer)"
         type: boolean
@@ -239,6 +243,30 @@ jobs:
         with:
           app-id: ${{ secrets.SHIPLANE_APP_ID }}
           private-key: ${{ secrets.SHIPLANE_APP_PRIVATE_KEY }}
+
+      # Only the variables named, never every one: a build reads them as its environment.
+      - name: Read the build's variables
+        if: ${{ inputs.variables != '' }}
+        env:
+          NAMES: ${{ inputs.variables }}
+          VARS: ${{ toJSON(vars) }}
+        shell: node {0}
+        run: |
+          const fs = require("node:fs");
+          const { randomUUID } = require("node:crypto");
+          const vars = JSON.parse(process.env.VARS) ?? {};
+          for (const name of process.env.NAMES.split(/\s+/).filter(Boolean)) {
+            if (!/^[A-Z][A-Z0-9_]*$/.test(name) || /^(PATH|NODE_OPTIONS|LD_.*|GITHUB_.*|GH_.*|RUNNER_.*|ACTIONS_.*)$/.test(name)) {
+              console.log(`::error::${name} cannot be a build variable`);
+              process.exit(1);
+            }
+            if (vars[name] === undefined) {
+              console.log(`::notice::${name} is not set in this repository's or environment's variables`);
+              continue;
+            }
+            const end = randomUUID();
+            fs.appendFileSync(process.env.GITHUB_ENV, `${name}<<${end}\n${vars[name]}\n${end}\n`);
+          }
 
       # Fails here, before anything ships, when something is not supported; installs missing tools.
       - name: Check what ships

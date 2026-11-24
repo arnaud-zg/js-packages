@@ -15,12 +15,22 @@ const PINNED = /shiplane-ship\.yml@\S+[ \t]+#[ \t]*shiplane@(\S+)/;
  * What the release needs its caller workflow to pass: each secret its adapters read on a runner,
  * sorted, but `GH_TOKEN`, which shiplane's workflow sets itself; and its features' names.
  */
-export const callerNeedsOf = (release: Release): CallerNeeds => ({
-  secrets: [...new Set(requirementsOf(release).flatMap(({ secrets = [] }) => secrets))]
-    .filter((name) => name !== "GH_TOKEN")
-    .sort(),
-  features: release.features.map(({ name }) => name),
-});
+export const callerNeedsOf = (release: Release): CallerNeeds => {
+  const requirements = requirementsOf(release);
+  const permissions: Record<string, "read" | "write"> = {};
+  for (const [name, level] of requirements.flatMap((r) => Object.entries(r.permissions ?? {}))) {
+    if (permissions[name] !== "write") permissions[name] = level;
+  }
+  const variables = [...new Set(requirements.flatMap((r) => r.variables ?? []))].sort();
+  return {
+    secrets: [...new Set(requirements.flatMap(({ secrets = [] }) => secrets))]
+      .filter((name) => name !== "GH_TOKEN")
+      .sort(),
+    features: release.features.map(({ name }) => name),
+    ...(Object.keys(permissions).length > 0 ? { permissions } : {}),
+    ...(variables.length > 0 ? { variables } : {}),
+  };
+};
 
 /** The workflow a repository ships from, as its CI pipeline writes it; null when it writes none. */
 const callerOf = ({ version, root, shell, files }: SetupContext, release: Release) => {
@@ -187,6 +197,39 @@ const resecreted = (text: string, content: string) => {
   return withBlock(secreted, made, PERMISSIONS, null).join("\n");
 };
 
+/** Whether the top-level permissions of `text` allow this one. */
+const allows = (text: string, permission: string, level: string) => {
+  const lines = text.split("\n");
+  const block = blockOf(lines, PERMISSIONS);
+  const body = block ? lines.slice(block.start, block.end).join("\n") : "";
+  return /write-all/.test(body) || new RegExp(`\\b${permission}:[ \\t]*${level}\\b`).test(body);
+};
+
+const VARIABLES = /^[ \t]+variables:[ \t]*["']?([^"'\n]*)["']?[ \t]*$/m;
+const variablesOf = (text: string) => (VARIABLES.exec(text)?.[1] ?? "").split(/\s+/);
+
+/** `text` passing the variables `content` does, the rest as written. */
+const withVariables = (text: string, content: string) => {
+  const passes = VARIABLES.exec(content)?.[0].trim();
+  if (!passes) return text;
+  if (VARIABLES.test(text)) return text.replace(VARIABLES, (line) => `${indentOf(line)}${passes}`);
+  const lines = text.split("\n");
+  const passing = blockOf(lines, WITH);
+  if (passing && passing.end > passing.start + 1) {
+    const line = `${indentOf(lines[passing.start + 1])}${passes}`;
+    return [...lines.slice(0, passing.end), line, ...lines.slice(passing.end)].join("\n");
+  }
+  // `with: { … }` on one line is left to the person: a second `with:` would be no workflow at all.
+  if (lines.some((line) => /^[ \t]+with:[ \t]*\S/.test(line))) return text;
+  const { start, indent } = afterUses(lines);
+  return [
+    ...lines.slice(0, start),
+    `${indent}with:`,
+    `${indent}  ${passes}`,
+    ...lines.slice(start),
+  ].join("\n");
+};
+
 /** `needs`, plus the GitHub App secrets `text` passes by hand: shiplane's own, kept as they are. */
 const withAppSecrets = (needs: CallerNeeds, text: string | null): CallerNeeds => {
   const app = (text === null ? [] : (passedOf(text.split("\n")) ?? [])).filter((name) =>
@@ -269,6 +312,24 @@ const problemsOf = (release: Release, caller: Caller, text: string | null): Prob
       said,
       ask: `Pass ${file} only the secrets its adapters need, with the permissions they need?`,
       fix: resecreted,
+    });
+  }
+  const lacking = Object.entries(needs.permissions ?? {}).filter(
+    ([permission, level]) => !allows(text, permission, level),
+  );
+  if (lacking.length > 0 && !said) {
+    problems.push({
+      said: `${name} does not allow ${lacking.map(([p, level]) => `${p}: ${level}`).join(", ")}`,
+      ask: `Give ${file} the permissions its adapters need?`,
+      fix: resecreted,
+    });
+  }
+  const unread = (needs.variables ?? []).filter((v) => !variablesOf(text).includes(v));
+  if (unread.length > 0) {
+    problems.push({
+      said: `${name} passes no ${unread.join(", ")}`,
+      ask: `Pass ${file} the variables its builds read?`,
+      fix: withVariables,
     });
   }
   return problems;

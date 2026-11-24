@@ -5,6 +5,7 @@ import { easMobileDistribution } from "@shiplane/eas";
 import { flyServerHosting } from "@shiplane/fly";
 import { gitSourceControl } from "@shiplane/git";
 import { gitHubActionsCiPipeline, gitHubCodeHost, releaseComments } from "@shiplane/github";
+import { githubPagesStaticHosting } from "@shiplane/github-pages";
 import { backendService, mobileApp, webApp } from "shiplane/plugin";
 import { callerNeedsOf, RecordingShell, testContext, testUnit } from "shiplane/testing";
 import { describe, expect, it } from "vitest";
@@ -48,8 +49,12 @@ const stepsNamed = (...names: string[]) =>
 const COMMIT = "c0ffee0000000000000000000000000000000000";
 
 /** The ship.yml setup writes for a release of `modules` and `features`, as GitHub's adapter makes it. */
-const callerOf = async (modules: ReleaseModule[], features: Feature[] = []) => {
-  const { context } = testContext({ units: [API, ADMIN, EXPO], modules, features });
+const callerOf = async (
+  modules: ReleaseModule[],
+  features: Feature[] = [],
+  units = [API, ADMIN, EXPO],
+) => {
+  const { context } = testContext({ units, modules, features });
   const shell = new RecordingShell();
   shell.seed("gh api repos/arnaud-zg/js-packages/git/ref/tags/shiplane@0.6.0", {
     stdout: JSON.stringify({ object: { sha: COMMIT, type: "commit" } }),
@@ -60,7 +65,7 @@ const callerOf = async (modules: ReleaseModule[], features: Feature[] = []) => {
   if (!made || "error" in made) throw new Error("no caller workflow made");
   return parse(made.content) as {
     permissions: Record<string, string>;
-    jobs: { ship: { secrets?: Record<string, string> } };
+    jobs: { ship: { secrets?: Record<string, string>; with?: Record<string, string> } };
   };
 };
 
@@ -117,6 +122,27 @@ describe("the workflow every repository ships from", () => {
       "FLY_API_TOKEN",
     ]);
     expect(caller.permissions).toMatchObject({ issues: "write", "pull-requests": "write" });
+  });
+
+  it("given a site on GitHub Pages whose build reads variables, when setup writes ship.yml, then it may publish and passes them by name", async () => {
+    const site = testUnit("site", {
+      module: "web-app",
+      options: { url: "https://acme.github.io/", variables: ["SITE_REGION", "SITE_KEY"] },
+    });
+    const caller = await callerOf(
+      [webApp({ staticHosting: githubPagesStaticHosting() })],
+      [],
+      [site],
+    );
+
+    expect(caller.permissions).toEqual({
+      contents: "write",
+      deployments: "write",
+      actions: "read",
+      pages: "write",
+    });
+    expect(caller.jobs.ship.with).toMatchObject({ variables: "SITE_KEY SITE_REGION" });
+    expect(caller.jobs.ship).not.toHaveProperty("secrets");
   });
 
   it("given modules whose adapters read no secret, when setup writes ship.yml, then it passes none", async () => {

@@ -31,6 +31,7 @@ describe("a GitHub Pages unit file", () => {
       url: "https://acme.github.io/site/",
       branch: "gh-pages",
       dist: "dist",
+      variables: [],
     });
   });
 
@@ -77,8 +78,28 @@ describe("recognising a site", () => {
   });
 });
 
+describe("what a runner needs to publish", () => {
+  it("given variables the build reads, when setup writes ship.yml, then it may write the branch, ask for a build, and passes them", () => {
+    const unit = testUnit("site", {
+      options: { url: "https://acme.github.io/", variables: ["SITE_KEY"] },
+    });
+
+    expect(pages.requirements?.(unit)[0]).toMatchObject({
+      secrets: ["GH_TOKEN"],
+      permissions: { contents: "write", pages: "write" },
+      variables: ["SITE_KEY"],
+    });
+  });
+
+  it("given a name that is not a variable's, when shiplane reads it, then it says what to write", () => {
+    expect(() =>
+      pages.settings.parse({ url: "https://acme.github.io/", variables: ["siteKey"] }),
+    ).toThrow("like SITE_KEY");
+  });
+});
+
 describe("building and publishing to GitHub Pages", () => {
-  it("given a ship to preview, when its job is built, then the site is built for the preview folder and only this machine can ship it", () => {
+  it("given a ship to preview, when its job is built, then the site is built for the preview folder and this machine or CI can ship it", () => {
     const job = jobFor("preview");
 
     expect(job?.label).toBe(
@@ -90,7 +111,7 @@ describe("building and publishing to GitHub Pages", () => {
       env: { BASE_PATH: "/site/preview/" },
     });
     expect(job?.local[2]?.args).toContain("--dest=preview");
-    expect(job?.ci).toBeUndefined();
+    expect(job?.ci).toEqual({ ref: "site@1.0.0" });
   });
 
   it("given a ship to production, when its job is built, then the site is built for its root", () => {

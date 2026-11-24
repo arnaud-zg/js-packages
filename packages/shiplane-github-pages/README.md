@@ -57,13 +57,14 @@ modules:
 
 In the site's `shiplane.unit.yml`, next to `module: web-app`. The same file in both modes.
 
-| Key      | Default    | Means                                                             |
-| -------- | ---------- | ----------------------------------------------------------------- |
-| `url`    | required   | The site's address; its path is given to the build as `BASE_PATH` |
-| `branch` | `gh-pages` | The branch Pages serves                                           |
-| `dist`   | `dist`     | What the build writes, relative to the unit's folder              |
-| `domain` |            | A custom domain, written as `CNAME`                               |
-| `env`    |            | Variables the build reads, each per environment                   |
+| Key         | Default    | Means                                                                    |
+| ----------- | ---------- | ------------------------------------------------------------------------ |
+| `url`       | required   | The site's address; its path is given to the build as `BASE_PATH`        |
+| `branch`    | `gh-pages` | The branch Pages serves                                                  |
+| `dist`      | `dist`     | What the build writes, relative to the unit's folder                     |
+| `domain`    |            | A custom domain, written as `CNAME`                                      |
+| `env`       |            | Variables the build reads, each per environment                          |
+| `variables` | `[]`       | Names the build reads from your shell or, on CI, from GitHub's variables |
 
 Source: `GithubPagesOptions` in `src/github-pages-static-hosting.adapter.ts`.
 
@@ -85,9 +86,12 @@ url: https://acme.github.io/acme/
   site@1.0.0 → https://acme.github.io/acme/preview/ (GitHub Pages)  (not tagged yet: release first)
     this machine
       BASE_PATH=/acme/preview/ pnpm --filter=@acme/site run build
-      sh -c git ls-remote --exit-code --heads origin "$1" >/dev/null || git push origin "$(git commit-tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904 -m "start $1")":"refs/heads/$1" sh gh-pages
+      sh -c [ -z "$GITHUB_ACTIONS" ] || { git config --global user.name "github-actions[bot]" && git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com" && git config --global credential.https://github.com.helper "!gh auth git-credential"; } && { git ls-remote --exit-code --heads origin "$1" >/dev/null || git push origin "$(git commit-tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904 -m "start $1")":"refs/heads/$1"; } sh gh-pages
       npx --yes gh-pages@6.3.0 --dist=apps/site/dist --branch=gh-pages --message=site@1.0.0 --dotfiles --nojekyll --dest=preview
+      sh -c [ -z "$GITHUB_ACTIONS" ] || gh api -X POST "repos/$GITHUB_REPOSITORY/pages/builds" --silent || echo "Pages was not asked to build: ship again, or build it from Settings > Pages"
       then record site@1.0.0 on preview in GitHub Deployments
+    GitHub Actions
+      gh workflow run ship.yml --ref site@1.0.0 -f units=site -f environment=preview
 ```
 
 ## 📏 Rules
@@ -100,13 +104,14 @@ url: https://acme.github.io/acme/
 | The branch does not exist       | Created empty, so the source is never published                        |
 | The branch holds the source     | Refused                                                                |
 | Someone pushed at the same time | The push is refused, never forced: ship again                          |
-| CI                              | Ships from this machine only                                           |
+| CI                              | Ships through shiplane's workflow, which then asks Pages to build      |
 
 Preview is public, and shares production's origin.
 
 ## 🔑 Tools and sign-ins
 
-Whatever lets `git push` reach the repository; nothing more. `npx` fetches
+On your machine, whatever lets `git push` reach the repository. On CI, the workflow's own token,
+with `contents: write` and `pages: write`, which setup writes in `ship.yml`. `npx` fetches
 [gh-pages](https://github.com/tschaub/gh-pages), pinned.
 
 ## 📚 Docs

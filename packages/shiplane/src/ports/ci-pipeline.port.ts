@@ -16,6 +16,10 @@ export interface CallerNeeds {
   secrets: readonly string[];
   /** The names of its features, such as `release-comments`. */
   features: readonly string[];
+  /** What the runner's token must be allowed, on top of what every ship needs. */
+  permissions?: Readonly<Record<string, "read" | "write">>;
+  /** The variables a ship reads from the CI's settings, by name, sorted. */
+  variables?: readonly string[];
 }
 
 /** Where workflows run: dispatched on a ref, their runs read back, the minutes they cost. */

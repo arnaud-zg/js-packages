@@ -15,7 +15,9 @@ const pages = githubPagesStaticHosting();
 
 // A git hook runs the tests with its own repository in GIT_*: none of it may reach these.
 const ENV = {
-  ...Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith("GIT_"))),
+  ...Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => !/^(GIT|GITHUB)_/.test(name)),
+  ),
   GIT_CONFIG_GLOBAL: "/dev/null",
   GIT_CONFIG_SYSTEM: "/dev/null",
   GIT_AUTHOR_NAME: "Test",
