@@ -14,5 +14,4 @@ for packages. Both are optional and unset changes nothing. Environment names are
 may be more than two: each promote step names `from` and `to`. `shiplane setup` writes a `ship.yml`
 listing them, with the permissions npm needs, and `shiplane doctor` keeps it in step.
 
-`ship.yml` is the only workflow: it uses the `.github/actions/ship` action. The reusable workflow
-`shiplane-ship.yml` is gone: run `shiplane doctor` and let it replace a `ship.yml` that calls it.
+`ship.yml` is the only workflow: it uses the `.github/actions/ship` action.
