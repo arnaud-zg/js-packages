@@ -1,4 +1,5 @@
-import type { Environment } from "./environment";
+import type { DeployFlow, Environment } from "./environment";
+import { DEFAULT_FLOW, entryOf, previousOf } from "./environment";
 import { plural } from "./words";
 
 /** A unit whose live state its own platform knows, not GitHub Deployments: EAS for a mobile app. */
@@ -25,13 +26,11 @@ export interface ScopeInfo {
   firstRelease?: boolean;
   /** GitHub Deployments record that version on the channel being released. */
   onChannel: boolean;
-  /** ...and on preview, which production promotes from. */
+  /** ...and on the environment before it, which it is promoted from. */
   onPreview: boolean;
   decidedBy?: DecidedBy;
   /** Nothing deploys it: once tagged, every environment has it. */
   releaseOnly?: boolean;
-  /** The repository has no preview: the release itself reaches production. */
-  noPreview?: boolean;
   /** It has no environment to be on, such as a package: a person reads it as live or not. */
   noEnvironment?: boolean;
 }
@@ -48,18 +47,20 @@ export interface ScopeChoice {
 const NOTHING = "with nothing to release";
 const FIRST_RELEASE = "first release";
 
-const previewChoice = ({
-  version,
-  changesets,
-  tagged,
-  versioned,
-  firstRelease,
-  onChannel,
-  decidedBy,
-  releaseOnly,
-  noEnvironment,
-  noPreview,
-}: ScopeInfo) => {
+const releaseChoice = (
+  {
+    version,
+    changesets,
+    tagged,
+    versioned,
+    firstRelease,
+    onChannel,
+    decidedBy,
+    releaseOnly,
+    noEnvironment,
+  }: ScopeInfo,
+  environment: Environment,
+) => {
   const later = decidedBy ? ` · ${decidedBy.platform} decides ${decidedBy.choice} once picked` : "";
   if (changesets > 0)
     return {
@@ -91,24 +92,20 @@ const previewChoice = ({
       : {
           pending: true,
           kind: "to retry",
-          hint: `${version} tagged, never reached preview: retry`,
+          hint: `${version} tagged, never reached ${environment}: retry`,
         };
   }
-  const where = noEnvironment ? "live" : noPreview ? "on production" : "on preview";
+  const where = noEnvironment ? "live" : `on ${environment}`;
   return onChannel
     ? { pending: false, kind: NOTHING, hint: `${version} is ${where}, nothing new` }
     : { pending: true, kind: "to retry", hint: `${version} released, not ${where} yet` };
 };
 
-const productionChoice = ({
-  version,
-  tagged,
-  onChannel,
-  onPreview,
-  decidedBy,
-  releaseOnly,
-  noPreview,
-}: ScopeInfo) => {
+const promoteChoice = (
+  { version, tagged, onChannel, onPreview, decidedBy, releaseOnly }: ScopeInfo,
+  environment: Environment,
+  previous: Environment,
+) => {
   if (!tagged) return { pending: false, kind: NOTHING, hint: "not released yet" };
   if (releaseOnly)
     return { pending: false, kind: NOTHING, hint: `${version} released, nothing deploys it` };
@@ -120,28 +117,34 @@ const productionChoice = ({
     };
   }
   if (onChannel)
-    return { pending: false, kind: NOTHING, hint: `${version} is on production, nothing new` };
+    return { pending: false, kind: NOTHING, hint: `${version} is on ${environment}, nothing new` };
   return onPreview
     ? {
         pending: true,
         kind: "to promote",
-        hint: noPreview
-          ? `${version} released, not on production yet`
-          : `${version} is on preview, promotes it`,
+        hint: `${version} is on ${previous}, promotes it`,
       }
     : {
         pending: false,
         kind: NOTHING,
-        hint: `${version} is not on preview yet: release it there first`,
+        hint: `${version} is not on ${previous} yet: release it there first`,
       };
 };
 
 /** The first question: which units have something to release here, and why not the rest. */
-export const scopeChoices = (apps: ScopeInfo[], channel: Environment): ScopeChoice[] =>
-  apps.map((info) => ({
+export const scopeChoices = (
+  apps: ScopeInfo[],
+  environment: Environment,
+  flow: DeployFlow = DEFAULT_FLOW,
+): ScopeChoice[] => {
+  const previous = previousOf(flow, environment);
+  return apps.map((info) => ({
     app: info.app,
-    ...(channel === "production" ? productionChoice(info) : previewChoice(info)),
+    ...(previous === null
+      ? releaseChoice(info, entryOf(flow))
+      : promoteChoice(info, environment, previous)),
   }));
+};
 
 /** Units listed flat up to here; past it, by folder. */
 const LONGEST_FLAT_LIST = 15;

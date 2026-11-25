@@ -155,7 +155,7 @@ describe("Feature: finding the right command from the help", () => {
     expect(await run("help", "all")).toBe(0);
 
     expect(stdout()).toContain("shiplane remove <unit>          stop shipping a unit");
-    expect(stdout()).toContain("--channel preview|production    where status reads");
+    expect(stdout()).toContain("--channel <environment>         preview or production, or yours");
   });
 
   it("given a mistyped command, when the person runs it, then shiplane names the word, lists every command and fails", async () => {
@@ -188,7 +188,9 @@ describe("Feature: choosing how and where a command ships with flags", () => {
   it("given a channel shiplane does not know, when status is asked for it, then shiplane refuses rather than guess", async () => {
     const { run } = given();
 
-    await expect(run("status", "--channel", "staging")).rejects.toThrow();
+    expect(await run("status", "--channel", "staging")).toBe(1);
+
+    expect(stdout()).toContain('unknown environment "staging": preview, production');
   });
 
   it("given a ship through this machine, when it is previewed, then no renamed-flag notice is shown", async () => {

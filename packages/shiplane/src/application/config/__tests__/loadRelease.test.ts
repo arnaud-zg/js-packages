@@ -499,10 +499,16 @@ describe("saying how apps deploy and packages publish", () => {
   it.each([
     [
       'deployApps: { promote: [{ from: "preview", to: "production" }] }',
-      { environments: ["preview", "production"] },
+      { appFlow: { path: ["preview", "production"], users: "production" } },
     ],
-    ['deployApps: { promote: [{ to: "production" }] }', { environments: ["production"] }],
-    ['deployApps: { promote: [{ from: "preview" }] }', { environments: ["preview"] }],
+    [
+      'deployApps: { promote: [{ to: "production" }] }',
+      { appFlow: { path: ["production"], users: "production" } },
+    ],
+    [
+      'deployApps: { promote: [{ from: "preview" }] }',
+      { appFlow: { path: ["preview"], users: null } },
+    ],
     [
       'publishPackages: { channels: ["nightly", "alpha", "beta", "rc", "live"], onBranch: "snapshot" }',
       { channels: ["nightly", "alpha", "beta", "rc", "live"], onBranch: "snapshot" },
@@ -527,30 +533,48 @@ describe("saying how apps deploy and packages publish", () => {
     },
   );
 
+  it("given three environments, when the release loads, then it keeps their order, and a unit file written for others is refused", async () => {
+    const release = await configured(
+      'deployApps: { promote: [{ from: "dev", to: "staging" }, { from: "staging", to: "prod" }] }',
+    );
+
+    expect(release.appFlow).toEqual({ path: ["dev", "staging", "prod"], users: "prod" });
+    expect(release.problems.map(({ file }) => file)).toContain("apps/api/shiplane.unit.yml");
+  });
+
   it("given neither, when the release loads, then nothing is set", async () => {
     const release = await configured('tag: "package"');
 
-    expect(release).not.toHaveProperty("environments");
+    expect(release).not.toHaveProperty("appFlow");
     expect(release).not.toHaveProperty("channels");
   });
 
   it.each([
-    ['deployApps: { promote: [{ from: "production", to: "preview" }] }', "only one of from and to"],
-    ['deployApps: { promote: [{ from: "staging" }] }', "only one of from and to"],
-    ["deployApps: { promote: [] }", "only one of from and to"],
     [
-      'deployApps: { promote: [{ from: "preview" }, { to: "production" }] }',
-      "only one of from and to",
+      'deployApps: { promote: [{ from: "a", to: "b" }, { from: "c", to: "d" }] }',
+      "the step from c must start where the one before it ends",
     ],
-    ['deployApps: { channels: ["live"] }', "only one of from and to"],
+    [
+      'deployApps: { promote: [{ from: "a", to: "b" }, { from: "b", to: "a" }] }',
+      "an environment is named twice",
+    ],
+    [
+      'deployApps: { promote: [{ from: "a" }, { from: "b", to: "c" }] }',
+      "each names both from and to",
+    ],
+    ['deployApps: { promote: [{ from: "nightly" }] }', "nightly is a channel packages publish on"],
+    ['deployApps: { promote: [{ from: "Not A Name" }] }', "deployApps takes promote"],
+    ["deployApps: { promote: [{}] }", "each step names from, to, or both"],
+    ["deployApps: { promote: [] }", "deployApps takes promote"],
+    ['deployApps: { channels: ["live"] }', "deployApps takes promote"],
+    ['deployApps: { onBranch: "elsewhere" }', "promote does not name it"],
+    [
+      'deployApps: { promote: [{ to: "production" }], onBranch: "preview" }',
+      "promote does not name it",
+    ],
     ['publishPackages: { channels: ["preview"] }', "preview is an environment apps deploy to"],
     ['publishPackages: { channels: ["latest"] }', "publishPackages.channels: latest"],
     ['publishPackages: { channels: ["snapshot"] }', "snapshot is what onBranch publishes"],
-    ['deployApps: { onBranch: "snapshot" }', 'onBranch, "preview" or false'],
-    [
-      'deployApps: { promote: [{ to: "production" }], onBranch: "preview" }',
-      "promote names no preview",
-    ],
     ['publishPackages: { onBranch: "nightly" }', 'onBranch, "snapshot" or false'],
     ['publishPackages: { promote: ["live"] }', "publishPackages takes channels, a list of names"],
   ])("given %s, when the release loads, then it says what is wrong", async (line, said) => {

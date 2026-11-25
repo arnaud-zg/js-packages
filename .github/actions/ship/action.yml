@@ -17,7 +17,7 @@ description: "Sets the project up, checks what ships, then ships it: apps to an 
 
 inputs:
   environment:
-    description: "preview or production, a test release channel such as nightly, or live: the released npm packages"
+    description: "An environment apps deploy to, a test release channel such as nightly, or live: the released npm packages"
     required: true
   units:
     description: "Units to ship, space separated (empty: every unit the environment lacks)"
@@ -206,10 +206,11 @@ runs:
 
     # Node 22 ships npm 10: OIDC publishes from 11.5.1 and moves dist-tags from 11.21.
     - name: Update npm
-      if: ${{ !contains(fromJSON('["preview", "production"]'), inputs.environment) }}
       shell: bash
       working-directory: ${{ inputs.working-directory }}
-      run: npm install --global npm@^11.21.0
+      run: |
+        # Only a job that allows id-token: write signs in with OIDC.
+        if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then npm install --global npm@^11.21.0; fi
 
     # Fails here, before anything ships, when something is not supported; installs missing tools.
     - name: Check what ships
@@ -246,15 +247,8 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: |
+        # A release's tags are annotated, which needs an identity.
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
         # shellcheck disable=SC2086 # one word per unit, and the exec prefix's words
-        case "$ENVIRONMENT" in
-          preview | production)
-            $EXEC shiplane ship $UNITS --channel "$ENVIRONMENT" --yes --no-mascot $DRY_RUN ;;
-          live)
-            # The release tags are annotated, which needs an identity.
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            $EXEC shiplane ship $UNITS --channel live --yes --no-mascot $DRY_RUN ;;
-          *)
-            $EXEC shiplane test-release "$ENVIRONMENT" $UNITS --yes --no-mascot $DRY_RUN ;;
-        esac
+        $EXEC shiplane ship $UNITS --channel "$ENVIRONMENT" --yes --no-mascot $DRY_RUN

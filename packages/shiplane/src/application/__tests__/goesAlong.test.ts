@@ -124,7 +124,7 @@ describe("promoting to production what preview ran together", () => {
     const { context, output, prompter } = setUp();
     prompter.answer(["expo"], true);
 
-    const scope = await pickPromotion(context);
+    const scope = await pickPromotion(context, "production");
 
     expect(prompter.asked[1]).toBe("Promote api 0.0.8 too? Preview has only run it with expo.");
     expect(prompter.initials[prompter.asked[1] ?? ""]).toBe(true);
@@ -139,7 +139,7 @@ describe("promoting to production what preview ran together", () => {
     const { context, output, prompter } = setUp();
     prompter.answer(["expo"], false);
 
-    const scope = await pickPromotion(context);
+    const scope = await pickPromotion(context, "production");
 
     expect(scope && [...scope]).toEqual(["expo"]);
     expect(output.text).toContain(

@@ -9,7 +9,7 @@ import type { Shipment } from "./askPath";
 import type { ReleaseContext } from "./context";
 import type { Outcomes, ShipStep } from "./shipSteps";
 import { onlyVersionFiles, shipsFrom, webShip } from "../domain/deploys";
-import { LIVE } from "../domain/environment";
+import { LIVE, previousOf, reachesUsers } from "../domain/environment";
 import { yesAllowed } from "../domain/governance";
 import { prepareLine } from "../domain/prepare";
 import { choosesPath, forcedPath, routeChoice, shipRuns } from "../domain/shipRoute";
@@ -29,12 +29,12 @@ import {
   decideContext,
   destination,
   dispatchShip,
+  entry,
   environmentLabel,
+  flowOf,
   jobInput,
-  landing,
   runHere,
   shipPlanOf,
-  skipsPreview,
   unitTag,
   versionFiles,
 } from "./targets";
@@ -53,10 +53,9 @@ interface Ready {
   confirmed: boolean;
 }
 
-const WEB_STATUS: Record<Exclude<WebShip, "deploy">, string> = {
+const WEB_STATUS: Record<Exclude<WebShip, "deploy" | "not-on-preview">, string> = {
   deploying: "deploying already",
   shipped: "already there",
-  "not-on-preview": "not on preview yet: ship it there first",
 };
 
 /** A web unit decides from GitHub Deployments, which a ship records once it rolled out. */
@@ -67,14 +66,21 @@ const webDecision = (
   history: Deploy[],
 ): Decision => {
   const { jobs } = shipPlanOf(context, module, input);
+  const { environment, tag } = input;
+  const flow = flowOf(context);
+  const previous = previousOf(flow, environment);
   const ship = webShip({
-    environment: input.environment,
-    run: deployedOn(history, input.tag, input.environment),
-    onPreview: input.stages === false || deployedOn(history, input.tag, "preview") === "done",
+    environment,
+    flow,
+    run: deployedOn(history, tag, environment),
+    onPreview: previous === null || deployedOn(history, tag, previous) === "done",
   });
-  return ship === "deploy"
-    ? { action: "ship", kind: "deploy", jobs }
-    : { action: "none", status: WEB_STATUS[ship] };
+  if (ship === "deploy") return { action: "ship", kind: "deploy", jobs };
+  return {
+    action: "none",
+    status:
+      ship === "not-on-preview" ? `not on ${previous} yet: ship it there first` : WEB_STATUS[ship],
+  };
 };
 
 /**
@@ -134,7 +140,9 @@ const decideAll = async (
   scope: ReadonlySet<string> | undefined,
 ): Promise<Ready[] | null> => {
   const { release, services, output } = context;
-  const recorded = await services.codeHost.deployments().catch(() => []);
+  const recorded = await services.codeHost
+    .deployments(context.release.appFlow?.path)
+    .catch(() => []);
   const picked = release.units.flatMap((unit) => {
     const found = unitTag(context, unit);
     if ((scope && !scope.has(unit.name)) || !found) return [];
@@ -349,14 +357,15 @@ const shipQuestion = (
 const mayStart = async (context: ReleaseContext, environment: Environment) => {
   const { output, prompter, options } = context;
   if (options.ci) return true;
-  if (!yesAllowed(environment, options.yes)) {
-    fail(context, "No --yes on production", "every production step asks a person.", [
-      "shiplane ship --channel production",
+  const flow = flowOf(context);
+  if (!yesAllowed(environment, options.yes, flow)) {
+    fail(context, `No --yes on ${environment}`, `every ${environment} step asks a person.`, [
+      `shiplane ship --channel ${environment}`,
     ]);
     return false;
   }
-  if (environment !== "production") return true;
-  if (await prompter.typed('Type "production" to start:', "production")) return true;
+  if (!reachesUsers(flow, environment)) return true;
+  if (await prompter.typed(`Type "${environment}" to start:`, environment)) return true;
   output.line(paint("dim", "Nothing ran."));
   return false;
 };
@@ -407,11 +416,12 @@ const declined = async (
   }: { environment: Environment; scope?: ReadonlySet<string>; via?: DeployPath },
 ): Promise<boolean> => {
   const { prompter } = context;
+  const next = environment === entry(context) ? flowOf(context).path[1] : undefined;
   const instead =
-    environment === "preview" &&
+    next !== undefined &&
     prompter.interactive &&
-    (await prompter.confirm("Ship to production instead?"));
-  if (instead) return shipTo(context, "production", { scope, via });
+    (await prompter.confirm(`Ship to ${next} instead?`));
+  if (instead) return shipTo(context, next, { scope, via });
   context.progress.say("resting", paint("dim", "Nothing shipped."));
   return true;
 };
@@ -463,7 +473,7 @@ const prepareStep = (
  */
 export const shipTo = async (
   context: ReleaseContext,
-  asked: Environment,
+  environment: Environment,
   {
     scope,
     via,
@@ -479,7 +489,6 @@ export const shipTo = async (
   },
 ): Promise<boolean> => {
   const { output, prompter, options, services } = context;
-  const environment = landing(context, asked);
   if (!(await mayStart(context, environment))) return false;
   const ready = await decideAll(context, environment, scope);
   if (!ready) return false;
@@ -515,7 +524,7 @@ export const shipTo = async (
   const { paths, stuck } = routed;
   // One question and one run for every package a release publishes, not one each.
   const packages =
-    environment === "preview" || skipsPreview(context)
+    environment === entry(context)
       ? ready.filter(
           ({ module, kind, jobs }) =>
             module.kind === "published-package" &&
@@ -558,7 +567,7 @@ export const shipTo = async (
     !(await confirm(
       context,
       shipQuestion(going, paths, environment, context),
-      environment === "preview",
+      !reachesUsers(flowOf(context), environment),
     ))
   ) {
     return declined(context, { environment, scope, via });

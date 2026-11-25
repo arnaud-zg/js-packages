@@ -6,8 +6,9 @@ import type { Shell } from "../ports/shell.port";
 import type { Release } from "./config/loadRelease";
 import type { ReleaseContext } from "./context";
 import { findUnset } from "../domain/checkEnvBeforeDeploy";
+import { keysOf } from "../domain/environment";
 import { paint, reasonOf } from "./say";
-import { resolvedOptions } from "./targets";
+import { flowOf, resolvedOptions } from "./targets";
 import { unattended } from "./unattended";
 
 export const STEP = "Check env before deploy";
@@ -41,10 +42,13 @@ export const platformEnvOf = (
   if (!module?.env) return { cannotList: module?.provider ?? unit.module };
   const port = module.env({ root: release.root, shell });
   const options = (environment: Environment) =>
-    resolvedOptions(module, unit, environment, release.units);
+    resolvedOptions(module, unit, environment, release.units, keysOf(flowOf({ release })));
+  const flow = release.appFlow ? { flow: release.appFlow } : {};
   return {
-    listNames: (input) => port.listNames({ ...input, options: options(input.environment) }),
-    setCommand: (input) => port.setCommand({ ...input, options: options(input.environment) }),
+    listNames: (input) =>
+      port.listNames({ ...input, ...flow, options: options(input.environment) }),
+    setCommand: (input) =>
+      port.setCommand({ ...input, ...flow, options: options(input.environment) }),
   };
 };
 

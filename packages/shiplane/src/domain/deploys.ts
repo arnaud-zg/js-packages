@@ -1,4 +1,5 @@
-import type { Environment } from "./environment";
+import type { DeployFlow, Environment } from "./environment";
+import { DEFAULT_FLOW, previousOf } from "./environment";
 
 /** The run name the deploy workflows set, so the Actions list says which version went where. */
 export const deployRunTitle = (tag: string, environment: Environment) =>
@@ -21,17 +22,20 @@ export type WebShip = "deploy" | "deploying" | "shipped" | "not-on-preview";
 /** What one web app's tagged version still needs on an environment. */
 export const webShip = ({
   environment,
+  flow = DEFAULT_FLOW,
   run,
   onPreview,
 }: {
   environment: Environment;
+  flow?: DeployFlow;
   /** Its deploy on that environment: none yet, queued or waiting on the approval gate, or done. */
   run: DeployState;
+  /** The environment before this one runs it. */
   onPreview: boolean;
 }): WebShip => {
   if (run === "done") return "shipped";
   if (run === "running") return "deploying";
-  if (environment === "production" && !onPreview) return "not-on-preview";
+  if (previousOf(flow, environment) !== null && !onPreview) return "not-on-preview";
   return "deploy";
 };
 

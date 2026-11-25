@@ -1,14 +1,17 @@
 import type { Environment } from "../../domain/environment";
-import { ENVIRONMENTS } from "../../domain/environment";
+import { DEFAULT_FLOW } from "../../domain/environment";
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 /** A map keyed by exactly the environments: one of its values is picked per environment. */
-export const isPerEnvValue = (value: unknown): value is Record<Environment, unknown> =>
+export const isPerEnvValue = (
+  value: unknown,
+  path: readonly Environment[] = DEFAULT_FLOW.path,
+): value is Record<Environment, unknown> =>
   isRecord(value) &&
-  Object.keys(value).length === ENVIRONMENTS.length &&
-  ENVIRONMENTS.every((environment) => environment in value);
+  Object.keys(value).length === path.length &&
+  path.every((environment) => environment in value);
 
 /** `${units.<name>.<key>}`, where key may be dotted. */
 export const REFERENCE = /\$\{units\.([\w-]+)\.([\w.-]+)\}/g;

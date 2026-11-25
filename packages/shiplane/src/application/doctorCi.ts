@@ -4,11 +4,11 @@ import { z } from "zod";
 import type { Requirement } from "../ports/delivery.port";
 import type { Release } from "./config/loadRelease";
 import type { SetupContext } from "./setupContext";
-import { ENVIRONMENTS, LIVE } from "../domain/environment";
+import { LIVE } from "../domain/environment";
 import { channelProblem } from "../domain/testChannel";
 import { checkStatus, requirementsOf, signInsOf } from "./requirements";
 import { paint } from "./say";
-import { commandLine } from "./targets";
+import { commandLine, flowOf } from "./targets";
 
 /** Where every check a runner makes is listed, with what it supports. */
 export const WORKFLOW_DOCS =
@@ -26,9 +26,10 @@ const unitsSchema = (known: readonly string[]) =>
     }
   });
 
-const environmentSchema = z.enum(ENVIRONMENTS, {
-  error: ({ input }) => `unknown environment "${String(input)}": ${ENVIRONMENTS.join(", ")}`,
-});
+const environmentSchema = (path: readonly string[]) =>
+  z.string().refine((name) => path.includes(name), {
+    error: ({ input }) => `unknown environment "${String(input)}": ${path.join(", ")}`,
+  });
 
 const isPackage = (release: Release, module: string) =>
   release.modules.find(({ name }) => name === module)?.capability === "package-registry";
@@ -115,10 +116,11 @@ export const doctorCi = async (
   const packages = release.units
     .filter((unit) => isPackage(release, unit.module))
     .map(({ name }) => name);
-  // Anything but preview and production publishes packages: live, or a test release's channel.
+  const { path } = flowOf({ release });
+  // Anything but an environment publishes packages: live, or a test release's channel.
   const publishes =
     packages.length > 0 &&
-    !ENVIRONMENTS.some((name) => name === channel) &&
+    !path.includes(channel) &&
     (channel === LIVE || channelProblem(channel) === null);
   const named = unitsSchema(known).safeParse(
     units.length > 0 ? units : publishes ? packages : known,
@@ -127,7 +129,7 @@ export const doctorCi = async (
   const apps = publishes ? named.data.filter((name) => !packages.includes(name)) : [];
   if (apps.length > 0) return stop(`${channel} publishes packages only: not ${apps.join(", ")}`);
   passed("units", named.data.join(", "));
-  const environment = environmentSchema.safeParse(channel);
+  const environment = environmentSchema(path).safeParse(channel);
   if (!publishes && !environment.success) return stop(problemOf(environment.error));
   passed("environment", channel);
   const picked = new Set(named.data);

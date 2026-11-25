@@ -1,5 +1,5 @@
 import type { PlannedChangeset } from "../domain/changes";
-import type { Environment } from "../domain/environment";
+import type { DeployFlow, Environment } from "../domain/environment";
 import type { ReleaseUnit } from "../domain/unit";
 import type { Adapter } from "./adapter.port";
 import type { CiPipelinePort } from "./ci-pipeline.port";
@@ -55,8 +55,8 @@ export interface JobInput<Options> {
   commit: string;
   /** The branch releases start from: main or master, as git reports it. */
   defaultBranch: string;
-  /** False when the repository has no preview: production ships what preview never ran. */
-  stages?: boolean;
+  /** The way to users the environment is on; preview then production when absent. */
+  flow?: DeployFlow;
   /**
    * A branch release for testers: a registry publishes under this dist-tag instead of the
    * environment's, and moves no other tag.

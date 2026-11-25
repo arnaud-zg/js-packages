@@ -35,7 +35,7 @@ const composed = (release: Release) =>
     settings: [
       release.tagFormat,
       release.via,
-      release.environments,
+      release.appFlow,
       release.channels,
       release.onBranch,
       release.deployOnBranch,

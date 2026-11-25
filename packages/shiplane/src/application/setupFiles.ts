@@ -7,10 +7,12 @@ import type { AnyDeliveryAdapter } from "../modules/suggest";
 import type { FolderView } from "../ports/delivery.port";
 import type { Files } from "../ports/files.port";
 import type { Release } from "./config/loadRelease";
+import { keysOf } from "../domain/environment";
 import { suggestedModule } from "../modules/suggest";
 import { UNIT_FILE } from "./config/readUnitFile";
 import { unitJsonSchema } from "./config/unitSchema";
 import { readManifest } from "./manifest";
+import { flowOf } from "./targets";
 
 export const CONFIG_FILE = "shiplane.config.ts";
 // Generated for the editor, never edited or committed: kept out of the repository's own folders.
@@ -343,15 +345,15 @@ export const renderBlankUnit = (module: string, settings: z.ZodObject, schemaLin
 export const schemaLineFor = (dir: string) => path.posix.relative(dir, SCHEMA_FILE) || SCHEMA_FILE;
 
 /** The JSON Schema for every unit file: the module an app names picks the keys it takes. */
-export const schemaText = (modules: readonly ReleaseModule[]) =>
-  `${JSON.stringify(unitJsonSchema(modules), null, 2)}\n`;
+export const schemaText = (modules: readonly ReleaseModule[], path?: readonly string[]) =>
+  `${JSON.stringify(unitJsonSchema(modules, path), null, 2)}\n`;
 
 /**
  * Writes the editor schema when it no longer matches the composed modules. It is generated, never
  * committed: every command keeps it current. True when it wrote.
  */
 export const refreshEditorSchema = (files: Files, release: Release) => {
-  const text = schemaText(release.modules);
+  const text = schemaText(release.modules, keysOf(flowOf({ release })));
   if (files.read(SCHEMA_FILE) === text) return false;
   files.write(SCHEMA_FILE, text);
   return true;
