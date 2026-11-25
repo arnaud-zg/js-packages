@@ -30,6 +30,16 @@ export const resolvedOptions = (
   return optionsFor({ ...unit, options: withDefaults }, environment, units);
 };
 
+/** The repository has no preview: a release goes straight to production. */
+export const skipsPreview = ({ release }: Pick<ReleaseContext, "release">) =>
+  release.environments !== undefined && !release.environments.includes("preview");
+
+/** Where a run lands: production when preview is asked and there is none. */
+export const landing = (
+  context: Pick<ReleaseContext, "release">,
+  environment: Environment,
+): Environment => (environment === "preview" && skipsPreview(context) ? "production" : environment);
+
 /** Where this checkout stands: the commit it is on and the branch releases start from. */
 export interface Checkout {
   commit: string;
@@ -58,6 +68,7 @@ export const jobInput = (
   commit,
   defaultBranch,
   options: resolvedOptions(module, unit, environment, context.release.units),
+  ...(skipsPreview(context) ? { stages: false } : {}),
 });
 
 /** The module that ships a unit and the tag it ships, or null when no module claims it. */
@@ -273,7 +284,7 @@ export const environmentLabel = (
       const module = unit && moduleOf(context, unit);
       return module !== undefined && hasNoEnvironment(module);
     });
-  return noneHasOne ? "live" : environment;
+  return noneHasOne ? "live" : landing(context, environment);
 };
 
 /** Where a sentence sends units: "to preview", or "live" when none of them has an environment. */

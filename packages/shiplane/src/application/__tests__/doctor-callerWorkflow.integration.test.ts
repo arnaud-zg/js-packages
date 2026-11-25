@@ -3,8 +3,11 @@ import { describe, expect, it } from "vitest";
 import type { ServiceAdapter } from "../../ports/adapter.port";
 import type { CiPipelinePort } from "../../ports/ci-pipeline.port";
 import { CiPipelineFake } from "../../adapters/ci-pipeline/__fakes__/ci-pipeline.fake";
+import { packageRegistryFake } from "../../adapters/package-registry/__fakes__/package-registry.fake";
 import { serverHostingFake } from "../../adapters/server-hosting/__fakes__/server-hosting.fake";
+import { publishedPackage } from "../../modules/published-package/published-package.module";
 import { memoryRepository } from "../../testing/memoryRepository";
+import { testUnit } from "../../testing/releaseContext";
 import { doctor } from "../doctor";
 import { callerFor, callingPipeline, runningShiplane, SHIP_YML } from "./callerWorld";
 
@@ -298,5 +301,96 @@ describe("Feature: doctor checks the workflow a repository ships from", () => {
     expect(await doctor({ ...repo.context, version: "0.6.0" })).toBe(true);
 
     expect(repo.output.text).not.toContain("ship.yml");
+  });
+});
+
+describe("Feature: doctor on a release that publishes packages", () => {
+  const LIB = {
+    "packages/lib/package.json": '{ "name": "lib", "version": "1.0.0" }',
+    "packages/lib/shiplane.unit.yml": "module: published-package\n",
+  };
+
+  const publishing = (shipYml: string, channels?: string[]) => {
+    const offering = [
+      "name: Ship",
+      "on:",
+      "  workflow_dispatch:",
+      "    inputs:",
+      "      environment:",
+    ];
+    const made = (options: string) =>
+      [
+        ...offering,
+        `        options: [${options}]`,
+        "jobs:",
+        "  ship:",
+        "    uses: acme/shiplane/.github/workflows/shiplane-ship.yml@sha-0.6.0 # shiplane@0.6.0",
+        "",
+      ].join("\n");
+    const repo = memoryRepository({ ...REPO, ...LIB, [SHIP_YML]: shipYml || made("preview") }, [], {
+      interactive: true,
+    });
+    const pipeline: ServiceAdapter<CiPipelinePort> = {
+      name: "calling",
+      create: () =>
+        Object.assign(new CiPipelineFake(), {
+          offers: (content: string, environment: string) =>
+            (/options: \[(.*)\]/.exec(content)?.[1] ?? "").split(", ").includes(environment),
+          callerWorkflow: () =>
+            Promise.resolve({
+              file: SHIP_YML,
+              content: made("nightly, live"),
+              pin: "sha-0.6.0",
+            }),
+        }),
+    };
+    const context = runningShiplane(repo.context, "0.6.0", pipeline);
+    const load = context.load;
+    context.load = async () => {
+      const release = await load();
+      const registry = publishedPackage({ packageRegistry: packageRegistryFake() });
+      return {
+        ...release,
+        ...(channels ? { channels } : {}),
+        modules: [registry],
+        units: [testUnit("lib", { dir: "packages/lib", module: registry.name })],
+      };
+    };
+    return { ...repo, context };
+  };
+
+  it("given ship.yml lacks the config's channels, when the person agrees, then it offers them", async () => {
+    const { context, output, prompter, files } = publishing("", ["nightly", "live"]);
+    prompter.answer(true, true);
+
+    await doctor(context);
+
+    expect(output.text).toContain("ship.yml does not offer nightly, live");
+    expect(files.read(SHIP_YML)).toContain("options: [nightly, live]");
+  });
+
+  it("given no channels in the config, when doctor runs, then ship.yml's list is the person's", async () => {
+    const { context, output, prompter } = publishing("");
+
+    await doctor(context);
+
+    expect(output.text).not.toContain("does not offer");
+    expect(prompter.asked).toEqual([]);
+  });
+
+  it("given ship.yml calls shiplane's workflow in its own repository, when doctor runs, then it asks no pin and no replacement", async () => {
+    const { context, output, prompter } = publishing(
+      [
+        "name: Ship",
+        "        options: [snapshot, nightly, alpha, beta, rc, live]",
+        "    uses: ./.github/workflows/shiplane-ship.yml",
+        "",
+      ].join("\n"),
+    );
+
+    await doctor(context);
+
+    expect(output.text).not.toMatch(/ship.yml (pins|does not)/);
+    expect(prompter.asked).toEqual([]);
   });
 });

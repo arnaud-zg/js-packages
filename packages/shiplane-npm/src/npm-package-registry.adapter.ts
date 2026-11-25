@@ -253,7 +253,11 @@ const decide = async (
   staged: boolean,
 ): Promise<Decision> => {
   const { tag, environment, options } = input;
-  const ship = await registryDecision({ environment, facts: registryFacts(context, input) });
+  const ship = await registryDecision({
+    environment,
+    stages: input.stages,
+    facts: registryFacts(context, input),
+  });
   if (staged && ship === "publish" && (await waitsForApproval(context, input))) {
     return { action: "none", status: "staged on npm: approve it on npmjs.com" };
   }

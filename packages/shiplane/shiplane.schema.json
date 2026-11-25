@@ -1087,6 +1087,25 @@
         }
       }
     },
+    "environments": {
+      "description": "Where apps ship: preview, production, or one of them.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "enum": [
+          "preview",
+          "production"
+        ]
+      }
+    },
+    "channels": {
+      "description": "The channels npm packages publish on: live and test release channels.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
     "testComment": {
       "description": "The pull request comment of a test version: a preset's name, or a template with {branch}, {commit}, {table} and {install}.",
       "anyOf": [

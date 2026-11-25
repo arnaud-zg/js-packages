@@ -87,15 +87,17 @@ your own adapters for your editor. How to write one: [How-to: YAML config](./how
 
 ## Other keys
 
-| Key           | Takes                                                                                                                                                 |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `units`       | Folders to look in, dir/* or exact. Without it, the workspace file decides.                                                                           |
-| `tag`         | How a tag names a version: a format's name, or a format of your own naming {version}. Names: `package`, `plugin`, `single`, `module`.                 |
-| `via`         | How a unit ships when both ways can: ci (the flow's CI pipeline) or local (this machine). Names: `ci`, `local`.                                       |
-| `display`     | How much the release says while it runs; --verbose and --mascot override.                                                                             |
-| `testComment` | The pull request comment of a test version: a preset's name, or a template with {branch}, {commit}, {table} and {install}. Names: `table`, `compact`. |
-| `testRelease` | Which channel each branch's test release publishes on: a preset's name, or a map of branch to channel. Names: `nightly`, `prerelease`, `gitflow`.     |
-| `prepare`     | A shell command run from the root before each unit ships from this machine; {unit} and {dir} are filled.                                              |
+| Key            | Takes                                                                                                                                                 |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `units`        | Folders to look in, dir/* or exact. Without it, the workspace file decides.                                                                           |
+| `tag`          | How a tag names a version: a format's name, or a format of your own naming {version}. Names: `package`, `plugin`, `single`, `module`.                 |
+| `via`          | How a unit ships when both ways can: ci (the flow's CI pipeline) or local (this machine). Names: `ci`, `local`.                                       |
+| `display`      | How much the release says while it runs; --verbose and --mascot override.                                                                             |
+| `environments` | Where apps ship: preview, production, or one of them.                                                                                                 |
+| `channels`     | The channels npm packages publish on: live and test release channels.                                                                                 |
+| `testComment`  | The pull request comment of a test version: a preset's name, or a template with {branch}, {commit}, {table} and {install}. Names: `table`, `compact`. |
+| `testRelease`  | Which channel each branch's test release publishes on: a preset's name, or a map of branch to channel. Names: `nightly`, `prerelease`, `gitflow`.     |
+| `prepare`      | A shell command run from the root before each unit ships from this machine; {unit} and {dir} are filled.                                              |
 
 ## Example
 

@@ -24,13 +24,16 @@ export interface RegistryFacts {
  */
 export const registryDecision = async ({
   environment,
+  stages = true,
   facts,
 }: {
   environment: Environment;
+  /** False when the repository has no preview to publish on first. */
+  stages?: boolean;
   facts: RegistryFacts;
 }): Promise<RegistryShip> => {
   if (!(await facts.tagged())) return "not-released";
   if (await facts.published()) return (await facts.onDistTag()) ? "on-tag" : "move-tag";
-  if (environment === "production") return "not-on-preview";
+  if (stages && environment === "production") return "not-on-preview";
   return (await facts.sinceTagOnlyVersionFiles()) ? "publish" : "moved-past";
 };

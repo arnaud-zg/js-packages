@@ -18,6 +18,8 @@ export interface CallerNeeds {
   features: readonly string[];
   /** What the runner's token must be allowed, on top of what every ship needs. */
   permissions?: Readonly<Record<string, "read" | "write">>;
+  /** Where its runs ship to, when it publishes packages; preview and production when absent. */
+  environments?: readonly string[];
   /** The variables a ship reads from the CI's settings, by name, sorted. */
   variables?: readonly string[];
 }

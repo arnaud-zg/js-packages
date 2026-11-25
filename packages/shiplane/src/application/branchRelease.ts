@@ -251,6 +251,11 @@ export const branchRelease = async (
   });
   if (choice === "release") return releaseToPreview(context, { via });
   const channel = picked ?? channelFor(here.branch, context.release.testRelease);
+  const { channels } = context.release;
+  if (channels && !channels.includes(channel)) {
+    fail(context, `${channel} is not a channel here`, `channels is ${channels.join(", ")}`);
+    return false;
+  }
   const pr = dryRun ? null : await context.services.codeHost.prForBranch(here.branch);
   // A channel named on the command line is the answer: nothing left to ask.
   const ask = choice === "ask" && picked === undefined && !dryRun;

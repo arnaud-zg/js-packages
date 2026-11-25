@@ -3,6 +3,7 @@ import path from "node:path";
 
 import type { DeployPath } from "../../domain/deploys";
 import type { DisplayChoice } from "../../domain/display";
+import type { Environment } from "../../domain/environment";
 import type { TestReleaseBranches } from "../../domain/testChannel";
 import type { ReleaseUnit } from "../../domain/unit";
 import type { Feature, ReleaseFlow, ReleaseModule } from "../../modules/module";
@@ -11,6 +12,7 @@ import type { ConfigReader } from "../../ports/config.port";
 import type { ManifestReader } from "../../ports/manifest.port";
 import type { ConfigProblem } from "./problem";
 import type { UnitFile } from "./readUnitFile";
+import { ENVIRONMENTS, LIVE } from "../../domain/environment";
 import { PrepareSchema } from "../../domain/prepare";
 import { DEFAULT_TAG_FORMAT, TAG_FORMATS, tagFormatNamed } from "../../domain/tags";
 import { channelProblem } from "../../domain/testChannel";
@@ -46,6 +48,10 @@ export interface Release {
   problems: ConfigProblem[];
   /** How a tag names a version, such as `{name}@{version}`. */
   tagFormat: string;
+  /** Where apps ship; preview then production when unset. */
+  environments?: readonly Environment[];
+  /** The channels packages publish on; any when unset. */
+  channels?: readonly string[];
   /** How a unit ships when both ways can, as the config asks; unset, each ship asks. */
   via?: DeployPath;
   /** How much the release says while it runs, as the config asks. */
@@ -72,6 +78,8 @@ type Composed = Pick<
   | "testComment"
   | "testRelease"
   | "via"
+  | "environments"
+  | "channels"
   | "prepare"
 > & {
   units?: string[];
@@ -200,8 +208,42 @@ const checkConfig = (loaded: unknown): Composed => {
     ...testCommentOf(loaded.testComment),
     ...testReleaseOf(loaded.testRelease),
     via: viaOf(loaded.via),
+    ...environmentsOf(loaded.environments),
+    ...channelsOf(loaded.channels),
     ...prepareOf(loaded.prepare),
   };
+};
+
+const listOfNames = (value: unknown) =>
+  Array.isArray(value) && value.length > 0 && value.every((name) => typeof name === "string")
+    ? [...new Set<string>(value)]
+    : null;
+
+/** The config's `environments`: one or both, in promotion order. */
+const environmentsOf = (value: unknown): { environments?: Environment[] } => {
+  if (value === undefined) return {};
+  const names = listOfNames(value);
+  const unknown = names?.find((name) => !ENVIRONMENTS.some((known) => known === name));
+  if (!names || unknown !== undefined) {
+    throw new Error(`environments lists ${ENVIRONMENTS.join(", ")}, or one of them`);
+  }
+  return { environments: ENVIRONMENTS.filter((name) => names.includes(name)) };
+};
+
+/** The config's `channels`: live, and names npm takes as a test release's. */
+const channelsOf = (value: unknown): { channels?: string[] } => {
+  if (value === undefined) return {};
+  const names = listOfNames(value);
+  if (!names) throw new Error('channels lists names, such as ["nightly", "live"]');
+  for (const name of names) {
+    const problem = ENVIRONMENTS.some((known) => known === name)
+      ? `${name} is an environment`
+      : name === LIVE
+        ? null
+        : channelProblem(name);
+    if (problem) throw new Error(`channels: ${problem}`);
+  }
+  return { channels: names };
 };
 
 /** The config's `prepare`, its placeholders known; the first problem is thrown. */
@@ -417,6 +459,19 @@ export const loadRelease = async (root: string, ports: LoadPorts): Promise<Relea
     ].filter((name) => name !== entry.unit.name && ordered.some(({ unit }) => unit.name === name));
   });
 
+  if (config.environments && !config.environments.includes("preview")) {
+    const needing = ordered.filter(({ unit }) =>
+      config.modules.some(({ name, decidedBy }) => name === unit.module && decidedBy),
+    );
+    needing.forEach(({ unit }) =>
+      problems.push({
+        file: path.basename(configFile),
+        message: `${unit.name} needs preview: its platform builds production from what preview runs`,
+        hint: 'add "preview" to environments',
+      }),
+    );
+  }
+
   if (ordered.length > 1 && !config.tagFormat.includes("{name}")) {
     problems.push({
       file: path.basename(configFile),
@@ -431,6 +486,8 @@ export const loadRelease = async (root: string, ports: LoadPorts): Promise<Relea
     modules: config.modules,
     features: config.features,
     ...(config.via ? { via: config.via } : {}),
+    ...(config.environments ? { environments: config.environments } : {}),
+    ...(config.channels ? { channels: config.channels } : {}),
     units: ordered.map(({ unit }) => unit),
     problems: sortProblems(problems),
     display: config.display,
