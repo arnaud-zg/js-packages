@@ -4,6 +4,40 @@ import type { TagFormatName } from "../../domain/tags";
 import type { Channel, TestReleaseBranches } from "../../domain/testChannel";
 import type { Feature, ReleaseFlow, ReleaseModule } from "../../modules/module";
 
+/** One step of an app's way to its users: a release deploys to `from`, a promote takes it to `to`. */
+export type PromoteStep =
+  { from: "preview"; to?: "production" } | { from?: undefined; to: "production" };
+
+/** How apps are deployed. */
+export interface DeployApps {
+  /**
+   * The steps, one for now: `[{ from: "preview", to: "production" }]` when unset.
+   * `[{ to: "production" }]` deploys straight there; `[{ from: "preview" }]` never promotes. EAS
+   * needs preview.
+   */
+  promote?: readonly [PromoteStep];
+  /**
+   * Where any branch may deploy to try a change, outside the steps: `"preview"`, or `false` or
+   * unset for nowhere. Not available yet: shiplane says so and deploys nothing from a branch.
+   */
+  onBranch?: "preview" | false | undefined;
+}
+
+/** How packages are published. */
+export interface PublishPackages {
+  /**
+   * The channels they publish on, from the earliest to the release:
+   * `["nightly", "alpha", "beta", "rc", "live"]`. Each publishes by itself, a version is never moved
+   * from one to the next. Any channel when unset.
+   */
+  channels?: readonly Channel[];
+  /**
+   * What any branch may publish to try a change, outside the channels: `"snapshot"` when unset,
+   * `false` for nothing.
+   */
+  onBranch?: "snapshot" | false | undefined;
+}
+
 /** How a repository releases: the flow, what gets released in order, and what happens around it. */
 export interface ReleaseConfig {
   /** Folders to look in, `dir/*` or exact. Without it, the workspace file decides. */
@@ -32,16 +66,10 @@ export interface ReleaseConfig {
    * branch does. `shiplane test-release <channel>` picks another for one run.
    */
   testRelease?: TestReleaseBranches;
-  /**
-   * Where apps ship: `["preview", "production"]` when unset. `["production"]` releases straight to
-   * production; `["preview"]` never promotes. EAS needs preview.
-   */
-  environments?: readonly Environment[];
-  /**
-   * The channels npm packages publish on: `live` (the release) and test release channels, such as
-   * `["nightly", "live"]`. Unset, any channel; setup's ship.yml lists them all.
-   */
-  channels?: readonly Channel[];
+  /** How deployed apps reach their users. Not for packages, published or internal. */
+  deployApps?: DeployApps;
+  /** How packages are published. Not for apps, nor for internal packages. */
+  publishPackages?: PublishPackages;
   /**
    * How a unit ships when both ways can: `"ci"` (the flow's CI pipeline, such as GitHub Actions) or
    * `"local"` (this machine). Without it, each ship asks. `--via` still wins for one run; a way that

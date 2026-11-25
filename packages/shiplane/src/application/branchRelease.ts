@@ -5,7 +5,7 @@ import type { Channel } from "../domain/testChannel";
 import type { BranchPlan, Here } from "./branchPublish";
 import type { ReleaseContext } from "./context";
 import { branchChoice, tagWords } from "../domain/branchRelease";
-import { channelFor, channelProblem } from "../domain/testChannel";
+import { channelFor, channelProblem, isNumbered } from "../domain/testChannel";
 import { plural } from "../domain/words";
 import { planBranch, printPlan, publishBranch } from "./branchPublish";
 import { publishRoute } from "./publishRoute";
@@ -31,12 +31,13 @@ const refuseDirty = (context: ReleaseContext) => {
   return false;
 };
 
-const printOthers = ({ output }: ReleaseContext, others: readonly string[]) =>
-  others.forEach((name) =>
-    output.line(
-      `  ${paint("dim", "–")} ${name}  ${paint("dim", "test release not available yet: npm packages only")}`,
-    ),
-  );
+const printOthers = ({ output, release }: ReleaseContext, others: readonly string[]) => {
+  const why =
+    release.deployOnBranch === "preview"
+      ? "deployApps.onBranch is not available yet: nothing deploys from a branch"
+      : "test release not available yet: npm packages only";
+  others.forEach((name) => output.line(`  ${paint("dim", "–")} ${name}  ${paint("dim", why)}`));
+};
 
 const nothingToPublish = ({ progress, services }: ReleaseContext, plan: BranchPlan) => {
   const why =
@@ -203,6 +204,16 @@ const publishTest = async (
   return publishBranch(context, { here, pr, plan: picked });
 };
 
+/** Why this repository does not publish on a channel, as its config says; null when it does. */
+const channelRefused = ({ channels, onBranch }: ReleaseContext["release"], channel: Channel) => {
+  if (!isNumbered(channel)) {
+    return onBranch === false ? "publishPackages.onBranch is false" : null;
+  }
+  return channels && !channels.includes(channel)
+    ? `publishPackages.channels is ${channels.join(", ")}`
+    : null;
+};
+
 /**
  * `shiplane` where it runs: on the default branch, the real release; elsewhere, or for `shiplane
  * test-release`, a test version of the npm packages the pending changesets release, on the branch's
@@ -251,9 +262,9 @@ export const branchRelease = async (
   });
   if (choice === "release") return releaseToPreview(context, { via });
   const channel = picked ?? channelFor(here.branch, context.release.testRelease);
-  const { channels } = context.release;
-  if (channels && !channels.includes(channel)) {
-    fail(context, `${channel} is not a channel here`, `channels is ${channels.join(", ")}`);
+  const refused = channelRefused(context.release, channel);
+  if (refused) {
+    fail(context, `${channel} is not published here`, refused);
     return false;
   }
   const pr = dryRun ? null : await context.services.codeHost.prForBranch(here.branch);

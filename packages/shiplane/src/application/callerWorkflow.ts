@@ -32,13 +32,15 @@ const environmentsOf = (release: Release) => {
     capability === "package-registry";
   const packages = shipping.some(isPackage);
   if (!packages && !release.environments) return null;
+  const onBranch = release.onBranch === false ? [] : [channels.snapshot];
   const every = [...Object.values(channels), ...Object.values(release.testRelease ?? {}), LIVE];
+  const named = release.channels ?? every.filter((name) => name !== channels.snapshot);
   return [
     ...new Set([
       ...(shipping.some((module) => !isPackage(module))
         ? (release.environments ?? ENVIRONMENTS)
         : []),
-      ...(packages ? (release.channels ?? every) : []),
+      ...(packages ? [...onBranch, ...named] : []),
     ]),
   ];
 };
@@ -75,7 +77,11 @@ const callerOf = ({ version, root, shell, files }: SetupContext, release: Releas
   const base = callerNeedsOf(release);
   const environments = environmentsOf(release);
   // One already there lists what the person chose, unless the config says otherwise.
-  const listed = !files.exists(file) || release.environments || release.channels;
+  const listed =
+    !files.exists(file) ||
+    release.environments ||
+    release.channels ||
+    release.onBranch !== undefined;
   const publishes =
     listed && environments?.some((name) => !ENVIRONMENTS.some((app) => app === name));
   const needs: CallerNeeds = {
