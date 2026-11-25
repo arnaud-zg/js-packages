@@ -3,13 +3,30 @@ import path from "node:path";
 import type { CallerNeeds, CallerWorkflow } from "../ports/ci-pipeline.port";
 import type { Release } from "./config/loadRelease";
 import type { SetupContext } from "./setupContext";
+import { ENVIRONMENTS, LIVE } from "../domain/environment";
+import { channels } from "../domain/testChannel";
 import { requirementsOf } from "./requirements";
 import { paint, reasonOf } from "./say";
 
 /** What a workflow calling shiplane's own holds in its `uses:` line. */
 const CALLS = "/.github/workflows/shiplane-ship.yml@";
-const USES = /^([ \t]*)uses:[ \t]*\S*\/\.github\/workflows\/shiplane-ship\.yml@.*$/m;
+/** The same workflow from the same commit: shiplane's own repository, with no version to pin. */
+const CALLS_LOCAL = /^[ \t]*uses:[ \t]*\.\/\.github\/workflows\/shiplane-ship\.yml[ \t]*$/m;
+const USES = /^([ \t]*)uses:[ \t]*\S*\/\.github\/workflows\/shiplane-ship\.yml(?:@.*)?$/m;
 const PINNED = /shiplane-ship\.yml@\S+[ \t]+#[ \t]*shiplane@(\S+)/;
+
+/** Where a release of packages ships: its apps' environments, each test channel, and live. */
+const environmentsOf = ({ units, modules, testRelease = {} }: Release) => {
+  const shipping = units.flatMap((unit) => {
+    const module = modules.find(({ name }) => name === unit.module);
+    return module && !module.releaseOnly ? [module] : [];
+  });
+  const isPackage = ({ capability }: (typeof shipping)[number]) =>
+    capability === "package-registry";
+  if (!shipping.some(isPackage)) return null;
+  const apps = shipping.some((module) => !isPackage(module)) ? ENVIRONMENTS : [];
+  return [...new Set([...apps, ...Object.values(channels), ...Object.values(testRelease), LIVE])];
+};
 
 /**
  * What the release needs its caller workflow to pass: each secret its adapters read on a runner,
@@ -22,7 +39,9 @@ export const callerNeedsOf = (release: Release): CallerNeeds => {
     if (permissions[name] !== "write") permissions[name] = level;
   }
   const variables = [...new Set(requirements.flatMap((r) => r.variables ?? []))].sort();
+  const environments = environmentsOf(release);
   return {
+    ...(environments ? { environments } : {}),
     secrets: [...new Set(requirements.flatMap(({ secrets = [] }) => secrets))]
       .filter((name) => name !== "GH_TOKEN")
       .sort(),
@@ -46,6 +65,7 @@ const callerOf = ({ version, root, shell, files }: SetupContext, release: Releas
     name: path.posix.basename(file),
     version,
     needs,
+    offers: ci.offers?.bind(ci),
     make: (passing = needs) => make(version, passing),
   };
 };
@@ -270,6 +290,14 @@ const secretsSaid = (release: Release, name: string, text: string, needed: reado
   return said.length === 0 ? null : `${name} ${said.join("; ")}`;
 };
 
+const OPTIONS = /^([ \t]*)options:[ \t]*\[.*\][ \t]*$/m;
+
+/** `text` offering the environments `content` does; a list written another way is left as it is. */
+const reoffered = (text: string, content: string) => {
+  const line = OPTIONS.exec(content)?.[0].trim();
+  return line ? text.replace(OPTIONS, (_line, indent: string) => `${indent}${line}`) : text;
+};
+
 interface Problem {
   said: string;
   ask: string;
@@ -287,7 +315,8 @@ const problemsOf = (release: Release, caller: Caller, text: string | null): Prob
   if (text === null) {
     return [{ said: `${name} missing`, ask: `Write ${file}?`, fix: (_text, content) => content }];
   }
-  if (!text.includes(CALLS)) {
+  const local = CALLS_LOCAL.test(text);
+  if (!local && !text.includes(CALLS)) {
     return [
       {
         said: `${name} does not call shiplane-ship.yml`,
@@ -299,7 +328,7 @@ const problemsOf = (release: Release, caller: Caller, text: string | null): Prob
   }
   const problems: Problem[] = [];
   const pinned = PINNED.exec(text)?.[1];
-  if (pinned !== version) {
+  if (!local && pinned !== version) {
     problems.push({
       said: `${name} pins ${pinned ? `shiplane@${pinned}` : "no shiplane version"}, installed ${version}`,
       ask: `Re-pin ${file} to shiplane@${version}?`,
@@ -322,6 +351,16 @@ const problemsOf = (release: Release, caller: Caller, text: string | null): Prob
       said: `${name} does not allow ${lacking.map(([p, level]) => `${p}: ${level}`).join(", ")}`,
       ask: `Give ${file} the permissions its adapters need?`,
       fix: resecreted,
+    });
+  }
+  const missing = (needs.environments ?? []).filter(
+    (environment) => caller.offers && !caller.offers(text, environment),
+  );
+  if (missing.length > 0) {
+    problems.push({
+      said: `${name} does not offer ${missing.join(", ")}`,
+      ask: `Let ${file} publish packages to ${missing.join(", ")}?`,
+      fix: reoffered,
     });
   }
   const unread = (needs.variables ?? []).filter((v) => !variablesOf(text).includes(v));

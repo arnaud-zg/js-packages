@@ -6,7 +6,8 @@ import { flyServerHosting } from "@shiplane/fly";
 import { gitSourceControl } from "@shiplane/git";
 import { gitHubActionsCiPipeline, gitHubCodeHost, releaseComments } from "@shiplane/github";
 import { githubPagesStaticHosting } from "@shiplane/github-pages";
-import { backendService, mobileApp, webApp } from "shiplane/plugin";
+import { npmPackageRegistry } from "@shiplane/npm";
+import { backendService, mobileApp, publishedPackage, webApp } from "shiplane/plugin";
 import { callerNeedsOf, RecordingShell, testContext, testUnit } from "shiplane/testing";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
@@ -64,6 +65,7 @@ const callerOf = async (
     .callerWorkflow?.("0.6.0", callerNeedsOf(context.release));
   if (!made || "error" in made) throw new Error("no caller workflow made");
   return parse(made.content) as {
+    on: { workflow_dispatch: { inputs: Record<string, { options?: string[]; default: unknown }> } };
     permissions: Record<string, string>;
     jobs: { ship: { secrets?: Record<string, string>; with?: Record<string, string> } };
   };
@@ -144,6 +146,26 @@ describe("the workflow every repository ships from", () => {
     expect(caller.jobs.ship.with).toMatchObject({ variables: "SITE_KEY SITE_REGION" });
     expect(caller.jobs.ship).not.toHaveProperty("secrets");
   });
+
+  const KIT = testUnit("kit", { module: "published-package" });
+  const NPM = publishedPackage({ packageRegistry: npmPackageRegistry() });
+  const CHANNELS = ["snapshot", "nightly", "alpha", "beta", "rc", "live"];
+
+  it.each([
+    ["packages only", [NPM], [KIT], CHANNELS],
+    ["packages and an app", [NPM, FLY], [KIT, API], ["preview", "production", ...CHANNELS]],
+  ])(
+    "given %s, when setup writes ship.yml, then it offers their environments and a dry run, and may publish",
+    async (_, modules, units, environments) => {
+      const caller = await callerOf(modules, [], units);
+      const { inputs } = caller.on.workflow_dispatch;
+
+      expect(inputs.environment).toMatchObject({ options: environments, default: environments[0] });
+      expect(inputs["dry-run"]).toMatchObject({ default: false });
+      expect(caller.jobs.ship.with).toMatchObject({ "dry-run": "${{ inputs.dry-run }}" });
+      expect(caller.permissions).toMatchObject({ contents: "write", "id-token": "write" });
+    },
+  );
 
   it("given modules whose adapters read no secret, when setup writes ship.yml, then it passes none", async () => {
     const caller = await callerOf([]);

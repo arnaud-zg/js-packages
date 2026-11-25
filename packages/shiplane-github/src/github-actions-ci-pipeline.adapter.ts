@@ -54,8 +54,16 @@ const secretsOf = ({ secrets }: CallerNeeds) =>
     : ["    secrets:", ...secrets.map((name) => `      ${name}: \${{ secrets.${name} }}`)];
 
 /** The workflow a repository ships from: a manual run calling shiplane's, pinned to a commit. */
-const callerContent = (sha: string, version: string, needs: CallerNeeds) =>
-  [
+const DRY_RUN_INPUT = [
+  "      dry-run:",
+  '        description: "Show what would ship, ship nothing"',
+  "        type: boolean",
+  "        default: false",
+];
+
+const callerContent = (sha: string, version: string, needs: CallerNeeds) => {
+  const { environments = ["preview", "production"] } = needs;
+  return [
     "# Ships with shiplane: `pnpm shiplane ship --via ci`, or Run workflow here.",
     "# Written by `shiplane setup`; `shiplane doctor` keeps the pin current.",
     "name: Ship",
@@ -71,12 +79,13 @@ const callerContent = (sha: string, version: string, needs: CallerNeeds) =>
     "      environment:",
     '        description: "Where to ship the ref this runs on"',
     "        type: choice",
-    "        options: [preview, production]",
-    "        default: preview",
+    `        options: [${environments.join(", ")}]`,
+    `        default: ${environments[0]}`,
     "      ref:",
     '        description: "The tag to ship; shiplane sets it (empty: the ref this runs on)"',
     "        type: string",
     '        default: ""',
+    ...(needs.environments ? DRY_RUN_INPUT : []),
     "",
     ...permissionsOf(needs),
     "",
@@ -87,10 +96,12 @@ const callerContent = (sha: string, version: string, needs: CallerNeeds) =>
     "      units: ${{ inputs.units }}",
     "      environment: ${{ inputs.environment }}",
     "      ref: ${{ inputs.ref }}",
+    ...(needs.environments ? ["      dry-run: ${{ inputs.dry-run }}"] : []),
     ...(needs.variables ? [`      variables: ${needs.variables.join(" ")}`] : []),
     ...secretsOf(needs),
     "",
   ].join("\n");
+};
 
 /** A caller that hands shiplane's workflow the tag to check out, so it can run from main. */
 const PASSES_REF = /^[ \t]+ref:[ \t]*\$\{\{[ \t]*inputs\.ref[ \t]*\}\}/m;

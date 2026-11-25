@@ -325,8 +325,14 @@ export const npmPackageRegistry = (
         label: "npm",
         check: signInCheck(),
         fix: { command: "npm", args: ["login"] },
-        // A runner stages with a short-lived OIDC token, no secret.
-        ...(staged ? { permissions: { "id-token": "write" as const } } : {}),
+        // A runner publishes with a short-lived OIDC token, no secret; live pushes the release tags
+        // and a test release comments on its pull request.
+        permissions: {
+          contents: "write" as const,
+          "id-token": "write" as const,
+          issues: "write" as const,
+          "pull-requests": "write" as const,
+        },
       },
     ],
   });

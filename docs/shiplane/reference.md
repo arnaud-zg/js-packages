@@ -244,12 +244,17 @@ workflow, `shiplane ship --via ci` starts the run on the default branch and pass
 default branch's `ship.yml` does not pass `ref` on (`ref: ${{ inputs.ref }}` under `with:`), the run
 starts on the tag, as before.
 
+When the release publishes packages, `environment` offers `snapshot`, `nightly`, `alpha`, `beta`,
+`rc`, each channel of `testRelease` and `live`, after `preview` and `production` when it also ships
+apps; a `dry-run` input shows what would ship. Doctor offers to add the missing ones.
+
 It passes, by name, only the secrets the configured adapters read (their requirements' `secrets`,
 sorted, but `GH_TOKEN`, which `shiplane-ship.yml` sets itself), and no `secrets:` key when none
 does. Its `permissions:` are `contents: read`, `deployments: write`, `actions: read`, plus
 `issues: write` and `pull-requests: write` when `features` holds `releaseComments`. An adapter can
-ask for more, such as `contents: write` and `pages: write` for GitHub Pages. The `variables` a
-unit's build reads are passed by name too, from the repository's or the environment's variables.
+ask for more, such as `contents: write` and `pages: write` for GitHub Pages, or `contents`,
+`id-token`, `issues` and `pull-requests: write` for npm. The `variables` a unit's build reads are
+passed by name too, from the repository's or the environment's variables.
 
 `shiplane-ship.yml` declares the secrets it accepts, and gives them, with `GH_TOKEN`, only to its
 `Check what ships` and `Ship` steps' `env:`; nothing goes to `$GITHUB_ENV`:

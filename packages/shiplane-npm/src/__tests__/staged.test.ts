@@ -98,16 +98,22 @@ describe("staging a package on npm", () => {
   });
 });
 
-describe("what staging asks of a runner", () => {
-  it("given staged, when its requirements are read, then the runner may mint an OIDC token", () => {
-    expect(npmPackageRegistry({ staged: true }).requirements?.(kitWith())).toMatchObject([
-      { permissions: { "id-token": "write" } },
-    ]);
-  });
-
-  it("given no option, when its requirements are read, then it asks no permission", () => {
-    expect(npmPackageRegistry().requirements?.(kitWith())[0]?.permissions).toBeUndefined();
-  });
+describe("what publishing asks of a runner", () => {
+  it.each([true, false])(
+    "given staged %s, when its requirements are read, then the runner may mint an OIDC token, tag and comment",
+    (staged) => {
+      expect(npmPackageRegistry({ staged }).requirements?.(kitWith())).toMatchObject([
+        {
+          permissions: {
+            contents: "write",
+            "id-token": "write",
+            issues: "write",
+            "pull-requests": "write",
+          },
+        },
+      ]);
+    },
+  );
 
   it("given a shiplane.yml naming staged, when its adapter is made, then it keeps the option", () => {
     const [entry] = catalog;
