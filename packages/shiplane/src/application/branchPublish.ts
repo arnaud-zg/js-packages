@@ -7,6 +7,7 @@ import type { ReleaseUnit } from "../domain/unit";
 import type { Files } from "../ports/files.port";
 import type { ReleaseContext } from "./context";
 import type { PackageJson } from "./manifest";
+import type { Outcome } from "./shipSteps";
 import type { Step } from "./steps";
 import {
   BRANCH_COMMENT_MARKER,
@@ -24,6 +25,7 @@ import { MANIFEST } from "./readScope";
 import { signIn, signInsOf } from "./requirements";
 import { paint, reasonOf } from "./say";
 import { preparing } from "./ship";
+import { writeTestPlan, writeTestResult } from "./shipSteps";
 import { runSteps } from "./steps";
 import { decideContext, entry, isRegistry, runHere, shipPlanOf, unitTarget } from "./targets";
 
@@ -185,6 +187,21 @@ const publishingOf = (
   return [{ published: { name, version: candidate.version, tag, onNpmjs }, steps }];
 };
 
+/** The package's steps, each noting in `outcomes` how far the package got. */
+const recorded = (
+  { published: { name }, steps }: Publishing,
+  outcomes: Map<string, Outcome>,
+): Step[] =>
+  steps.map((step, index) => ({
+    ...step,
+    run: async () => {
+      // Failed until its last step is through.
+      outcomes.set(name, "failed");
+      await step.run();
+      if (index === steps.length - 1) outcomes.set(name, "success");
+    },
+  }));
+
 /**
  * Writes the branch versions, publishes each package, then always puts every package.json back as
  * it was: nothing is committed, tagged or versioned. False when a step failed.
@@ -196,11 +213,23 @@ const publishAll = async (
   const originals = plan.publish
     .map(manifestFile)
     .map((file) => ({ file, text: context.files.read(file) }));
-  const steps = [versionStep(context, plan.publish), ...publishing.flatMap(({ steps }) => steps)];
+  const outcomes = new Map<string, Outcome>();
+  const steps = [
+    versionStep(context, plan.publish),
+    ...publishing.flatMap((entry) => recorded(entry, outcomes)),
+  ];
   try {
     return await runSteps(context, steps);
   } finally {
     originals.forEach(({ file, text }) => text !== null && context.files.write(file, text));
+    writeTestResult(
+      context,
+      publishing.map(({ published: { name, version } }) => ({
+        name,
+        version,
+        outcome: outcomes.get(name) ?? "skipped",
+      })),
+    );
   }
 };
 
@@ -217,8 +246,22 @@ export const padded = (rows: readonly string[][]) => {
   );
 };
 
+/** The plan on a runner's run page: the run's title names no package. */
+const planOnRunPage = (
+  context: ReleaseContext,
+  { channel, publish }: BranchPlan,
+  { dryRun }: { dryRun: boolean },
+) =>
+  writeTestPlan(context, {
+    channel,
+    packages: publish.map(({ unit, version }) => ({ name: unit.packageName, version })),
+    dryRun,
+  });
+
 /** What a dry run shows: each package at the version it would take, and the npm tag; true. */
-export const printPlan = ({ output, progress }: ReleaseContext, plan: BranchPlan) => {
+export const printPlan = (context: ReleaseContext, plan: BranchPlan) => {
+  const { output, progress } = context;
+  planOnRunPage(context, plan, { dryRun: true });
   progress.say("resting", `Would publish on ${plan.channel}, ${tagWords(plan.tag)} (dry run)`);
   const [header = "", ...rows] = padded([
     ["Package", "Version", "Install"],
@@ -297,6 +340,7 @@ export interface BranchRun {
 
 /** Publishes the test version, prints its install lines and keeps them on the pull request, if any. */
 export const publishBranch = async (context: ReleaseContext, run: BranchRun) => {
+  planOnRunPage(context, run.plan, { dryRun: false });
   // An expired npm token fails the publish as a 404: check the sign-in before writing a version.
   const signedIn = await signIn(context, {
     requirements: signInsOf(

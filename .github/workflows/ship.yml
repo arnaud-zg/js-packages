@@ -2,7 +2,7 @@
 # --via ci`, `pnpm release`, or Run workflow here. Signed in by npm trusted publishing: no secret.
 # Set up and use: docs/contributing/how-to.md#publish-from-github-actions
 name: Ship
-run-name: Ship ${{ inputs.units || 'every package' }} to ${{ inputs.environment }}${{ inputs.dry-run && ' (dry run)' || '' }}
+run-name: Ship to ${{ inputs.environment }}${{ inputs.dry-run && ' (dry run)' || '' }}
 
 on:
   workflow_dispatch:

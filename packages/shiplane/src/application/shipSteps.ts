@@ -1,5 +1,6 @@
 import type { Environment } from "../domain/environment";
 import type { ReleaseContext } from "./context";
+import { plural } from "../domain/words";
 import { readStatus } from "./readStatus";
 import { fail, listed, paint, reasonOf } from "./say";
 
@@ -110,6 +111,39 @@ export const writePlan = async (
     file,
     `### Ship to ${environment}\n\n${table(["Unit", "Target", "Version", "Where it stands"], rows)}\n\n`,
   );
+};
+
+/** One package of a test release, as the run page shows it. */
+interface TestRow {
+  name: string;
+  version: string;
+}
+
+/** On a runner's run page: each package a test release is about to publish, at its version. */
+export const writeTestPlan = (
+  context: ReleaseContext,
+  {
+    channel,
+    packages,
+    dryRun = false,
+  }: { channel: string; packages: readonly TestRow[]; dryRun?: boolean },
+) => {
+  const file = summaryFile(context);
+  if (!file) return;
+  const rows = packages.map(({ name, version }) => [name, version]);
+  const title = `### Ship to ${channel}${dryRun ? " (dry run)" : ""}: ${plural(packages.length, "package")}`;
+  context.files.append(file, `${title}\n\n${table(["Package", "Version"], rows)}\n\n`);
+};
+
+/** On a runner's run page: how each package of a test release went. */
+export const writeTestResult = (
+  context: ReleaseContext,
+  results: readonly (TestRow & { outcome: Outcome })[],
+) => {
+  const file = summaryFile(context);
+  if (!file) return;
+  const rows = results.map(({ name, version, outcome }) => [name, version, outcome]);
+  context.files.append(file, `### Result\n\n${table(["Package", "Version", "Result"], rows)}\n\n`);
 };
 
 /** On a runner's run page: how each unit's prepare and ship went. */

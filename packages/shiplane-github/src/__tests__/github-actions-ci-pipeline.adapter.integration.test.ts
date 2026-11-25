@@ -354,7 +354,7 @@ const COMMIT = "c0ffee0000000000000000000000000000000000";
 const CALLER = `# Ships with shiplane: \`pnpm shiplane ship --via ci\`, or Run workflow here.
 # Written by \`shiplane setup\`; \`shiplane doctor\` keeps the pin current.
 name: Ship
-run-name: Ship \${{ inputs.units || 'every released unit' }} to \${{ inputs.environment }}
+run-name: Ship to \${{ inputs.environment }}\${{ inputs.dry-run && ' (dry run)' || '' }}
 
 on:
   workflow_dispatch:
