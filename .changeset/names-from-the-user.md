@@ -23,3 +23,5 @@ Cloudflare Pages: to check env before a deploy, `secretsIn` in the unit file say
 environment holds the secrets.
 
 The `ship.yml` setup writes runs on `ubuntu-26.04`, not on whatever `ubuntu-latest` becomes.
+
+The README opens on what you gain, and a how-to says where apps deploy and packages publish.

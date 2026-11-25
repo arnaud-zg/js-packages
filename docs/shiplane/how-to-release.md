@@ -5,13 +5,13 @@
 
 # 🛠️ How-to: release
 
-Pick a version, staging it, promote it, and retry when a ship fails. Every option named here is in
+Pick a version, see it first, promote it, and retry when a ship fails. Every option named here is in
 the [Reference](./reference.md).
 
 - [Pick from a long list](#pick-from-a-long-list)
 - [Fix a build that stops the release](#fix-a-build-that-stops-the-release)
 - [Force another version](#force-another-version)
-- [Staging every command](#staging-every-command)
+- [See every command first](#see-every-command-first)
 - [Promote to prod](#promote-to-prod)
 - [Widen a prod rollout](#widen-a-prod-rollout)
 - [Retry a failed release](#retry-a-failed-release)
@@ -93,7 +93,7 @@ gives way when you go lower.
 - **Versioning that cannot land there**, a peer dependency pulling a unit further, stops with
   `Can't force` and writes nothing.
 
-## Staging every command
+## See every command first
 
 ```sh
 pnpm shiplane ship --dry-run        # staging
