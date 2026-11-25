@@ -17,10 +17,10 @@ export interface DeployApps {
    */
   promote?: readonly [PromoteStep];
   /**
-   * Where any branch may deploy to try a change, outside the steps: `"preview"`, or `false` (when
-   * unset). Not available yet: shiplane says so and deploys nothing from a branch.
+   * Where any branch may deploy to try a change, outside the steps: `"preview"`, or `false` or
+   * unset for nowhere. Not available yet: shiplane says so and deploys nothing from a branch.
    */
-  onBranch?: "preview" | false;
+  onBranch?: "preview" | false | undefined;
 }
 
 /** How packages are published. */
@@ -35,7 +35,7 @@ export interface PublishPackages {
    * What any branch may publish to try a change, outside the channels: `"snapshot"` when unset,
    * `false` for nothing.
    */
-  onBranch?: "snapshot" | false;
+  onBranch?: "snapshot" | false | undefined;
 }
 
 /** How a repository releases: the flow, what gets released in order, and what happens around it. */

@@ -516,6 +516,17 @@ describe("saying how apps deploy and packages publish", () => {
     expect(release).toMatchObject(kept);
   });
 
+  it.each(["deployApps: { onBranch: undefined }", "publishPackages: { onBranch: undefined }"])(
+    "given %s, when the release loads, then it is as if unset",
+    async (line) => {
+      const release = await configured(line);
+
+      expect(release.problems).toEqual([]);
+      expect(release).not.toHaveProperty("onBranch");
+      expect(release).not.toHaveProperty("deployOnBranch");
+    },
+  );
+
   it("given neither, when the release loads, then nothing is set", async () => {
     const release = await configured('tag: "package"');
 
