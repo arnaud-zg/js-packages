@@ -1,8 +1,8 @@
 # Contributing
 
 This repo is an incubator for small npm packages: experiments, fixes and ideas are all welcome. A
-package that outgrows it moves to its own repo, see the
-[maturity indicators](./docs/contributing/reference.md#maturity-indicators).
+package that is stable (`1.0.0`) and outgrows it moves to its own repo, see the
+[package lifecycle](./docs/contributing/reference.md#package-lifecycle).
 
 ## Report an issue
 

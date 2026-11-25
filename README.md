@@ -46,11 +46,12 @@ every package gets the same quality bar.
 
 ```mermaid
 flowchart LR
-  A[Experiment] --> B[Publish to npm] --> C[Grow with real users] --> D[Mature: its own repo]
+  A[Experiment] --> B[Publish to npm] --> C[Grow with real users] --> D[Stable: 1.0.0] --> E[Mature: its own repo]
 ```
 
-Once a package has outgrown this repo, it moves to a dedicated one: `js-packages` has served its
-purpose. See the [maturity indicators](./docs/contributing/reference.md#maturity-indicators).
+Once a package is stable (`1.0.0`) and has outgrown this repo, it moves to a dedicated one:
+`js-packages` has served its purpose. See the
+[package lifecycle](./docs/contributing/reference.md#package-lifecycle).
 
 ## 📦 Packages
 

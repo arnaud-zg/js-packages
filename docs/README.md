@@ -41,5 +41,5 @@ shiplane plugins (`@shiplane/git`, `github`, `changesets`, `fly`, `cloudflare-pa
 ## 🤝 Contributing to this repo
 
 [How-to](./contributing/how-to.md) (run the tests, release a version) ·
-[Reference](./contributing/reference.md) (package layout, scripts, maturity indicators) ·
+[Reference](./contributing/reference.md) (package layout, scripts, package lifecycle) ·
 [Explanation](./contributing/explanation.md) (why an incubator, versioning policy)
