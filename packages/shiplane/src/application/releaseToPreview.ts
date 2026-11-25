@@ -1,3 +1,4 @@
+import type { DeployPath } from "../domain/deploys";
 import type { OpenPr, ReleaseStep } from "../domain/releasePr";
 import type { ReleaseTag } from "../domain/tags";
 import type { ReleaseContext } from "./context";
@@ -141,7 +142,10 @@ const releasePrsOf = async (
  * `release` on preview: the release PR, the wait for its merge, the tags, then the ship. It reads where things
  * stand first, so a run stopped anywhere picks up where it left off. False when something failed.
  */
-export const releaseToPreview = async (context: ReleaseContext): Promise<boolean> => {
+export const releaseToPreview = async (
+  context: ReleaseContext,
+  { via }: { via?: DeployPath } = {},
+): Promise<boolean> => {
   const { output, services, progress } = context;
   const stage = (name: (typeof STAGES)[number]) => progress.stage(STAGES, STAGES.indexOf(name));
   stage("What to release");
@@ -201,5 +205,6 @@ export const releaseToPreview = async (context: ReleaseContext): Promise<boolean
   return shipTo(current, "preview", {
     scope: new Set([...picked.scope, ...tags.map(({ app }) => app)]),
     envChecked: picked.scope,
+    via,
   });
 };

@@ -4,7 +4,8 @@ import { z } from "zod";
 import type { Requirement } from "../ports/delivery.port";
 import type { Release } from "./config/loadRelease";
 import type { SetupContext } from "./setupContext";
-import { ENVIRONMENTS } from "../domain/environment";
+import { ENVIRONMENTS, LIVE } from "../domain/environment";
+import { channelProblem } from "../domain/testChannel";
 import { checkStatus, requirementsOf, signInsOf } from "./requirements";
 import { paint } from "./say";
 import { commandLine } from "./targets";
@@ -28,6 +29,9 @@ const unitsSchema = (known: readonly string[]) =>
 const environmentSchema = z.enum(ENVIRONMENTS, {
   error: ({ input }) => `unknown environment "${String(input)}": ${ENVIRONMENTS.join(", ")}`,
 });
+
+const isPackage = (release: Release, module: string) =>
+  release.modules.find(({ name }) => name === module)?.capability === "package-registry";
 
 /** The first problem a schema found, as said. */
 const problemOf = (error: z.ZodError) => error.issues[0]?.message ?? "invalid";
@@ -108,12 +112,24 @@ export const doctorCi = async (
     );
   }
   const known = release.units.map(({ name }) => name);
-  const named = unitsSchema(known).safeParse(units.length > 0 ? units : known);
+  const packages = release.units
+    .filter((unit) => isPackage(release, unit.module))
+    .map(({ name }) => name);
+  // Anything but preview and production publishes packages: live, or a test release's channel.
+  const publishes =
+    packages.length > 0 &&
+    !ENVIRONMENTS.some((name) => name === channel) &&
+    (channel === LIVE || channelProblem(channel) === null);
+  const named = unitsSchema(known).safeParse(
+    units.length > 0 ? units : publishes ? packages : known,
+  );
   if (!named.success) return stop(problemOf(named.error));
+  const apps = publishes ? named.data.filter((name) => !packages.includes(name)) : [];
+  if (apps.length > 0) return stop(`${channel} publishes packages only: not ${apps.join(", ")}`);
   passed("units", named.data.join(", "));
   const environment = environmentSchema.safeParse(channel);
-  if (!environment.success) return stop(problemOf(environment.error));
-  passed("environment", environment.data);
+  if (!publishes && !environment.success) return stop(problemOf(environment.error));
+  passed("environment", channel);
   const picked = new Set(named.data);
   for (const requirement of requirementsOf(release, picked)) {
     const found = (await checkStatus(shell, root, requirement)) !== 127;
@@ -122,7 +138,7 @@ export const doctorCi = async (
     passed(requirement.label, found ? "installed" : "installed now");
   }
   const [absent] = missingSecrets(context, release, picked);
-  if (absent) return stop(`${absent.who}: ${absent.name} missing in "${environment.data}"`);
+  if (absent) return stop(`${absent.who}: ${absent.name} missing in "${channel}"`);
   const secrets = requirementsOf(release, picked).flatMap(({ secrets = [] }) => secrets);
   passed("secrets", secrets.length > 0 ? [...new Set(secrets)].join(", ") : "none needed");
   return true;

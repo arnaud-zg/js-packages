@@ -26,8 +26,9 @@ import { paint, reasonOf } from "../application/say";
 import { setup } from "../application/setup";
 import { CONFIG_FILE, refreshEditorSchema } from "../application/setupFiles";
 import { shipTo } from "../application/ship";
+import { shipLive } from "../application/shipLive";
 import { missingTags, tagRelease } from "../application/tagRelease";
-import { ENVIRONMENTS } from "../domain/environment";
+import { ENVIRONMENTS, LIVE } from "../domain/environment";
 import { composeContext, composeSetup, loadReleaseFrom, loadReleaseOnDisk } from "./compose";
 import { findRoot } from "./findRoot";
 import { out, printProblems } from "./output";
@@ -53,7 +54,8 @@ const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, tri
 
   shiplane                        the next step to preview: release PR, merge, tags, ship
                                   (on a branch: a test release, asked first)
-  shiplane test-release [channel] publish what the changesets release for testers, npm packages only:
+  shiplane test-release [channel] [unit...]
+                                  publish what the changesets release for testers, npm packages only:
                                   a snapshot (0.6.0-main.329aafb) or a numbered channel (0.6.0-beta.2)
   shiplane prune-snapshots        remove the npm tags of snapshots published 30 days ago or more:
                                   --older-than <days> (7 or more), --otp <code>, --dry-run, --yes
@@ -77,6 +79,7 @@ const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, tri
   shiplane help [all]             the main commands; all: this, every command and flag
 
   --channel preview|production    where status reads (preview by default)
+                                  ship also takes live: the released packages, tagged then published
   --via ci|local                  ship through the CI pipeline (such as GitHub Actions) or this machine, without asking
   --yes                           answer yes to every question (never on production)
   --dry-run                       with shiplane, ship or promote: every command it would run, run nothing;
@@ -146,19 +149,24 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
 
   const [command = "next", ...units] = positionals;
   // doctor --ci says an unknown channel itself, with the environments it knows.
-  const environment = command === "doctor" ? "preview" : z.enum(ENVIRONMENTS).parse(values.channel);
+  // live publishes the released packages: only ship and its dry run take it.
+  const live = command === "ship" && values.channel === LIVE;
+  const environment =
+    command === "doctor" || live ? "preview" : z.enum(ENVIRONMENTS).parse(values.channel);
   const via = viaFlag(values.via);
   // shiplane test-release [channel] [--dry-run]
   const testRelease = {
     onDefault: "publish" as const,
     dryRun: values["dry-run"],
+    units: units.slice(1),
+    via,
     ...(units[0] === undefined ? {} : { channel: units[0] }),
   };
 
   const commands: Record<string, (context: ReleaseContext) => Promise<boolean | void>> = {
     next: (context) =>
       environment === "preview"
-        ? branchRelease(context, { onDefault: "release" })
+        ? branchRelease(context, { onDefault: "release", via })
         : promote(context, via),
     "test-release": (context) => branchRelease(context, testRelease),
     "prune-snapshots": (context) =>
@@ -180,7 +188,12 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
     },
     tag: async (context) => tagRelease(context, await missingTags(context)),
     ship: (context) =>
-      shipTo(context, environment, { via, ...(units.length > 0 ? { scope: new Set(units) } : {}) }),
+      live
+        ? shipLive(context, units)
+        : shipTo(context, environment, {
+            via,
+            ...(units.length > 0 ? { scope: new Set(units) } : {}),
+          }),
     // Deprecated: --dry-run does it. Kept working, left out of the help.
     plan: (context) => {
       out(

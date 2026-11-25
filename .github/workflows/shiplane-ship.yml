@@ -28,11 +28,11 @@ on:
         type: string
         default: ""
       environment:
-        description: "The GitHub Environment and shiplane channel to ship to, such as preview"
+        description: "The GitHub Environment to ship to: preview or production; a test release channel such as snapshot or nightly; or live, the released npm packages"
         type: string
         required: true
       ref:
-        description: "The tag to ship, checked out while this workflow runs from main (empty: the ref the run is on)"
+        description: "The tag to ship, checked out while this workflow runs from main (empty: the ref the run is on). preview and production only"
         type: string
         default: ""
       node-version:
@@ -49,6 +49,14 @@ on:
         default: "."
       variables:
         description: "Names of the repository's or environment's variables the build reads, space separated. Not for secrets"
+        type: string
+        default: ""
+      dry-run:
+        description: "Show what would ship, ship nothing: no deployment is recorded"
+        type: boolean
+        default: false
+      build:
+        description: "Last resort: a command run after the install, when the repo builds shiplane or an adapter itself"
         type: string
         default: ""
       mascot:
@@ -85,7 +93,8 @@ jobs:
     name: Ship to ${{ inputs.environment }}
     runs-on: ubuntu-latest
     # Each GitHub Environment's secrets reach this job.
-    environment: ${{ inputs.environment }}
+    # A dry run names none: naming one records a deployment.
+    environment: ${{ !inputs.dry-run && inputs.environment || '' }}
     concurrency:
       group: shiplane-ship-${{ inputs.environment }}
       cancel-in-progress: false
@@ -101,7 +110,8 @@ jobs:
       - name: Check out
         uses: actions/checkout@v5
         with:
-          ref: ${{ inputs.ref }}
+          # An npm channel publishes the ref the run is on, which its environment's branch rule checked.
+          ref: ${{ contains(fromJSON('["preview", "production"]'), inputs.environment) && inputs.ref || '' }}
           fetch-depth: 0
 
       # Only here: the setup-node-project action serves any Node project.
@@ -236,6 +246,17 @@ jobs:
               else yarn install --frozen-lockfile; fi ;;
           esac
 
+      # Node 22 ships npm 10: OIDC publishes from 11.5.1 and moves dist-tags from 11.21.
+      - name: Update npm
+        if: ${{ !contains(fromJSON('["preview", "production"]'), inputs.environment) }}
+        run: npm install --global npm@^11.21.0
+
+      - name: Build
+        if: ${{ inputs.build != '' }}
+        env:
+          BUILD_COMMAND: ${{ inputs.build }}
+        run: eval "$BUILD_COMMAND"
+
       - name: Mint a GitHub App token
         id: app
         if: ${{ env.HAS_APP == 'true' }}
@@ -275,6 +296,7 @@ jobs:
           EXEC: ${{ steps.detect.outputs.exec }}
           UNITS: ${{ inputs.units }}
           ENVIRONMENT: ${{ inputs.environment }}
+          DRY_RUN: ${{ inputs.dry-run && '--dry-run' || '' }}
           # A log reads plainer without the mascot: --no-mascot wins over the config's display.mascot.
           MASCOT: ${{ inputs.mascot && '--mascot' || '--no-mascot' }}
           # gh and every adapter calling it read GH_TOKEN.
@@ -291,4 +313,14 @@ jobs:
         env: *ship-env
         run: |
           # shellcheck disable=SC2086 # one word per unit, and the exec prefix's words
-          $EXEC shiplane ship $UNITS --channel "$ENVIRONMENT" --yes "$MASCOT"
+          case "$ENVIRONMENT" in
+            preview | production)
+              $EXEC shiplane ship $UNITS --channel "$ENVIRONMENT" --yes "$MASCOT" $DRY_RUN ;;
+            live)
+              # The release tags are annotated, which needs an identity.
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              $EXEC shiplane ship $UNITS --channel live --yes "$MASCOT" $DRY_RUN ;;
+            *)
+              $EXEC shiplane test-release "$ENVIRONMENT" $UNITS --yes "$MASCOT" $DRY_RUN ;;
+          esac

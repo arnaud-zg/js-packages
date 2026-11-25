@@ -25,7 +25,7 @@ import { signIn, signInsOf } from "./requirements";
 import { paint, reasonOf } from "./say";
 import { preparing } from "./ship";
 import { runSteps } from "./steps";
-import { decideContext, moduleOf, runHere, shipPlanOf, unitTarget } from "./targets";
+import { decideContext, isRegistry, runHere, shipPlanOf, unitTarget } from "./targets";
 
 /** Where this checkout stands, as a branch release reads it. */
 export interface Here {
@@ -49,11 +49,6 @@ export interface BranchPlan {
   publish: Candidate[];
   others: string[];
 }
-
-const REGISTRY = "package-registry";
-
-const isRegistry = (context: ReleaseContext, unit: ReleaseUnit) =>
-  moduleOf(context, unit)?.capability === REGISTRY;
 
 /**
  * The units a test version covers: what the pending changesets release, each at the version the

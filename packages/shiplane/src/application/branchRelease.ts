@@ -1,4 +1,5 @@
 import type { OnDefault } from "../domain/branchRelease";
+import type { DeployPath } from "../domain/deploys";
 import type { OpenPr } from "../domain/releasePr";
 import type { Channel } from "../domain/testChannel";
 import type { BranchPlan, Here } from "./branchPublish";
@@ -7,9 +8,11 @@ import { branchChoice, tagWords } from "../domain/branchRelease";
 import { channelFor, channelProblem } from "../domain/testChannel";
 import { plural } from "../domain/words";
 import { planBranch, printPlan, publishBranch } from "./branchPublish";
+import { publishRoute } from "./publishRoute";
 import { releaseToPreview } from "./releaseToPreview";
 import { fail, paint, reasonOf } from "./say";
 import { runSteps } from "./steps";
+import { isRegistry } from "./targets";
 
 const whereHere = async ({ services }: ReleaseContext): Promise<Here> => {
   const [{ branch, head, originMain }, defaultBranch] = await Promise.all([
@@ -92,14 +95,18 @@ const askHow = ({ prompter }: ReleaseContext, { here, plan }: { here: Here; plan
   );
 
 /** Switches to the default branch, pulls it, then runs the real release from there. */
-const switchAndRelease = async (context: ReleaseContext, { defaultBranch }: Here) => {
+const switchAndRelease = async (
+  context: ReleaseContext,
+  { defaultBranch }: Here,
+  via: DeployPath | undefined,
+) => {
   const { sourceControl } = context.services;
   const pulled = await runSteps(context, [
     { label: `switch to ${defaultBranch}`, run: () => sourceControl.switchTo(defaultBranch) },
     { label: `pull ${defaultBranch}`, run: () => sourceControl.pull() },
   ]);
   if (!pulled) return false;
-  return releaseToPreview({ ...context, release: await context.load() });
+  return releaseToPreview({ ...context, release: await context.load() }, { via });
 };
 
 /** What the test version publishes on the channel; null, said, when its registry cannot say. */
@@ -112,6 +119,35 @@ const planOn = async (context: ReleaseContext, here: Here, channel: Channel) => 
   }
 };
 
+/** The named packages of the plan, all of it when none is named. */
+const onlyNamed = (plan: BranchPlan, names: readonly string[]): BranchPlan =>
+  names.length === 0
+    ? plan
+    : { ...plan, publish: plan.publish.filter(({ unit }) => names.includes(unit.name)) };
+
+/** Starts the ship workflow on the branch itself: the environment's branch rules apply to it. */
+const dispatchTest = async (
+  context: ReleaseContext,
+  { here, plan }: { here: Here; plan: BranchPlan },
+) => {
+  const { ciPipeline } = context.services;
+  const units = plan.publish.map(({ unit }) => unit.name).join(" ");
+  const done = await runSteps(context, [
+    {
+      label: `start ${ciPipeline.shipWorkflow} on ${here.branch}, to ${plan.channel}`,
+      run: () =>
+        ciPipeline.dispatch(
+          ciPipeline.shipWorkflow,
+          here.branch,
+          { units, environment: plan.channel },
+          { direct: true },
+        ),
+    },
+  ]);
+  if (done && ciPipeline.runsLine) context.output.line(`    ${paint("cyan", ciPipeline.runsLine)}`);
+  return done;
+};
+
 /** Plans what the test version publishes, asks when asked to, then publishes it or only shows it. */
 const publishTest = async (
   context: ReleaseContext,
@@ -122,6 +158,8 @@ const publishTest = async (
     pick,
     channel,
     dryRun,
+    units,
+    via,
   }: {
     here: Here;
     pr: OpenPr | null;
@@ -130,21 +168,38 @@ const publishTest = async (
     pick: boolean;
     channel: Channel;
     dryRun: boolean;
+    /** The packages named, empty for every pending one. */
+    units: readonly string[];
+    via: DeployPath | undefined;
   },
 ) => {
   if (!dryRun && !(await context.services.sourceControl.isClean())) return refuseDirty(context);
-  const plan = await planOn(context, here, channel);
-  if (!plan) return false;
+  const planned = await planOn(context, here, channel);
+  if (!planned) return false;
+  const plan = onlyNamed(planned, units);
   printOthers(context, plan.others);
   if (plan.publish.length === 0) return nothingToPublish(context, plan);
   if (dryRun) return printPlan(context, plan);
   const answer = ask ? await askHow(context, { here, plan }) : "publish";
-  if (answer === "switch") return switchAndRelease(context, here);
+  if (answer === "switch") return switchAndRelease(context, here, via);
   const picked = answer === null ? null : pick ? await pickPackages(context, plan) : plan;
   if (picked === null) {
     context.progress.say("resting", paint("dim", "Nothing ran."));
     return true;
   }
+  const route = await publishRoute(context, {
+    environment: channel,
+    ref: here.branch,
+    head: here.head,
+    what: whatPublishes(picked),
+    via,
+  });
+  if (route === "refused") return false;
+  if (route === null) {
+    context.progress.say("resting", paint("dim", "Nothing ran."));
+    return true;
+  }
+  if (route === "ci") return dispatchTest(context, { here, plan: picked });
   return publishBranch(context, { here, pr, plan: picked });
 };
 
@@ -160,17 +215,31 @@ export const branchRelease = async (
     onDefault,
     channel: picked,
     dryRun = false,
+    units = [],
+    via,
   }: {
     onDefault: OnDefault;
     /** The channel for this run, over the one `testRelease` gives the branch. */
     channel?: string;
     /** Show what would publish, at which versions and tag, and publish nothing. */
     dryRun?: boolean;
+    /** Only these packages, of the pending ones. */
+    units?: readonly string[];
+    /** Where it publishes from, over the config's `via`; asked when neither says. */
+    via?: DeployPath;
   },
 ): Promise<boolean> => {
   const problem = picked === undefined ? null : channelProblem(picked);
   if (problem) {
     fail(context, "Not a channel", problem);
+    return false;
+  }
+  const packages = context.release.units
+    .filter((unit) => isRegistry(context, unit))
+    .map(({ name }) => name);
+  const unknown = units.filter((name) => !packages.includes(name));
+  if (unknown.length > 0) {
+    fail(context, `Not a package: ${unknown.join(", ")}`, `known: ${packages.join(", ")}`);
     return false;
   }
   const here = await whereHere(context);
@@ -180,11 +249,12 @@ export const branchRelease = async (
     yes: context.options.yes,
     interactive: context.prompter.interactive,
   });
-  if (choice === "release") return releaseToPreview(context);
+  if (choice === "release") return releaseToPreview(context, { via });
   const channel = picked ?? channelFor(here.branch, context.release.testRelease);
   const pr = dryRun ? null : await context.services.codeHost.prForBranch(here.branch);
   // A channel named on the command line is the answer: nothing left to ask.
   const ask = choice === "ask" && picked === undefined && !dryRun;
-  const pick = context.prompter.interactive && !context.options.yes && !dryRun;
-  return publishTest(context, { here, pr, ask, pick, channel, dryRun });
+  const pick =
+    units.length === 0 && context.prompter.interactive && !context.options.yes && !dryRun;
+  return publishTest(context, { here, pr, ask, pick, channel, dryRun, units, via });
 };

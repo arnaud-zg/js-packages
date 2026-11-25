@@ -15,6 +15,10 @@ import { reasonOf } from "./say";
 export const moduleOf = ({ release }: ReleaseContext, unit: ReleaseUnit) =>
   release.modules.find(({ name }) => name === unit.module);
 
+/** Whether a unit publishes to a package registry. */
+export const isRegistry = (context: ReleaseContext, unit: ReleaseUnit) =>
+  moduleOf(context, unit)?.capability === "package-registry";
+
 /** An app's settings for an environment, its module's defaults applied first. */
 export const resolvedOptions = (
   module: ReleaseModule,

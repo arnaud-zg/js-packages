@@ -73,27 +73,28 @@ on another. Each starts at `0.1.0`: usable, not yet stable, expect breaking chan
 `0.x` minor bump until `1.0.0`. See
 [Explanation § Versioning policy](./explanation.md#versioning-policy) for why.
 
-## Deploy from GitHub Actions
+## Publish from GitHub Actions
 
-Actions › **Deploy** › Run workflow, on the branch to publish, then pick the channel:
+`pnpm shiplane test-release` and `pnpm release` ask: GitHub Actions or this machine. Or start the
+[Ship workflow](../../.github/workflows/ship.yml) yourself, with **dry-run** to only look:
 
 ```sh
-gh workflow run deploy.yml --ref main -f channel=nightly
+gh workflow run ship.yml --ref main -f environment=nightly -f dry-run=true
 ```
 
-The channel is also the GitHub Environment, so each run shows under **Deployments**:
+The environment is also the GitHub Environment, so each run shows under **Deployments**:
 
-| Channel                          | Branch | npm gets                                                            |
+| Environment                      | Branch | npm gets                                                            |
 | -------------------------------- | ------ | ------------------------------------------------------------------- |
 | `snapshot`                       | any    | `0.6.0-<branch>.<sha>`, no tag kept                                 |
 | `nightly`, `alpha`, `beta`, `rc` | `main` | `0.6.0-<channel>.<n>` under that tag                                |
 | `live`                           | `main` | the merged release PR's versions, staged: approve each on npmjs.com |
 
-`live` replaces step 3 of [Release a new version](#release-a-new-version). A test release publishes
-what the pending changesets release: with none, it publishes nothing.
+A test release publishes what the pending changesets release: with none, nothing. `live` refuses
+when `main` moved past the release.
 
 **One-time setup, per package**, on npmjs.com (Settings › Trusted publishing): GitHub Actions,
-repository `arnaud-zg/js-packages`, workflow `deploy.yml`, environment empty. Allow `npm publish`
+repository `arnaud-zg/js-packages`, workflow `ship.yml`, environment empty. Allow `npm publish`
 (test releases) and `npm dist-tag` (dropping a snapshot's tag). A package must already be on npm.
 
 ## Make a package stable

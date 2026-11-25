@@ -37,7 +37,15 @@ export interface CiPipelinePort {
   readonly shipWorkflow: string;
   /** A workflow's runs, each titled `Deploy <tag> to <environment>` when it deploys. */
   workflowRuns: (workflow: string) => Promise<Deploy[]>;
-  dispatch: (workflow: string, ref: string, inputs: Record<string, string>) => Promise<void>;
+  /** `direct` runs it on the ref itself, never on the default branch checking the ref out. */
+  dispatch: (
+    workflow: string,
+    ref: string,
+    inputs: Record<string, string>,
+    options?: { direct?: boolean },
+  ) => Promise<void>;
+  /** Whether a workflow file's `content` offers the environment; packages ship here when unset. */
+  offers?: (content: string, environment: string) => boolean;
   /** This month's minutes, why they cannot be read, or null when the pipeline won't say. */
   minutes: () => Promise<ActionsMinutes | MinutesBlocked | null>;
   /** Billed minutes of a workflow's last successful runs. */
