@@ -40,9 +40,10 @@ the last release. Two kinds of channel:
 keeps its number, as npm refuses it twice. The packages of a changesets `fixed` group share one
 `<n>`, the highest any of them needs. Nothing is written to git: no tag, no commit; versions are
 written to `package.json` for the publish and put back after, even when it fails. `latest` stays the
-real release's: no test release can use it. A snapshot keeps no npm tag: npm needs one to publish,
-so it goes out under `snapshot` and loses it right after, and no branch leaves a tag behind. Testers
-install it by its exact version, which the install lines give.
+real release's, the `live` channel: no test release can use it. See
+[every channel and its npm tag](./reference.md#channels-and-npm-tags). A snapshot keeps no npm tag:
+npm needs one to publish, so it goes out under `snapshot` and loses it right after, and no branch
+leaves a tag behind. Testers install it by its exact version, which the install lines give.
 
 In a terminal, plain `pnpm shiplane` on a feature branch asks first; with two pending packages or
 more, you pick which ones get a test release:

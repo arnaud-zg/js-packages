@@ -242,6 +242,24 @@ log group, writes a plan table and a result table (`Prepare`, `Ship`: success, f
 | Secrets           | Each picked unit's: `FLY_API_TOKEN`, `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, `EXPO_TOKEN`; the flow's `GH_TOKEN` | `api ships with fly: FLY_API_TOKEN missing in "staging"`                                                                           |
 | Working directory | The repository root, or the `working-directory` input naming a folder holding `shiplane.config.ts` or `shiplane.yml`         | `no shiplane.config.ts or shiplane.yml in apps/x`                                                                                  |
 
+### Channels and npm tags
+
+Where a package publishes, the npm tag it goes under, and how people install it:
+
+| Channel               | npm tag       | Installed with        | Starts with                      |
+| --------------------- | ------------- | --------------------- | -------------------------------- |
+| `nightly`             | `nightly`     | `npm i <pkg>@nightly` | `shiplane test-release nightly`  |
+| `alpha`, `beta`, `rc` | the same word | `npm i <pkg>@beta`    | `shiplane test-release beta`     |
+| a word of your own    | the same word | `npm i <pkg>@canary`  | `shiplane test-release canary`   |
+| `snapshot`            | none kept     | the exact version     | `shiplane test-release snapshot` |
+| **`live`**            | **`latest`**  | `npm i <pkg>`         | `shiplane`, after its release PR |
+
+`live` is the real release: it also makes the git tags and the release notes. It publishes under the
+package's own [`tag`](../../packages/shiplane-npm/README.md#-unit-file-keys), `latest` unless the
+unit file says otherwise. With
+[staged publishing](../../packages/shiplane-npm/README.md#%EF%B8%8F-staged-publishing-recommended),
+it moves once a person approves it on npm. No test release can use `latest`.
+
 With packages, a name that is no environment publishes them: `live` runs
 `shiplane ship --channel live`, any other name `shiplane test-release <name> <units>`. The caller
 lists the names as choices and allows `contents: write` and `id-token: write`. `ref` is then
