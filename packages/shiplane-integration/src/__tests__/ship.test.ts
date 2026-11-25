@@ -35,9 +35,9 @@ const setUp = () => {
     position: { branch: "main", head: "c0ffee1", originMain: "c0ffee1" },
     tags: { "api@0.0.3": "t3", "admin@0.1.3": "t4" },
     files: {
-      "api@0.0.3:.github/workflows/ship.yml": "on: workflow_dispatch",
-      "admin@0.1.3:.github/workflows/ship.yml": "on: workflow_dispatch",
-      "main:.github/workflows/ship.yml": "on: workflow_dispatch",
+      "api@0.0.3:ci/ship.yml": "on: workflow_dispatch",
+      "admin@0.1.3:ci/ship.yml": "on: workflow_dispatch",
+      "main:ci/ship.yml": "on: workflow_dispatch",
     },
   });
   world.ci.seed({ minutes: { used: 600, included: 2000, left: 1400 } });
@@ -48,7 +48,7 @@ const HOW_API = "How should api@0.0.3 ship to preview?";
 const HOW_ADMIN = "How should admin@0.1.3 ship to preview?";
 
 describe("shipping to an environment, fire and forget", () => {
-  it("given a release whose tag is the tip of main, when shipped through GitHub Actions, then it is dispatched on its tag", async () => {
+  it("given a release whose tag is the tip of main, when shipped through Fake CI, then it is dispatched on its tag", async () => {
     const { context, ci, source, prompter, progress } = setUp();
     source.seed({ tags: { "api@0.0.3": "c0ffee1" } });
     prompter.answer("ci", true);
@@ -66,7 +66,7 @@ describe("shipping to an environment, fire and forget", () => {
     expect(progress.events.map(({ text }) => text)).toContain("ship api from api@0.0.3 (ship.yml)");
   });
 
-  it("given two units tagged on the same commit, when shipped through GitHub Actions, then they ship in one run on one tag", async () => {
+  it("given two units tagged on the same commit, when shipped through Fake CI, then they ship in one run on one tag", async () => {
     const { context, ci, source, prompter } = setUp();
     source.seed({ tags: { "api@0.0.3": "c0ffee1", "admin@0.1.3": "c0ffee1" } });
     prompter.answer("ci", "ci", true);
@@ -112,10 +112,10 @@ describe("shipping to an environment, fire and forget", () => {
     expect(host.received.map(({ type }) => type)).toEqual(["record", "record"]);
   });
 
-  it("given a unit neither GitHub Actions nor this machine can ship, when shipped, then the others still go and the run fails", async () => {
+  it("given a unit neither Fake CI nor this machine can ship, when shipped, then the others still go and the run fails", async () => {
     const { context, source, shell, prompter, output } = setUp();
     source.seed({
-      files: { "main:.github/workflows/ship.yml": "on: workflow_dispatch" },
+      files: { "main:ci/ship.yml": "on: workflow_dispatch" },
       diffs: { "admin@0.1.3..HEAD": ["apps/admin/src/main.tsx"] },
     });
     prompter.answer(true);
@@ -131,7 +131,7 @@ describe("shipping to an environment, fire and forget", () => {
     source.seed({
       position: { branch: "master", head: "c0ffee1", originMain: "c0ffee1" },
       defaultBranch: "master",
-      files: { "master:.github/workflows/ship.yml": "on: workflow_dispatch" },
+      files: { "master:ci/ship.yml": "on: workflow_dispatch" },
       diffs: { "admin@0.1.3..HEAD": ["apps/admin/src/main.tsx"] },
     });
     prompter.answer(true);
@@ -142,7 +142,7 @@ describe("shipping to an environment, fire and forget", () => {
     expect(output.text).toContain("admin@0.1.3  predates ship.yml, and master moved past it");
   });
 
-  it("given api and admin tagged but not on preview, when shipped through GitHub Actions, then each workflow is dispatched on its tag, api first, and nothing waits for them", async () => {
+  it("given api and admin tagged but not on preview, when shipped through Fake CI, then each workflow is dispatched on its tag, api first, and nothing waits for them", async () => {
     const { context, ci, shell, prompter, output } = setUp();
     prompter.answer("ci", "ci", true);
 
@@ -235,8 +235,8 @@ describe("shipping to an environment, fire and forget", () => {
     world.source.seed({
       tags: { "api@0.0.3": "t3", "admin@0.1.3": "t4" },
       files: {
-        "api@0.0.3:.github/workflows/ship.yml": "on: workflow_dispatch",
-        "admin@0.1.3:.github/workflows/ship.yml": "on: workflow_dispatch",
+        "api@0.0.3:ci/ship.yml": "on: workflow_dispatch",
+        "admin@0.1.3:ci/ship.yml": "on: workflow_dispatch",
       },
     });
 
@@ -245,7 +245,7 @@ describe("shipping to an environment, fire and forget", () => {
     expect(world.host.received).toEqual([]);
   });
 
-  it("given it runs inside GitHub Actions, when shipped, then it ships from that runner without dispatching another workflow", async () => {
+  it("given it runs on a CI runner, when shipped, then it ships from that runner without dispatching another workflow", async () => {
     const { context, host, shell, prompter } = setUp();
     context.options.ci = true;
     prompter.answer(true);
@@ -318,8 +318,8 @@ describe("shipping to an environment, fire and forget", () => {
     world.source.seed({
       tags: { "api@0.0.3": "t3", "admin@0.1.3": "t4" },
       files: {
-        "api@0.0.3:.github/workflows/ship.yml": "on: workflow_dispatch",
-        "admin@0.1.3:.github/workflows/ship.yml": "on: workflow_dispatch",
+        "api@0.0.3:ci/ship.yml": "on: workflow_dispatch",
+        "admin@0.1.3:ci/ship.yml": "on: workflow_dispatch",
       },
     });
     world.context.release.via = "ci";
@@ -340,7 +340,7 @@ describe("shipping to an environment, fire and forget", () => {
     expect(ci.received.map(({ ref }) => ref)).toEqual(["admin@0.1.3"]);
   });
 
-  it("given api through GitHub Actions and admin from this machine, when shipped, then api's workflow is dispatched and admin builds and deploys here", async () => {
+  it("given api through Fake CI and admin from this machine, when shipped, then api's workflow is dispatched and admin builds and deploys here", async () => {
     const { context, host, ci, shell, prompter, output } = setUp();
     prompter.answer("ci", "local", true);
 
@@ -358,7 +358,7 @@ describe("shipping to an environment, fire and forget", () => {
     expect(host.received).toEqual([{ type: "record", ref: "admin@0.1.3", environment: "preview" }]);
     expect(shell.calls.map(({ command }) => command)).toEqual(["pnpm", "npx"]);
     expect(prompter.asked).toContain(
-      "Ship api@0.0.3 (GitHub Actions), admin@0.1.3 (this machine) to preview?",
+      "Ship api@0.0.3 (Fake CI), admin@0.1.3 (this machine) to preview?",
     );
     expect(output.text).toContain("gh run list");
   });
@@ -378,8 +378,8 @@ describe("shipping to an environment, fire and forget", () => {
     const { context, host, ci, source, prompter, output } = setUp();
     source.seed({
       files: {
-        "api@0.0.3:.github/workflows/ship.yml": "on: workflow_dispatch",
-        "main:.github/workflows/ship.yml": "on: workflow_dispatch",
+        "api@0.0.3:ci/ship.yml": "on: workflow_dispatch",
+        "main:ci/ship.yml": "on: workflow_dispatch",
       },
     });
     prompter.answer("ci", true);
@@ -403,8 +403,8 @@ describe("shipping to an environment, fire and forget", () => {
     const { context, ci, source, prompter, output } = setUp();
     source.seed({
       files: {
-        "api@0.0.3:.github/workflows/ship.yml": "on: workflow_dispatch",
-        "main:.github/workflows/ship.yml": "on: workflow_dispatch",
+        "api@0.0.3:ci/ship.yml": "on: workflow_dispatch",
+        "main:ci/ship.yml": "on: workflow_dispatch",
       },
     });
     prompter.answer(true);
@@ -415,7 +415,7 @@ describe("shipping to an environment, fire and forget", () => {
     expect(output.text).toContain("admin@0.1.3  predates ship.yml: ship it from this machine");
   });
 
-  it("given main moved past a tag, when asked how to ship, then it is not asked and goes through GitHub Actions, since this machine builds its checkout", async () => {
+  it("given main moved past a tag, when asked how to ship, then it is not asked and goes through Fake CI, since this machine builds its checkout", async () => {
     const { context, host, ci, shell, source, prompter, output } = setUp();
     source.seed({ diffs: { "admin@0.1.3..HEAD": ["apps/admin/src/main.tsx"] } });
     prompter.answer("local", true);
@@ -426,7 +426,7 @@ describe("shipping to an environment, fire and forget", () => {
     expect(shell.calls.map(({ command }) => command)).toEqual(["flyctl"]);
     expect(host.received.map(({ type }) => type)).toEqual(["record"]);
     expect(ci.received.map(({ ref }) => ref)).toEqual(["admin@0.1.3"]);
-    expect(output.text).toContain("admin@0.1.3  main moved past it: ships through GitHub Actions");
+    expect(output.text).toContain("admin@0.1.3  main moved past it: ships through Fake CI");
   });
 
   it("given main moved past a tag and --via local, when shipped, then that unit is refused since this machine builds its checkout", async () => {
@@ -452,14 +452,14 @@ describe("shipping to an environment, fire and forget", () => {
     expect(output.text).toContain("about to run out");
   });
 
-  it("given a ship to preview through GitHub Actions, when it asks to go ahead, then Yes is preselected", async () => {
+  it("given a ship to preview through Fake CI, when it asks to go ahead, then Yes is preselected", async () => {
     const { context, prompter } = setUp();
     prompter.answer("ci", "ci", false, false);
 
     await shipTo(context, "preview", {});
 
     const question = prompter.asked.find((asked) => asked.startsWith("Ship "));
-    expect(question).toContain("to preview through GitHub Actions");
+    expect(question).toContain("to preview through Fake CI");
     expect(question && prompter.initials[question]).toBe(true);
   });
 
@@ -559,7 +559,7 @@ describe("a dry run", () => {
 
     expect(output.text).toContain("flyctl deploy --remote-only --config apps/api/fly-preview.toml");
     expect(output.text).toContain(
-      "gh workflow run ship.yml --ref api@0.0.3 -f units=api -f environment=preview",
+      "fake-ci run ship.yml --ref api@0.0.3 -f units=api -f environment=preview",
     );
     expect(output.text).toContain(
       "VITE_API_URL=https://api-preview.acme.dev pnpm turbo run build --filter=@acme/admin",

@@ -7,10 +7,10 @@ import { setup } from "../setup";
 import { callerFor, callingPipeline, runningShiplane, SHIP_YML } from "./callerWorld";
 
 // Setup writing the workflow a repository ships from, in memory: the CI pipeline is a Fake that
-// makes the caller workflow for the shiplane versions it calls released, and asks gh nothing.
+// makes the caller workflow for the shiplane versions it calls released, and asks no host anything.
 
-const fly = () =>
-  detecting(serverHostingFake(), "fly", "fly.toml", (folder) => ({ service: folder.name }));
+const cloud = () =>
+  detecting(serverHostingFake(), "cloud", "cloud.toml", (folder) => ({ service: folder.name }));
 
 const PROVEN = {
   "package.json": JSON.stringify({ name: "acme", private: true }),
@@ -23,11 +23,11 @@ const PROVEN = {
     version: "0.1.0",
     scripts: { build: "tsc" },
   }),
-  "apps/api/fly.toml": 'app = "acme-api"\n',
+  "apps/api/cloud.toml": 'app = "acme-api"\n',
 };
 
 const given = (files: Record<string, string>, released = ["0.6.0"]) => {
-  const repo = memoryRepository(files, [fly()]);
+  const repo = memoryRepository(files, [cloud()]);
   repo.shell.seed("git remote get-url origin", { stdout: "git@github.com:acme/mono.git\n" });
   const context = runningShiplane(repo.context, "0.6.0", callingPipeline(released));
   return { ...repo, context };
@@ -45,13 +45,13 @@ describe("Feature: setup writes the workflow a repository ships from", () => {
   });
 
   it("given an app whose adapter reads a token on a runner, when setup writes ship.yml, then it passes that secret by name and no other", async () => {
-    const hosting = fly();
+    const hosting = cloud();
     hosting.fake.seed({
       requirements: [
         {
-          label: "flyctl",
-          check: { command: "flyctl", args: ["auth", "whoami"] },
-          secrets: ["GH_TOKEN", "FLY_API_TOKEN"],
+          label: "hostctl",
+          check: { command: "hostctl", args: ["auth", "whoami"] },
+          secrets: ["GH_TOKEN", "CLOUD_API_TOKEN"],
         },
       ],
     });
@@ -63,7 +63,7 @@ describe("Feature: setup writes the workflow a repository ships from", () => {
     expect(await setup(context, { yes: false })).toBe(true);
 
     expect(repo.files.read(SHIP_YML)).toBe(
-      callerFor("0.6.0", { secrets: ["FLY_API_TOKEN"], features: [] }),
+      callerFor("0.6.0", { secrets: ["CLOUD_API_TOKEN"], features: [] }),
     );
   });
 
@@ -138,7 +138,7 @@ describe("Feature: setup writes the workflow a repository ships from", () => {
   });
 
   it("given a pipeline that writes no caller workflow, when setup runs, then no ship.yml is made", async () => {
-    const repo = memoryRepository(PROVEN, [fly()]);
+    const repo = memoryRepository(PROVEN, [cloud()]);
     repo.shell.seed("git remote get-url origin", { stdout: "git@github.com:acme/mono.git\n" });
     repo.prompter.answer(true, true);
 

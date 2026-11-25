@@ -85,7 +85,7 @@ describe("publishing a test release on a numbered channel", () => {
       openPrs: [
         {
           branch: BRANCH,
-          pr: { number: 42, url: "https://github.com/acme/repo/pull/42", head: HEAD },
+          pr: { number: 42, url: "https://host.test/acme/repo/pull/42", head: HEAD },
         },
       ],
     });

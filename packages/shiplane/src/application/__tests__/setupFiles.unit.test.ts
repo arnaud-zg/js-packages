@@ -5,8 +5,8 @@ import { DEFAULT_FLOW, renderConfig } from "../setupFiles";
 const entry = {
   factory: "backendService",
   port: "serverHosting",
-  adapter: "flyServerHosting",
-  from: "@shiplane/fly",
+  adapter: "cloudServerHosting",
+  from: "@shiplane/cloud",
 };
 
 describe("Feature: the config setup writes", () => {
@@ -18,7 +18,7 @@ describe("Feature: the config setup writes", () => {
     expect(text).toContain(
       'import { gitHubActionsCiPipeline, gitHubCodeHost } from "@shiplane/github";',
     );
-    expect(text).toContain("backendService({ serverHosting: flyServerHosting() })");
+    expect(text).toContain("backendService({ serverHosting: cloudServerHosting() })");
   });
 
   it("given a custom CI pipeline, when the config is written, then it is imported from its own file, after the plugins", () => {

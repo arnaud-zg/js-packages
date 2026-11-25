@@ -35,8 +35,8 @@ describe("Feature: previewing with --dry-run every command a ship would run", ()
         "    this machine",
         "      echo deploy acme-api api@0.1.0",
         "      then record api@0.1.0 on preview in GitHub Deployments",
-        "    GitHub Actions",
-        "      gh workflow run ship.yml --ref api@0.1.0 -f units=api -f environment=preview",
+        "    Fake CI",
+        "      fake-ci run ship.yml --ref api@0.1.0 -f units=api -f environment=preview",
       ]),
     );
     expect(output.lines.at(-1)).toBe("");
@@ -108,7 +108,7 @@ describe("Feature: previewing with --dry-run every command a ship would run", ()
     expect(output.lines).toContain("  a@0.1.0 → the store");
     expect(output.lines).toContain("      upload a");
     expect(output.text).not.toContain("then record");
-    expect(output.text).not.toContain("GitHub Actions");
+    expect(output.text).not.toContain("Fake CI");
   });
 
   it("given a feature that follows up on ships, when a ship is previewed, then it lists the follow-ups of the tagged apps only", async () => {

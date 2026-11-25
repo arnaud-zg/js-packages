@@ -128,7 +128,7 @@ describe("a plugin for coding agents, released from the repository agents instal
 });
 
 describe("a plugin has no environment, like a package on npm", () => {
-  /** Every word a person reads during a run: questions, terminal, progress, what lands on GitHub. */
+  /** Every word a person reads during a run: questions, terminal, progress, what lands on the host. */
   const everythingSaid = ({ prompter, output, progress, host }: ReturnType<typeof setUp>) =>
     [
       ...prompter.asked,

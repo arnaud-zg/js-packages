@@ -35,14 +35,14 @@ describe("which way a unit ships", () => {
     expect(routeChoice({ ci: null, local: null })).toEqual({ route: "ask" });
   });
 
-  it("given GitHub blocked, when choosing a route, then it ships from this machine and says why", () => {
+  it("given CI blocked, when choosing a route, then it ships from this machine and says why", () => {
     expect(routeChoice({ ci: "no ship.yml", local: null })).toEqual({
       route: "local",
       blocked: "no ship.yml",
     });
   });
 
-  it("given this machine blocked, when choosing a route, then it ships through GitHub and says why", () => {
+  it("given this machine blocked, when choosing a route, then it ships through CI and says why", () => {
     expect(routeChoice({ ci: null, local: "main moved past it" })).toEqual({
       route: "ci",
       blocked: "main moved past it",

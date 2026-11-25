@@ -121,7 +121,7 @@ describe("the pull request comment of a branch release", () => {
     branchComment({
       sha: "ae08284f00d1",
       branch: "feat/x",
-      repository: "https://github.com/acme/repo",
+      repository: "https://host.test/acme/repo",
       published: [KIT, UI],
       others: ["api"],
       ...overrides,
@@ -133,7 +133,7 @@ describe("the pull request comment of a branch release", () => {
     expect(lines[0]).toBe(BRANCH_COMMENT_MARKER);
     expect(lines[1]).toBe("### 📦 Published on npm for testing");
     expect(lines[2]).toContain(
-      "Built from [`ae08284`](https://github.com/acme/repo/commit/ae08284f00d1) on `feat/x`.",
+      "Built from [`ae08284`](https://host.test/acme/repo/commit/ae08284f00d1) on `feat/x`.",
     );
   });
 
@@ -193,7 +193,7 @@ describe("the pull request comment of a branch release", () => {
 
   it("given the compact preset, when written, then it is one line under the marker", () => {
     expect(comment({ template: comments.compact, published: [KIT] })).toBe(
-      `${BRANCH_COMMENT_MARKER}\n📦 Test version of \`feat/x\` ([\`ae08284\`](https://github.com/acme/repo/commit/ae08284f00d1)): \`npm i @acme/kit@0.5.2-feat-x.ae08284\`\n`,
+      `${BRANCH_COMMENT_MARKER}\n📦 Test version of \`feat/x\` ([\`ae08284\`](https://host.test/acme/repo/commit/ae08284f00d1)): \`npm i @acme/kit@0.5.2-feat-x.ae08284\`\n`,
     );
   });
 
@@ -205,9 +205,9 @@ describe("the pull request comment of a branch release", () => {
 });
 
 describe("a repository's address, from its pull request", () => {
-  it("given a GitHub pull request address, when read, then it is the repository's", () => {
-    expect(repositoryOfPr("https://github.com/acme/repo/pull/42")).toBe(
-      "https://github.com/acme/repo",
+  it("given a pull request address, when read, then it is the repository's", () => {
+    expect(repositoryOfPr("https://host.test/acme/repo/pull/42")).toBe(
+      "https://host.test/acme/repo",
     );
   });
 

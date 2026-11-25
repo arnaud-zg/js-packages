@@ -97,8 +97,8 @@ const given = ({
     position: { branch: "main", head: "h1", originMain: "h1" },
     tags: { "api@1.0.0": "t1", "site@1.0.0": "t2" },
     files: {
-      "api@1.0.0:.github/workflows/ship.yml": "on: workflow_dispatch",
-      "site@1.0.0:.github/workflows/ship.yml": "on: workflow_dispatch",
+      "api@1.0.0:ci/ship.yml": "on: workflow_dispatch",
+      "site@1.0.0:ci/ship.yml": "on: workflow_dispatch",
     },
   });
   const prompter = new ScriptedPrompter();
@@ -383,7 +383,7 @@ describe("Feature: previewing a ship before anything runs", () => {
     expect(await run("status", "--dry-run")).toBe(0);
 
     expect(stdout()).toContain("Release status");
-    expect(output.text).not.toContain("gh workflow run");
+    expect(output.text).not.toContain("fake-ci run");
   });
 
   it("given a person who types shiplane --dry-run, when it runs, then they see the preview plan without being asked anything", async () => {

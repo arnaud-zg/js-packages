@@ -22,10 +22,10 @@ const recognising = <Adapter extends AnyDeliveryAdapter>(
     folder.has(marker) ? { certainty, reason: marker, options: {} } : null,
 });
 
-/** Fly is sure of a fly.toml; pages thinks a vite config likely; docker, a Dockerfile possible. */
+/** Cloud is sure of a cloud.toml; pages thinks a vite config likely; docker, a Dockerfile possible. */
 export const initAdapters = () => [
   recognising(serverHostingFake(), "docker", "Dockerfile", "possible"),
-  detecting(serverHostingFake(), "fly", "fly.toml", (folder) => ({ service: folder.name })),
+  detecting(serverHostingFake(), "cloud", "cloud.toml", (folder) => ({ service: folder.name })),
   {
     ...recognising(staticHostingFake(), "pages", "vite.config.ts", "likely"),
     questions: () => [
@@ -37,18 +37,18 @@ export const initAdapters = () => [
 
 export const manifest = (name: string) => JSON.stringify({ name, version: "0.1.0" });
 
-/** api ships on fly, web is likely pages, tools has nothing to ship it, old has its unit file. */
+/** api ships on cloud, web is likely pages, tools has nothing to ship it, old has its unit file. */
 export const WORKSPACE = {
   "package.json": JSON.stringify({ name: "@acme/mono", private: true }),
   "pnpm-workspace.yaml": "packages:\n  - apps/*\n",
   "apps/api/package.json": manifest("@acme/api"),
-  "apps/api/fly.toml": 'app = "acme-api"\n',
+  "apps/api/cloud.toml": 'app = "acme-api"\n',
   "apps/api/Dockerfile": "FROM node\n",
   "apps/web/package.json": manifest("@acme/web"),
   "apps/web/vite.config.ts": "export default {};\n",
   "apps/web/Dockerfile": "FROM nginx\n",
   "apps/tools/package.json": manifest("@acme/tools"),
-  "apps/notes/fly.toml": "",
+  "apps/notes/cloud.toml": "",
 };
 
 /** A repository for init: in memory, its folders listed from a temp copy that `remove` deletes. */

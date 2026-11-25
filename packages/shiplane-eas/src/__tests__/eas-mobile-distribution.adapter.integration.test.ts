@@ -163,8 +163,8 @@ const setUp = ({
     position: { branch: "main", head: "head-1", originMain: "head-1" },
     // The ship workflow runs from the tag or from main, so both hold it.
     files: {
-      "expo@0.1.115:.github/workflows/ship.yml": "on: workflow_dispatch",
-      "main:.github/workflows/ship.yml": "on: workflow_dispatch",
+      "expo@0.1.115:ci/ship.yml": "on: workflow_dispatch",
+      "main:ci/ship.yml": "on: workflow_dispatch",
     },
   });
   return { ...world, workspace };
@@ -376,7 +376,7 @@ describe("shipping the mobile app to preview", () => {
     expect(prompter.asked).not.toContain("How should expo@0.1.115 ship to preview?");
   });
 
-  it("given the same native layer and its tag on main, when shipped through GitHub Actions, then the ship workflow publishes the update from its tag", async () => {
+  it("given the same native layer and its tag on main, when shipped through Fake CI, then the ship workflow publishes the update from its tag", async () => {
     const { context, ci, source, prompter } = setUp();
     source.seed({
       tags: { "expo@0.1.115": "head-1" },
@@ -457,7 +457,7 @@ describe("shipping the mobile app to preview", () => {
         },
       });
 
-    it("given the app's own code also changed since its tag, when shipped, then the tag ships through GitHub Actions, never this machine's checkout", async () => {
+    it("given the app's own code also changed since its tag, when shipped, then the tag ships through Fake CI, never this machine's checkout", async () => {
       const world = releasedOnTop();
       appMovedOn(world);
       const { context, ci, prompter, output } = world;
@@ -467,7 +467,7 @@ describe("shipping the mobile app to preview", () => {
 
       expect(prompter.asked).not.toContain("How should expo@0.1.115 ship to preview?");
       expect(output.text).toContain(
-        "main moved past it (packages/app/src/home.tsx changed since): ships through GitHub Actions",
+        "main moved past it (packages/app/src/home.tsx changed since): ships through Fake CI",
       );
       expect(ci.received).toEqual([
         {
@@ -605,7 +605,7 @@ describe("promoting the mobile app after main moved on", () => {
     ]);
   });
 
-  it("given a unit that ships main and its tag is the tip of main, when production ships through GitHub Actions, then it is still dispatched on main", async () => {
+  it("given a unit that ships main and its tag is the tip of main, when production ships through Fake CI, then it is still dispatched on main", async () => {
     const { context, ci, source, prompter } = promotable();
     source.seed({
       tags: { "expo@0.1.115": "head-1" },
@@ -963,7 +963,7 @@ describe("retrying a mobile release that never reached preview", () => {
       submissions: { android: [submitted("ANDROID", "android-42")] },
     });
 
-  it("given the iOS build failed and main moved on, when shipped, then it says why, offers the retry preselected and ships the tag through GitHub Actions without asking again", async () => {
+  it("given the iOS build failed and main moved on, when shipped, then it says why, offers the retry preselected and ships the tag through Fake CI without asking again", async () => {
     const { context, ci, shell, prompter, output } = iosFailed();
     prompter.answer("retry", "ci");
 
@@ -1137,7 +1137,7 @@ describe("retrying a mobile release that never reached preview", () => {
     ]);
   });
 
-  it("given iOS to build and Android to submit again, when retried through GitHub Actions, then both jobs name the tag and one run ships them", async () => {
+  it("given iOS to build and Android to submit again, when retried through Fake CI, then both jobs name the tag and one run ships them", async () => {
     const { context, ci, prompter } = movedOn({
       platformBuilds: {
         ios: [IOS_FAILED, OLDER("ios")],
@@ -1191,8 +1191,8 @@ describe("retrying a mobile release that never reached preview", () => {
     });
     source.seed({
       files: {
-        "expo@0.1.115:.github/workflows/ship.yml": "on: workflow_dispatch",
-        "main:.github/workflows/ship.yml": "on: workflow_dispatch",
+        "expo@0.1.115:ci/ship.yml": "on: workflow_dispatch",
+        "main:ci/ship.yml": "on: workflow_dispatch",
         "expo@0.1.115:apps/expo/app-version.json": JSON.stringify({
           preview: { version: "0.1.114" },
           production: { version: "0.1.114" },

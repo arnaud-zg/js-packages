@@ -49,7 +49,7 @@ const KIT_CHANGE = "packages/kit/src/index.ts";
 const API_CHANGE = "apps/api/src/server.ts";
 
 const KIT_MANIFEST = '{\n  "name": "@acme/kit",\n  "version": "0.5.2"\n}\n';
-const PR = { number: 42, url: "https://github.com/acme/repo/pull/42" };
+const PR = { number: 42, url: "https://host.test/acme/repo/pull/42" };
 const PUBLISH = ["publish", "--no-git-checks", "--access", "public", "--tag", "snapshot"];
 const MARKER = "<!-- shiplane:branch-release -->";
 
@@ -123,7 +123,7 @@ describe("Feature: a branch release for testers", () => {
       ),
     ]);
     expect((await branchComments(world))[0]).toContain(
-      "Built from [`ae08284`](https://github.com/acme/repo/commit/ae08284f00d1) on `feat/x`.",
+      "Built from [`ae08284`](https://host.test/acme/repo/commit/ae08284f00d1) on `feat/x`.",
     );
     expect((await branchComments(world))[0]).toContain(
       "Test release not available yet: `api` (npm packages only for now).",
@@ -182,7 +182,7 @@ describe("Feature: a branch release for testers", () => {
     // then
     expect(await branchComments(world)).toEqual([
       expect.stringContaining(
-        "Built from [`b1b2b3b`](https://github.com/acme/repo/commit/b1b2b3b4b5)",
+        "Built from [`b1b2b3b`](https://host.test/acme/repo/commit/b1b2b3b4b5)",
       ),
     ]);
   });
@@ -255,7 +255,7 @@ describe("Feature: a branch release for testers", () => {
 
     // then
     expect(await branchComments(world)).toEqual([
-      `${MARKER}\n📦 Test version of \`feat/x\` ([\`ae08284\`](https://github.com/acme/repo/commit/ae08284f00d1)): \`npm i @acme/kit@0.6.0-feat-x.ae08284\`\n`,
+      `${MARKER}\n📦 Test version of \`feat/x\` ([\`ae08284\`](https://host.test/acme/repo/commit/ae08284f00d1)): \`npm i @acme/kit@0.6.0-feat-x.ae08284\`\n`,
     ]);
   });
 

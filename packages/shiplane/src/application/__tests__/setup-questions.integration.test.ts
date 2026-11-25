@@ -10,14 +10,14 @@ import { SCHEMA_FILE, schemaText } from "../setupFiles";
 // Every run is in memory: files, shell, person and adapters are Fakes. Nothing on this machine is
 // read, written, pushed, published or deployed.
 
-const fly = () =>
-  detecting(serverHostingFake(), "fly", "fly.toml", (folder) => ({ service: folder.name }));
+const cloud = () =>
+  detecting(serverHostingFake(), "cloud", "cloud.toml", (folder) => ({ service: folder.name }));
 const pages = () => ({
-  ...detecting(staticHostingFake(), "pages", "wrangler.toml", (folder) => ({ site: folder.name })),
+  ...detecting(staticHostingFake(), "pages", "pages.toml", (folder) => ({ site: folder.name })),
   questions: (_folder: unknown, found: Record<string, unknown>) =>
     found.site ? [] : [{ key: "site", message: "Site name?", initial: "web" }],
 });
-const ADAPTERS = () => [fly(), pages(), packageRegistryFake()];
+const ADAPTERS = () => [cloud(), pages(), packageRegistryFake()];
 
 const manifest = (name: string, scripts: Record<string, string> = { build: "tsc" }) =>
   JSON.stringify({ name, version: "0.1.0", scripts });
@@ -29,7 +29,7 @@ const PROVEN = {
   ".github/workflows/ci.yml": "on: push\n",
   ".changeset/config.json": "{}\n",
   "apps/api/package.json": manifest("@acme/api"),
-  "apps/api/fly.toml": 'app = "acme-api"\n',
+  "apps/api/cloud.toml": 'app = "acme-api"\n',
 };
 
 /** The files without these ones. */
@@ -81,7 +81,7 @@ describe("Feature: setup says what it found", () => {
       "  ✓ Changesets      .changeset/config.json",
       "",
       "  Apps",
-      "  ✓ apps/api          Backend service → fly   proof: fly.toml",
+      "  ✓ apps/api          Backend service → cloud   proof: cloud.toml",
       "",
       "  Rehearsal  · nothing is pushed, published or deployed",
       "  ✓ build 1 app",
@@ -209,8 +209,8 @@ describe("Feature: a first run on a new repository", () => {
       detect: () => ({ certainty: "likely" as const, reason: "astro.config.mjs", options: {} }),
     };
     const repo = memoryRepository(
-      { ...PROVEN, "apps/api/fly.toml": "", "apps/web/package.json": manifest("@acme/web") },
-      [fly(), likely],
+      { ...PROVEN, "apps/api/cloud.toml": "", "apps/web/package.json": manifest("@acme/web") },
+      [cloud(), likely],
     );
     repo.shell.seed("git remote get-url origin", { stdout: "git@github.com:acme/mono.git\n" });
     repo.prompter.answer(true, "static-hosting", "pages", "acme", true);
@@ -455,7 +455,7 @@ describe("Feature: where the apps are", () => {
     const { context, prompter, files } = given({
       ...PROVEN,
       "tools/cli/package.json": manifest("@acme/cli"),
-      "tools/cli/fly.toml": "",
+      "tools/cli/cloud.toml": "",
     });
     prompter.answer(false, " apps/* , tools/*, ", true);
 

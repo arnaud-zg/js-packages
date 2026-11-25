@@ -10,13 +10,13 @@ import { rehearse } from "../rehearse";
 // A rehearsal in memory: what it says when builds, plans and sign-ins pass or fail.
 
 const SIGNED_IN = {
-  label: "fly signed in",
-  check: { command: "flyctl", args: ["auth", "whoami"] },
-  fix: { command: "flyctl", args: ["auth", "login"] },
+  label: "host signed in",
+  check: { command: "hostctl", args: ["auth", "whoami"] },
+  fix: { command: "hostctl", args: ["auth", "login"] },
 };
 
-const fly = (requirements: Requirement[] = [SIGNED_IN]) => ({
-  ...detecting(serverHostingFake(), "fly", "fly.toml"),
+const cloud = (requirements: Requirement[] = [SIGNED_IN]) => ({
+  ...detecting(serverHostingFake(), "cloud", "cloud.toml"),
   requirements: () => requirements,
 });
 
@@ -38,7 +38,7 @@ const REPO = {
 describe("Feature: rehearsing a release before anything is pushed", () => {
   it("given two apps with a build script, when the release is rehearsed, then it opens on its heading and one check builds both, each line naming its folder and time", async () => {
     // given
-    const { context, output } = memoryRepository({ ...REPO, ...app("web") }, [fly([])]);
+    const { context, output } = memoryRepository({ ...REPO, ...app("web") }, [cloud([])]);
 
     // when
     const ok = await rehearse(context);
@@ -60,7 +60,7 @@ describe("Feature: rehearsing a release before anything is pushed", () => {
 
   it("given a build that fails, when the release is rehearsed, then its last three lines and how to fix it are shown and the rehearsal fails", async () => {
     // given
-    const { context, shell, output } = memoryRepository(REPO, [fly([])]);
+    const { context, shell, output } = memoryRepository(REPO, [cloud([])]);
     shell.seed("npm run build", {
       status: 2,
       stdout: "one\ntwo\nthree\nfour\n",
@@ -87,7 +87,9 @@ describe("Feature: rehearsing a release before anything is pushed", () => {
 
   it("given no app with a build script, when the release is rehearsed, then nothing builds and it passes", async () => {
     // given
-    const { context, shell, output } = memoryRepository({ ...REPO, ...app("api", {}) }, [fly([])]);
+    const { context, shell, output } = memoryRepository({ ...REPO, ...app("api", {}) }, [
+      cloud([]),
+    ]);
 
     // when
     const ok = await rehearse(context);
@@ -101,7 +103,7 @@ describe("Feature: rehearsing a release before anything is pushed", () => {
   it("given a sign-in that is missing and has no fix, when the release is rehearsed, then it says the sign-in is not available here", async () => {
     // given
     const { context, shell, output } = memoryRepository(REPO, [
-      fly([{ label: "token set", check: { command: "printenv", args: ["TOKEN"] } }]),
+      cloud([{ label: "token set", check: { command: "printenv", args: ["TOKEN"] } }]),
     ]);
     shell.seed("printenv", { status: 1 });
 
@@ -116,7 +118,7 @@ describe("Feature: rehearsing a release before anything is pushed", () => {
 
   it("given every ship plan resolves, when the release is rehearsed without a spinner, then the plan line counts the apps", async () => {
     // given
-    const { context, output } = memoryRepository(REPO, [fly([])]);
+    const { context, output } = memoryRepository(REPO, [cloud([])]);
     context.compose = (release) =>
       testContext({ units: release.units, modules: release.modules }).context;
 
@@ -129,7 +131,7 @@ describe("Feature: rehearsing a release before anything is pushed", () => {
 
   it("given a ship plan that cannot resolve, when the release is rehearsed under a spinner, then the failed plan line is followed by the reason", async () => {
     // given
-    const { context, output } = memoryRepository(REPO, [fly([])]);
+    const { context, output } = memoryRepository(REPO, [cloud([])]);
     context.progress = new RecordingProgress(output);
     context.compose = (release) =>
       testContext({
@@ -153,22 +155,22 @@ describe("Feature: rehearsing a release before anything is pushed", () => {
 
   it("given a missing sign-in, when the release is rehearsed under a spinner, then the spinner reports it once and the fix command is shown", async () => {
     // given
-    const { context, shell, output } = memoryRepository(REPO, [fly()]);
+    const { context, shell, output } = memoryRepository(REPO, [cloud()]);
     context.progress = new RecordingProgress(output);
-    shell.seed("flyctl auth whoami", { status: 1 });
+    shell.seed("hostctl auth whoami", { status: 1 });
 
     // when
     const ok = await rehearse(context);
 
     // then
     expect(ok).toBe(false);
-    expect(output.text).not.toContain("✗ fly signed in");
-    expect(output.lines).toContain("     run flyctl auth login, then shiplane setup");
+    expect(output.text).not.toContain("✗ host signed in");
+    expect(output.lines).toContain("     run hostctl auth login, then shiplane setup");
   });
 
   it("given a config with problems, when the release is rehearsed, then each problem is shown with its line and hint, and nothing builds", async () => {
     // given
-    const { context, shell, output } = memoryRepository(REPO, [fly([])]);
+    const { context, shell, output } = memoryRepository(REPO, [cloud([])]);
     const load = context.load;
     context.load = async () => ({
       ...(await load()),
@@ -206,7 +208,7 @@ describe("Feature: rehearsing builds with the repository's own package manager",
     "given the lockfile %o, when the release is rehearsed, then the app builds with %s run build in its folder",
     async (lockfile, pm) => {
       // given
-      const { context, shell, output } = memoryRepository({ ...REPO, ...lockfile }, [fly([])]);
+      const { context, shell, output } = memoryRepository({ ...REPO, ...lockfile }, [cloud([])]);
 
       // when
       await rehearse(context);
@@ -225,7 +227,7 @@ describe("Feature: rehearsing builds with the repository's own package manager",
     // given
     const { context, shell, output } = memoryRepository(
       { ...REPO, "apps/worker/shiplane.unit.yml": "module: backend-service\nservice: worker\n" },
-      [fly([])],
+      [cloud([])],
     );
 
     // when

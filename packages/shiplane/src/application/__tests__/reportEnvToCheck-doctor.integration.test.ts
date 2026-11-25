@@ -24,7 +24,7 @@ const platform = (held: Partial<Record<Environment, EnvVarName[]>>) => ({
   }: {
     environment: Environment;
     names: readonly EnvVarName[];
-  }) => `fly secrets set -a acme-${environment} ${unset.join(" ")}`,
+  }) => `hostctl secrets set -a acme-${environment} ${unset.join(" ")}`,
 });
 
 const setUp = (
@@ -88,7 +88,7 @@ describe("Feature: doctor checking that the env each app needs is set before dep
     expect(output.lines).toEqual([
       "│   Check env before deploy",
       "│  ✗ api on preview: 1 unset env vars: SENTRY_DSN",
-      "│      you set them: fly secrets set -a acme-preview SENTRY_DSN",
+      "│      you set them: hostctl secrets set -a acme-preview SENTRY_DSN",
       "│  ✓ api on production: 2 of 2 set",
     ]);
   });

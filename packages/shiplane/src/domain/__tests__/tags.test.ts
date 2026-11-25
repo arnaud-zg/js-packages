@@ -137,9 +137,9 @@ describe("release notes read from a hard-wrapped changelog", () => {
       [
         "### Patch Changes",
         "",
-        "- [#2460](https://github.com/OWNER/REPO/pull/2460)",
-        "  [`5f26d0c`](https://github.com/OWNER/REPO/commit/5f26d0c)",
-        "  Thanks [@user](https://github.com/user)! - The preview update ships again: the 0.7.1",
+        "- [#2460](https://host.test/OWNER/REPO/pull/2460)",
+        "  [`5f26d0c`](https://host.test/OWNER/REPO/commit/5f26d0c)",
+        "  Thanks [@user](https://host.test/user)! - The preview update ships again: the 0.7.1",
         "  update failed before it was published.",
       ].join("\n"),
     );
@@ -148,7 +148,7 @@ describe("release notes read from a hard-wrapped changelog", () => {
       [
         "### Patch Changes",
         "",
-        "- [#2460](https://github.com/OWNER/REPO/pull/2460) [`5f26d0c`](https://github.com/OWNER/REPO/commit/5f26d0c) Thanks [@user](https://github.com/user)! - The preview update ships again: the 0.7.1 update failed before it was published.",
+        "- [#2460](https://host.test/OWNER/REPO/pull/2460) [`5f26d0c`](https://host.test/OWNER/REPO/commit/5f26d0c) Thanks [@user](https://host.test/user)! - The preview update ships again: the 0.7.1 update failed before it was published.",
       ].join("\n"),
     );
   });
@@ -157,7 +157,7 @@ describe("release notes read from a hard-wrapped changelog", () => {
     const changelog = section(
       [
         "- Updated dependencies",
-        "  [[`dc4c44f`](https://github.com/OWNER/REPO/commit/dc4c44f)]:",
+        "  [[`dc4c44f`](https://host.test/OWNER/REPO/commit/dc4c44f)]:",
         "  - @acme/app@0.3.1",
         "  - @acme/ui@1.2.0",
       ].join("\n"),
@@ -165,7 +165,7 @@ describe("release notes read from a hard-wrapped changelog", () => {
 
     expect(changelogSection(changelog, "0.7.1")).toBe(
       [
-        "- Updated dependencies [[`dc4c44f`](https://github.com/OWNER/REPO/commit/dc4c44f)]:",
+        "- Updated dependencies [[`dc4c44f`](https://host.test/OWNER/REPO/commit/dc4c44f)]:",
         "  - @acme/app@0.3.1",
         "  - @acme/ui@1.2.0",
       ].join("\n"),

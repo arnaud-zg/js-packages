@@ -340,8 +340,8 @@ describe("opening a release PR", () => {
     prompter.answer("patch");
 
     await openReleasePr(context, await prepareRelease(context, new Set(["api"])), [
-      { number: 7, url: "https://github.com/acme/repo/pull/7" },
-      { number: 9, url: "https://github.com/acme/repo/pull/9" },
+      { number: 7, url: "https://host.test/acme/repo/pull/7" },
+      { number: 9, url: "https://host.test/acme/repo/pull/9" },
     ]);
 
     const [pr] = host.received;

@@ -23,9 +23,9 @@ const need = (label: string, extra: Partial<Requirement> = {}): Requirement => (
   ...extra,
 });
 
-const FLY = need("flyctl");
-const WRANGLER = need("wrangler", {
-  check: { command: "wrangler", args: ["whoami"], cwd: "apps/web", env: { CI: "1" } },
+const CLOUD = need("hostctl");
+const SITECTL = need("sitectl", {
+  check: { command: "sitectl", args: ["whoami"], cwd: "apps/web", env: { CI: "1" } },
 });
 
 const feature = (name: string, requirements: Requirement[]): Feature => ({
@@ -36,7 +36,7 @@ const feature = (name: string, requirements: Requirement[]): Feature => ({
   afterShip: () => Promise.resolve([]),
 });
 
-/** api on a Fly-like host, web on a Pages-like host, each with its own sign-in. */
+/** api on a Cloud-like host, web on a Pages-like host, each with its own sign-in. */
 const world = (
   options: {
     yes?: boolean;
@@ -51,8 +51,8 @@ const world = (
       testUnit("web", { module: "web-app", options: { site: "web" } }),
     ],
     modules: [
-      backendService({ serverHosting: { ...serverHostingFake(), requirements: () => [FLY] } }),
-      webApp({ staticHosting: { ...staticHostingFake(), requirements: () => [WRANGLER] } }),
+      backendService({ serverHosting: { ...serverHostingFake(), requirements: () => [CLOUD] } }),
+      webApp({ staticHosting: { ...staticHostingFake(), requirements: () => [SITECTL] } }),
     ],
     features: options.features ?? [],
     yes: options.yes,
@@ -74,17 +74,17 @@ const labels = (requirements: Requirement[]) => requirements.map(({ label }) => 
 describe("Feature: what a release needs signed in", () => {
   it("given the flow, two modules and a feature, when the release lists what to sign in to, then each tool is listed once, flow first", () => {
     const { context } = world({
-      flow: [need("git"), need("gh"), need("actions"), need("changesets")],
-      features: [feature("notes", [need("gh"), need("linear")])],
+      flow: [need("git"), need("codehost"), need("actions"), need("changesets")],
+      features: [feature("notes", [need("codehost"), need("linear")])],
     });
 
     expect(labels(requirementsOf(context.release))).toEqual([
       "git",
-      "gh",
+      "codehost",
       "actions",
       "changesets",
-      "flyctl",
-      "wrangler",
+      "hostctl",
+      "sitectl",
       "linear",
     ]);
   });
@@ -92,8 +92,8 @@ describe("Feature: what a release needs signed in", () => {
   it("given only api picked, when the release lists what to sign in to, then only the host shipping api and the flow count", () => {
     const { context } = world({ flow: [need("git")] });
 
-    expect(labels(signInsOf(context.release, new Set(["api"])))).toEqual(["flyctl"]);
-    expect(labels(requirementsOf(context.release, new Set(["web"])))).toEqual(["git", "wrangler"]);
+    expect(labels(signInsOf(context.release, new Set(["api"])))).toEqual(["hostctl"]);
+    expect(labels(requirementsOf(context.release, new Set(["web"])))).toEqual(["git", "sitectl"]);
   });
 
   it("given no app picked, when the release lists what to sign in to, then no module needs anything", () => {
@@ -111,39 +111,39 @@ describe("Feature: signing in before a release writes anything", () => {
 
     expect(prompter.asked).toEqual([]);
     expect(shell.calls).toEqual([
-      { command: "flyctl", args: ["whoami"], cwd: "/repo", env: undefined },
-      { command: "wrangler", args: ["whoami"], cwd: "/repo/apps/web", env: { CI: "1" } },
+      { command: "hostctl", args: ["whoami"], cwd: "/repo", env: undefined },
+      { command: "sitectl", args: ["whoami"], cwd: "/repo/apps/web", env: { CI: "1" } },
     ]);
   });
 
   it("given a sign-in missing, when the person runs the offered fix and it works, then the release goes on", async () => {
     const { context, prompter, shell } = world();
-    shell.seedOnce("flyctl whoami", { status: 1 });
+    shell.seedOnce("hostctl whoami", { status: 1 });
     prompter.answer(true);
 
     expect(await preflight(context, new Set(["api"]))).toBe(true);
 
-    expect(prompter.asked).toEqual(["Run flyctl login now?"]);
-    expect(prompter.initials["Run flyctl login now?"]).toBe(true);
+    expect(prompter.asked).toEqual(["Run hostctl login now?"]);
+    expect(prompter.initials["Run hostctl login now?"]).toBe(true);
     expect(shell.calls.map(({ command, args }) => [command, ...args].join(" "))).toEqual([
-      "flyctl whoami",
-      "flyctl login",
-      "flyctl whoami",
+      "hostctl whoami",
+      "hostctl login",
+      "hostctl whoami",
     ]);
   });
 
   it("given a fix with its own folder and variables, when it is run, then it runs there with them", async () => {
     const { context, prompter, shell } = world();
-    const scoped = need("eas", {
-      fix: { command: "eas", args: ["login"], cwd: "apps/app", env: { EXPO: "1" } },
+    const scoped = need("storectl", {
+      fix: { command: "storectl", args: ["login"], cwd: "apps/app", env: { EXPO: "1" } },
     });
-    shell.seedOnce("eas whoami", { status: 1 });
+    shell.seedOnce("storectl whoami", { status: 1 });
     prompter.answer(true);
 
     expect(await signIn(context, { requirements: [scoped], again: "retry" })).toBe(true);
 
     expect(shell.calls[1]).toEqual({
-      command: "eas",
+      command: "storectl",
       args: ["login"],
       cwd: "/repo/apps/app",
       env: { EXPO: "1" },
@@ -152,22 +152,22 @@ describe("Feature: signing in before a release writes anything", () => {
 
   it("given a fix that runs but the check still fails, when the release preflights, then it stops and says what to run", async () => {
     const { context, prompter, shell, output } = world();
-    shell.seed("flyctl whoami", { status: 1 });
+    shell.seed("hostctl whoami", { status: 1 });
     prompter.answer(true);
 
     expect(await preflight(context, new Set(["api"]))).toBe(false);
 
-    expect(output.text).toContain("Not signed in: flyctl");
+    expect(output.text).toContain("Not signed in: hostctl");
     expect(output.text).toContain("nothing was written. Sign in, then run the release again.");
     expect(output.lines.slice(-2).map((line) => line.trim())).toEqual([
-      expect.stringContaining("flyctl login"),
+      expect.stringContaining("hostctl login"),
       expect.stringContaining("shiplane"),
     ]);
   });
 
   it("given the person declines the fix, when the release preflights, then nothing is run and it stops", async () => {
     const { context, prompter, shell } = world();
-    shell.seed("flyctl whoami", { status: 1 });
+    shell.seed("hostctl whoami", { status: 1 });
     prompter.answer(false);
 
     expect(await preflight(context, new Set(["api"]))).toBe(false);
@@ -177,17 +177,17 @@ describe("Feature: signing in before a release writes anything", () => {
 
   it("given a tool that is not installed, when the release preflights, then no fix is offered", async () => {
     const { context, prompter, shell, output } = world();
-    shell.seed("flyctl whoami", { status: 127 });
+    shell.seed("hostctl whoami", { status: 127 });
 
     expect(await preflight(context, new Set(["api"]))).toBe(false);
 
     expect(prompter.asked).toEqual([]);
-    expect(output.text).toContain("Not signed in: flyctl");
+    expect(output.text).toContain("Not signed in: hostctl");
   });
 
   it("given --yes, when a sign-in is missing, then no fix is offered and nothing else runs", async () => {
     const { context, prompter, shell } = world({ yes: true });
-    shell.seed("flyctl whoami", { status: 1 });
+    shell.seed("hostctl whoami", { status: 1 });
 
     expect(await preflight(context, new Set(["api"]))).toBe(false);
 
@@ -197,7 +197,7 @@ describe("Feature: signing in before a release writes anything", () => {
 
   it("given no terminal, when a sign-in is missing, then no fix is offered", async () => {
     const { context, prompter, shell } = world({ interactive: false });
-    shell.seed("flyctl whoami", { status: 1 });
+    shell.seed("hostctl whoami", { status: 1 });
 
     expect(await preflight(context, new Set(["api"]))).toBe(false);
 
@@ -209,9 +209,9 @@ describe("Feature: signing in before a release writes anything", () => {
     shell.seed("", { status: 1 });
     const bare: Requirement = { label: "token", check: { command: "token", args: ["check"] } };
 
-    expect(await signIn(context, { requirements: [FLY, bare], again: "try again" })).toBe(false);
+    expect(await signIn(context, { requirements: [CLOUD, bare], again: "try again" })).toBe(false);
 
-    expect(output.text).toContain("Not signed in: flyctl, token");
+    expect(output.text).toContain("Not signed in: hostctl, token");
     expect(output.text).toContain("Sign in, then try again.");
     expect(output.text).not.toContain("token check");
   });

@@ -29,7 +29,7 @@ describe("Feature: setting up a monorepo for release in one go", () => {
       [
         "# yaml-language-server: $schema=../../node_modules/.cache/shiplane/schema.json",
         "# Written by shiplane init. Every key: shiplane docs backend-service",
-        "# Read from fly.toml",
+        "# Read from cloud.toml",
         "",
         "module: backend-service",
         "service: api",
@@ -52,9 +52,9 @@ describe("Feature: setting up a monorepo for release in one go", () => {
     await initRelease(context, { yes: true, blank: false });
 
     const config = files.read("shiplane.config.ts") ?? "";
-    expect(config).toContain('import { flyServerHosting } from "@shiplane/fly";');
+    expect(config).toContain('import { cloudServerHosting } from "@shiplane/cloud";');
     expect(config).toContain('import { pagesStaticHosting } from "@shiplane/pages";');
-    expect(config).toContain("backendService({ serverHosting: flyServerHosting() })");
+    expect(config).toContain("backendService({ serverHosting: cloudServerHosting() })");
     expect(config).toContain("webApp({ staticHosting: pagesStaticHosting() })");
     expect(files.read(SCHEMA)).toContain('"backend-service"');
     expect(files.read(SCHEMA)).toContain('"web-app"');
@@ -71,7 +71,7 @@ describe("Feature: setting up a monorepo for release in one go", () => {
       "◇  Workspace  apps/*",
       "│",
     ]);
-    expect(output.lines).toContain(`│  ${"apps/api".padEnd(16)}${"fly".padEnd(18)}fly.toml`);
+    expect(output.lines).toContain(`│  ${"apps/api".padEnd(16)}${"cloud".padEnd(18)}cloud.toml`);
     expect(output.lines).toContain(`│  ${"apps/web".padEnd(16)}${"?".padEnd(18)}vite.config.ts`);
     expect(output.lines).toContain(
       "│  ◻ 1 folder with nothing to ship them, versioned only (shiplane add <folder> ships one)",
@@ -85,20 +85,20 @@ describe("Feature: setting up a monorepo for release in one go", () => {
       ...WORKSPACE,
       "apps/scripts/package.json": manifest("@acme/scripts"),
       "apps/a-very-long-dashboard/package.json": manifest("@acme/dash"),
-      "apps/a-very-long-dashboard/fly.toml": "",
+      "apps/a-very-long-dashboard/cloud.toml": "",
     });
 
     await initRelease(context, { yes: true, blank: false });
 
     expect(output.text).toContain("◻ 2 folders with nothing to ship them");
-    expect(output.lines).toContain(`│  ${"apps/api".padEnd(28)}${"fly".padEnd(18)}fly.toml`);
+    expect(output.lines).toContain(`│  ${"apps/api".padEnd(28)}${"cloud".padEnd(18)}cloud.toml`);
   });
 
   it("given an app that already has its unit file, when the person runs init, then their file is left as it was", async () => {
     const { context, files } = given({
       ...WORKSPACE,
       "apps/old/package.json": manifest("@acme/old"),
-      "apps/old/fly.toml": "",
+      "apps/old/cloud.toml": "",
       "apps/old/shiplane.unit.yml": "module: backend-service\nservice: kept\n",
     });
 
@@ -148,13 +148,13 @@ describe("Feature: choosing how each app ships while setting up", () => {
     ]);
     expect(prompter.initials["Which folders ship somewhere?"]).toEqual(["apps/api", "apps/web"]);
     expect(prompter.choices["Which folders ship somewhere?"]).toEqual([
-      { value: "apps/api", label: "apps/api", hint: "fly · fly.toml" },
+      { value: "apps/api", label: "apps/api", hint: "cloud · cloud.toml" },
       { value: "apps/web", label: "apps/web", hint: "pages · vite.config.ts" },
     ]);
     expect(prompter.initials["How does apps/web ship?"]).toBe("pages");
     expect(prompter.choices["How does apps/web ship?"]).toEqual([
       { value: "docker", label: "docker", hint: "" },
-      { value: "fly", label: "fly", hint: "" },
+      { value: "cloud", label: "cloud", hint: "" },
       { value: "pages", label: "pages", hint: "vite.config.ts (recommended)" },
       { value: "skip", label: "skip", hint: "versioned, never shipped" },
     ]);
@@ -240,7 +240,7 @@ describe("Feature: choosing how each app ships while setting up", () => {
     expect(output.lines.slice(shown + 1, shown + 6)).toEqual([
       "  # yaml-language-server: $schema=../../node_modules/.cache/shiplane/schema.json",
       "  # Written by shiplane init. Every key: shiplane docs backend-service",
-      "  # Read from fly.toml",
+      "  # Read from cloud.toml",
       "  ",
       "  module: backend-service",
     ]);

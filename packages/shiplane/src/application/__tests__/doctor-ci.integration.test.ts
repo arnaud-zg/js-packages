@@ -12,30 +12,30 @@ import { doctorCi, WORKFLOW_DOCS } from "../doctorCi";
 
 // What a runner checks before it ships: the units, the environment, each tool, each secret.
 
-const INSTALL = { command: "sh", args: ["-c", "curl -fsSL https://fly.io/install.sh | sh"] };
+const INSTALL = { command: "sh", args: ["-c", "curl -fsSL https://cloud.test/install.sh | sh"] };
 
-const FLYCTL: Requirement = {
-  label: "flyctl",
-  check: { command: "flyctl", args: ["auth", "whoami"] },
-  install: { command: INSTALL, path: "$HOME/.fly/bin" },
-  secrets: ["FLY_API_TOKEN"],
+const HOSTCTL: Requirement = {
+  label: "hostctl",
+  check: { command: "hostctl", args: ["auth", "whoami"] },
+  install: { command: INSTALL, path: "$HOME/.cloud/bin" },
+  secrets: ["CLOUD_API_TOKEN"],
 };
 
-/** api and web shipped with a host named fly, needing `requirement`, on a runner with its token. */
-const runner = (requirement: Requirement = FLYCTL) => {
+/** api and web shipped with a host named cloud, needing `requirement`, on a runner with its token. */
+const runner = (requirement: Requirement = HOSTCTL) => {
   const hosting = serverHostingFake();
   hosting.fake.seed({ requirements: [requirement] });
   const { context: release } = testContext({
     units: ["api", "web"].map((name) =>
       testUnit(name, { module: "backend-service", options: { service: `acme-${name}` } }),
     ),
-    modules: [backendService({ serverHosting: { ...hosting, name: "fly" } })],
+    modules: [backendService({ serverHosting: { ...hosting, name: "cloud" } })],
   });
   const shell = new RecordingShell().seedEnv({
     HOME: "/home/runner",
     PATH: "/usr/bin",
     GITHUB_PATH: "/runner/path",
-    FLY_API_TOKEN: "token",
+    CLOUD_API_TOKEN: "token",
   });
   const files = new MemoryFiles();
   const output = new MemoryOutput();
@@ -67,8 +67,8 @@ describe("Feature: checking a runner can ship before it does", () => {
     expect(output.lines).toEqual([
       "✓ units  api, web",
       "✓ environment  preview",
-      "✓ flyctl  installed",
-      "✓ secrets  FLY_API_TOKEN",
+      "✓ hostctl  installed",
+      "✓ secrets  CLOUD_API_TOKEN",
     ]);
   });
 
@@ -105,7 +105,7 @@ describe("Feature: checking a runner can ship before it does", () => {
   it("given a secret the picked unit needs and the run lacks, when doctor --ci runs, then it names the unit, its host, the secret and the environment", async () => {
     // given
     const { context, shell, output } = runner();
-    shell.seedEnv({ FLY_API_TOKEN: "" });
+    shell.seedEnv({ CLOUD_API_TOKEN: "" });
 
     // when
     const ok = await doctorCi(context, { units: ["api"], channel: "preview" });
@@ -113,20 +113,20 @@ describe("Feature: checking a runner can ship before it does", () => {
     // then
     expect(ok).toBe(false);
     expect(stoppedWith(output)).toEqual([
-      '✗ api ships with fly: FLY_API_TOKEN missing in "preview"',
+      '✗ api ships with cloud: CLOUD_API_TOKEN missing in "preview"',
       `  ${WORKFLOW_DOCS}`,
     ]);
   });
 
   it("given a secret the flow itself needs and the run lacks, when doctor --ci runs, then it says shiplane needs it", async () => {
     // given
-    const { context, release, output } = runner({ ...FLYCTL, secrets: [] });
-    const gh = { label: "gh", check: { command: "gh", args: ["auth", "status"] } };
+    const { context, release, output } = runner({ ...HOSTCTL, secrets: [] });
+    const host = { label: "codehost", check: { command: "codehost", args: ["auth", "status"] } };
     release.flow = {
       ...release.flow,
       codeHost: {
         ...release.flow.codeHost,
-        requirements: () => [{ ...gh, secrets: ["GH_TOKEN"] }],
+        requirements: () => [{ ...host, secrets: ["HOST_TOKEN"] }],
       },
     };
 
@@ -136,7 +136,7 @@ describe("Feature: checking a runner can ship before it does", () => {
     // then
     expect(ok).toBe(false);
     expect(stoppedWith(output)).toEqual([
-      '✗ shiplane needs gh: GH_TOKEN missing in "production"',
+      '✗ shiplane needs codehost: HOST_TOKEN missing in "production"',
       `  ${WORKFLOW_DOCS}`,
     ]);
   });
@@ -159,10 +159,10 @@ describe("Feature: checking a runner can ship before it does", () => {
 });
 
 describe("Feature: installing a missing tool on a runner", () => {
-  it("given flyctl missing with an install, when doctor --ci runs, then it installs it, puts its folder first on PATH and in GITHUB_PATH, and checks again", async () => {
+  it("given hostctl missing with an install, when doctor --ci runs, then it installs it, puts its folder first on PATH and in GITHUB_PATH, and checks again", async () => {
     // given
     const { context, shell, files, output } = runner();
-    shell.seedOnce("flyctl auth whoami", { status: 127 });
+    shell.seedOnce("hostctl auth whoami", { status: 127 });
 
     // when
     const ok = await doctorCi(context, { units: ["api"], channel: "preview" });
@@ -170,19 +170,19 @@ describe("Feature: installing a missing tool on a runner", () => {
     // then
     expect(ok).toBe(true);
     expect(shell.calls.map(({ command, args }) => [command, ...args].join(" "))).toEqual([
-      "flyctl auth whoami",
-      "sh -c curl -fsSL https://fly.io/install.sh | sh",
-      "flyctl auth whoami",
+      "hostctl auth whoami",
+      "sh -c curl -fsSL https://cloud.test/install.sh | sh",
+      "hostctl auth whoami",
     ]);
-    expect(shell.env("PATH")).toBe("/home/runner/.fly/bin:/usr/bin");
-    expect(files.read("/runner/path")).toBe("/home/runner/.fly/bin\n");
-    expect(output.lines).toContain("✓ flyctl  installed now");
+    expect(shell.env("PATH")).toBe("/home/runner/.cloud/bin:/usr/bin");
+    expect(files.read("/runner/path")).toBe("/home/runner/.cloud/bin\n");
+    expect(output.lines).toContain("✓ hostctl  installed now");
   });
 
-  it("given flyctl missing and no install, when doctor --ci runs, then it fails saying so", async () => {
+  it("given hostctl missing and no install, when doctor --ci runs, then it fails saying so", async () => {
     // given
-    const { context, shell, output } = runner({ ...FLYCTL, install: undefined });
-    shell.seed("flyctl auth whoami", { status: 127 });
+    const { context, shell, output } = runner({ ...HOSTCTL, install: undefined });
+    shell.seed("hostctl auth whoami", { status: 127 });
 
     // when
     const ok = await doctorCi(context, { units: [], channel: "preview" });
@@ -190,7 +190,7 @@ describe("Feature: installing a missing tool on a runner", () => {
     // then
     expect(ok).toBe(false);
     expect(stoppedWith(output)).toEqual([
-      "✗ flyctl missing and no install for linux",
+      "✗ hostctl missing and no install for linux",
       `  ${WORKFLOW_DOCS}`,
     ]);
   });
@@ -198,7 +198,7 @@ describe("Feature: installing a missing tool on a runner", () => {
   it("given an install that fails, when doctor --ci runs, then it says the command and its exit", async () => {
     // given
     const { context, shell, output } = runner();
-    shell.seed("flyctl auth whoami", { status: 127 }).seed("sh -c curl", { status: 6 });
+    shell.seed("hostctl auth whoami", { status: 127 }).seed("sh -c curl", { status: 6 });
 
     // when
     const ok = await doctorCi(context, { units: [], channel: "preview" });
@@ -206,17 +206,17 @@ describe("Feature: installing a missing tool on a runner", () => {
     // then
     expect(ok).toBe(false);
     expect(stoppedWith(output)[0]).toBe(
-      "✗ flyctl install failed: sh -c curl -fsSL https://fly.io/install.sh | sh exited with 6",
+      "✗ hostctl install failed: sh -c curl -fsSL https://cloud.test/install.sh | sh exited with 6",
     );
   });
 
   it("given an install that leaves the tool missing, when doctor --ci runs, then it says so", async () => {
     // given
     const { context, shell, files, output } = runner({
-      ...FLYCTL,
+      ...HOSTCTL,
       install: { command: INSTALL },
     });
-    shell.seed("flyctl auth whoami", { status: 127 });
+    shell.seed("hostctl auth whoami", { status: 127 });
 
     // when
     const ok = await doctorCi(context, { units: [], channel: "preview" });
@@ -225,16 +225,16 @@ describe("Feature: installing a missing tool on a runner", () => {
     expect(ok).toBe(false);
     expect(files.changes).toEqual([]);
     expect(shell.env("PATH")).toBe("/usr/bin");
-    expect(stoppedWith(output)[0]).toMatch(/^✗ flyctl still missing after sh -c /);
+    expect(stoppedWith(output)[0]).toMatch(/^✗ hostctl still missing after sh -c /);
   });
 
   it("given an install path and no GITHUB_PATH, when doctor --ci installs, then only this run's PATH changes", async () => {
     // given
     const { context, shell, files } = runner({
-      ...FLYCTL,
+      ...HOSTCTL,
       install: { command: INSTALL, path: "${HOME}/bin" },
     });
-    shell.seedEnv({ GITHUB_PATH: "" }).seedOnce("flyctl auth whoami", { status: 127 });
+    shell.seedEnv({ GITHUB_PATH: "" }).seedOnce("hostctl auth whoami", { status: 127 });
 
     // when
     const ok = await doctorCi(context, { units: [], channel: "preview" });

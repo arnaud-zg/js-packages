@@ -16,7 +16,7 @@ const REPO = {
   ".github/workflows/ci.yml": "on: push\n",
   ".changeset/config.json": "{}\n",
   "apps/api/package.json": JSON.stringify({ name: "@acme/api", version: "0.1.0" }),
-  "apps/api/fly.toml": "",
+  "apps/api/cloud.toml": "",
 };
 
 const CONFIGURED = {
@@ -39,7 +39,7 @@ const stdout = () => printed.join("");
 
 const given = (files: Record<string, string> = REPO) => {
   const repo = memoryRepository(files, [
-    detecting(serverHostingFake(), "fly", "fly.toml", (folder) => ({ service: folder.name })),
+    detecting(serverHostingFake(), "cloud", "cloud.toml", (folder) => ({ service: folder.name })),
   ]);
   repo.shell.seed("git remote get-url origin", { stdout: "https://github.com/acme/mono\n" });
   const run = (...argv: string[]) =>
@@ -139,7 +139,7 @@ describe("Feature: setting up shiplane and changing what it ships from the comma
   it("given a provider the config uses, when the person asks for its docs, then its unit file keys are listed", async () => {
     const { run, output } = given(CONFIGURED);
 
-    expect(await run("docs", "fly")).toBe(0);
+    expect(await run("docs", "cloud")).toBe(0);
 
     expect(output.text).toContain("service");
   });

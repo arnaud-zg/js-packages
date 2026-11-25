@@ -118,7 +118,7 @@ export const askPaths = async (
         {
           value: "local",
           label: pathLabel(services.ciPipeline, "local"),
-          hint: "the same commands, run here: no Actions minutes",
+          hint: `the same commands, run here: no ${ciLabel(services.ciPipeline)} minutes`,
         },
       ],
       low ? "local" : "ci",

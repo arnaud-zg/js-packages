@@ -124,7 +124,7 @@ describe("tagging what a release versioned", () => {
 
   it("given the tags reached origin, when their release notes fail, then the person reads that the tags stay on origin and that tagging again publishes the notes", async () => {
     const { context, host, output, prompter } = setUp();
-    host.failRelease(new Error("gh release create exited with 1"));
+    host.failRelease(new Error("codehost release create exited with 1"));
     prompter.answer(true);
 
     expect(await tagRelease(context, await missingTags(context))).toBe(false);

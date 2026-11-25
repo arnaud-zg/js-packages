@@ -21,8 +21,8 @@ export const SAMPLE_TYPICAL_MINUTES: Record<string, number> = {
   expo: 8,
 };
 
-export const EAS_DECIDES: DecidedBy = {
-  platform: "EAS",
+export const STORE_DECIDES: DecidedBy = {
+  platform: "Store",
   choice: "build or update",
   check: "shiplane status",
 };

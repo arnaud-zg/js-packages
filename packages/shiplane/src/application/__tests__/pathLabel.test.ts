@@ -8,7 +8,7 @@ const bare = Object.assign(new CiPipelineFake(), { label: undefined });
 
 describe("how a way to ship reads", () => {
   it("given a pipeline with a label, when the CI way is named, then it takes that label", () => {
-    expect(pathLabel(new CiPipelineFake(), "ci")).toBe("GitHub Actions");
+    expect(pathLabel(new CiPipelineFake(), "ci")).toBe("Fake CI");
   });
 
   it("given a pipeline without a label, when the CI way is named, then it is just CI", () => {

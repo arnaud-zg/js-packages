@@ -11,7 +11,7 @@ const NOTHING: CallerNeeds = { secrets: [], features: [] };
 
 /**
  * A caller workflow pinned to `version`'s commit, passing the secrets `needs` names, standing in
- * for the one GitHub's adapter writes.
+ * for the one a real adapter writes.
  */
 export const callerFor = (version: string, needs = NOTHING, sha = `sha-${version}`) =>
   [
@@ -29,7 +29,7 @@ export const callerFor = (version: string, needs = NOTHING, sha = `sha-${version
     "",
   ].join("\n");
 
-/** A CI pipeline that writes the caller workflow for each released version, and asks gh nothing. */
+/** A CI pipeline that writes the caller workflow for each released version, and asks no host anything. */
 export const callingPipeline = (released: readonly string[]): ServiceAdapter<CiPipelinePort> => ({
   name: "calling",
   create: () =>

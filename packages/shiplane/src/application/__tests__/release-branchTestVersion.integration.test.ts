@@ -15,7 +15,7 @@ import {
   TAG,
 } from "./releaseBranchWorld";
 
-const PR = { number: 42, url: "https://github.com/acme/repo/pull/42", head: HEAD };
+const PR = { number: 42, url: "https://host.test/acme/repo/pull/42", head: HEAD };
 
 const publishLine = (name: string, version: string) => `echo publish ${name} ${version}`;
 
@@ -132,7 +132,7 @@ describe("telling reviewers how to install a test version", () => {
     const body = event?.type === "upsert-comment" ? event.body : "";
     expect(body.startsWith(`${BRANCH_COMMENT_MARKER}\n`)).toBe(true);
     expect(body).toContain(
-      `Built from [\`abc1234\`](https://github.com/acme/repo/commit/${HEAD}) on \`${BRANCH}\`.`,
+      `Built from [\`abc1234\`](https://host.test/acme/repo/commit/${HEAD}) on \`${BRANCH}\`.`,
     );
     expect(body).toContain(
       `| [@acme/lib](https://www.npmjs.com/package/@acme/lib) | [${LIB_VERSION}](https://www.npmjs.com/package/@acme/lib/v/${LIB_VERSION}) | \`npm i @acme/lib@${LIB_VERSION}\` |`,

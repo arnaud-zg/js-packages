@@ -56,8 +56,8 @@ const setUp = (answers: Parameters<ScriptedPrompter["answer"]> = []) => {
     position: { branch: "main", head: "h1", originMain: "h1" },
     tags: { "api@1.0.0": "t1", "site@1.0.0": "t2" },
     files: {
-      "api@1.0.0:.github/workflows/ship.yml": "on: workflow_dispatch",
-      "site@1.0.0:.github/workflows/ship.yml": "on: workflow_dispatch",
+      "api@1.0.0:ci/ship.yml": "on: workflow_dispatch",
+      "site@1.0.0:ci/ship.yml": "on: workflow_dispatch",
     },
   });
   const prompter = new ScriptedPrompter();
@@ -117,7 +117,7 @@ describe("a release rehearsed on Fakes, through the CLI's entry", () => {
     expect(prompter.asked).toEqual([
       "What do you want to release to production? Greyed units have nothing to release.",
       'Type "production" to start:',
-      "Ship api@1.0.0, site@1.0.0 to production through GitHub Actions?",
+      "Ship api@1.0.0, site@1.0.0 to production through Fake CI?",
     ]);
     expect(
       fakes.ciPipeline.fake.received.map(({ ref, inputs }) => `${ref} ${inputs.environment ?? ""}`),

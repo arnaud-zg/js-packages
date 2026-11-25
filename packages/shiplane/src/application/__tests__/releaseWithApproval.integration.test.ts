@@ -12,7 +12,7 @@ const RATE_LIMIT: PlannedChangeset = {
   releases: [{ name: "@acme/api", type: "minor" }],
 };
 
-const PR_12 = { number: 12, url: "https://github.com/acme/repo/pull/12", head: "pr12" };
+const PR_12 = { number: 12, url: "https://host.test/acme/repo/pull/12", head: "pr12" };
 const OPEN_12 = { branch: "shiplane/release-2026-10-11-0900", pr: PR_12 };
 
 /** One app, api 0.0.1, with a changeset pending and a person who picks it. */
@@ -143,7 +143,7 @@ describe("Feature: coming back to a release", () => {
     });
   });
 
-  describe("Scenario: cancelled on GitHub", () => {
+  describe("Scenario: cancelled on the host", () => {
     it("given #12 closed while waiting, when the wait ends, then it says nothing shipped with exit 0, and the next run opens a fresh PR", async () => {
       // given
       const world = setUp({ approval: "required" });
@@ -210,12 +210,12 @@ describe("Feature: main moved while the release PR waited", () => {
   });
 
   describe("Scenario: the replacement fails to open", () => {
-    it("given 3 commits on main after #12 and GitHub refusing new PRs, when shiplane runs, then #12 stays open with no comment and the run fails", async () => {
+    it("given 3 commits on main after #12 and the host refusing new PRs, when shiplane runs, then #12 stays open with no comment and the run fails", async () => {
       // given
       const world = setUp({ approval: "required", interactive: false, yes: true });
       world.host.seed({ openPrs: [OPEN_12] });
       world.source.seed(MOVED);
-      world.host.failCreate(new Error("GitHub is down"));
+      world.host.failCreate(new Error("the host is down"));
 
       // when
       const ok = await releaseToPreview(world.context);

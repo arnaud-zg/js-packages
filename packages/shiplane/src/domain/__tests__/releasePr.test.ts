@@ -89,7 +89,7 @@ const WORKSPACE_DEPENDENCIES = {
 const bumps = appBumps(LAST_WEEK, WORKSPACE_DEPENDENCIES, SAMPLE_UNITS);
 
 describe("the next step", () => {
-  const pr = { number: 1701, url: "https://github.com/acme/app/pull/1701" };
+  const pr = { number: 1701, url: "https://host.test/acme/app/pull/1701" };
 
   it("given an open release pull request, when resumed, then it waits for the merge", () => {
     expect(nextStep({ pending: 0, releasePrs: [pr], untagged: 0 })).toEqual({
@@ -204,7 +204,7 @@ describe("merging the release PR from the terminal", () => {
     });
   });
 
-  it("given every method allowed and rebase preselected on the PR page, when merging, then they are listed in GitHub's order with rebase preselected", () => {
+  it("given every method allowed and rebase preselected on the PR page, when merging, then they are listed in the host's order with rebase preselected", () => {
     const { choices, initial } = mergeChoices({
       allowed: ["--squash", "--rebase", "--merge"],
       preselected: "--rebase",
@@ -228,7 +228,7 @@ describe("merging the release PR from the terminal", () => {
     expect(mergeChoices({ allowed: [], preselected: null }).choices).toEqual([]);
   });
 
-  it("given d, m or o while waiting, when pressed, then it shows the diff, merges or opens GitHub", () => {
+  it("given d, m or o while waiting, when pressed, then it shows the diff, merges or opens the host", () => {
     expect([waitKey("d"), waitKey("m"), waitKey("o")]).toEqual(["diff", "merge", "open"]);
   });
 

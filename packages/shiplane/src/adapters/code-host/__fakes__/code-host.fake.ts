@@ -87,7 +87,7 @@ export class CodeHostFake implements CodeHostPort {
     const number = this.state.nextPrNumber++;
     const created = {
       number,
-      url: `https://github.com/acme/repo/pull/${number}`,
+      url: `https://host.test/acme/repo/pull/${number}`,
       head: `sha-${number}`,
     };
     this.received.push({ type: "pr", pr: created, ...pr });

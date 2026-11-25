@@ -16,7 +16,7 @@ import { docsFor } from "../docsFor";
 let workspace: Workspace | undefined;
 afterEach(() => workspace?.remove());
 
-// A static host whose build keys sit in a nested object, as Cloudflare Pages has them.
+// A static host whose build keys sit in a nested object, as Pages has them.
 const nestedHost = defineStaticHosting({
   name: "nested-host",
   settings: z.object({

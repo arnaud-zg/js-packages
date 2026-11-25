@@ -28,7 +28,7 @@ describe("shipping a server with a deploy command of one's own", () => {
 
     const jobs = port.jobs(inputFor({ deploy: ["npx", "my-tool", "deploy"] }));
 
-    expect(port.describe(inputFor({ deploy: ["flyctl", "deploy"] }))).toBe("flyctl deploy");
+    expect(port.describe(inputFor({ deploy: ["hostctl", "deploy"] }))).toBe("hostctl deploy");
     expect(jobs).toEqual([
       {
         label: "ship api@1.2.0: npx my-tool deploy",

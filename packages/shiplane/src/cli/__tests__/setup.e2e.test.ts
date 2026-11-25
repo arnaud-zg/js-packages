@@ -19,12 +19,12 @@ const REPO = {
     version: "0.1.0",
     scripts: { build: "tsc" },
   }),
-  "apps/api/fly.toml": "",
+  "apps/api/cloud.toml": "",
 };
 
 const given = (files: Record<string, string> = REPO) => {
   const repo = memoryRepository(files, [
-    detecting(serverHostingFake(), "fly", "fly.toml", (folder) => ({ service: folder.name })),
+    detecting(serverHostingFake(), "cloud", "cloud.toml", (folder) => ({ service: folder.name })),
   ]);
   repo.shell.seed("git remote get-url origin", { stdout: "https://github.com/acme/mono\n" });
   const run = (...argv: string[]) =>
