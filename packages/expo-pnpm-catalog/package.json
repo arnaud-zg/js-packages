@@ -16,7 +16,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/arnaud-zg/packages.git",
+    "url": "git+https://github.com/arnaud-zg/js-packages.git",
     "directory": "packages/expo-pnpm-catalog"
   },
   "license": "MIT",

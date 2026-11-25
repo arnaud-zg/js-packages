@@ -1,0 +1,75 @@
+# Publishes this repo's packages to npm, by hand from the Actions tab. The channel is both the GitHub
+# Environment (so each run shows under Deployments) and what npm gets:
+#   live → the released versions, staged under `latest`; any other → a test release on that channel.
+# Signed in by npm trusted publishing (OIDC): no npm secret.
+# Set up and use: docs/contributing/how-to.md#deploy-from-github-actions
+
+name: Deploy
+run-name: Deploy ${{ inputs.channel }} from ${{ github.ref_name }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "What to publish: a test release channel, or live for the released versions"
+        type: choice
+        options: [snapshot, nightly, alpha, beta, rc, live]
+        default: snapshot
+
+permissions: {}
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.channel }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # live pushes the release tags and writes the GitHub Releases
+      id-token: write # npm trusted publishing
+      issues: write # the test release's comment
+      pull-requests: write
+      deployments: read
+      actions: read
+    environment:
+      name: ${{ inputs.channel }}
+      url: https://www.npmjs.com/package/shiplane?activeTab=versions
+    # Each channel numbers its versions from what npm holds: one run at a time.
+    concurrency:
+      group: deploy-${{ inputs.channel }}
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CHANNEL: ${{ inputs.channel }}
+    steps:
+      # Tags and history: a release reads which commit each version came from.
+      - name: Check out
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up the project
+        uses: ./.github/actions/setup-node-project
+
+      # OIDC needs 11.5.1 to publish, 11.21 to drop a snapshot's tag; Node 22 ships npm 10.
+      - name: Update npm
+        run: npm install --global npm@^11.21.0
+
+      # shiplane releases itself: its own dist has to exist first.
+      - name: Build
+        run: pnpm build
+
+      - name: Publish a test release
+        if: ${{ inputs.channel != 'live' }}
+        run: pnpm shiplane test-release "$CHANNEL" --yes --no-mascot
+
+      # Tags are annotated, which needs an identity.
+      - name: Tag the released versions
+        if: ${{ inputs.channel == 'live' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          pnpm shiplane tag --yes --no-mascot
+
+      # A package has no staging here: preview and production both move `latest`.
+      - name: Stage the released versions
+        if: ${{ inputs.channel == 'live' }}
+        run: pnpm shiplane ship --channel preview --via local --yes --no-mascot

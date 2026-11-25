@@ -1,6 +1,6 @@
 import { publishedPackage } from "shiplane/plugin";
 import { changesetText, planFrom, releaseToPreview, testContext, testUnit } from "shiplane/testing";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { npmPackageRegistry } from "../npm-package-registry.adapter";
 
@@ -26,6 +26,15 @@ const setUp = (options: { yes?: boolean; interactive?: boolean } = {}) => {
   world.host.seed({ prStates: { 1800: ["CLOSED"] } });
   return world;
 };
+
+const OIDC = "ACTIONS_ID_TOKEN_REQUEST_URL";
+
+beforeEach(() => {
+  vi.stubEnv(OIDC, undefined);
+});
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("checking sign-ins before a release writes anything", () => {
   it("given npm is not signed in, when a release starts, then it stops before any release PR and names npm login", async () => {
@@ -59,6 +68,17 @@ describe("checking sign-ins before a release writes anything", () => {
     await releaseToPreview(context);
 
     expect(prompter.asked).not.toContain("Run npm login now?");
+    expect(host.received.some(({ type }) => type === "pr")).toBe(true);
+  });
+
+  it("given a runner that mints OIDC tokens, when a release starts, then npm whoami is not asked", async () => {
+    vi.stubEnv(OIDC, "https://token.example");
+    const { context, shell, host } = setUp({ yes: true });
+    shell.seed("npm whoami", { status: 1 });
+
+    await releaseToPreview(context);
+
+    expect(shell.calls.some(({ args }) => args[0] === "whoami")).toBe(false);
     expect(host.received.some(({ type }) => type === "pr")).toBe(true);
   });
 });
