@@ -104,6 +104,15 @@ const untagJob = (input: JobInput<Options>, tag: string, otp?: string): Job => (
   ],
 });
 
+/**
+ * Signed in, or on a runner that publishes with an OIDC token: npm mints that one at the publish, so
+ * `npm whoami` fails there whatever the rights.
+ */
+const signInCheck = () => ({
+  command: "npm",
+  args: [process.env.ACTIONS_ID_TOKEN_REQUEST_URL ? "--version" : "whoami"],
+});
+
 /** When npm took each version, plus `created` and `modified`: unpublished versions stay listed. */
 const Times = z.record(z.string(), z.string());
 const NOT_VERSIONS = new Set(["created", "modified"]);
@@ -314,7 +323,7 @@ export const npmPackageRegistry = (
     requirements: () => [
       {
         label: "npm",
-        check: { command: "npm", args: ["whoami"] },
+        check: signInCheck(),
         fix: { command: "npm", args: ["login"] },
         // A runner stages with a short-lived OIDC token, no secret.
         ...(staged ? { permissions: { "id-token": "write" as const } } : {}),

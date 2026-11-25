@@ -104,9 +104,9 @@ package with a `bin`, `exports` or `main`.
 
 ## 🔑 Tools and sign-ins
 
-| Tool  | Checked with | Fixed with  | In CI                                |
-| ----- | ------------ | ----------- | ------------------------------------ |
-| `npm` | `npm whoami` | `npm login` | none: it publishes from this machine |
+| Tool  | Checked with | Fixed with  | In CI                                                   |
+| ----- | ------------ | ----------- | ------------------------------------------------------- |
+| `npm` | `npm whoami` | `npm login` | GitHub Actions OIDC: no secret, `npm whoami` is skipped |
 
 Source: `requirements` in `src/npm-package-registry.adapter.ts`. `pnpm shiplane doctor` runs each
 check and offers the fix.
