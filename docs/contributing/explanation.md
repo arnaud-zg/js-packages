@@ -43,6 +43,10 @@ stable and stay here. So the [stability indicators](./reference.md#stability-ind
 confidence, and the [traction indicators](./reference.md#traction-indicators) count people outside.
 An abandoned API is quiet too, which is why the quiet months must include releases.
 
+Every point is read from a page, not asked of users. Downloads are a rough sign: each release alone
+brings some, from mirrors and bots. In November 2026, the small packages here still had 1,000 to
+1,500 in a month with releases, so the bar is 2,000, three months in a row.
+
 Moving out already changes the repo, the issues and the links. A stable API means users do not face
 breaking changes at the same time.
 

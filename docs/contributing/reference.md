@@ -74,15 +74,16 @@ scores **8**, Outgrown.
 
 ### Stability indicators
 
-One point each. Why: see [Explanation](./explanation.md#when-a-package-is-stable).
+One point each. Why: see [Explanation](./explanation.md#when-a-package-is-stable). A serious bug
+loses data, blocks a release or has no workaround: label it `bug` and `priority: high`.
 
-| Point                | Reached at                                                                | Where to look                     |
-| -------------------- | ------------------------------------------------------------------------- | --------------------------------- |
-| API is quiet         | No breaking change for 3 months, with at least 3 releases in that time    | `CHANGELOG.md`                    |
-| Proven in real use   | 2 projects used it for 3 months, at least one outside this repo           | Their `package.json` and lockfile |
-| No known serious bug | 0 open bugs that lose data, block a release or have no workaround         | The `pkg: <name>` label           |
-| Tested               | Mutation score of at least 70%, and tests pass on every supported runtime | `pnpm test:mutate` and CI         |
-| Documented           | Every public export and command; the first example works when pasted      | The package README and its docs   |
+| Point              | Reached at                                                                     | Where to look                                                       |
+| ------------------ | ------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| API is quiet       | No breaking change in the last 3 months, with at least 3 releases in that time | `CHANGELOG.md`                                                      |
+| Proven in real use | 2,000 npm downloads a month, 3 months in a row, and 10 releases in total       | `https://npm-stat.com/charts.html?package=<pkg>` and `CHANGELOG.md` |
+| No serious bug     | None open, and none opened in the last 3 months                                | Issues labelled `bug`, `priority: high` and `pkg: <name>`           |
+| Tested             | Mutation score of at least 70%, and tests pass on every supported runtime      | `pnpm test:mutate` and CI                                           |
+| Documented         | Every public export and command; the first example works when pasted           | The package README and its docs                                     |
 
 After `1.0.0`, two majors within 6 months mean it went stable too early.
 
