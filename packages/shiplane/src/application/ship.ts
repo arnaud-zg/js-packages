@@ -571,8 +571,9 @@ export const shipTo = async (
     context,
     going.map(({ unit, input }) => ({ unit, tag: input.tag, environment })),
   );
-  if (runs.length > 0) {
-    output.line(`    ${paint("cyan", "gh run list --limit 5")}`);
+  const { runsLine } = context.services.ciPipeline;
+  if (runs.length > 0 && runsLine) {
+    output.line(`    ${paint("cyan", runsLine)}`);
   }
   // A package has no channel to read, so status has nothing to show for one.
   if (going.some(({ module }) => module.kind !== "published-package")) {

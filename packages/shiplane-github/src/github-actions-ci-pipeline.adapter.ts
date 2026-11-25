@@ -178,6 +178,7 @@ const githubActions = (root: string, shell: Shell, shipWorkflow: string): CiPipe
   return {
     shipWorkflow,
     label: "GitHub Actions",
+    runsLine: "gh run list --limit 5",
     // GitHub runs the workflow file the ref holds.
     workflowFile: (workflow) => `.github/workflows/${workflow}`,
     dispatchLine: (workflow, ref, inputs) =>

@@ -30,7 +30,7 @@ describe("Feature: shipping through the CI pipeline", () => {
       step: { index: 0, total: 1 },
     });
     expect(output.lines).toContain("✓ Triggered. api@0.1.0, shipping to preview on their own.");
-    expect(output.lines).toContain("    gh run list --limit 5");
+    expect(output.lines).toContain("    fake-ci runs");
     expect(output.lines).toContain("    shiplane status --channel preview");
   });
 
@@ -182,7 +182,7 @@ describe("Feature: shipping from this machine", () => {
     ]);
     expect(host.received).toEqual([{ type: "record", ref: "api@0.1.0", environment: "preview" }]);
     expect(ci.received).toEqual([]);
-    expect(output.lines).not.toContain("    gh run list --limit 5");
+    expect(output.lines).not.toContain("    fake-ci runs");
   });
 
   it("given uncommitted changes, when shipped from this machine, then it refuses before anything runs", async () => {

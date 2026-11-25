@@ -74,7 +74,7 @@ describe("Feature: waiting for a release PR", () => {
       expect(world.output.text).toContain("Waiting for approval on #12");
       expect(world.output.text).toContain("It's safe to leave: run shiplane later");
       expect(world.output.lines).toContain(
-        "    d see the diff   o open it on GitHub   Ctrl-C leave, continue later",
+        "    d see the diff   o open it on Fake Host   Ctrl-C leave, continue later",
       );
       expect(world.host.received.some(({ type }) => type === "merge")).toBe(false);
     });
@@ -92,7 +92,7 @@ describe("Feature: waiting for a release PR", () => {
 
       // then
       expect(world.output.lines).toContain(
-        "    d see the diff   m merge it from here   o open it on GitHub   Ctrl-C leave, continue later",
+        "    d see the diff   m merge it from here   o open it on Fake Host   Ctrl-C leave, continue later",
       );
       expect(world.host.received).toContainEqual({ type: "merge", pr: PR_12, method: "--squash" });
     });
@@ -112,7 +112,7 @@ describe("Feature: coming back to a release", () => {
       // then
       expect(ok).toBe(true);
       expect(world.output.text).toContain("↻ Picking up release #12: still waiting for approval");
-      expect(world.output.text).toContain("To cancel it, close it on GitHub.");
+      expect(world.output.text).toContain("To cancel it, close it on Fake Host.");
       expect(opened(world)).toEqual([]);
     });
   });

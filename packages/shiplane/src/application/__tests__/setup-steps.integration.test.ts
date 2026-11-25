@@ -194,7 +194,7 @@ describe("Feature: a stopped release takes back what it did", () => {
 
     await open.run();
 
-    expect(open.undo?.byHand()).toEqual(["gh pr close 7"]);
+    expect(open.undo?.byHand()).toEqual(["fake-host close 7"]);
     expect(open.undo?.label).toBe("close the pull request");
   });
 

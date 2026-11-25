@@ -6,7 +6,7 @@ import { ciLabel } from "./askPath";
 import { neededBuild } from "./buildIfNeeded";
 import { planFollowUps } from "./followUps";
 import { releaseOrder } from "./releaseOrder";
-import { paint } from "./say";
+import { hostLabel, paint } from "./say";
 import { checkout, commandLine, environmentLabel, shipPlanOf, unitTarget } from "./targets";
 
 /**
@@ -46,7 +46,7 @@ export const planShips = async (context: ReleaseContext, environment: Environmen
       job.local.forEach((command) => output.line(`      ${commandLine(command)}`));
       if (job.record)
         output.line(
-          `      ${paint("dim", `then record ${tag} on ${environment} in GitHub Deployments`)}`,
+          `      ${paint("dim", `then record ${tag} on ${environment}, on ${hostLabel(context)}`)}`,
         );
       if (job.ci) {
         const pipeline = services.ciPipeline;

@@ -151,7 +151,7 @@ describe("picking which apps to release", () => {
       {
         kind: "during",
         mood: "thinking",
-        text: "Reading what changed: changesets, tags and GitHub deployments",
+        text: "Reading what changed: changesets, tags and deployments",
       },
       {
         kind: "say",

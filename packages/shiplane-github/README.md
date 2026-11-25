@@ -81,7 +81,7 @@ through GitHub Actions dispatching `deploy.yml`:
   api@1.0.0 → ./deploy.sh  (not tagged yet: release first)
     this machine
       ./deploy.sh
-      then record api@1.0.0 on preview in GitHub Deployments
+      then record api@1.0.0 on preview, on GitHub
     GitHub Actions
       gh workflow run deploy.yml --ref api@1.0.0 -f units=api -f environment=preview
 ```

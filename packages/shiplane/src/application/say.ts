@@ -21,6 +21,10 @@ export const fail = (
   commands.forEach((command) => output.line(`    ${paint("cyan", command)}`));
 };
 
+/** What a person calls the code host: its own label, else `the code host`. */
+export const hostLabel = ({ services }: ReleaseContext) =>
+  services.codeHost.label ?? "the code host";
+
 /** Yes without asking under --yes; without a terminal, no. */
 export const confirm = async (
   { prompter, options, output }: ReleaseContext,

@@ -25,7 +25,7 @@ export const pickScope = async (
 ): Promise<{ scope: Set<string>; info: ScopeInfo[] } | null> => {
   const { output, prompter, progress } = context;
   const info = await progress.during(
-    "Reading what changed: changesets, tags and GitHub deployments",
+    "Reading what changed: changesets, tags and deployments",
     "thinking",
     () => readScope(context, environment),
   );

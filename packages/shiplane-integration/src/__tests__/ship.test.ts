@@ -163,7 +163,7 @@ describe("shipping to an environment, fire and forget", () => {
       },
     ]);
     expect(shell.calls).toEqual([]);
-    expect(output.text).toContain("gh run list");
+    expect(output.text).toContain("fake-ci runs");
   });
 
   it("given the same release shipped from this machine, when it runs, then Fly deploys from the root and waits for its rollout, admin builds against preview's API and both deploys are recorded", async () => {
@@ -360,7 +360,7 @@ describe("shipping to an environment, fire and forget", () => {
     expect(prompter.asked).toContain(
       "Ship api@0.0.3 (Fake CI), admin@0.1.3 (this machine) to preview?",
     );
-    expect(output.text).toContain("gh run list");
+    expect(output.text).toContain("fake-ci runs");
   });
 
   it("given one unit's ship cancelled, when asked how, then nothing ships", async () => {

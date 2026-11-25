@@ -44,6 +44,8 @@ export interface CiPipelinePort {
   measuredMinutes: (workflow: string) => Promise<number[]>;
   /** What a person calls this pipeline, such as `GitHub Actions`; `CI` when unset. */
   readonly label?: string;
+  /** The command that lists its latest runs, as a person would type it; not shown when unset. */
+  readonly runsLine?: string;
   /** Where a ref holds a workflow's file, checked before dispatching on it; unchecked when unset. */
   workflowFile?: (workflow: string) => string;
   /** The command a dry run prints for a dispatch, as a person would type it. */

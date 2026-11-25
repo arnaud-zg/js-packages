@@ -8,7 +8,7 @@ import { openReleasePr, printSummary } from "./openReleasePr";
 import { pickScope } from "./pickScope";
 import { prepareRelease } from "./prepareRelease";
 import { preflight } from "./requirements";
-import { listed, paint } from "./say";
+import { hostLabel, listed, paint } from "./say";
 import { shipTo } from "./ship";
 import { runSteps } from "./steps";
 import { missingTags, tagRelease } from "./tagRelease";
@@ -101,7 +101,7 @@ const pickUpRelease = async (
     "thinking",
     `↻ Picking up release ${listed(fresh.map(({ number }) => `#${number}`))}: still waiting for ${waiting}`,
   );
-  context.output.line(paint("dim", "    To cancel it, close it on GitHub."));
+  context.output.line(paint("dim", `    To cancel it, close it on ${hostLabel(context)}.`));
   return fresh;
 };
 

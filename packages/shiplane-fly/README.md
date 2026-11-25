@@ -82,7 +82,7 @@ url:
   api@1.0.0 → acme-api-preview (Fly)  (not tagged yet: release first)
     this machine
       flyctl deploy --remote-only --config apps/api/fly-preview.toml --dockerfile apps/api/Dockerfile
-      then record api@1.0.0 on preview in GitHub Deployments
+      then record api@1.0.0 on preview, on GitHub
     GitHub Actions
       gh workflow run ship.yml --ref api@1.0.0 -f units=api -f environment=preview
 ```

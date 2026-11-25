@@ -89,7 +89,7 @@ url: https://acme.github.io/acme/
       sh -c [ -z "$GITHUB_ACTIONS" ] || { git config --global user.name "github-actions[bot]" && git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com" && git config --global credential.https://github.com.helper "!gh auth git-credential"; } && { git ls-remote --exit-code --heads origin "$1" >/dev/null || git push origin "$(git commit-tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904 -m "start $1")":"refs/heads/$1"; } sh gh-pages
       npx --yes gh-pages@6.3.0 --dist=apps/site/dist --branch=gh-pages --message=site@1.0.0 --dotfiles --nojekyll --dest=preview
       sh -c [ -z "$GITHUB_ACTIONS" ] || gh api -X POST "repos/$GITHUB_REPOSITORY/pages/builds" --silent || echo "Pages was not asked to build: ship again, or build it from Settings > Pages"
-      then record site@1.0.0 on preview in GitHub Deployments
+      then record site@1.0.0 on preview, on GitHub
     GitHub Actions
       gh workflow run ship.yml --ref site@1.0.0 -f units=site -f environment=preview
 ```
