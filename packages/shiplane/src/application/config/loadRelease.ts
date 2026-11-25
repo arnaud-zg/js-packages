@@ -16,7 +16,7 @@ import type { UnitFile } from "./readUnitFile";
 import { ENVIRONMENTS, LIVE } from "../../domain/environment";
 import { PrepareSchema } from "../../domain/prepare";
 import { DEFAULT_TAG_FORMAT, TAG_FORMATS, tagFormatNamed } from "../../domain/tags";
-import { channelProblem } from "../../domain/testChannel";
+import { channelProblem, channels } from "../../domain/testChannel";
 import { ConfigError } from "../../ports/config.port";
 import { releaseFlow } from "../releaseFlow";
 import { reasonOf } from "../say";
@@ -53,6 +53,8 @@ export interface Release {
   environments?: readonly Environment[];
   /** The channels packages publish on (`publishPackages.channels`); any when unset. */
   channels?: readonly string[];
+  /** What a branch publishes outside the channels (`publishPackages.onBranch`); a snapshot when unset. */
+  onBranch?: "snapshot" | false;
   /** How a unit ships when both ways can, as the config asks; unset, each ship asks. */
   via?: DeployPath;
   /** How much the release says while it runs, as the config asks. */
@@ -81,6 +83,7 @@ type Composed = Pick<
   | "via"
   | "environments"
   | "channels"
+  | "onBranch"
   | "prepare"
 > & {
   units?: string[];
@@ -216,12 +219,20 @@ const checkConfig = (loaded: unknown): Composed => {
 };
 
 const DeployAppsSchema = z.strictObject({
-  promote: z
-    .strictObject({ from: z.literal("preview").optional(), to: z.literal("production").optional() })
-    .refine(({ from, to }) => from !== undefined || to !== undefined),
+  promote: z.tuple([
+    z
+      .strictObject({
+        from: z.literal("preview").optional(),
+        to: z.literal("production").optional(),
+      })
+      .refine(({ from, to }) => from !== undefined || to !== undefined),
+  ]),
 });
 
-const PublishPackagesSchema = z.strictObject({ channels: z.array(z.string()).min(1) });
+const PublishPackagesSchema = z.strictObject({
+  channels: z.array(z.string()).min(1).optional(),
+  onBranch: z.union([z.literal("snapshot"), z.literal(false)]).optional(),
+});
 
 /** `deployApps`: where a release deploys apps, and where a promote takes them. */
 const deployAppsOf = (value: unknown): { environments?: Environment[] } => {
@@ -229,28 +240,38 @@ const deployAppsOf = (value: unknown): { environments?: Environment[] } => {
   const parsed = DeployAppsSchema.safeParse(value);
   if (!parsed.success) {
     throw new Error(
-      'deployApps is { promote: { from: "preview", to: "production" } }, or only one of from and to',
+      'deployApps is { promote: [{ from: "preview", to: "production" }] }, one step, or only one of from and to',
     );
   }
-  const { from, to } = parsed.data.promote;
+  const [{ from, to }] = parsed.data.promote;
   return { environments: [...(from ? [from] : []), ...(to ? [to] : [])] };
 };
 
-/** `publishPackages`: live, and names the registry takes as a test release's. */
-const publishPackagesOf = (value: unknown): { channels?: string[] } => {
+/** Why a name cannot be a channel of `publishPackages`, or null when it can. */
+const channelRefused = (name: string) => {
+  if (name === LIVE) return null;
+  if (name === channels.snapshot) return "snapshot is what onBranch publishes, not a channel";
+  if (ENVIRONMENTS.some((known) => known === name))
+    return `${name} is an environment apps deploy to`;
+  return channelProblem(name);
+};
+
+/** `publishPackages`: the channels, and what a branch publishes. */
+const publishPackagesOf = (value: unknown): Pick<Release, "channels" | "onBranch"> => {
   if (value === undefined) return {};
   const parsed = PublishPackagesSchema.safeParse(value);
-  if (!parsed.success) throw new Error("publishPackages takes channels, a list of names");
-  const names = [...new Set(parsed.data.channels)];
-  for (const name of names) {
-    const problem = ENVIRONMENTS.some((known) => known === name)
-      ? `${name} is an environment apps deploy to`
-      : name === LIVE
-        ? null
-        : channelProblem(name);
-    if (problem) throw new Error(`publishPackages.channels: ${problem}`);
+  if (!parsed.success) {
+    throw new Error(
+      'publishPackages takes channels, a list of names, and onBranch, "snapshot" or false',
+    );
   }
-  return { channels: names };
+  const { channels: names, onBranch } = parsed.data;
+  const problem = names?.map(channelRefused).find((found) => found !== null);
+  if (problem) throw new Error(`publishPackages.channels: ${problem}`);
+  return {
+    ...(names ? { channels: [...new Set(names)] } : {}),
+    ...(onBranch === undefined ? {} : { onBranch }),
+  };
 };
 
 /** The config's `prepare`, its placeholders known; the first problem is thrown. */
@@ -474,7 +495,7 @@ export const loadRelease = async (root: string, ports: LoadPorts): Promise<Relea
       problems.push({
         file: path.basename(configFile),
         message: `${unit.name} needs preview: its platform builds production from what preview runs`,
-        hint: 'set deployApps.promote.from to "preview"',
+        hint: 'name "preview" as from in deployApps.promote',
       }),
     );
   }
@@ -495,6 +516,7 @@ export const loadRelease = async (root: string, ports: LoadPorts): Promise<Relea
     ...(config.via ? { via: config.via } : {}),
     ...(config.environments ? { environments: config.environments } : {}),
     ...(config.channels ? { channels: config.channels } : {}),
+    ...(config.onBranch === undefined ? {} : { onBranch: config.onBranch }),
     units: ordered.map(({ unit }) => unit),
     problems: sortProblems(problems),
     display: config.display,

@@ -98,6 +98,24 @@ describe("Feature: choosing the channels packages publish on", () => {
   });
 });
 
+describe("Feature: choosing what a branch publishes", () => {
+  it("given onBranch false, when a snapshot is asked, then it refuses", async () => {
+    const { context, output } = given({ onBranch: false }, [LIB]);
+
+    expect(await branchRelease(context, { onDefault: "publish", channel: "snapshot" })).toBe(false);
+
+    expect(output.text).toContain("publishPackages.onBranch is false");
+  });
+
+  it("given channels only, when a snapshot is asked, then it is not refused", async () => {
+    const { context, output } = given({ channels: ["live"] }, [LIB]);
+
+    await branchRelease(context, { onDefault: "publish", channel: "snapshot", dryRun: true });
+
+    expect(output.text).not.toContain("not published here");
+  });
+});
+
 describe("Feature: ship.yml lists what the config says", () => {
   const every = ["snapshot", "nightly", "alpha", "beta", "rc", "live"];
 
@@ -105,7 +123,13 @@ describe("Feature: ship.yml lists what the config says", () => {
     ["apps", {}, [API], undefined],
     ["apps on production only", { environments: ["production"] }, [API], ["production"]],
     ["packages", {}, [LIB], every],
-    ["packages on two channels", { channels: ["nightly", "live"] }, [LIB], ["nightly", "live"]],
+    [
+      "packages on two channels",
+      { channels: ["nightly", "live"] },
+      [LIB],
+      ["snapshot", "nightly", "live"],
+    ],
+    ["packages with nothing on a branch", { channels: ["live"], onBranch: false }, [LIB], ["live"]],
     ["both", {}, [API, LIB], ["preview", "production", ...every]],
   ])("given %s, when setup writes it, then it asks for those", async (_, config, units, listed) => {
     const { context } = given(config, units);

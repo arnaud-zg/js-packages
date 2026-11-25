@@ -4,23 +4,33 @@ import type { TagFormatName } from "../../domain/tags";
 import type { Channel, TestReleaseBranches } from "../../domain/testChannel";
 import type { Feature, ReleaseFlow, ReleaseModule } from "../../modules/module";
 
+/** One step of an app's way to its users: a release deploys to `from`, a promote takes it to `to`. */
+export type PromoteStep =
+  { from: "preview"; to?: "production" } | { from?: undefined; to: "production" };
+
 /** How apps are deployed. */
 export interface DeployApps {
   /**
-   * Where a release deploys an app first, and where a promote takes it next:
-   * `{ from: "preview", to: "production" }` when unset. `{ to: "production" }` deploys straight
-   * there; `{ from: "preview" }` never promotes. EAS needs preview.
+   * The steps, one for now: `[{ from: "preview", to: "production" }]` when unset.
+   * `[{ to: "production" }]` deploys straight there; `[{ from: "preview" }]` never promotes. EAS
+   * needs preview.
    */
-  promote: { from: "preview"; to?: "production" } | { from?: undefined; to: "production" };
+  promote: readonly [PromoteStep];
 }
 
 /** How packages are published. */
 export interface PublishPackages {
   /**
-   * The channels they publish on: `live` (the release) and test release channels, such as
-   * `["nightly", "live"]`. Nothing is promoted from one to another. Any channel when unset.
+   * The channels they publish on, from the earliest to the release:
+   * `["nightly", "alpha", "beta", "rc", "live"]`. Each publishes by itself, a version is never moved
+   * from one to the next. Any channel when unset.
    */
-  channels: readonly Channel[];
+  channels?: readonly Channel[];
+  /**
+   * What any branch may publish to try a change, outside the channels: `"snapshot"` when unset,
+   * `false` for nothing.
+   */
+  onBranch?: "snapshot" | false;
 }
 
 /** How a repository releases: the flow, what gets released in order, and what happens around it. */

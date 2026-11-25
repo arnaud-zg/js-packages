@@ -160,26 +160,33 @@ export const configJsonSchema = (catalog: readonly CatalogEntry[]): JsonSchema =
       },
       deployApps: {
         description:
-          "How deployed apps reach their users: a release deploys to promote.from, a promote takes it to promote.to. Not for packages.",
+          "How deployed apps reach their users: a release deploys to from, a promote takes it to to. Not for packages.",
         type: "object",
         additionalProperties: false,
         required: ["promote"],
         properties: {
           promote: {
-            type: "object",
-            additionalProperties: false,
-            minProperties: 1,
-            properties: { from: { enum: ["preview"] }, to: { enum: ["production"] } },
+            type: "array",
+            minItems: 1,
+            maxItems: 1,
+            items: {
+              type: "object",
+              additionalProperties: false,
+              minProperties: 1,
+              properties: { from: { enum: ["preview"] }, to: { enum: ["production"] } },
+            },
           },
         },
       },
       publishPackages: {
         description:
-          "How packages are published: channels lists live and test release channels. Not for apps, nor internal packages.",
+          "How packages are published: channels, from the earliest to live, and onBranch, what any branch may publish. Not for apps, nor internal packages.",
         type: "object",
         additionalProperties: false,
-        required: ["channels"],
-        properties: { channels: { type: "array", minItems: 1, items: { type: "string" } } },
+        properties: {
+          channels: { type: "array", minItems: 1, items: { type: "string" } },
+          onBranch: { enum: ["snapshot", false] },
+        },
       },
       testComment: {
         description:

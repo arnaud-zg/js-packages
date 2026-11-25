@@ -498,12 +498,16 @@ describe("saying how apps deploy and packages publish", () => {
 
   it.each([
     [
-      'deployApps: { promote: { from: "preview", to: "production" } }',
+      'deployApps: { promote: [{ from: "preview", to: "production" }] }',
       { environments: ["preview", "production"] },
     ],
-    ['deployApps: { promote: { to: "production" } }', { environments: ["production"] }],
-    ['deployApps: { promote: { from: "preview" } }', { environments: ["preview"] }],
-    ['publishPackages: { channels: ["nightly", "live"] }', { channels: ["nightly", "live"] }],
+    ['deployApps: { promote: [{ to: "production" }] }', { environments: ["production"] }],
+    ['deployApps: { promote: [{ from: "preview" }] }', { environments: ["preview"] }],
+    [
+      'publishPackages: { channels: ["nightly", "alpha", "beta", "rc", "live"], onBranch: "snapshot" }',
+      { channels: ["nightly", "alpha", "beta", "rc", "live"], onBranch: "snapshot" },
+    ],
+    ["publishPackages: { onBranch: false }", { onBranch: false }],
   ])("given %s, when the release loads, then it keeps them in order", async (line, kept) => {
     const release = await configured(line);
 
@@ -519,13 +523,18 @@ describe("saying how apps deploy and packages publish", () => {
   });
 
   it.each([
-    ['deployApps: { promote: { from: "production", to: "preview" } }', "only one of from and to"],
-    ['deployApps: { promote: { from: "staging" } }', "only one of from and to"],
-    ["deployApps: { promote: {} }", "only one of from and to"],
-    ['deployApps: { promote: ["preview", "production"] }', "only one of from and to"],
+    ['deployApps: { promote: [{ from: "production", to: "preview" }] }', "only one of from and to"],
+    ['deployApps: { promote: [{ from: "staging" }] }', "only one of from and to"],
+    ["deployApps: { promote: [] }", "only one of from and to"],
+    [
+      'deployApps: { promote: [{ from: "preview" }, { to: "production" }] }',
+      "only one of from and to",
+    ],
     ['deployApps: { channels: ["live"] }', "only one of from and to"],
     ['publishPackages: { channels: ["preview"] }', "preview is an environment apps deploy to"],
     ['publishPackages: { channels: ["latest"] }', "publishPackages.channels: latest"],
+    ['publishPackages: { channels: ["snapshot"] }', "snapshot is what onBranch publishes"],
+    ['publishPackages: { onBranch: "nightly" }', 'onBranch, "snapshot" or false'],
     ['publishPackages: { promote: ["live"] }', "publishPackages takes channels, a list of names"],
   ])("given %s, when the release loads, then it says what is wrong", async (line, said) => {
     const release = await configured(line);

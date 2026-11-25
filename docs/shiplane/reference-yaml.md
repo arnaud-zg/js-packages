@@ -93,8 +93,8 @@ your own adapters for your editor. How to write one: [How-to: YAML config](./how
 | `tag`             | How a tag names a version: a format's name, or a format of your own naming {version}. Names: `package`, `plugin`, `single`, `module`.                 |
 | `via`             | How a unit ships when both ways can: ci (the flow's CI pipeline) or local (this machine). Names: `ci`, `local`.                                       |
 | `display`         | How much the release says while it runs; --verbose and --mascot override.                                                                             |
-| `deployApps`      | How deployed apps reach their users: a release deploys to promote.from, a promote takes it to promote.to. Not for packages.                           |
-| `publishPackages` | How packages are published: channels lists live and test release channels. Not for apps, nor internal packages.                                       |
+| `deployApps`      | How deployed apps reach their users: a release deploys to from, a promote takes it to to. Not for packages.                                           |
+| `publishPackages` | How packages are published: channels, from the earliest to live, and onBranch, what any branch may publish. Not for apps, nor internal packages.      |
 | `testComment`     | The pull request comment of a test version: a preset's name, or a template with {branch}, {commit}, {table} and {install}. Names: `table`, `compact`. |
 | `testRelease`     | Which channel each branch's test release publishes on: a preset's name, or a map of branch to channel. Names: `nightly`, `prerelease`, `gitflow`.     |
 | `prepare`         | A shell command run from the root before each unit ships from this machine; {unit} and {dir} are filled.                                              |

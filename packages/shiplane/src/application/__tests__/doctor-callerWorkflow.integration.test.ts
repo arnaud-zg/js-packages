@@ -279,7 +279,7 @@ describe("Feature: doctor on a release that publishes packages", () => {
           callerWorkflow: () =>
             Promise.resolve({
               file: SHIP_YML,
-              content: made("nightly, live"),
+              content: made("snapshot, nightly, live"),
               pin: "sha-0.6.0",
             }),
         }),
@@ -305,8 +305,8 @@ describe("Feature: doctor on a release that publishes packages", () => {
 
     await doctor(context);
 
-    expect(output.text).toContain("ship.yml does not offer nightly, live");
-    expect(files.read(SHIP_YML)).toContain("options: [nightly, live]");
+    expect(output.text).toContain("ship.yml does not offer snapshot, nightly, live");
+    expect(files.read(SHIP_YML)).toContain("options: [snapshot, nightly, live]");
   });
 
   it("given no channels in the config, when doctor runs, then ship.yml's list is the person's", async () => {
