@@ -26,6 +26,10 @@ publishes under `latest`; to stage under `next` first, add
 `tag: { preview: next, production: latest }`. A new package needs no changeset for its first
 version: merge it, then run `pnpm shiplane`.
 
+Recommended: `npmPackageRegistry({ staged: true })` holds each release on npm until a person
+approves it with 2FA. See
+[Staged publishing](../../packages/shiplane-npm/README.md#%EF%B8%8F-staged-publishing-recommended).
+
 ## Release Claude Code plugins
 
 ```ts

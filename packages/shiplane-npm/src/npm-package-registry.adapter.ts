@@ -32,6 +32,16 @@ const NpmOptions = z.object({
     ),
 });
 
+export interface NpmPackageRegistryOptions {
+  /** Upload each release for a person to approve with 2FA on npm, instead of publishing it at once. */
+  staged?: boolean;
+}
+
+/** The npm that stages: the one a Node release ships with may be too old. */
+const STAGING_NPM = ["--yes", "npm@^11.15.0", "stage"];
+const TARBALL = ".shiplane-stage.tgz";
+const PUBLISH_SCRIPT = "prepublishOnly";
+
 type Options = Resolved<z.output<typeof NpmOptions>>;
 
 const ManifestSchema = z.object({
@@ -109,6 +119,64 @@ const publishedVersions = async (context: DecideContext, input: JobInput<Options
   return parsed.success ? Object.keys(parsed.data).filter((key) => !NOT_VERSIONS.has(key)) : [];
 };
 
+const StagedVersions = z.array(z.object({ version: z.string() }));
+
+/**
+ * Whether the version waits for approval. False when npm cannot say, as on a runner signed in by
+ * OIDC: npm then refuses a second upload of the version itself.
+ */
+const waitsForApproval = async (context: DecideContext, input: JobInput<Options>) => {
+  const result = await context.shell.capture("npx", [
+    ...STAGING_NPM,
+    "list",
+    nameOf(input),
+    "--json",
+  ]);
+  if (result.status !== 0) return false;
+  const parsed = parseJson({ text: result.stdout, schema: StagedVersions });
+  return parsed.success && parsed.data.some(({ version }) => version === input.unit.version);
+};
+
+/** Packed by pnpm, which resolves `workspace:` and `catalog:`, then staged by npm. */
+const stageCommands = ({ unit, options }: JobInput<Options>) => [
+  // pnpm publish runs this script; pnpm pack and a tarball's publish do not.
+  { command: "pnpm", args: ["run", "--if-present", PUBLISH_SCRIPT], cwd: unit.dir },
+  { command: "pnpm", args: ["pack", "--out", TARBALL], cwd: unit.dir },
+  {
+    command: "npx",
+    args: [
+      ...STAGING_NPM,
+      "publish",
+      `./${TARBALL}`,
+      "--access",
+      options.access,
+      "--tag",
+      options.tag,
+    ],
+    cwd: unit.dir,
+  },
+];
+
+/** Upload the version, public once a person approves it; renamed for the registry and back after. */
+const stageJob = (input: JobInput<Options>): Job => {
+  const { unit, options } = input;
+  const name = nameOf(input);
+  const rename = (to: string) => ({
+    command: "npm",
+    args: ["pkg", "set", `name=${to}`],
+    cwd: unit.dir,
+  });
+  return {
+    label: `stage ${name}@${unit.version} under ${options.tag}, public once approved on npmjs.com`,
+    local: [...(options.publishAs ? [rename(options.publishAs)] : []), ...stageCommands(input)],
+    needsBuild: true,
+    cleanup: [
+      { command: "rm", args: ["-f", TARBALL], cwd: unit.dir },
+      ...(options.publishAs ? [rename(unit.packageName)] : []),
+    ],
+  };
+};
+
 /**
  * Publish the version under the environment's tag, or a branch release's own, renamed for the
  * registry and back after.
@@ -170,9 +238,17 @@ const registryFacts = (context: DecideContext, input: JobInput<Options>): Regist
   };
 };
 
-const decide = async (context: DecideContext, input: JobInput<Options>): Promise<Decision> => {
+const decide = async (
+  context: DecideContext,
+  input: JobInput<Options>,
+  staged: boolean,
+): Promise<Decision> => {
   const { tag, environment, options } = input;
   const ship = await registryDecision({ environment, facts: registryFacts(context, input) });
+  if (staged && ship === "publish" && (await waitsForApproval(context, input))) {
+    return { action: "none", status: "staged on npm: approve it on npmjs.com" };
+  }
+  const releaseJob = staged ? stageJob : publishJob;
   const decisions: Record<RegistryShip, () => Decision> = {
     "not-released": () => ({ action: "none", status: "not released yet" }),
     "not-on-preview": () => ({
@@ -185,7 +261,7 @@ const decide = async (context: DecideContext, input: JobInput<Options>): Promise
       detail: "npm publishes this checkout, which now holds code no release named.",
       commands: [`git switch --detach ${tag}`, "shiplane ship"],
     }),
-    publish: () => ({ action: "ship", kind: "publish", jobs: [publishJob(input)] }),
+    publish: () => ({ action: "ship", kind: "publish", jobs: [releaseJob(input)] }),
     "on-tag": () => ({ action: "none", status: `on npm under ${options.tag}` }),
     "move-tag": () => ({ action: "ship", kind: "publish", jobs: [moveTagJob(input)] }),
   };
@@ -201,12 +277,17 @@ const live = async (context: DecideContext, input: JobInput<Options>) => {
 /**
  * A package on npm. A release publishes the version straight under `latest`; with
  * `tag: { preview: next, production: latest }`, preview publishes under `next` and production moves
- * `latest` to it, never publishing twice.
+ * `latest` to it, never publishing twice. With `staged`, a release waits on npm for a person's
+ * approval; a test release still publishes at once.
  */
 export type NpmPackageRegistryAdapter = DeliveryAdapter<PackageRegistryPort>;
 
-export const npmPackageRegistry = (): NpmPackageRegistryAdapter =>
-  definePackageRegistry({
+export const npmPackageRegistry = (
+  options: NpmPackageRegistryOptions = {},
+): NpmPackageRegistryAdapter => {
+  const { staged = false } = options;
+  const releaseJob = staged ? stageJob : publishJob;
+  const adapter = definePackageRegistry({
     name: "npm",
     settings: NpmOptions,
     describe: (input) => `${nameOf(input)} on npm (${input.options.tag})`,
@@ -217,8 +298,8 @@ export const npmPackageRegistry = (): NpmPackageRegistryAdapter =>
     // shiplane prune-snapshots reads every tag and removes the old snapshots' ones.
     tags,
     untagJob,
-    jobs: (input) => (input.distTag ? [publishJob(input)] : [publishJob(input), moveTagJob(input)]),
-    decide,
+    jobs: (input) => (input.distTag ? [publishJob(input)] : [releaseJob(input), moveTagJob(input)]),
+    decide: (context, input) => decide(context, input, staged),
     live,
     detect: (folder) => {
       const manifest = ManifestSchema.safeParse(JSON.parse(folder.read("package.json") ?? "{}"));
@@ -235,6 +316,10 @@ export const npmPackageRegistry = (): NpmPackageRegistryAdapter =>
         label: "npm",
         check: { command: "npm", args: ["whoami"] },
         fix: { command: "npm", args: ["login"] },
+        // A runner stages with a short-lived OIDC token, no secret.
+        ...(staged ? { permissions: { "id-token": "write" as const } } : {}),
       },
     ],
   });
+  return { ...adapter, options };
+};

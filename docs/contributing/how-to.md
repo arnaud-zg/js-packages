@@ -61,6 +61,10 @@ pnpm release
 The same command now tags each bumped package, publishes it to npm and writes its GitHub Release
 from the `CHANGELOG.md` entry. It needs `gh` and `npm` signed in.
 
+Packages are
+[staged](../../packages/shiplane-npm/README.md#%EF%B8%8F-staged-publishing-recommended): approve
+each one with 2FA on npmjs.com (Staged Packages) to make it public.
+
 One-time setup: **Settings → Branches** → require a PR before merging into `main`, so steps 1 and 2
 are the only way in. (Needs the repo to be public, or GitHub Pro, for a private repo.)
 

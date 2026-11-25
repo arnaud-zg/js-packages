@@ -75,9 +75,9 @@ your own adapters for your editor. How to write one: [How-to: YAML config](./how
 
 ### `packageRegistry`
 
-| Name  | What it does                                          | `with`  |
-| ----- | ----------------------------------------------------- | ------- |
-| `npm` | Publishes each package to npm, under its own dist-tag | nothing |
+| Name  | What it does                                          | `with`                                                                       |
+| ----- | ----------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `npm` | Publishes each package to npm, under its own dist-tag | `staged`: Wait for a person's 2FA approval on npm before a release is public |
 
 ## Features
 

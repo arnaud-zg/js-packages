@@ -756,7 +756,12 @@
                                       "with": {
                                         "type": "object",
                                         "additionalProperties": false,
-                                        "properties": {},
+                                        "properties": {
+                                          "staged": {
+                                            "description": "Wait for a person's 2FA approval on npm before a release is public",
+                                            "type": "boolean"
+                                          }
+                                        },
                                         "required": []
                                       }
                                     }
