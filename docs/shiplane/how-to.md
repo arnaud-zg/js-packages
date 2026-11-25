@@ -17,6 +17,7 @@ One page per area, one task per section. New here? Start with the [Tutorial](./t
 | [📦 Packages and versions](./how-to-versions.md) | Publish to npm, release Claude Code plugins, choose how versions are bumped, release from commits, shape release notes                    |
 | [🔌 Hosts and plugins](./how-to-hosts.md)        | Ship a host with no plugin, swap a provider, write a plugin, comment on what shipped, set up the sign-ins                                 |
 | [🖥️ Terminal](./how-to-terminal.md)              | Bring your own mascot, turn the mascot off                                                                                                |
+| [⬆️ Upgrade](./how-to-upgrade.md)                | What a repository adds when it moves to 0.6                                                                                               |
 
 ## Example
 

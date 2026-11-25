@@ -16,6 +16,9 @@ files already use: `deployApps: { promote: [{ from: "staging", to: "prod" }] }`.
 `tag` is a map per environment needs it too. Every per-environment map then holds each of those
 names and no other. A repository of packages only adds nothing.
 
+Step by step:
+[Upgrade to 0.6](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to-upgrade.md).
+
 `shiplane setup` asks for the names, or takes `--environments a,b`. EAS takes them as its profiles
 and channels: one step, or a lone `from`.
 
