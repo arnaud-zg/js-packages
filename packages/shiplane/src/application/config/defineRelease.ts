@@ -7,11 +7,11 @@ import type { Feature, ReleaseFlow, ReleaseModule } from "../../modules/module";
 /** How apps are deployed. */
 export interface DeployApps {
   /**
-   * The environments an app goes through, left to right: `["preview", "production"]` when unset, a
-   * release deploys to preview and a promote moves it to production. `["production"]` deploys
-   * straight there; `["preview"]` never promotes. EAS needs preview.
+   * Where a release deploys an app first, and where a promote takes it next:
+   * `{ from: "preview", to: "production" }` when unset. `{ to: "production" }` deploys straight
+   * there; `{ from: "preview" }` never promotes. EAS needs preview.
    */
-  promote: readonly Environment[];
+  promote: { from: "preview"; to?: "production" } | { from?: undefined; to: "production" };
 }
 
 /** How packages are published. */

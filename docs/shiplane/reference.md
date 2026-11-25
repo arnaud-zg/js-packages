@@ -108,7 +108,7 @@ export default defineRelease({
 | `testComment`     | The test version's PR comment: `comments.table` (default), `comments.compact`, or your own text with `{branch}` `{commit}` `{table}` `{install}` ([how-to](./how-to-test-versions.md#publish-a-test-version))                                                                                                                                           |
 | `testRelease`     | Which channel each branch's test release takes: `testReleases.nightly`, `.prerelease`, `.gitflow`, or `{ branch: channel }` with `*` patterns; unlisted branches publish a snapshot ([how-to](./how-to-test-versions.md#give-each-branch-a-channel))                                                                                                    |
 | `via`             | `"ci"` (the flow's CI pipeline) or `"local"` (this machine): how an app ships when both ways can, so a ship stops asking. `--via` wins for one run; a way that cannot ship takes the other                                                                                                                                                              |
-| `deployApps`      | Deployed apps only: `{ promote: ["preview", "production"] }`, the environments left to right, both when unset. `["production"]` deploys straight there, its name typed; `["preview"]` never promotes. EAS needs preview                                                                                                                                 |
+| `deployApps`      | Deployed apps only: `{ promote: { from: "preview", to: "production" } }`, the default. A release deploys to `from`, a promote takes it to `to`. Only `to`: it deploys straight there, its name typed. Only `from`: never promoted. EAS needs preview                                                                                                    |
 | `publishPackages` | Published packages only: `{ channels: ["nightly", "live"] }`, `live` being the release. Nothing is promoted between channels. Any channel when unset. Internal packages take neither key                                                                                                                                                                |
 | `prepare`         | A shell command run from the root before each unit ships from this machine or a runner, never before a CI dispatch, and [before a release](#build-before-a-release): `{unit}` its name, `{dir}` its folder, such as `"pnpm --filter {unit}... build"`. A failure fails that unit. Any other `{…}` fails loading: `unknown placeholder {app} in prepare` |
 
@@ -263,7 +263,7 @@ workflow, `shiplane ship --via ci` starts the run on the default branch and pass
 `gh workflow run ship.yml --ref main -f units=api -f environment=preview -f ref=api@1.2.0`. It
 checks out `ref`, so what deploys is the tag's code, never main's.
 
-Its `environment` input lists where the repository ships: apps' `promote`, then packages'
+Its `environment` input lists where the repository ships: apps' environments, then packages'
 `channels`, as the config says. Writing one that lists a channel, setup also gives it the
 permissions npm needs and a `dry-run` input. With neither key set, doctor leaves an existing list as
 it is.

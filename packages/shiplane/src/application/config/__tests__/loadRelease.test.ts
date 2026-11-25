@@ -498,10 +498,11 @@ describe("saying how apps deploy and packages publish", () => {
 
   it.each([
     [
-      'deployApps: { promote: ["preview", "production"] }',
+      'deployApps: { promote: { from: "preview", to: "production" } }',
       { environments: ["preview", "production"] },
     ],
-    ['deployApps: { promote: ["production"] }', { environments: ["production"] }],
+    ['deployApps: { promote: { to: "production" } }', { environments: ["production"] }],
+    ['deployApps: { promote: { from: "preview" } }', { environments: ["preview"] }],
     ['publishPackages: { channels: ["nightly", "live"] }', { channels: ["nightly", "live"] }],
   ])("given %s, when the release loads, then it keeps them in order", async (line, kept) => {
     const release = await configured(line);
@@ -518,10 +519,11 @@ describe("saying how apps deploy and packages publish", () => {
   });
 
   it.each([
-    ['deployApps: { promote: ["production", "preview"] }', "left to right, preview to production"],
-    ['deployApps: { promote: ["staging"] }', "not staging"],
-    ["deployApps: { promote: [] }", "deployApps takes promote, a list of names"],
-    ['deployApps: { channels: ["live"] }', "deployApps takes promote, a list of names"],
+    ['deployApps: { promote: { from: "production", to: "preview" } }', "only one of from and to"],
+    ['deployApps: { promote: { from: "staging" } }', "only one of from and to"],
+    ["deployApps: { promote: {} }", "only one of from and to"],
+    ['deployApps: { promote: ["preview", "production"] }', "only one of from and to"],
+    ['deployApps: { channels: ["live"] }', "only one of from and to"],
     ['publishPackages: { channels: ["preview"] }', "preview is an environment apps deploy to"],
     ['publishPackages: { channels: ["latest"] }', "publishPackages.channels: latest"],
     ['publishPackages: { promote: ["live"] }', "publishPackages takes channels, a list of names"],

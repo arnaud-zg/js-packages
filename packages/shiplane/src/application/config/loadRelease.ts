@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { z } from "zod";
 
 import type { DeployPath } from "../../domain/deploys";
 import type { DisplayChoice } from "../../domain/display";
@@ -214,36 +215,33 @@ const checkConfig = (loaded: unknown): Composed => {
   };
 };
 
-/** The list of names `key` holds in a config object that holds nothing else. */
-const namesIn = (value: unknown, owner: string, key: string) => {
-  const names = isRecord(value) && Object.keys(value).join() === key ? value[key] : null;
-  if (
-    !Array.isArray(names) ||
-    names.length === 0 ||
-    !names.every((name) => typeof name === "string")
-  ) {
-    throw new Error(`${owner} takes ${key}, a list of names`);
-  }
-  return [...new Set<string>(names)];
-};
+const DeployAppsSchema = z.strictObject({
+  promote: z
+    .strictObject({ from: z.literal("preview").optional(), to: z.literal("production").optional() })
+    .refine(({ from, to }) => from !== undefined || to !== undefined),
+});
 
-/** `deployApps`: the environments apps are promoted through, left to right. */
+const PublishPackagesSchema = z.strictObject({ channels: z.array(z.string()).min(1) });
+
+/** `deployApps`: where a release deploys apps, and where a promote takes them. */
 const deployAppsOf = (value: unknown): { environments?: Environment[] } => {
   if (value === undefined) return {};
-  const names = namesIn(value, "deployApps", "promote");
-  const environments = ENVIRONMENTS.filter((name) => names.includes(name));
-  if (environments.join() !== names.join()) {
+  const parsed = DeployAppsSchema.safeParse(value);
+  if (!parsed.success) {
     throw new Error(
-      `deployApps.promote goes left to right, ${ENVIRONMENTS.join(" to ")}, or names one of them: not ${names.join(", ")}`,
+      'deployApps is { promote: { from: "preview", to: "production" } }, or only one of from and to',
     );
   }
-  return { environments };
+  const { from, to } = parsed.data.promote;
+  return { environments: [...(from ? [from] : []), ...(to ? [to] : [])] };
 };
 
 /** `publishPackages`: live, and names the registry takes as a test release's. */
 const publishPackagesOf = (value: unknown): { channels?: string[] } => {
   if (value === undefined) return {};
-  const names = namesIn(value, "publishPackages", "channels");
+  const parsed = PublishPackagesSchema.safeParse(value);
+  if (!parsed.success) throw new Error("publishPackages takes channels, a list of names");
+  const names = [...new Set(parsed.data.channels)];
   for (const name of names) {
     const problem = ENVIRONMENTS.some((known) => known === name)
       ? `${name} is an environment apps deploy to`
@@ -476,7 +474,7 @@ export const loadRelease = async (root: string, ports: LoadPorts): Promise<Relea
       problems.push({
         file: path.basename(configFile),
         message: `${unit.name} needs preview: its platform builds production from what preview runs`,
-        hint: 'add "preview" to deployApps.promote',
+        hint: 'set deployApps.promote.from to "preview"',
       }),
     );
   }

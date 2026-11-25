@@ -1088,7 +1088,7 @@
       }
     },
     "deployApps": {
-      "description": "How deployed apps reach their users: promote lists the environments, left to right. Not for packages.",
+      "description": "How deployed apps reach their users: a release deploys to promote.from, a promote takes it to promote.to. Not for packages.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -1096,13 +1096,20 @@
       ],
       "properties": {
         "promote": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "enum": [
-              "preview",
-              "production"
-            ]
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "properties": {
+            "from": {
+              "enum": [
+                "preview"
+              ]
+            },
+            "to": {
+              "enum": [
+                "production"
+              ]
+            }
           }
         }
       }

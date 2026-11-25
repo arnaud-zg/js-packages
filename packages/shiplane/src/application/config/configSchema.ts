@@ -2,7 +2,6 @@ import { z } from "zod";
 
 import type { CatalogEntry, SlotPort } from "../../ports/catalog.port";
 import { comments } from "../../domain/branchRelease";
-import { ENVIRONMENTS } from "../../domain/environment";
 import { TAG_FORMATS } from "../../domain/tags";
 import { testReleases } from "../../domain/testChannel";
 import { FLOW_SLOTS, isFlowPort } from "./yamlDeclaration";
@@ -161,12 +160,17 @@ export const configJsonSchema = (catalog: readonly CatalogEntry[]): JsonSchema =
       },
       deployApps: {
         description:
-          "How deployed apps reach their users: promote lists the environments, left to right. Not for packages.",
+          "How deployed apps reach their users: a release deploys to promote.from, a promote takes it to promote.to. Not for packages.",
         type: "object",
         additionalProperties: false,
         required: ["promote"],
         properties: {
-          promote: { type: "array", minItems: 1, items: { enum: [...ENVIRONMENTS] } },
+          promote: {
+            type: "object",
+            additionalProperties: false,
+            minProperties: 1,
+            properties: { from: { enum: ["preview"] }, to: { enum: ["production"] } },
+          },
         },
       },
       publishPackages: {
