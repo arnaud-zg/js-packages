@@ -56,17 +56,4 @@ describe("Feature: doctor checks ship.yml allows and passes what the adapters ne
     expect(output.lines).toContain("│  ✗ ship.yml passes no SITE_KEY");
     expect(files.read(SHIP_YML)).toBe(callerFor("0.6.0", NEEDS));
   });
-
-  it("given a with written on one line, when the person agrees, then it is left to them", async () => {
-    const own = callerFor("0.6.0", { ...NEEDS, variables: undefined }).replace(
-      "# shiplane@0.6.0",
-      "# shiplane@0.6.0\n    with: { environment: preview }",
-    );
-    const { context, prompter, files } = given(own);
-    prompter.answer(true);
-
-    await doctor(context);
-
-    expect(files.read(SHIP_YML)).toBe(own);
-  });
 });

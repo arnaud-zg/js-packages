@@ -22,10 +22,13 @@ export const callerFor = (version: string, needs = NOTHING, sha = `sha-${version
     ...(needs.features.includes("release-comments") ? ["  issues: write"] : []),
     "jobs:",
     "  ship:",
-    `    uses: acme/shiplane/.github/workflows/shiplane-ship.yml@${sha} # shiplane@${version}`,
-    ...(needs.variables ? ["    with:", `      variables: ${needs.variables.join(" ")}`] : []),
-    ...(needs.secrets.length > 0 ? ["    secrets:"] : []),
-    ...needs.secrets.map((name) => `      ${name}: \${{ secrets.${name} }}`),
+    ...(needs.variables ? ["    env:"] : []),
+    ...(needs.variables ?? []).map((name) => `      ${name}: \${{ vars.${name} }}`),
+    "    steps:",
+    `      - uses: acme/shiplane/.github/actions/ship@${sha} # shiplane@${version}`,
+    "        with:",
+    "          environment: preview",
+    ...needs.secrets.map((name) => `          ${name}: \${{ secrets.${name} }}`),
     "",
   ].join("\n");
 
@@ -38,7 +41,7 @@ export const callingPipeline = (released: readonly string[]): ServiceAdapter<CiP
         Promise.resolve(
           released.includes(version)
             ? { file: SHIP_YML, content: callerFor(version, needs), pin: `sha-${version}` }
-            : { error: `no release tag shiplane@${version}: pin shiplane-ship.yml by hand` },
+            : { error: `no release tag shiplane@${version}: pin ship.yml by hand` },
         ),
     }),
 });

@@ -225,10 +225,9 @@ Source: `src/application/steps.ts`, `src/application/requirements.ts`, `src/appl
 On a runner (`GITHUB_ACTIONS=true`) the workflow runs
 `shiplane doctor --ci <units> --channel <env>`, then
 `shiplane ship <units> --channel <env> --yes --no-mascot`: a log reads plainer without the mascot,
-whatever `display.mascot` says. A caller passing `mascot: true` gets it back (`--mascot`). `ship`
-there ships every unit even when one fails, each in its own log group, writes a plan table and a
-result table (`Prepare`, `Ship`: success, failed or skipped) to `GITHUB_STEP_SUMMARY`, and exits 1
-when any failed.
+whatever `display.mascot` says. `ship` there ships every unit even when one fails, each in its own
+log group, writes a plan table and a result table (`Prepare`, `Ship`: success, failed or skipped) to
+`GITHUB_STEP_SUMMARY`, and exits 1 when any failed.
 
 | Check             | Supported                                                                                                                    | Fails with                                                                                                                         |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
@@ -245,8 +244,7 @@ With packages, an environment that is neither `preview` nor `production` publish
 `shiplane ship --channel live`, any other name `shiplane test-release <name> <units>`. The caller
 lists the names as choices and allows `contents: write` and `id-token: write`. `ref` is then
 ignored: the run publishes the ref it is on, so the environment's branch rule holds. `dry-run: true`
-shows what would ship and records no deployment. `build` runs a command after the install, for a
-repository that builds shiplane itself.
+shows what would ship and records no deployment.
 
 `doctor --ci` stops at the first problem and prints this section's link. Source:
 `src/application/doctorCi.ts`, `src/application/shipSteps.ts`.
@@ -254,19 +252,16 @@ repository that builds shiplane itself.
 ### `ship.yml`
 
 `shiplane setup` writes `.github/workflows/ship.yml` when it is missing, never over one there: a
-manual run (`units`, `environment`, `ref`) calling `shiplane-ship.yml`, pinned to the commit of the
-installed shiplane's tag (`uses: …/shiplane-ship.yml@<sha> # shiplane@x.y.z`). A test version
-(`x.y.z-<branch>.<short sha>`) has no tag: it pins the commit its short sha names, or says
-`no commit <short sha> for shiplane@x.y.z-…: pin shiplane-ship.yml by hand` when GitHub does not
-know it. Any other unreleased version:
-`no release tag shiplane@x.y.z: pin shiplane-ship.yml by hand`.
+manual run (`units`, `environment`, `ref`) using the `.github/actions/ship` action, pinned to the
+commit of the installed shiplane's tag (`uses: …/actions/ship@<sha> # shiplane@x.y.z`). A test
+version (`x.y.z-<branch>.<short sha>`) has no tag: it pins the commit its short sha names, or says
+`no commit <short sha> for shiplane@x.y.z-…: pin ship.yml by hand` when GitHub does not know it. Any
+other unreleased version: `no release tag shiplane@x.y.z: pin ship.yml by hand`.
 
 A tag holds the `ship.yml` of the day it was cut. So that a ship, or its retry, runs today's
 workflow, `shiplane ship --via ci` starts the run on the default branch and passes the tag as `ref`:
-`gh workflow run ship.yml --ref main -f units=api -f environment=preview -f ref=api@1.2.0`.
-`shiplane-ship.yml` checks out `ref`, so what deploys is the tag's code, never main's. When the
-default branch's `ship.yml` does not pass `ref` on (`ref: ${{ inputs.ref }}` under `with:`), the run
-starts on the tag, as before.
+`gh workflow run ship.yml --ref main -f units=api -f environment=preview -f ref=api@1.2.0`. It
+checks out `ref`, so what deploys is the tag's code, never main's.
 
 Its `environment` input lists where the repository ships: apps' `environments`, then packages'
 `channels`, as the config says. Writing one that lists a channel, setup also gives it the
@@ -274,30 +269,25 @@ permissions npm needs and a `dry-run` input. With neither key set, doctor leaves
 it is.
 
 It passes, by name, only the secrets the configured adapters read (their requirements' `secrets`,
-sorted, but `GH_TOKEN`, which `shiplane-ship.yml` sets itself), and no `secrets:` key when none
-does. Its `permissions:` are `contents: read`, `deployments: write`, `actions: read`, plus
-`issues: write` and `pull-requests: write` when `features` holds `releaseComments`. An adapter can
-ask for more, such as `contents: write` and `pages: write` for GitHub Pages, or `contents`,
-`id-token`, `issues` and `pull-requests: write` for npm. The `variables` a unit's build reads are
-passed by name too, from the repository's or the environment's variables.
+sorted, but `GH_TOKEN`, which the action sets itself). Its `permissions:` are `contents: read`,
+`deployments: write`, `actions: read`, plus `issues: write` and `pull-requests: write` when
+`features` holds `releaseComments`. An adapter can ask for more, such as `contents: write` and
+`pages: write` for GitHub Pages. The variables a unit's build reads are in the job's `env:`, by
+name.
 
-`shiplane-ship.yml` declares the secrets it accepts, and gives them, with `GH_TOKEN`, only to its
+The action declares the secrets it accepts, and gives them, with `GH_TOKEN`, only to its
 `Check what ships` and `Ship` steps' `env:`; nothing goes to `$GITHUB_ENV`:
 
-| Secret                     | Read by                                                        |
-| -------------------------- | -------------------------------------------------------------- |
-| `FLY_API_TOKEN`            | `flyServerHosting`                                             |
-| `CLOUDFLARE_API_TOKEN`     | `cloudflarePagesStaticHosting`                                 |
-| `CLOUDFLARE_ACCOUNT_ID`    | `cloudflarePagesStaticHosting`                                 |
-| `EXPO_TOKEN`               | `easMobileDistribution`                                        |
-| `SHIPLANE_APP_ID`          | the App token step, when set; pass it by hand, doctor keeps it |
-| `SHIPLANE_APP_PRIVATE_KEY` | the App token step, with `SHIPLANE_APP_ID`                     |
+| Secret                  | Read by                        |
+| ----------------------- | ------------------------------ |
+| `FLY_API_TOKEN`         | `flyServerHosting`             |
+| `CLOUDFLARE_API_TOKEN`  | `cloudflarePagesStaticHosting` |
+| `CLOUDFLARE_ACCOUNT_ID` | `cloudflarePagesStaticHosting` |
+| `EXPO_TOKEN`            | `easMobileDistribution`        |
 
-GitHub rejects a secret the called workflow does not declare: a third-party plugin's secret needs
-its name added to `on.workflow_call.secrets` and to both steps' `env:`, in a copy of
-`shiplane-ship.yml` that `ship.yml` calls instead.
+A third-party plugin's secret goes in the job's `env:`: every step then sees it.
 
-With ship.yml calling `shiplane-ship.yml`, setup adds the preset
+With ship.yml using shiplane, setup adds the preset
 `github>arnaud-zg/js-packages//renovate/shiplane` to `extends` in a JSON Renovate config
 (`renovate.json`, `.github/`, `.gitlab/`, `.renovaterc`, `.renovaterc.json`) that lacks it, names
 the entry to add for a JSON5 or `package.json` config, and creates none.
@@ -307,25 +297,25 @@ the entry to add for a JSON5 or `package.json` config, and creates none.
 | Found                                                         | Fix offered                                                                  |
 | ------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | `ship.yml missing`                                            | Write it (yes by default; `--yes` writes it). Not said when `via` is `local` |
-| `ship.yml does not call shiplane-ship.yml`                    | Replace it (no by default; never with `--yes` or unattended)                 |
-| `ship.yml pins shiplane@0.5.2, installed 0.6.0`               | Re-pin: the `uses:` line, plus the `ref` input when missing                  |
+| `ship.yml does not ship with shiplane`                        | Replace it (no by default; never with `--yes` or unattended)                 |
+| `ship.yml pins shiplane@0.5.2, installed 0.6.0`               | Re-pin: the `uses:` line                                                     |
 | `ship.yml passes no EXPO_TOKEN, and apps/expo ships with eas` | Rewrite only `secrets:` and `permissions:` (`--yes` rewrites them)           |
 
 The secrets check also says `ship.yml passes SENTRY_TOKEN, which no adapter needs` and
 `ship.yml passes every secret (inherit), not only FLY_API_TOKEN`. Its fix keeps the rest of the file
-as written, and the `SHIPLANE_APP_*` secrets it passes.
+as written.
 
 Pinned to the installed version and passing the secrets its adapters read, it prints one
 `✓ ship.yml` line. Source: `src/application/callerWorkflow.ts`.
 
 ### Setup Node project action
 
-`.github/actions/setup-node-project` is a composite action holding the steps `shiplane-ship.yml`
-runs before it ships: detect the package manager and Node version, set up pnpm, Node or yarn,
-restore `node_modules`, and install. `actions/cache` saves `node_modules` at the end of the job, in
-its post step, after a miss and only when the job succeeded. It fails on the same checks, except
-that it needs no `shiplane.config.ts`: any Node repository can use it. It checks nothing out and
-reads no secret. Pin it like the workflow, to a release commit:
+`.github/actions/setup-node-project` is a composite action holding the steps the ship action runs
+before it ships: detect the package manager and Node version, set up pnpm, Node or yarn, restore
+`node_modules`, and install. `actions/cache` saves `node_modules` at the end of the job, in its post
+step, after a miss and only when the job succeeded. It fails on the same checks, except that it
+needs no `shiplane.config.ts`: any Node repository can use it. It checks nothing out and reads no
+secret. Pin it like the workflow, to a release commit:
 `uses: arnaud-zg/js-packages/.github/actions/setup-node-project@<sha> # shiplane@x.y.z`.
 
 | Input               | Default | Meaning                                                                                    |

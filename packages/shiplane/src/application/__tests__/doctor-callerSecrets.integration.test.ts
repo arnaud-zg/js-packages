@@ -25,10 +25,11 @@ const OWN = [
   "  issues: write",
   "jobs:",
   "  ship:",
-  "    uses: acme/shiplane/.github/workflows/shiplane-ship.yml@sha-0.6.0 # shiplane@0.6.0",
-  "    with: { environment: preview }",
-  "    secrets:",
-  "      SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }} # ours",
+  "    steps:",
+  "      - uses: acme/shiplane/.github/actions/ship@sha-0.6.0 # shiplane@0.6.0",
+  "        with:",
+  "          environment: preview",
+  "          SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }} # ours",
   "  notify:",
   "    runs-on: ubuntu-latest",
   "",
@@ -36,8 +37,8 @@ const OWN = [
 
 /** OWN once doctor passes EXPO_TOKEN only, with the permissions the release needs. */
 const FIXED = OWN.replace("  issues: write\n", "").replace(
-  "      SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }} # ours",
-  "      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}",
+  "          SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }} # ours",
+  "          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}",
 );
 
 const NEEDS = { secrets: ["EXPO_TOKEN"], features: [] };
@@ -106,23 +107,8 @@ describe("Feature: doctor checks ship.yml passes the secrets the adapters need",
     expect(files.read(SHIP_YML)).toBe(OWN);
   });
 
-  it("given ship.yml passing every secret, when doctor runs with --yes, then it passes the needed ones by name instead", async () => {
-    const shipYml = `${callerFor("0.6.0").trimEnd()}\n    secrets: inherit\n`;
-    const { context, output, files } = given({ files: { [SHIP_YML]: shipYml } });
-
-    expect(await doctor(context, { yes: true })).toBe(true);
-
-    expect(output.lines).toContain(
-      "│  ✗ ship.yml passes every secret (inherit), not only EXPO_TOKEN",
-    );
-    expect(files.read(SHIP_YML)).toBe(callerFor("0.6.0", NEEDS));
-  });
-
-  it("given ship.yml passing no secret at all, when doctor runs with --yes, then the secrets go after the job's other keys", async () => {
-    const bare = OWN.replace(
-      "    secrets:\n      SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }} # ours\n",
-      "",
-    );
+  it("given ship.yml passing no secret at all, when doctor runs with --yes, then the secrets go after the action's other inputs", async () => {
+    const bare = OWN.replace("          SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }} # ours\n", "");
     const { context, output, files } = given({ files: { [SHIP_YML]: bare } });
 
     expect(await doctor(context, { yes: true })).toBe(true);
@@ -131,15 +117,6 @@ describe("Feature: doctor checks ship.yml passes the secrets the adapters need",
       "│  ✗ ship.yml passes no EXPO_TOKEN, and apps/expo ships with storectl",
     );
     expect(files.read(SHIP_YML)).toBe(FIXED);
-  });
-
-  it("given ship.yml passing secrets in one line, when doctor runs, then it reads their names", async () => {
-    const inline = `${callerFor("0.6.0").trimEnd()}\n    secrets: { EXPO_TOKEN: "\${{ secrets.EXPO_TOKEN }}" }\n`;
-    const { context, output } = given({ files: { [SHIP_YML]: inline } });
-
-    expect(await doctor(context)).toBe(true);
-
-    expect(output.lines).toContain("│  ✓ ship.yml  shiplane@0.6.0");
   });
 
   it("given ship.yml pinned to an older shiplane and missing a secret, when doctor runs with --yes, then both are fixed", async () => {
@@ -160,31 +137,5 @@ describe("Feature: doctor checks ship.yml passes the secrets the adapters need",
     expect(await doctor(context)).toBe(false);
 
     expect(files.read(SHIP_YML)).toBe(OWN);
-  });
-
-  it("given ship.yml passing every secret and adapters that need none, when doctor runs with --yes, then it passes none", async () => {
-    const shipYml = `${callerFor("0.6.0").trimEnd()}\n    secrets: inherit\n`;
-    const { context, output, files } = given({ files: { [SHIP_YML]: shipYml }, secrets: [] });
-
-    expect(await doctor(context, { yes: true })).toBe(true);
-
-    expect(output.lines).toContain(
-      "│  ✗ ship.yml passes every secret (inherit), and its adapters need none",
-    );
-    expect(files.read(SHIP_YML)).toBe(callerFor("0.6.0"));
-  });
-
-  it("given ship.yml passing the GitHub App's secrets by hand, when doctor rewrites its secrets under --yes, then it keeps them", async () => {
-    const app = { secrets: ["SHIPLANE_APP_ID", "SHIPLANE_APP_PRIVATE_KEY"], features: [] };
-    const { context, output, files } = given({ files: { [SHIP_YML]: callerFor("0.6.0", app) } });
-
-    expect(await doctor(context, { yes: true })).toBe(true);
-
-    expect(output.lines).toContain(
-      "│  ✗ ship.yml passes no EXPO_TOKEN, and apps/expo ships with storectl",
-    );
-    expect(files.read(SHIP_YML)).toBe(
-      callerFor("0.6.0", { ...app, secrets: ["EXPO_TOKEN", ...app.secrets] }),
-    );
   });
 });

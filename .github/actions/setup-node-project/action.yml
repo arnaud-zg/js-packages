@@ -6,7 +6,7 @@
 #   - uses: arnaud-zg/js-packages/.github/actions/setup-node-project@<sha> # shiplane@x.y.z
 #
 # It detects the package manager and the Node version, sets them up, and installs the repo, reusing
-# node_modules installed from the same lockfile and Node. The same steps as shiplane-ship.yml, which
+# node_modules installed from the same lockfile and Node. The same steps as the ship action, which
 # a test keeps equal. It reads no secret.
 # What is supported, and every error it can give:
 # https://github.com/arnaud-zg/js-packages/blob/main/docs/shiplane/reference.md#setup-node-project-action
