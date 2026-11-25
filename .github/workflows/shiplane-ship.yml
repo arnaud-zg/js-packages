@@ -114,6 +114,14 @@ jobs:
           ref: ${{ contains(fromJSON('["preview", "production"]'), inputs.environment) && inputs.ref || '' }}
           fetch-depth: 0
 
+      # Changesets compares with the local default branch, which a run on another ref does not have.
+      - name: Have the default branch here
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          git show-ref --verify --quiet "refs/heads/$DEFAULT_BRANCH" ||
+            git branch --quiet "$DEFAULT_BRANCH" "origin/$DEFAULT_BRANCH"
+
       # Only here: the setup-node-project action serves any Node project.
       - name: Find the shiplane config
         env:
