@@ -14,7 +14,7 @@ import { hostLabel, listed, paint } from "./say";
 import { shipTo } from "./ship";
 import { runSteps } from "./steps";
 import { missingTags, tagRelease } from "./tagRelease";
-import { destination } from "./targets";
+import { destination, landing } from "./targets";
 import { waitForMerge } from "./waitForMerge";
 
 /** The commits main gained since a release PR's branch, or none when the host did not say. */
@@ -157,7 +157,12 @@ export const releaseToPreview = async (
   }
   if (!(await preflight(context, picked.scope))) return false;
   const picking = context.release.units.filter(({ name }) => picked.scope.has(name));
-  if (!(await checkEnvBeforeDeploy(context, { environment: "preview", units: picking }))) {
+  if (
+    !(await checkEnvBeforeDeploy(context, {
+      environment: landing(context, "preview"),
+      units: picking,
+    }))
+  ) {
     return false;
   }
   const covered = picked.info.filter(({ app }) => picked.scope.has(app));

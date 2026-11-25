@@ -11,8 +11,8 @@ import {
   checkout,
   decideContext,
   hasNoEnvironment,
-  hasPreview,
   jobInput,
+  landing,
   moduleOf,
   skipsPreview,
 } from "./targets";
@@ -69,8 +69,6 @@ export const readScope = async (
         const input = jobInput(context, target, unit, { tag, environment: on, ...at });
         return target.live(decideContext(context), input).catch(() => false);
       };
-      // Nothing of it is on preview: what counts is production.
-      const straight = target !== undefined && !hasPreview(context, unit);
       return {
         app: unit.name,
         version: unit.version,
@@ -82,9 +80,9 @@ export const readScope = async (
           !tagged &&
           commit !== null &&
           firstRelease(unit.name, unit.version, tags, context.release.tagFormat),
-        onChannel: await live(straight ? "production" : environment),
-        onPreview: await live("preview"),
-        ...(straight ? { goesOn: skipsPreview(context) ? "release" : "promote" } : {}),
+        onChannel: await live(landing(context, environment)),
+        onPreview: skipsPreview(context) || (await live("preview")),
+        ...(skipsPreview(context) ? { noPreview: true } : {}),
         ...(decidedBy ? { decidedBy } : {}),
         ...(target?.releaseOnly ? { releaseOnly: true } : {}),
         ...(target && hasNoEnvironment(target) ? { noEnvironment: true } : {}),

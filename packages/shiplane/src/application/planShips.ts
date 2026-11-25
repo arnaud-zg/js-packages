@@ -11,8 +11,8 @@ import {
   checkout,
   commandLine,
   environmentLabel,
+  landing,
   shipPlanOf,
-  skipsPreview,
   unitTarget,
 } from "./targets";
 
@@ -22,7 +22,7 @@ import {
  * for features.
  */
 export const planShips = async (context: ReleaseContext, asked: Environment) => {
-  const environment = skipsPreview(context) ? "production" : asked;
+  const environment = landing(context, asked);
   const { release, services, output } = context;
   const at = await checkout(context);
   output.line();
@@ -37,11 +37,6 @@ export const planShips = async (context: ReleaseContext, asked: Environment) => 
     const { module, tag, input } = target;
     const tagged = (await services.sourceControl.tagCommit(tag)) !== null;
     if (tagged && !module.releaseOnly) shipped.push({ unit, tag, environment });
-    if (environment === "preview" && input.stages === false) {
-      output.line();
-      output.line(`  ${paint("bold", tag)}  ${paint("dim", "goes straight to production")}`);
-      continue;
-    }
     const plan = shipPlanOf(context, module, input);
     output.line();
     output.line(

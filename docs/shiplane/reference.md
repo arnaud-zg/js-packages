@@ -22,7 +22,7 @@
 | `shiplane plan`                             | Deprecated: it still runs; use `ship --dry-run` instead                                                                                                                                                    |
 | `shiplane version`                          | Open the release PR for what is pending                                                                                                                                                                    |
 | `shiplane tag`                              | Tag merged versions, publish their notes                                                                                                                                                                   |
-| `shiplane ship [unit...]`                   | Trigger each tagged unit's deploy, then return                                                                                                                                                             |
+| `shiplane ship [unit...]`                   | Trigger each tagged unit's deploy, then return; `--channel live`: tag the released packages and publish them                                                                                               |
 | `shiplane setup`                            | Find what ships, write the config and unit files, rehearse a release; `--format yaml` writes `shiplane.yml`                                                                                                |
 | `shiplane init`, `add`                      | Deprecated: they still run; use `setup` instead                                                                                                                                                            |
 | `shiplane remove <unit>`                    | Stop shipping a unit; it stays versioned                                                                                                                                                                   |
@@ -97,18 +97,20 @@ export default defineRelease({
 });
 ```
 
-| Key           | Means                                                                                                                                                                                                                                                                                                                                                   |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `flow`        | **Required.** One adapter per port: source control, code host, CI, versioning                                                                                                                                                                                                                                                                           |
-| `modules`     | What ships, in release order. The first app is the GitHub Latest release                                                                                                                                                                                                                                                                                |
-| `features`    | What runs after a ship, in order, such as `releaseComments()`                                                                                                                                                                                                                                                                                           |
-| `units`       | Folders to look in. Default: the pnpm workspace, then `package.json` workspaces                                                                                                                                                                                                                                                                         |
-| `tag`         | Tag format: `"package"` (`{name}@{version}`, default), `"plugin"` (`{name}--v{version}`, for Claude Code, Gemini CLI and Codex), `"single"` (`v{version}`), `"module"` (`{name}/v{version}`, Go modules), or your own. A format without `{name}` takes one unit                                                                                         |
-| `display`     | `{ verbose, mascot }` defaults for the flags; `mascot` may be your own ([Mascot](./reference-output.md#mascot))                                                                                                                                                                                                                                         |
-| `testComment` | The test version's PR comment: `comments.table` (default), `comments.compact`, or your own text with `{branch}` `{commit}` `{table}` `{install}` ([how-to](./how-to-test-versions.md#publish-a-test-version))                                                                                                                                           |
-| `testRelease` | Which channel each branch's test release takes: `testReleases.nightly`, `.prerelease`, `.gitflow`, or `{ branch: channel }` with `*` patterns; unlisted branches publish a snapshot ([how-to](./how-to-test-versions.md#give-each-branch-a-channel))                                                                                                    |
-| `via`         | `"ci"` (the flow's CI pipeline) or `"local"` (this machine): how an app ships when both ways can, so a ship stops asking. `--via` wins for one run; a way that cannot ship takes the other                                                                                                                                                              |
-| `prepare`     | A shell command run from the root before each unit ships from this machine or a runner, never before a CI dispatch, and [before a release](#build-before-a-release): `{unit}` its name, `{dir}` its folder, such as `"pnpm --filter {unit}... build"`. A failure fails that unit. Any other `{…}` fails loading: `unknown placeholder {app} in prepare` |
+| Key            | Means                                                                                                                                                                                                                                                                                                                                                   |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `flow`         | **Required.** One adapter per port: source control, code host, CI, versioning                                                                                                                                                                                                                                                                           |
+| `modules`      | What ships, in release order. The first app is the GitHub Latest release                                                                                                                                                                                                                                                                                |
+| `features`     | What runs after a ship, in order, such as `releaseComments()`                                                                                                                                                                                                                                                                                           |
+| `units`        | Folders to look in. Default: the pnpm workspace, then `package.json` workspaces                                                                                                                                                                                                                                                                         |
+| `tag`          | Tag format: `"package"` (`{name}@{version}`, default), `"plugin"` (`{name}--v{version}`, for Claude Code, Gemini CLI and Codex), `"single"` (`v{version}`), `"module"` (`{name}/v{version}`, Go modules), or your own. A format without `{name}` takes one unit                                                                                         |
+| `display`      | `{ verbose, mascot }` defaults for the flags; `mascot` may be your own ([Mascot](./reference-output.md#mascot))                                                                                                                                                                                                                                         |
+| `testComment`  | The test version's PR comment: `comments.table` (default), `comments.compact`, or your own text with `{branch}` `{commit}` `{table}` `{install}` ([how-to](./how-to-test-versions.md#publish-a-test-version))                                                                                                                                           |
+| `testRelease`  | Which channel each branch's test release takes: `testReleases.nightly`, `.prerelease`, `.gitflow`, or `{ branch: channel }` with `*` patterns; unlisted branches publish a snapshot ([how-to](./how-to-test-versions.md#give-each-branch-a-channel))                                                                                                    |
+| `via`          | `"ci"` (the flow's CI pipeline) or `"local"` (this machine): how an app ships when both ways can, so a ship stops asking. `--via` wins for one run; a way that cannot ship takes the other                                                                                                                                                              |
+| `environments` | Where apps ship, `["preview", "production"]` when unset. `["production"]`: a release goes straight to production, its name typed. `["preview"]`: nothing promotes. EAS needs preview                                                                                                                                                                    |
+| `channels`     | The channels npm packages publish on: `live` (the release) and test release channels, such as `["nightly", "live"]`. Unset, any                                                                                                                                                                                                                         |
+| `prepare`      | A shell command run from the root before each unit ships from this machine or a runner, never before a CI dispatch, and [before a release](#build-before-a-release): `{unit}` its name, `{dir}` its folder, such as `"pnpm --filter {unit}... build"`. A failure fails that unit. Any other `{…}` fails loading: `unknown placeholder {app} in prepare` |
 
 Source: `src/application/config/defineRelease.ts`. A `release.config.ts` still loads, with a line
 saying to rename it.
@@ -233,34 +235,18 @@ when any failed.
 | Package manager   | pnpm, npm, yarn, from `packageManager` in package.json, else the lockfile                                                    | `unsupported package manager "bun": pnpm, npm or yarn`, or `no package manager: add packageManager to package.json, or a lockfile` |
 | Node version      | the `node-version` input, else `.nvmrc`, `.node-version`, `engines.node`, first found                                        | `no Node version: add .nvmrc or set node-version`                                                                                  |
 | Units             | Names from the config; none means every unit                                                                                 | `unknown units [x]: known [a, b]`                                                                                                  |
-| Environment       | `preview`, `production`; with packages, also any test release channel                                                        | `unknown environment "qa": preview, production`                                                                                    |
+| Environment       | `preview`, `production`; with packages, also `live` and any test release channel                                             | `unknown environment "qa": preview, production`                                                                                    |
 | Prepare           | `prepare` with `{unit}` and `{dir}`, run before each unit                                                                    | `unknown placeholder {app} in prepare`                                                                                             |
 | Deploy tools      | Each picked unit's tools; a missing one runs its Linux install, its folder added to `PATH` and `GITHUB_PATH`                 | `flyctl missing and no install for linux`                                                                                          |
 | Secrets           | Each picked unit's: `FLY_API_TOKEN`, `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, `EXPO_TOKEN`; the flow's `GH_TOKEN` | `api ships with fly: FLY_API_TOKEN missing in "preview"`                                                                           |
 | Working directory | The repository root, or the `working-directory` input naming a folder holding `shiplane.config.ts` or `shiplane.yml`         | `no shiplane.config.ts or shiplane.yml in apps/x`                                                                                  |
 
-With packages, an environment that is neither `preview` nor `production` is a test release channel:
-it runs `shiplane test-release <name> <units>`. The caller lists it as a choice and allows
-`id-token: write`. `ref` is then ignored: the run publishes the ref it is on, so the environment's
-branch rule holds. `dry-run: true` shows what would ship and records no deployment. `build` runs a
-command after the install, for a repository that builds shiplane itself.
-
-### Preview and production
-
-Preview is for checking, production is for users, whatever ships:
-
-| Unit                                              | preview               | production             |
-| ------------------------------------------------- | --------------------- | ---------------------- |
-| Fly                                               | the preview app       | the production app     |
-| GitHub Pages                                      | the `preview/` folder | the site               |
-| Cloudflare Pages                                  | the `preview` branch  | the `main` branch      |
-| EAS                                               | the preview profile   | the production profile |
-| npm                                               | skipped               | publishes `latest`     |
-| npm, `tag: { preview: next, production: latest }` | publishes `next`      | moves `latest`         |
-| Internal tool                                     | its tag only          | its tag only           |
-
-With nothing to preview in the whole repository, `shiplane` goes straight to production: merging the
-release PR is the yes, and a run on a runner tags what that PR brought.
+With packages, an environment that is neither `preview` nor `production` publishes them: `live` runs
+`shiplane ship --channel live`, any other name `shiplane test-release <name> <units>`. The caller
+lists the names as choices and allows `contents: write` and `id-token: write`. `ref` is then
+ignored: the run publishes the ref it is on, so the environment's branch rule holds. `dry-run: true`
+shows what would ship and records no deployment. `build` runs a command after the install, for a
+repository that builds shiplane itself.
 
 `doctor --ci` stops at the first problem and prints this section's link. Source:
 `src/application/doctorCi.ts`, `src/application/shipSteps.ts`.
@@ -282,10 +268,10 @@ workflow, `shiplane ship --via ci` starts the run on the default branch and pass
 default branch's `ship.yml` does not pass `ref` on (`ref: ${{ inputs.ref }}` under `with:`), the run
 starts on the tag, as before.
 
-The `options` of its `environment` input are what the repository can ship to, and they are yours:
-setup writes `[preview, production]`, or `[production]` when nothing has a preview, and doctor never
-changes them. To publish test releases from CI, add their channels, such as `nightly`: doctor then
-offers the permissions they need. `dry-run` shows what would ship.
+Its `environment` input lists where the repository ships: apps' `environments`, then packages'
+`channels`, as the config says. Writing one that lists a channel, setup also gives it the
+permissions npm needs and a `dry-run` input. With neither key set, doctor leaves an existing list as
+it is.
 
 It passes, by name, only the secrets the configured adapters read (their requirements' `secrets`,
 sorted, but `GH_TOKEN`, which `shiplane-ship.yml` sets itself), and no `secrets:` key when none

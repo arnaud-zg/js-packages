@@ -12,7 +12,7 @@ import { optionsFor } from "./config/optionsFor";
 import { reasonOf } from "./say";
 
 /** The module that ships an app: the one its unit file names. */
-export const moduleOf = ({ release }: Pick<ReleaseContext, "release">, unit: ReleaseUnit) =>
+export const moduleOf = ({ release }: ReleaseContext, unit: ReleaseUnit) =>
   release.modules.find(({ name }) => name === unit.module);
 
 /** Whether a unit publishes to a package registry. */
@@ -30,29 +30,15 @@ export const resolvedOptions = (
   return optionsFor({ ...unit, options: withDefaults }, environment, units);
 };
 
-/** Whether preview ships something of the unit's own; else it goes straight to production. */
-export const hasPreview = (
-  context: Pick<ReleaseContext, "release" | "open">,
-  unit: ReleaseUnit,
-) => {
-  const module = moduleOf(context, unit);
-  if (!module?.stages) return true;
-  const optionsOn = (environment: Environment) =>
-    resolvedOptions(module, unit, environment, context.release.units);
-  return module.stages(context, {
-    preview: optionsOn("preview"),
-    production: optionsOn("production"),
-  });
-};
+/** The repository has no preview: a release goes straight to production. */
+export const skipsPreview = ({ release }: Pick<ReleaseContext, "release">) =>
+  release.environments !== undefined && !release.environments.includes("preview");
 
-/** A repository with packages and nothing to preview: each release goes straight to production. */
-export const skipsPreview = (context: Pick<ReleaseContext, "release" | "open">) => {
-  const shipping = context.release.units.filter((unit) => {
-    const module = moduleOf(context, unit);
-    return module !== undefined && module.releaseOnly !== true;
-  });
-  return shipping.length > 0 && shipping.every((unit) => !hasPreview(context, unit));
-};
+/** Where a run lands: production when preview is asked and there is none. */
+export const landing = (
+  context: Pick<ReleaseContext, "release">,
+  environment: Environment,
+): Environment => (environment === "preview" && skipsPreview(context) ? "production" : environment);
 
 /** Where this checkout stands: the commit it is on and the branch releases start from. */
 export interface Checkout {
@@ -82,7 +68,7 @@ export const jobInput = (
   commit,
   defaultBranch,
   options: resolvedOptions(module, unit, environment, context.release.units),
-  ...(hasPreview(context, unit) ? {} : { stages: false }),
+  ...(skipsPreview(context) ? { stages: false } : {}),
 });
 
 /** The module that ships a unit and the tag it ships, or null when no module claims it. */
@@ -289,7 +275,6 @@ export const environmentLabel = (
   environment: string,
 ) => {
   if (environment !== "preview") return environment;
-  if (skipsPreview(context)) return "production";
   const named = [...units];
   const names = named.length > 0 ? named : context.release.units.map(({ name }) => name);
   const noneHasOne =
@@ -299,7 +284,7 @@ export const environmentLabel = (
       const module = unit && moduleOf(context, unit);
       return module !== undefined && hasNoEnvironment(module);
     });
-  return noneHasOne ? "live" : environment;
+  return noneHasOne ? "live" : landing(context, environment);
 };
 
 /** Where a sentence sends units: "to preview", or "live" when none of them has an environment. */

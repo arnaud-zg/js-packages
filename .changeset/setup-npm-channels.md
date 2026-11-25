@@ -1,10 +1,10 @@
 ---
 "shiplane": minor
 "@shiplane/github": minor
-"@shiplane/npm": minor
+"@shiplane/npm": patch
 ---
 
-**Breaking:** an npm package with one dist-tag skips preview and publishes on production, like every
-other target: beside apps, it publishes when you promote. A repository of packages only still
-releases in one command. `ship.yml`'s `options` are the only list of environments, yours to edit;
-setup and doctor derive the permissions from it.
+Choose where a repository ships: `environments` for apps (`preview`, `production` or one of them)
+and `channels` for npm packages. Both are optional and unset changes nothing. `shiplane setup`
+writes a `ship.yml` listing them, with the permissions npm needs, and `shiplane doctor` keeps it in
+step.

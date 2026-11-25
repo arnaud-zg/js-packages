@@ -1,6 +1,7 @@
 import type { DisplayChoice } from "../../domain/display";
+import type { Environment } from "../../domain/environment";
 import type { TagFormatName } from "../../domain/tags";
-import type { TestReleaseBranches } from "../../domain/testChannel";
+import type { Channel, TestReleaseBranches } from "../../domain/testChannel";
 import type { Feature, ReleaseFlow, ReleaseModule } from "../../modules/module";
 
 /** How a repository releases: the flow, what gets released in order, and what happens around it. */
@@ -31,6 +32,16 @@ export interface ReleaseConfig {
    * branch does. `shiplane test-release <channel>` picks another for one run.
    */
   testRelease?: TestReleaseBranches;
+  /**
+   * Where apps ship: `["preview", "production"]` when unset. `["production"]` releases straight to
+   * production; `["preview"]` never promotes. EAS needs preview.
+   */
+  environments?: readonly Environment[];
+  /**
+   * The channels npm packages publish on: `live` (the release) and test release channels, such as
+   * `["nightly", "live"]`. Unset, any channel; setup's ship.yml lists them all.
+   */
+  channels?: readonly Channel[];
   /**
    * How a unit ships when both ways can: `"ci"` (the flow's CI pipeline, such as GitHub Actions) or
    * `"local"` (this machine). Without it, each ship asks. `--via` still wins for one run; a way that

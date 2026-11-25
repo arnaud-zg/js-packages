@@ -8,7 +8,7 @@ import { unattended } from "./unattended";
 
 /** What a publish is about to do: where on the CI pipeline, from which ref, as a person reads it. */
 interface Publish {
-  /** The environment its workflow run ships to: a test release channel, or the one it ships to. */
+  /** The environment its workflow run ships to: a test release channel, or live. */
   environment: string;
   /** The branch the run goes on. */
   ref: string;

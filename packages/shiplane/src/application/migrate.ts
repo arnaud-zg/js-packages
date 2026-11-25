@@ -35,6 +35,8 @@ const composed = (release: Release) =>
     settings: [
       release.tagFormat,
       release.via,
+      release.environments,
+      release.channels,
       release.testComment,
       release.testRelease,
       release.prepare,

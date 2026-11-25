@@ -30,8 +30,8 @@ export interface ScopeInfo {
   decidedBy?: DecidedBy;
   /** Nothing deploys it: once tagged, every environment has it. */
   releaseOnly?: boolean;
-  /** It skips preview: production gets it with the release itself, or with the next promote. */
-  goesOn?: "release" | "promote";
+  /** The repository has no preview: the release itself reaches production. */
+  noPreview?: boolean;
   /** It has no environment to be on, such as a package: a person reads it as live or not. */
   noEnvironment?: boolean;
 }
@@ -58,7 +58,7 @@ const previewChoice = ({
   decidedBy,
   releaseOnly,
   noEnvironment,
-  goesOn,
+  noPreview,
 }: ScopeInfo) => {
   const later = decidedBy ? ` · ${decidedBy.platform} decides ${decidedBy.choice} once picked` : "";
   if (changesets > 0)
@@ -94,10 +94,7 @@ const previewChoice = ({
           hint: `${version} tagged, never reached preview: retry`,
         };
   }
-  if (goesOn === "promote" && !onChannel) {
-    return { pending: false, kind: NOTHING, hint: `${version} released, promote ships it` };
-  }
-  const where = goesOn ? "on production" : noEnvironment ? "live" : "on preview";
+  const where = noEnvironment ? "live" : noPreview ? "on production" : "on preview";
   return onChannel
     ? { pending: false, kind: NOTHING, hint: `${version} is ${where}, nothing new` }
     : { pending: true, kind: "to retry", hint: `${version} released, not ${where} yet` };
@@ -110,7 +107,7 @@ const productionChoice = ({
   onPreview,
   decidedBy,
   releaseOnly,
-  goesOn,
+  noPreview,
 }: ScopeInfo) => {
   if (!tagged) return { pending: false, kind: NOTHING, hint: "not released yet" };
   if (releaseOnly)
@@ -124,15 +121,14 @@ const productionChoice = ({
   }
   if (onChannel)
     return { pending: false, kind: NOTHING, hint: `${version} is on production, nothing new` };
-  if (goesOn) {
-    return {
-      pending: true,
-      kind: "to promote",
-      hint: `${version} released, goes straight to production`,
-    };
-  }
   return onPreview
-    ? { pending: true, kind: "to promote", hint: `${version} is on preview, promotes it` }
+    ? {
+        pending: true,
+        kind: "to promote",
+        hint: noPreview
+          ? `${version} released, not on production yet`
+          : `${version} is on preview, promotes it`,
+      }
     : {
         pending: false,
         kind: NOTHING,

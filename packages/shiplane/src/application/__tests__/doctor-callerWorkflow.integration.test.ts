@@ -310,7 +310,7 @@ describe("Feature: doctor on a release that publishes packages", () => {
     "packages/lib/shiplane.unit.yml": "module: published-package\n",
   };
 
-  const publishing = (shipYml: string) => {
+  const publishing = (shipYml: string, channels?: string[]) => {
     const offering = [
       "name: Ship",
       "on:",
@@ -339,7 +339,7 @@ describe("Feature: doctor on a release that publishes packages", () => {
           callerWorkflow: () =>
             Promise.resolve({
               file: SHIP_YML,
-              content: made("snapshot, nightly, alpha, beta, rc, live"),
+              content: made("nightly, live"),
               pin: "sha-0.6.0",
             }),
         }),
@@ -351,6 +351,7 @@ describe("Feature: doctor on a release that publishes packages", () => {
       const registry = publishedPackage({ packageRegistry: packageRegistryFake() });
       return {
         ...release,
+        ...(channels ? { channels } : {}),
         modules: [registry],
         units: [testUnit("lib", { dir: "packages/lib", module: registry.name })],
       };
@@ -358,12 +359,23 @@ describe("Feature: doctor on a release that publishes packages", () => {
     return { ...repo, context };
   };
 
-  it("given ship.yml lists production only, when doctor runs, then the list is the person's: no channel is asked for", async () => {
-    const { context, output } = publishing("");
+  it("given ship.yml lacks the config's channels, when the person agrees, then it offers them", async () => {
+    const { context, output, prompter, files } = publishing("", ["nightly", "live"]);
+    prompter.answer(true, true);
+
+    await doctor(context);
+
+    expect(output.text).toContain("ship.yml does not offer nightly, live");
+    expect(files.read(SHIP_YML)).toContain("options: [nightly, live]");
+  });
+
+  it("given no channels in the config, when doctor runs, then ship.yml's list is the person's", async () => {
+    const { context, output, prompter } = publishing("");
 
     await doctor(context);
 
     expect(output.text).not.toContain("does not offer");
+    expect(prompter.asked).toEqual([]);
   });
 
   it("given ship.yml calls shiplane's workflow in its own repository, when doctor runs, then it asks no pin and no replacement", async () => {
@@ -371,7 +383,6 @@ describe("Feature: doctor on a release that publishes packages", () => {
       [
         "name: Ship",
         "        options: [snapshot, nightly, alpha, beta, rc, live]",
-        "permissions: write-all",
         "    uses: ./.github/workflows/shiplane-ship.yml",
         "",
       ].join("\n"),
@@ -379,7 +390,7 @@ describe("Feature: doctor on a release that publishes packages", () => {
 
     await doctor(context);
 
-    expect(output.text).not.toMatch(/ship.yml (pins|does not call)/);
-    expect(prompter.asked.filter((question) => /pin|Replace/.test(question))).toEqual([]);
+    expect(output.text).not.toMatch(/ship.yml (pins|does not)/);
+    expect(prompter.asked).toEqual([]);
   });
 });

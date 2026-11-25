@@ -6,8 +6,7 @@ import { flyServerHosting } from "@shiplane/fly";
 import { gitSourceControl } from "@shiplane/git";
 import { gitHubActionsCiPipeline, gitHubCodeHost, releaseComments } from "@shiplane/github";
 import { githubPagesStaticHosting } from "@shiplane/github-pages";
-import { npmPackageRegistry } from "@shiplane/npm";
-import { backendService, mobileApp, publishedPackage, webApp } from "shiplane/plugin";
+import { backendService, mobileApp, webApp } from "shiplane/plugin";
 import { callerNeedsOf, RecordingShell, testContext, testUnit } from "shiplane/testing";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
@@ -145,17 +144,6 @@ describe("the workflow every repository ships from", () => {
     });
     expect(caller.jobs.ship.with).toMatchObject({ variables: "SITE_KEY SITE_REGION" });
     expect(caller.jobs.ship).not.toHaveProperty("secrets");
-  });
-
-  it("given a package on npm beside an app, when setup writes ship.yml, then it offers preview and production, and may sign in to npm", async () => {
-    const kit = testUnit("kit", { module: "published-package" });
-    const npm = publishedPackage({ packageRegistry: npmPackageRegistry() });
-
-    const caller = await callerOf([npm, FLY], [], [kit, API]);
-
-    const { inputs } = caller.on.workflow_dispatch;
-    expect(inputs.environment).toMatchObject({ options: ["preview", "production"] });
-    expect(caller.permissions).toMatchObject({ contents: "read", "id-token": "write" });
   });
 
   it("given modules whose adapters read no secret, when setup writes ship.yml, then it passes none", async () => {

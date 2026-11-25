@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import type { CatalogEntry, SlotPort } from "../../ports/catalog.port";
 import { comments } from "../../domain/branchRelease";
+import { ENVIRONMENTS } from "../../domain/environment";
 import { TAG_FORMATS } from "../../domain/tags";
 import { testReleases } from "../../domain/testChannel";
 import { FLOW_SLOTS, isFlowPort } from "./yamlDeclaration";
@@ -157,6 +158,18 @@ export const configJsonSchema = (catalog: readonly CatalogEntry[]): JsonSchema =
             anyOf: [{ type: "boolean" }, { type: "object", additionalProperties: strings }],
           },
         },
+      },
+      environments: {
+        description: "Where apps ship: preview, production, or one of them.",
+        type: "array",
+        minItems: 1,
+        items: { enum: [...ENVIRONMENTS] },
+      },
+      channels: {
+        description: "The channels npm packages publish on: live and test release channels.",
+        type: "array",
+        minItems: 1,
+        items: { type: "string" },
       },
       testComment: {
         description:

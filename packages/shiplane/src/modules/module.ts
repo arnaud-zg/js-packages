@@ -74,11 +74,6 @@ export interface ReleaseModule {
   readonly adapters: readonly Adapter<unknown>[];
   /** The kind of delivery its adapter does, such as "package-registry". */
   readonly capability?: string;
-  /** Whether preview ships something of its own; when absent, it does. */
-  readonly stages?: (
-    context: { open: Open },
-    options: Record<Environment, Record<string, unknown>>,
-  ) => boolean;
   /** Set when its own platform, not deploy records, knows what is live. */
   readonly decidedBy?: DecidedBy;
   /** Set when nothing deploys its apps: a release versions and tags them, nothing more. */

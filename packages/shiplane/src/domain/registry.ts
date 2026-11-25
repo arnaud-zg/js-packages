@@ -1,13 +1,7 @@
 import type { Environment } from "./environment";
 
 export type RegistryShip =
-  | "not-released"
-  | "no-preview"
-  | "not-on-preview"
-  | "moved-past"
-  | "publish"
-  | "on-tag"
-  | "move-tag";
+  "not-released" | "not-on-preview" | "moved-past" | "publish" | "on-tag" | "move-tag";
 
 /**
  * What a package registry reads, each fact only once the decision needs it: a read costs a call to
@@ -25,8 +19,8 @@ export interface RegistryFacts {
 }
 
 /**
- * What one tagged package version still needs on an environment. Staged, production only moves its
- * tag to what preview published; else it goes straight to production. A publish ships this checkout, so only while it is the tagged code.
+ * What one tagged package version still needs on an environment. Production only moves its tag to
+ * what preview published, and a publish ships this checkout, so only while it is the tagged code.
  */
 export const registryDecision = async ({
   environment,
@@ -34,12 +28,11 @@ export const registryDecision = async ({
   facts,
 }: {
   environment: Environment;
-  /** Preview publishes it under a tag of its own first. */
+  /** False when the repository has no preview to publish on first. */
   stages?: boolean;
   facts: RegistryFacts;
 }): Promise<RegistryShip> => {
   if (!(await facts.tagged())) return "not-released";
-  if (!stages && environment === "preview") return "no-preview";
   if (await facts.published()) return (await facts.onDistTag()) ? "on-tag" : "move-tag";
   if (stages && environment === "production") return "not-on-preview";
   return (await facts.sinceTagOnlyVersionFiles()) ? "publish" : "moved-past";
