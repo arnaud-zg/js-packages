@@ -110,29 +110,49 @@ const whyBuild = async (
   return Math.max(sources, changed) > oldest ? "its sources are newer than its build" : null;
 };
 
-const build = async (
+/** One build command, run in a folder; throws when it fails. */
+type RunBuild = (
+  command: NonNullable<ReturnType<typeof buildCommandOf>>,
+  dir: string,
+) => Promise<void>;
+
+const inTerminal =
+  ({ shell, release }: ReleaseContext): RunBuild =>
+  async ({ command, args, shown }, dir) => {
+    const status = await shell.attach(command, args, { cwd: path.join(release.root, dir) });
+    if (status !== 0) throw new Error(`${shown} in ${dir} exited with ${status}`);
+  };
+
+interface Building {
+  folder: Folder;
+  /** Folders already looked at: each is built once. */
+  seen: Set<string>;
+  /** Folders built even when their build looks current. */
+  always?: ReadonlySet<string>;
+  run: RunBuild;
+}
+
+/** Builds a folder, the workspace packages it uses first; when anything it is built from changed. */
+export const build = async (
   context: ReleaseContext,
-  { folder, seen }: { folder: Folder; seen: Set<string> },
+  { folder, seen, always, run }: Building,
 ): Promise<number> => {
-  const { files, shell, release, output } = context;
+  const { files, output } = context;
   const { dir } = folder;
   if (seen.has(dir)) return newestIn(context, dir);
   seen.add(dir);
   let changed = newestAtRoot(context);
   for (const dependency of await workspaceDependencies(context, dir)) {
-    changed = Math.max(changed, await build(context, { folder: dependency, seen }));
+    changed = Math.max(changed, await build(context, { folder: dependency, seen, always, run }));
   }
   const command = buildCommandOf({ files }, folder);
   if (command) {
-    const why = await whyBuild(context, { dir, changed });
+    const why = always?.has(dir) ? "picked" : await whyBuild(context, { dir, changed });
     if (why === null) {
       output.line(`  ${paint("dim", `· ${dir}: build up to date`)}`);
     } else {
       output.line(`  ${paint("dim", `· ${dir}: ${why}, running ${command.shown}`)}`);
-      const status = await shell.attach(command.command, command.args, {
-        cwd: path.join(release.root, dir),
-      });
-      if (status !== 0) throw new Error(`${command.shown} in ${dir} exited with ${status}`);
+      await run(command, dir);
     }
   }
   // What depends on it is built from its sources, its build, and all it is built from.
@@ -160,7 +180,7 @@ export const buildingIfNeeded = (
   return {
     label: `build ${tag} if needed`,
     run: async () => {
-      await build(context, { folder: unit, seen: new Set() });
+      await build(context, { folder: unit, seen: new Set(), run: inTerminal(context) });
     },
   };
 };

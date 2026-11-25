@@ -9,6 +9,7 @@ import type { Display } from "../../domain/display";
 import type { Choice, Clock, Output, Prompter } from "../../ports/terminal.port";
 import { liveLine } from "./live-line";
 import { paintMascot } from "./terminal-progress.adapter";
+import { treePrompt } from "./tree-prompt";
 
 export const terminalOutput: Output = {
   line: (line = "") => liveLine.above(line),
@@ -119,6 +120,8 @@ export const terminalPrompter = (display: Display = NO_MASCOT): Prompter => {
             )
           : null,
       ),
+    multiselectGroups: (message, groups, initial) =>
+      hold(async () => (interactive ? treePrompt({ message, groups, initial }) : null)),
     text: (message, initial) =>
       hold(async () =>
         interactive ? orNull(await text({ message, initialValue: initial })) : null,
