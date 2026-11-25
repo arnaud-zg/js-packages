@@ -4,6 +4,7 @@
 "@shiplane/npm": minor
 ---
 
-`shiplane setup` writes a `ship.yml` that publishes npm packages: the test release channels, `live`,
-a dry run and the permissions npm trusted publishing needs. `shiplane doctor` offers to add them to
-one already there, and accepts a `ship.yml` calling shiplane's workflow in its own repository.
+**Breaking:** an npm package with one dist-tag skips preview and publishes on production, like every
+other target: beside apps, it publishes when you promote. A repository of packages only still
+releases in one command. `ship.yml`'s `options` are the only list of environments, yours to edit;
+setup and doctor derive the permissions from it.

@@ -12,9 +12,9 @@ on:
         type: string
         default: ""
       environment:
-        description: "A test release channel, or live: the released versions"
+        description: "A test release channel, or production: the released versions"
         type: choice
-        options: [snapshot, nightly, alpha, beta, rc, live]
+        options: [snapshot, nightly, alpha, beta, rc, production]
         default: snapshot
       dry-run:
         description: "Show what would publish, publish nothing"
@@ -22,7 +22,7 @@ on:
         default: false
 
 permissions:
-  contents: write # live pushes the release tags and writes the GitHub Releases
+  contents: write # production pushes the release tags and writes the GitHub Releases
   id-token: write # npm trusted publishing
   issues: write # the test release's comment
   pull-requests: write

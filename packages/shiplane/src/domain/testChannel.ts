@@ -1,4 +1,5 @@
 import { branchTag, branchVersion } from "./branchRelease";
+import { ENVIRONMENTS } from "./environment";
 
 /**
  * Where a test release publishes. `snapshot` is one temporary version per commit; any other word is
@@ -73,6 +74,9 @@ const SEMVER_RANGE = /^v?(\d+|x)$/;
 /** Why a channel name cannot be one, or null when it can. */
 export const channelProblem = (name: string): string | null => {
   if (name === "latest") return "latest is the real release's tag, never a test release's";
+  if (ENVIRONMENTS.some((environment) => environment === name)) {
+    return `${name} is an environment, never a test release's channel`;
+  }
   if (!CHANNEL_NAME.test(name) || SEMVER_RANGE.test(name)) {
     return `"${name}" is not a channel: a lowercase word such as beta, [a-z][a-z0-9-]*`;
   }

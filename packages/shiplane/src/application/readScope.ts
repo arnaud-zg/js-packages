@@ -7,7 +7,15 @@ import type { ReleaseContext } from "./context";
 import { changesetApps } from "../domain/changes";
 import { deployRunTitle } from "../domain/deploys";
 import { cameWithRelease, firstRelease, tagName } from "../domain/tags";
-import { checkout, decideContext, hasNoEnvironment, jobInput, moduleOf } from "./targets";
+import {
+  checkout,
+  decideContext,
+  hasNoEnvironment,
+  hasPreview,
+  jobInput,
+  moduleOf,
+  skipsPreview,
+} from "./targets";
 
 export const MANIFEST = "package.json";
 
@@ -61,6 +69,8 @@ export const readScope = async (
         const input = jobInput(context, target, unit, { tag, environment: on, ...at });
         return target.live(decideContext(context), input).catch(() => false);
       };
+      // Nothing of it is on preview: what counts is production.
+      const straight = target !== undefined && !hasPreview(context, unit);
       return {
         app: unit.name,
         version: unit.version,
@@ -72,8 +82,9 @@ export const readScope = async (
           !tagged &&
           commit !== null &&
           firstRelease(unit.name, unit.version, tags, context.release.tagFormat),
-        onChannel: await live(environment),
+        onChannel: await live(straight ? "production" : environment),
         onPreview: await live("preview"),
+        ...(straight ? { goesOn: skipsPreview(context) ? "release" : "promote" } : {}),
         ...(decidedBy ? { decidedBy } : {}),
         ...(target?.releaseOnly ? { releaseOnly: true } : {}),
         ...(target && hasNoEnvironment(target) ? { noEnvironment: true } : {}),

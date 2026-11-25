@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import { registryDecision } from "../../domain/registry";
+import { scopeChoices } from "../../domain/scope";
 import { branchRelease } from "../branchRelease";
 import { doctorCi } from "../doctorCi";
+import { readScope } from "../readScope";
 import { shipTo } from "../ship";
-import { shipLive } from "../shipLive";
+import { shipCommand } from "../shipCommand";
 import {
   BRANCH,
   branchWorld,
@@ -20,7 +23,7 @@ const FILE = "ci/ship.yml";
 
 const world = (options: { interactive?: boolean; offers?: string; pushed?: string } = {}) => {
   const made = branchWorld({ yes: false, interactive: options.interactive ?? true });
-  made.source.seed({ files: { [`${BRANCH}:${FILE}`]: options.offers ?? "beta live" } });
+  made.source.seed({ files: { [`${BRANCH}:${FILE}`]: options.offers ?? "beta" } });
   Object.assign(made.source, { pushedHead: () => Promise.resolve(options.pushed ?? HEAD) });
   return made;
 };
@@ -143,48 +146,163 @@ describe("Feature: naming the packages a test release publishes", () => {
   );
 });
 
-describe("Feature: publishing released packages", () => {
-  const released = () => {
-    const made = world();
-    made.source.seed({
-      tags: { "lib@1.2.0": "head" },
-      files: { [`main:${FILE}`]: "live" },
-    });
-    return made;
-  };
+/** lib, whose preview has a tag of its own or not, beside a web app or alone. */
+const released = ({ stages = false, alone = false, lib: published = false } = {}) => {
+  const made = branchWorld({ yes: false, interactive: true, units: alone ? [lib] : [lib, web] });
+  Object.assign(made.registry.fake, {
+    stages: () => stages,
+    decide: async (_: unknown, input: Parameters<typeof made.registry.fake.jobs>[0]) => {
+      const ship = await registryDecision({
+        environment: input.environment,
+        stages: input.stages,
+        facts: {
+          tagged: () => Promise.resolve(true),
+          published: () => Promise.resolve(published),
+          sinceTagOnlyVersionFiles: () => Promise.resolve(true),
+          onDistTag: () => Promise.resolve(published),
+        },
+      });
+      return ship === "publish"
+        ? { action: "ship", kind: "publish", jobs: made.registry.fake.jobs(input) }
+        : { action: "none", status: ship };
+    },
+  });
+  made.source.seed({
+    position: { branch: "main", head: "head", originMain: "head" },
+    tags: { "lib@1.2.0": "head" },
+    files: { [`main:${FILE}`]: "preview production" },
+  });
+  const ran = () => made.shell.calls.map(({ args }) => args.join(" "));
+  return { ...made, ran };
+};
 
-  it("given the person picks CI, when the release ships, then one run publishes to live from main", async () => {
-    const { context, prompter, ci, shell } = released();
-    prompter.answer("ci", true);
+const PUBLISH = "publish @acme/lib 1.2.0";
+const SCOPE = { scope: new Set(["lib"]) };
 
-    expect(await shipTo(context, "preview", { scope: new Set(["lib"]) })).toBe(true);
+describe("Feature: preview is for checking, production is for users", () => {
+  it("given apps and a package with nothing to preview, when preview ships, then the package waits", async () => {
+    const { context, output, ran } = released();
 
-    expect(ci.received).toMatchObject([
-      { ref: "main", inputs: { units: "lib", environment: "live" } },
-    ]);
-    expect(shell.calls).toEqual([]);
+    expect(await shipTo(context, "preview", SCOPE)).toBe(true);
+
+    expect(output.text).toContain("no-preview");
+    expect(ran()).toEqual([]);
   });
 
-  it("given a runner, when live ships, then packages publish, apps do not, and nothing is dispatched", async () => {
-    const { context, ci, shell } = released();
+  it("given the same, when production ships, then the package publishes with no preview before", async () => {
+    const { context, prompter, ran } = released();
+    prompter.answer("production", "local", true);
 
-    const done = await shipLive({ ...context, options: { yes: true, ci: true } }, []);
+    expect(await shipTo(context, "production", SCOPE)).toBe(true);
+
+    expect(ran()).toContain(PUBLISH);
+  });
+
+  it("given a package preview publishes first, when preview ships, then it publishes", async () => {
+    const { context, prompter, ran } = released({ stages: true });
+    prompter.answer("local", true);
+
+    await shipTo(context, "preview", SCOPE);
+
+    expect(ran()).toContain(PUBLISH);
+  });
+
+  it("given the same, when production ships before preview, then it refuses", async () => {
+    const { context, prompter, ran } = released({ stages: true });
+    prompter.answer("production");
+
+    await shipTo(context, "production", SCOPE);
+
+    expect(ran()).toEqual([]);
+  });
+
+  it("given packages only, when a release ships, then it goes straight to production, its name not typed", async () => {
+    const { context, prompter, registry, ran } = released({ alone: true });
+    prompter.answer("local", true);
+
+    expect(await shipTo(context, "preview", SCOPE)).toBe(true);
+
+    expect(ran()).toContain(PUBLISH);
+    expect(registry.fake.received.every(({ environment }) => environment === "production")).toBe(
+      true,
+    );
+    expect(prompter.asked).toEqual([
+      "Where should lib@1.2.0 publish from?",
+      expect.stringContaining("to production"),
+    ]);
+  });
+
+  it("given packages only and CI picked, when a release ships, then one run goes to production on main", async () => {
+    const { context, prompter, ci, ran } = released({ alone: true });
+    prompter.answer("ci", true);
+
+    expect(await shipTo(context, "preview", SCOPE)).toBe(true);
+
+    expect(ci.received).toMatchObject([
+      { ref: "main", inputs: { units: "lib", environment: "production" } },
+    ]);
+    expect(ran()).toEqual([]);
+  });
+
+  it("given a workflow without the permissions a publish needs, when a release ships, then it says so and publishes here", async () => {
+    const { context, registry, prompter, output, ran } = released({ alone: true });
+    registry.fake.seed({
+      requirements: [
+        {
+          label: "registry",
+          check: { command: "true", args: [] },
+          permissions: { "id-token": "write" },
+        },
+      ],
+    });
+    prompter.answer(true);
+
+    await shipTo(context, "preview", SCOPE);
+
+    expect(output.text).toContain("does not allow id-token: write");
+    expect(ran()).toContain(PUBLISH);
+  });
+
+  it("given a runner, when production ships, then it publishes there and dispatches nothing", async () => {
+    const { context, ci, ran } = released({ alone: true });
+
+    const done = await shipCommand(
+      { ...context, options: { yes: true, ci: true } },
+      { environment: "production", units: [] },
+    );
 
     expect(done).toBe(true);
     expect(ci.received).toEqual([]);
-    expect(shell.calls.map(({ args }) => args.join(" "))).toContain("publish @acme/lib 1.2.0");
-  });
-
-  it("given an app named, when live ships, then it refuses", async () => {
-    const { context, output } = released();
-
-    expect(await shipLive(context, ["web"])).toBe(false);
-
-    expect(output.text).toContain("Not a package: web");
+    expect(ran()).toContain(PUBLISH);
   });
 
   it.each([
-    ["live", [], true],
+    [{ alone: true }, true, "1.2.0 released, not on production yet"],
+    [{}, false, "1.2.0 released, promote ships it"],
+  ])(
+    "given %j and a tagged package, when preview's scope is read, then it is offered: %s",
+    async (how, pending, hint) => {
+      const { context } = released(how);
+
+      const [choice] = scopeChoices(await readScope(context, "preview"), "preview");
+
+      expect(choice).toEqual({ app: "lib", pending, hint });
+    },
+  );
+
+  it("given a tagged package that skips preview, when production's scope is read, then it is offered", async () => {
+    const { context } = released();
+
+    const [choice] = scopeChoices(await readScope(context, "production"), "production");
+
+    expect(choice).toMatchObject({
+      pending: true,
+      hint: "1.2.0 released, goes straight to production",
+    });
+  });
+
+  it.each([
+    ["production", [], true],
     ["nightly", [], true],
     ["latest", [], false],
     ["beta", ["web"], false],

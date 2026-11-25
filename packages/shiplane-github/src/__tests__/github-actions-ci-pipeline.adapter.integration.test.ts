@@ -372,6 +372,10 @@ on:
         description: "The tag to ship; shiplane sets it (empty: the ref this runs on)"
         type: string
         default: ""
+      dry-run:
+        description: "Show what would ship, ship nothing"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -387,6 +391,7 @@ jobs:
       units: \${{ inputs.units }}
       environment: \${{ inputs.environment }}
       ref: \${{ inputs.ref }}
+      dry-run: \${{ inputs.dry-run }}
     secrets:
       CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}

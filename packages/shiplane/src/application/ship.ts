@@ -9,7 +9,6 @@ import type { Shipment } from "./askPath";
 import type { ReleaseContext } from "./context";
 import type { Outcomes, ShipStep } from "./shipSteps";
 import { onlyVersionFiles, shipsFrom, webShip } from "../domain/deploys";
-import { LIVE } from "../domain/environment";
 import { yesAllowed } from "../domain/governance";
 import { prepareLine } from "../domain/prepare";
 import { choosesPath, forcedPath, routeChoice, shipRuns } from "../domain/shipRoute";
@@ -33,6 +32,7 @@ import {
   jobInput,
   runHere,
   shipPlanOf,
+  skipsPreview,
   unitTag,
   versionFiles,
 } from "./targets";
@@ -456,7 +456,7 @@ const prepareStep = (context: ReleaseContext, { unit, input, jobs }: Ready): Shi
  */
 export const shipTo = async (
   context: ReleaseContext,
-  environment: Environment,
+  asked: Environment,
   {
     scope,
     via,
@@ -469,7 +469,10 @@ export const shipTo = async (
   },
 ): Promise<boolean> => {
   const { output, prompter, options, services } = context;
-  if (!(await mayStart(context, environment))) return false;
+  // With nothing to preview, a release is the way to production: merging its PR was the yes.
+  const straight = asked === "preview" && skipsPreview(context);
+  const environment = straight ? "production" : asked;
+  if (!straight && !(await mayStart(context, environment))) return false;
   const ready = await decideAll(context, environment, scope);
   if (!ready) return false;
   if (ready.length === 0) {
@@ -503,19 +506,16 @@ export const shipTo = async (
   }
   const { paths, stuck } = routed;
   // One question and one run for every package a release publishes, not one each.
-  const packages =
-    environment === "preview"
-      ? ready.filter(
-          ({ module, kind, jobs }) =>
-            module.kind === "published-package" &&
-            kind === "publish" &&
-            jobs.some(({ needsBuild }) => needsBuild),
-        )
-      : [];
+  const packages = ready.filter(
+    ({ module, kind, jobs }) =>
+      module.kind === "published-package" &&
+      kind === "publish" &&
+      jobs.some(({ needsBuild }) => needsBuild),
+  );
   const defaultBranch = packages[0]?.input.defaultBranch;
   if (defaultBranch !== undefined) {
     const route = await publishRoute(context, {
-      environment: LIVE,
+      environment,
       ref: defaultBranch,
       what: packages.map(({ input }) => input.tag).join(", "),
       via,
@@ -547,7 +547,7 @@ export const shipTo = async (
     !(await confirm(
       context,
       shipQuestion(going, paths, environment, context),
-      environment === "preview",
+      straight || environment === "preview",
     ))
   ) {
     return declined(context, { environment, scope, via });
@@ -586,7 +586,7 @@ export const shipTo = async (
       run: () =>
         services.ciPipeline.dispatch(workflow, defaultBranch, {
           units: names.join(" "),
-          environment: LIVE,
+          environment,
         }),
       tags: toDispatch.map(({ input }) => input.tag),
       unit: names.join(", "),

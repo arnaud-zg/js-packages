@@ -30,6 +30,8 @@ export interface ScopeInfo {
   decidedBy?: DecidedBy;
   /** Nothing deploys it: once tagged, every environment has it. */
   releaseOnly?: boolean;
+  /** It skips preview: production gets it with the release itself, or with the next promote. */
+  goesOn?: "release" | "promote";
   /** It has no environment to be on, such as a package: a person reads it as live or not. */
   noEnvironment?: boolean;
 }
@@ -51,6 +53,7 @@ const previewChoice = ({
   decidedBy,
   releaseOnly,
   noEnvironment,
+  goesOn,
 }: ScopeInfo) => {
   const later = decidedBy ? ` · ${decidedBy.platform} decides ${decidedBy.choice} once picked` : "";
   if (changesets > 0) return { pending: true, hint: `${plural(changesets, "changeset")}${later}` };
@@ -70,7 +73,10 @@ const previewChoice = ({
         }
       : { pending: true, hint: `${version} tagged, never reached preview: retry` };
   }
-  const where = noEnvironment ? "live" : "on preview";
+  if (goesOn === "promote" && !onChannel) {
+    return { pending: false, hint: `${version} released, promote ships it` };
+  }
+  const where = goesOn ? "on production" : noEnvironment ? "live" : "on preview";
   return onChannel
     ? { pending: false, hint: `${version} is ${where}, nothing new` }
     : { pending: true, hint: `${version} released, not ${where} yet` };
@@ -83,6 +89,7 @@ const productionChoice = ({
   onPreview,
   decidedBy,
   releaseOnly,
+  goesOn,
 }: ScopeInfo) => {
   if (!tagged) return { pending: false, hint: "not released yet" };
   if (releaseOnly) return { pending: false, hint: `${version} released, nothing deploys it` };
@@ -93,6 +100,7 @@ const productionChoice = ({
     };
   }
   if (onChannel) return { pending: false, hint: `${version} is on production, nothing new` };
+  if (goesOn) return { pending: true, hint: `${version} released, goes straight to production` };
   return onPreview
     ? { pending: true, hint: `${version} is on preview, promotes it` }
     : { pending: false, hint: `${version} is not on preview yet: release it there first` };

@@ -28,7 +28,7 @@ on:
         type: string
         default: ""
       environment:
-        description: "The GitHub Environment to ship to: preview or production; a test release channel such as snapshot or nightly; or live, the released npm packages"
+        description: "The GitHub Environment to ship to: preview or production, or a test release channel such as snapshot or nightly"
         type: string
         required: true
       ref:
@@ -256,8 +256,9 @@ jobs:
 
       # Node 22 ships npm 10: OIDC publishes from 11.5.1 and moves dist-tags from 11.21.
       - name: Update npm
-        if: ${{ !contains(fromJSON('["preview", "production"]'), inputs.environment) }}
-        run: npm install --global npm@^11.21.0
+        run: |
+          # Only a caller that allows id-token: write publishes with OIDC.
+          if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ]; then npm install --global npm@^11.21.0; fi
 
       - name: Build
         if: ${{ inputs.build != '' }}
@@ -323,12 +324,10 @@ jobs:
           # shellcheck disable=SC2086 # one word per unit, and the exec prefix's words
           case "$ENVIRONMENT" in
             preview | production)
-              $EXEC shiplane ship $UNITS --channel "$ENVIRONMENT" --yes "$MASCOT" $DRY_RUN ;;
-            live)
-              # The release tags are annotated, which needs an identity.
+              # A release's tags are annotated, which needs an identity.
               git config user.name "github-actions[bot]"
               git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-              $EXEC shiplane ship $UNITS --channel live --yes "$MASCOT" $DRY_RUN ;;
+              $EXEC shiplane ship $UNITS --channel "$ENVIRONMENT" --yes "$MASCOT" $DRY_RUN ;;
             *)
               $EXEC shiplane test-release "$ENVIRONMENT" $UNITS --yes "$MASCOT" $DRY_RUN ;;
           esac

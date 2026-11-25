@@ -55,6 +55,8 @@ export interface JobInput<Options> {
   commit: string;
   /** The branch releases start from: main or master, as git reports it. */
   defaultBranch: string;
+  /** False when preview has nothing of its own to ship: the unit goes straight to production. */
+  stages?: boolean;
   /**
    * A branch release for testers: a registry publishes under this dist-tag instead of the
    * environment's, and moves no other tag.

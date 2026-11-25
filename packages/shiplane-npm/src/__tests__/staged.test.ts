@@ -100,16 +100,11 @@ describe("staging a package on npm", () => {
 
 describe("what publishing asks of a runner", () => {
   it.each([true, false])(
-    "given staged %s, when its requirements are read, then the runner may mint an OIDC token, tag and comment",
+    "given staged %s, when its requirements are read, then the runner may mint an OIDC token",
     (staged) => {
       expect(npmPackageRegistry({ staged }).requirements?.(kitWith())).toMatchObject([
         {
-          permissions: {
-            contents: "write",
-            "id-token": "write",
-            issues: "write",
-            "pull-requests": "write",
-          },
+          permissions: { "id-token": "write" },
         },
       ]);
     },

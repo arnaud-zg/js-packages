@@ -147,25 +147,16 @@ describe("the workflow every repository ships from", () => {
     expect(caller.jobs.ship).not.toHaveProperty("secrets");
   });
 
-  const KIT = testUnit("kit", { module: "published-package" });
-  const NPM = publishedPackage({ packageRegistry: npmPackageRegistry() });
-  const CHANNELS = ["snapshot", "nightly", "alpha", "beta", "rc", "live"];
+  it("given a package on npm beside an app, when setup writes ship.yml, then it offers preview and production, and may sign in to npm", async () => {
+    const kit = testUnit("kit", { module: "published-package" });
+    const npm = publishedPackage({ packageRegistry: npmPackageRegistry() });
 
-  it.each([
-    ["packages only", [NPM], [KIT], CHANNELS],
-    ["packages and an app", [NPM, FLY], [KIT, API], ["preview", "production", ...CHANNELS]],
-  ])(
-    "given %s, when setup writes ship.yml, then it offers their environments and a dry run, and may publish",
-    async (_, modules, units, environments) => {
-      const caller = await callerOf(modules, [], units);
-      const { inputs } = caller.on.workflow_dispatch;
+    const caller = await callerOf([npm, FLY], [], [kit, API]);
 
-      expect(inputs.environment).toMatchObject({ options: environments, default: environments[0] });
-      expect(inputs["dry-run"]).toMatchObject({ default: false });
-      expect(caller.jobs.ship.with).toMatchObject({ "dry-run": "${{ inputs.dry-run }}" });
-      expect(caller.permissions).toMatchObject({ contents: "write", "id-token": "write" });
-    },
-  );
+    const { inputs } = caller.on.workflow_dispatch;
+    expect(inputs.environment).toMatchObject({ options: ["preview", "production"] });
+    expect(caller.permissions).toMatchObject({ contents: "read", "id-token": "write" });
+  });
 
   it("given modules whose adapters read no secret, when setup writes ship.yml, then it passes none", async () => {
     const caller = await callerOf([]);

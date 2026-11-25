@@ -3,10 +3,10 @@ import path from "node:path";
 import type { CallerNeeds, CallerWorkflow } from "../ports/ci-pipeline.port";
 import type { Release } from "./config/loadRelease";
 import type { SetupContext } from "./setupContext";
-import { ENVIRONMENTS, LIVE } from "../domain/environment";
 import { channels } from "../domain/testChannel";
 import { requirementsOf } from "./requirements";
 import { paint, reasonOf } from "./say";
+import { skipsPreview } from "./targets";
 
 /** What a workflow calling shiplane's own holds in its `uses:` line. */
 const CALLS = "/.github/workflows/shiplane-ship.yml@";
@@ -15,18 +15,8 @@ const CALLS_LOCAL = /^[ \t]*uses:[ \t]*\.\/\.github\/workflows\/shiplane-ship\.y
 const USES = /^([ \t]*)uses:[ \t]*\S*\/\.github\/workflows\/shiplane-ship\.yml(?:@.*)?$/m;
 const PINNED = /shiplane-ship\.yml@\S+[ \t]+#[ \t]*shiplane@(\S+)/;
 
-/** Where a release of packages ships: its apps' environments, each test channel, and live. */
-const environmentsOf = ({ units, modules, testRelease = {} }: Release) => {
-  const shipping = units.flatMap((unit) => {
-    const module = modules.find(({ name }) => name === unit.module);
-    return module && !module.releaseOnly ? [module] : [];
-  });
-  const isPackage = ({ capability }: (typeof shipping)[number]) =>
-    capability === "package-registry";
-  if (!shipping.some(isPackage)) return null;
-  const apps = shipping.some((module) => !isPackage(module)) ? ENVIRONMENTS : [];
-  return [...new Set([...apps, ...Object.values(channels), ...Object.values(testRelease), LIVE])];
-};
+/** What a runner may do to publish: tag and note a release, comment on a pull request. */
+const PUBLISHING = { contents: "write", issues: "write", "pull-requests": "write" } as const;
 
 /**
  * What the release needs its caller workflow to pass: each secret its adapters read on a runner,
@@ -39,9 +29,7 @@ export const callerNeedsOf = (release: Release): CallerNeeds => {
     if (permissions[name] !== "write") permissions[name] = level;
   }
   const variables = [...new Set(requirements.flatMap((r) => r.variables ?? []))].sort();
-  const environments = environmentsOf(release);
   return {
-    ...(environments ? { environments } : {}),
     secrets: [...new Set(requirements.flatMap(({ secrets = [] }) => secrets))]
       .filter((name) => name !== "GH_TOKEN")
       .sort(),
@@ -59,13 +47,26 @@ const callerOf = ({ version, root, shell, files }: SetupContext, release: Releas
   if (!version || !file || !make) return null;
   // A release that ships from this machine runs no workflow; one already there is still checked.
   if (release.via === "local" && !files.exists(file)) return null;
-  const needs = callerNeedsOf(release);
+  const base = callerNeedsOf(release);
+  const straight = skipsPreview({
+    release,
+    open: (adapter) => adapter.create({ root, shell }),
+  });
+  // The file's own list says where it ships: a test channel there publishes from a runner.
+  const text = files.read(file);
+  const offered = [...Object.values(channels), ...Object.values(release.testRelease ?? {})];
+  const publishes =
+    straight || (text !== null && offered.some((channel) => ci.offers?.(text, channel)));
+  const needs: CallerNeeds = {
+    ...base,
+    ...(straight ? { environments: ["production"] } : {}),
+    ...(publishes ? { permissions: { ...base.permissions, ...PUBLISHING } } : {}),
+  };
   return {
     file,
     name: path.posix.basename(file),
     version,
     needs,
-    offers: ci.offers?.bind(ci),
     make: (passing = needs) => make(version, passing),
   };
 };
@@ -218,7 +219,7 @@ const resecreted = (text: string, content: string) => {
 };
 
 /** Whether the top-level permissions of `text` allow this one. */
-const allows = (text: string, permission: string, level: string) => {
+export const allows = (text: string, permission: string, level: string) => {
   const lines = text.split("\n");
   const block = blockOf(lines, PERMISSIONS);
   const body = block ? lines.slice(block.start, block.end).join("\n") : "";
@@ -290,14 +291,6 @@ const secretsSaid = (release: Release, name: string, text: string, needed: reado
   return said.length === 0 ? null : `${name} ${said.join("; ")}`;
 };
 
-const OPTIONS = /^([ \t]*)options:[ \t]*\[.*\][ \t]*$/m;
-
-/** `text` offering the environments `content` does; a list written another way is left as it is. */
-const reoffered = (text: string, content: string) => {
-  const line = OPTIONS.exec(content)?.[0].trim();
-  return line ? text.replace(OPTIONS, (_line, indent: string) => `${indent}${line}`) : text;
-};
-
 interface Problem {
   said: string;
   ask: string;
@@ -351,16 +344,6 @@ const problemsOf = (release: Release, caller: Caller, text: string | null): Prob
       said: `${name} does not allow ${lacking.map(([p, level]) => `${p}: ${level}`).join(", ")}`,
       ask: `Give ${file} the permissions its adapters need?`,
       fix: resecreted,
-    });
-  }
-  const missing = (needs.environments ?? []).filter(
-    (environment) => caller.offers && !caller.offers(text, environment),
-  );
-  if (missing.length > 0) {
-    problems.push({
-      said: `${name} does not offer ${missing.join(", ")}`,
-      ask: `Let ${file} publish packages to ${missing.join(", ")}?`,
-      fix: reoffered,
     });
   }
   const unread = (needs.variables ?? []).filter((v) => !variablesOf(text).includes(v));

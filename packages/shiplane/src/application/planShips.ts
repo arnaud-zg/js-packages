@@ -7,14 +7,22 @@ import { neededBuild } from "./buildIfNeeded";
 import { planFollowUps } from "./followUps";
 import { releaseOrder } from "./releaseOrder";
 import { hostLabel, paint } from "./say";
-import { checkout, commandLine, environmentLabel, shipPlanOf, unitTarget } from "./targets";
+import {
+  checkout,
+  commandLine,
+  environmentLabel,
+  shipPlanOf,
+  skipsPreview,
+  unitTarget,
+} from "./targets";
 
 /**
  * `--dry-run`: every command shipping the current tags would run, both ways, in release order,
  * then what the features would do. It runs nothing and asks nothing; it reads git, and the code host
  * for features.
  */
-export const planShips = async (context: ReleaseContext, environment: Environment) => {
+export const planShips = async (context: ReleaseContext, asked: Environment) => {
+  const environment = skipsPreview(context) ? "production" : asked;
   const { release, services, output } = context;
   const at = await checkout(context);
   output.line();
@@ -29,6 +37,11 @@ export const planShips = async (context: ReleaseContext, environment: Environmen
     const { module, tag, input } = target;
     const tagged = (await services.sourceControl.tagCommit(tag)) !== null;
     if (tagged && !module.releaseOnly) shipped.push({ unit, tag, environment });
+    if (environment === "preview" && input.stages === false) {
+      output.line();
+      output.line(`  ${paint("bold", tag)}  ${paint("dim", "goes straight to production")}`);
+      continue;
+    }
     const plan = shipPlanOf(context, module, input);
     output.line();
     output.line(

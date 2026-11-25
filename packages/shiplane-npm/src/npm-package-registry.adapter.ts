@@ -28,7 +28,7 @@ const NpmOptions = z.object({
   tag: perEnv(z.string())
     .default({ preview: "latest", production: "latest" })
     .describe(
-      "The dist-tag each environment moves: { preview: next, production: latest } to stage",
+      "The dist-tag it moves on production; { preview: next, production: latest } publishes on preview first",
     ),
 });
 
@@ -253,13 +253,18 @@ const decide = async (
   staged: boolean,
 ): Promise<Decision> => {
   const { tag, environment, options } = input;
-  const ship = await registryDecision({ environment, facts: registryFacts(context, input) });
+  const ship = await registryDecision({
+    environment,
+    stages: input.stages,
+    facts: registryFacts(context, input),
+  });
   if (staged && ship === "publish" && (await waitsForApproval(context, input))) {
     return { action: "none", status: "staged on npm: approve it on npmjs.com" };
   }
   const releaseJob = staged ? stageJob : publishJob;
   const decisions: Record<RegistryShip, () => Decision> = {
     "not-released": () => ({ action: "none", status: "not released yet" }),
+    "no-preview": () => ({ action: "none", status: "goes straight to production" }),
     "not-on-preview": () => ({
       action: "none",
       status: "not on npm yet: ship it to preview first",
@@ -284,7 +289,7 @@ const live = async (context: DecideContext, input: JobInput<Options>) => {
 };
 
 /**
- * A package on npm. A release publishes the version straight under `latest`; with
+ * A package on npm. Production publishes the version straight under `latest`; with
  * `tag: { preview: next, production: latest }`, preview publishes under `next` and production moves
  * `latest` to it, never publishing twice. With `staged`, a release waits on npm for a person's
  * approval; a test release still publishes at once.
@@ -302,6 +307,8 @@ export const npmPackageRegistry = (
     describe: (input) => `${nameOf(input)} on npm (${input.options.tag})`,
     // A branch release publishes once under its own tag: there is no tag to move.
     publishedName: nameOf,
+    // One tag for both environments: nothing of its own to publish on preview.
+    stages: ({ preview, production }) => preview.tag !== production.tag,
     // A numbered test release, such as 0.6.0-beta.<n>, takes the next number npm does not hold.
     publishedVersions,
     // shiplane prune-snapshots reads every tag and removes the old snapshots' ones.
@@ -325,14 +332,8 @@ export const npmPackageRegistry = (
         label: "npm",
         check: signInCheck(),
         fix: { command: "npm", args: ["login"] },
-        // A runner publishes with a short-lived OIDC token, no secret; live pushes the release tags
-        // and a test release comments on its pull request.
-        permissions: {
-          contents: "write" as const,
-          "id-token": "write" as const,
-          issues: "write" as const,
-          "pull-requests": "write" as const,
-        },
+        // A runner publishes with a short-lived OIDC token, no secret.
+        permissions: { "id-token": "write" as const },
       },
     ],
   });

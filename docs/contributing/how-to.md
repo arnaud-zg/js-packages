@@ -88,10 +88,10 @@ The environment is also the GitHub Environment, so each run shows under **Deploy
 | -------------------------------- | ------ | ------------------------------------------------------------------- |
 | `snapshot`                       | any    | `0.6.0-<branch>.<sha>`, no tag kept                                 |
 | `nightly`, `alpha`, `beta`, `rc` | `main` | `0.6.0-<channel>.<n>` under that tag                                |
-| `live`                           | `main` | the merged release PR's versions, staged: approve each on npmjs.com |
+| `production`                     | `main` | the merged release PR's versions, staged: approve each on npmjs.com |
 
-A test release publishes what the pending changesets release: with none, nothing. `live` refuses
-when `main` moved past the release.
+A test release publishes what the pending changesets release: with none, nothing. `production`
+refuses when `main` moved past the release.
 
 **One-time setup, per package**, on npmjs.com (Settings › Trusted publishing): GitHub Actions,
 repository `arnaud-zg/js-packages`, workflow `ship.yml`, environment empty. Allow `npm publish`
