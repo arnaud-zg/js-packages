@@ -1,5 +1,8 @@
 # .github/workflows/shiplane-ship.yml
 #
+# Deprecated: `shiplane setup` writes a ship.yml using .github/actions/ship instead. Kept for the
+# repositories whose ship.yml calls it, until the next breaking release.
+#
 # The reusable workflow that ships a release with shiplane. A repo calls it from a 20-line ship.yml
 # that `shiplane setup` writes:
 #

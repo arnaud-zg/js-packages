@@ -372,6 +372,10 @@ on:
         description: "The tag to ship; shiplane sets it (empty: the ref this runs on)"
         type: string
         default: ""
+      dry-run:
+        description: "Show what would ship, ship nothing"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -382,14 +386,25 @@ permissions:
 
 jobs:
   ship:
-    uses: arnaud-zg/js-packages/.github/workflows/shiplane-ship.yml@${COMMIT} # shiplane@0.6.0
-    with:
-      units: \${{ inputs.units }}
-      environment: \${{ inputs.environment }}
-      ref: \${{ inputs.ref }}
-    secrets:
-      CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
+    name: Ship to \${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    # A dry run names none: naming one records a deployment.
+    environment: \${{ !inputs.dry-run && inputs.environment || '' }}
+    concurrency:
+      group: ship-\${{ inputs.environment }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: \${{ contains(fromJSON('["preview", "production"]'), inputs.environment) && inputs.ref || '' }}
+          fetch-depth: 0
+      - uses: arnaud-zg/js-packages/.github/actions/ship@${COMMIT} # shiplane@0.6.0
+        with:
+          units: \${{ inputs.units }}
+          environment: \${{ inputs.environment }}
+          dry-run: \${{ inputs.dry-run }}
+          CLOUDFLARE_ACCOUNT_ID: \${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
 `;
 
 /** A release shipping to Cloudflare Pages, commenting on what it ships. */
@@ -427,8 +442,21 @@ describe("writing the workflow a repository ships from", () => {
 
     const made = await pipelineOn(gh).callerWorkflow?.("0.6.0", { ...NEEDS, secrets: [] });
 
-    expect(made).toMatchObject({ content: CALLER.slice(0, CALLER.indexOf("    secrets:\n")) });
-    expect(made && "content" in made && made.content).not.toContain("secrets");
+    expect(made).toMatchObject({
+      content: CALLER.slice(0, CALLER.indexOf("          CLOUDFLARE_ACCOUNT_ID")),
+    });
+    expect(made && "content" in made && made.content).not.toContain("secrets.");
+  });
+
+  it("given a ship.yml calling the reusable workflow, when it is made, then it still does, secrets by name", async () => {
+    const gh = fakeGh().seed(REF, JSON.stringify({ object: { sha: COMMIT, type: "commit" } }));
+
+    const made = await pipelineOn(gh).callerWorkflow?.("0.6.0", { ...NEEDS, reusable: true });
+
+    const content = made && "content" in made ? made.content : "";
+    expect(content).toContain(`/.github/workflows/shiplane-ship.yml@${COMMIT} # shiplane@0.6.0`);
+    expect(content).toContain("    secrets:\n      CLOUDFLARE_ACCOUNT_ID:");
+    expect(content).not.toContain("dry-run");
   });
 
   it("given a release without release comments, when the caller workflow is made, then it may not write to issues or pull requests", async () => {

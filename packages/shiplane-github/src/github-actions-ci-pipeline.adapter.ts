@@ -53,7 +53,6 @@ const secretsOf = ({ secrets }: CallerNeeds) =>
     ? []
     : ["    secrets:", ...secrets.map((name) => `      ${name}: \${{ secrets.${name} }}`)];
 
-/** The workflow a repository ships from: a manual run calling shiplane's, pinned to a commit. */
 const DRY_RUN_INPUT = [
   "      dry-run:",
   '        description: "Show what would ship, ship nothing"',
@@ -61,8 +60,50 @@ const DRY_RUN_INPUT = [
   "        default: false",
 ];
 
+/** The job of a ship.yml from before the ship action, calling shiplane's reusable workflow. */
+const reusableJob = (pin: string, needs: CallerNeeds) => [
+  `    uses: ${SHIPLANE_REPO}/.github/workflows/shiplane-ship.yml@${pin}`,
+  "    with:",
+  "      units: ${{ inputs.units }}",
+  "      environment: ${{ inputs.environment }}",
+  "      ref: ${{ inputs.ref }}",
+  ...(needs.environments ? ["      dry-run: ${{ inputs.dry-run }}"] : []),
+  ...(needs.variables ? [`      variables: ${needs.variables.join(" ")}`] : []),
+  ...secretsOf(needs),
+];
+
+/** An npm channel publishes the ref the run is on: its environment's branch rule holds. */
+const CHECKED_OUT = `\${{ contains(fromJSON('["preview", "production"]'), inputs.environment) && inputs.ref || '' }}`;
+
+/** The job: its own environment and permissions, and one step that ships, given secrets by name. */
+const actionJob = (pin: string, needs: CallerNeeds) => [
+  "    name: Ship to ${{ inputs.environment }}",
+  "    runs-on: ubuntu-latest",
+  "    # A dry run names none: naming one records a deployment.",
+  "    environment: ${{ !inputs.dry-run && inputs.environment || '' }}",
+  "    concurrency:",
+  "      group: ship-${{ inputs.environment }}",
+  "      cancel-in-progress: false",
+  "    steps:",
+  "      - uses: actions/checkout@v5",
+  "        with:",
+  `          ref: ${CHECKED_OUT}`,
+  "          fetch-depth: 0",
+  `      - uses: ${SHIPLANE_REPO}/.github/actions/ship@${pin}`,
+  "        with:",
+  "          units: ${{ inputs.units }}",
+  "          environment: ${{ inputs.environment }}",
+  "          dry-run: ${{ inputs.dry-run }}",
+  ...(needs.variables
+    ? [`          variables: ${needs.variables.join(" ")}`, "          vars: ${{ toJSON(vars) }}"]
+    : []),
+  ...needs.secrets.map((name) => `          ${name}: \${{ secrets.${name} }}`),
+];
+
+/** The workflow a repository ships from: a manual run using shiplane, pinned to a commit. */
 const callerContent = (sha: string, version: string, needs: CallerNeeds) => {
-  const { environments = ["preview", "production"] } = needs;
+  const { environments = ["preview", "production"], reusable } = needs;
+  const pin = `${sha} # shiplane@${version}`;
   return [
     "# Ships with shiplane: `pnpm shiplane ship --via ci`, or Run workflow here.",
     "# Written by `shiplane setup`; `shiplane doctor` keeps the pin current.",
@@ -85,26 +126,19 @@ const callerContent = (sha: string, version: string, needs: CallerNeeds) => {
     '        description: "The tag to ship; shiplane sets it (empty: the ref this runs on)"',
     "        type: string",
     '        default: ""',
-    ...(needs.environments ? DRY_RUN_INPUT : []),
+    ...(reusable && !needs.environments ? [] : DRY_RUN_INPUT),
     "",
     ...permissionsOf(needs),
     "",
     "jobs:",
     "  ship:",
-    `    uses: ${SHIPLANE_REPO}/.github/workflows/shiplane-ship.yml@${sha} # shiplane@${version}`,
-    "    with:",
-    "      units: ${{ inputs.units }}",
-    "      environment: ${{ inputs.environment }}",
-    "      ref: ${{ inputs.ref }}",
-    ...(needs.environments ? ["      dry-run: ${{ inputs.dry-run }}"] : []),
-    ...(needs.variables ? [`      variables: ${needs.variables.join(" ")}`] : []),
-    ...secretsOf(needs),
+    ...(reusable ? reusableJob(pin, needs) : actionJob(pin, needs)),
     "",
   ].join("\n");
 };
 
 /** A caller that hands shiplane's workflow the tag to check out, so it can run from main. */
-const PASSES_REF = /^[ \t]+ref:[ \t]*\$\{\{[ \t]*inputs\.ref[ \t]*\}\}/m;
+const PASSES_REF = /^[ \t]+ref:[ \t]*\$\{\{[^}]*\binputs\.ref\b[^}]*\}\}/m;
 
 /** Whether one of the workflow's choice inputs lists the environment, inline or one per line. */
 const offers = (content: string, environment: string) => {

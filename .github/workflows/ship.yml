@@ -31,10 +31,21 @@ permissions:
 
 jobs:
   ship:
-    uses: ./.github/workflows/shiplane-ship.yml
-    with:
-      units: ${{ inputs.units }}
-      environment: ${{ inputs.environment }}
-      dry-run: ${{ inputs.dry-run }}
-      # shiplane ships itself: its dist is built first, then the install links its command.
-      build: pnpm build && pnpm install --frozen-lockfile --prefer-offline
+    name: Ship to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    # A dry run names none: naming one records a deployment.
+    environment: ${{ !inputs.dry-run && inputs.environment || '' }}
+    concurrency:
+      group: ship-${{ inputs.environment }}
+      cancel-in-progress: false
+    steps:
+      # Tags and history: a release reads which commit each version came from.
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: ./.github/actions/ship
+        with:
+          units: ${{ inputs.units }}
+          environment: ${{ inputs.environment }}
+          dry-run: ${{ inputs.dry-run }}
+          # shiplane ships itself: its dist is built first, then the install links its command.
+          build: pnpm build && pnpm install --frozen-lockfile --prefer-offline

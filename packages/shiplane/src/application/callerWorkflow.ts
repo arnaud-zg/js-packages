@@ -8,12 +8,14 @@ import { channels } from "../domain/testChannel";
 import { requirementsOf } from "./requirements";
 import { paint, reasonOf } from "./say";
 
-/** What a workflow calling shiplane's own holds in its `uses:` line. */
-const CALLS = "/.github/workflows/shiplane-ship.yml@";
-/** The same workflow from the same commit: shiplane's own repository, with no version to pin. */
-const CALLS_LOCAL = /^[ \t]*uses:[ \t]*\.\/\.github\/workflows\/shiplane-ship\.yml[ \t]*$/m;
-const USES = /^([ \t]*)uses:[ \t]*\S*\/\.github\/workflows\/shiplane-ship\.yml(?:@.*)?$/m;
-const PINNED = /shiplane-ship\.yml@\S+[ \t]+#[ \t]*shiplane@(\S+)/;
+/** What a ship.yml holds in its `uses:` line: the ship action, or the reusable workflow before it. */
+const SHIP = String.raw`\/\.github\/(?:actions\/ship|workflows\/shiplane-ship\.yml)`;
+const CALLS = new RegExp(`${SHIP}@`);
+/** The same from the same commit: shiplane's own repository, with no version to pin. */
+const CALLS_LOCAL = new RegExp(`^[ \\t]*(?:- )?uses:[ \\t]*\\.${SHIP}[ \\t]*$`, "m");
+const CALLS_REUSABLE = /\/\.github\/workflows\/shiplane-ship\.yml/;
+const USES = new RegExp(`^([ \\t]*)((?:- )?)uses:[ \\t]*\\S*${SHIP}(?:@.*)?$`, "m");
+const PINNED = new RegExp(`${SHIP}@\\S+[ \\t]+#[ \\t]*shiplane@(\\S+)`);
 
 /** What a runner may do to publish packages: sign in, tag and note a release, comment. */
 const PUBLISHING = {
@@ -82,6 +84,7 @@ const callerOf = ({ version, root, shell, files }: SetupContext, release: Releas
   const needs: CallerNeeds = {
     ...base,
     ...(listed && environments?.length ? { environments } : {}),
+    ...(CALLS_REUSABLE.test(files.read(file) ?? "") ? { reusable: true } : {}),
     ...(publishes ? { permissions: { ...base.permissions, ...PUBLISHING } } : {}),
   };
   return {
@@ -119,7 +122,7 @@ const PERMISSIONS = /^permissions:/;
 const INPUTS = /^[ \t]+inputs:[ \t]*$/;
 const WITH = /^[ \t]+with:[ \t]*$/;
 const REF_INPUT = /^[ \t]+ref:[ \t]*$/;
-const PASSES_REF = /^[ \t]+ref:[ \t]*\$\{\{[ \t]*inputs\.ref[ \t]*\}\}/m;
+const PASSES_REF = /^[ \t]+ref:[ \t]*\$\{\{[^}]*\binputs\.ref\b[^}]*\}\}/m;
 const indentOf = (line = "") => /^[ \t]*/.exec(line)?.[0] ?? "";
 
 /** The lines of the block `opens` starts, as [start, end), or null when there is none. */
@@ -134,8 +137,14 @@ const blockOf = (lines: readonly string[], opens: RegExp) => {
   return { start, end, indent };
 };
 
+/** A secret given to the ship action, by name. */
+const PASSED = /^[ \t]+([A-Z][A-Z0-9_]*):[ \t]*\$\{\{[ \t]*secrets\.\w+[ \t]*\}\}/;
+
 /** The secret names a caller workflow passes, null for `secrets: inherit`, which passes them all. */
 const passedOf = (lines: readonly string[]) => {
+  if (!lines.some((line) => CALLS_REUSABLE.test(line))) {
+    return lines.flatMap((line) => PASSED.exec(line)?.[1] ?? []);
+  }
   const block = blockOf(lines, SECRETS);
   if (!block) return [];
   const body = lines.slice(block.start, block.end).map((line) => line.replace(/#.*/, ""));
@@ -211,9 +220,9 @@ const withRef = (text: string, content: string) => {
  * does; everything else as the person wrote it.
  */
 const repinned = (text: string, content: string) => {
-  const uses = USES.exec(content)?.[0].trim() ?? "";
+  const uses = USES.exec(content)?.[0].trim().replace(/^- /, "") ?? "";
   return withRef(
-    text.replace(USES, (_line, indent: string) => `${indent}${uses}`),
+    text.replace(USES, (_line, indent: string, item: string) => `${indent}${item}${uses}`),
     content,
   );
 };
@@ -237,6 +246,19 @@ const afterUses = (lines: readonly string[]) => {
 const resecreted = (text: string, content: string) => {
   const lines = text.split("\n");
   const made = content.split("\n");
+  if (!CALLS_REUSABLE.test(text)) {
+    const kept = lines.filter((line) => !PASSED.test(line));
+    const uses = kept.findIndex((line) => USES.test(line));
+    const passing = kept.findIndex((line, index) => index > uses && WITH.test(line));
+    const indent = `${indentOf(kept[passing])}  `;
+    const given = made.filter((line) => PASSED.test(line)).map((line) => `${indent}${line.trim()}`);
+    // No `with:` to add them to is left to the person.
+    const secreted =
+      passing === -1
+        ? lines
+        : [...kept.slice(0, passing + 1), ...given, ...kept.slice(passing + 1)];
+    return withBlock(secreted, made, PERMISSIONS, null).join("\n");
+  }
   const secreted = withBlock(lines, made, SECRETS, afterUses(lines));
   return withBlock(secreted, made, PERMISSIONS, null).join("\n");
 };
@@ -258,6 +280,14 @@ const withVariables = (text: string, content: string) => {
   if (!passes) return text;
   if (VARIABLES.test(text)) return text.replace(VARIABLES, (line) => `${indentOf(line)}${passes}`);
   const lines = text.split("\n");
+  if (!CALLS_REUSABLE.test(text)) {
+    const uses = lines.findIndex((line) => USES.test(line));
+    const at = lines.findIndex((line, index) => index > uses && WITH.test(line));
+    if (at === -1) return text;
+    const indent = `${indentOf(lines[at])}  `;
+    const added = [`${indent}${passes}`, `${indent}vars: \${{ toJSON(vars) }}`];
+    return [...lines.slice(0, at + 1), ...added, ...lines.slice(at + 1)].join("\n");
+  }
   const passing = blockOf(lines, WITH);
   if (passing && passing.end > passing.start + 1) {
     const line = `${indentOf(lines[passing.start + 1])}${passes}`;
@@ -340,11 +370,11 @@ const problemsOf = (release: Release, caller: Caller, text: string | null): Prob
     return [{ said: `${name} missing`, ask: `Write ${file}?`, fix: (_text, content) => content }];
   }
   const local = CALLS_LOCAL.test(text);
-  if (!local && !text.includes(CALLS)) {
+  if (!local && !CALLS.test(text)) {
     return [
       {
-        said: `${name} does not call shiplane-ship.yml`,
-        ask: `Replace ${file} with one that calls shiplane-ship.yml? Your workflow is lost.`,
+        said: `${name} does not ship with shiplane`,
+        ask: `Replace ${file} with one that does? Your workflow is lost.`,
         fix: (_text, content) => content,
         overwrites: true,
       },
@@ -485,7 +515,7 @@ const renovateConfigOf = ({ files }: SetupContext) => {
 export const renovateWrite = (context: SetupContext, release: Release, shipText?: string) => {
   const caller = callerOf(context, release);
   const text = shipText ?? (caller ? context.files.read(caller.file) : null);
-  if (!text?.includes(CALLS)) return null;
+  if (!text || !CALLS.test(text)) return null;
   const found = renovateConfigOf(context);
   const entry = `"${SHIPLANE_RENOVATE_PRESET}"`;
   if (!found) {

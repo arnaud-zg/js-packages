@@ -36,10 +36,10 @@ pnpm shiplane setup      # writes .github/workflows/ship.yml
 pnpm shiplane doctor     # checks it, offers each fix
 ```
 
-`ship.yml` is about 30 lines that call shiplane's reusable workflow. You write no step: it checks
-out the repo, detects the package manager and Node version, installs, installs the deploy tools your
-units need, then runs `shiplane ship`, the same command as your laptop. It passes, by name, only the
-secrets your configured adapters read, and only the check and ship steps see them.
+`ship.yml` is one job using shiplane's action. You write no step: it checks out the repo, detects
+the package manager and Node version, installs, installs the deploy tools your units need, then runs
+`shiplane ship`, the same command as your laptop. It passes, by name, only the secrets your
+configured adapters read, and only the check and ship steps see them.
 
 ```yaml
 # .github/workflows/ship.yml, as setup writes it
@@ -68,13 +68,17 @@ permissions:
 
 jobs:
   ship:
-    uses: arnaud-zg/js-packages/.github/workflows/shiplane-ship.yml@<commit> # shiplane@<version>
-    with:
-      units: ${{ inputs.units }}
-      environment: ${{ inputs.environment }}
-    secrets:
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    runs-on: ubuntu-latest
+    environment: ${{ !inputs.dry-run && inputs.environment || '' }}
+    steps:
+      - uses: actions/checkout@v5 # at the tag, with its history
+      - uses: arnaud-zg/js-packages/.github/actions/ship@<commit> # shiplane@<version>
+        with:
+          units: ${{ inputs.units }}
+          environment: ${{ inputs.environment }}
+          dry-run: ${{ inputs.dry-run }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 ```
 
 That one ships apps on Cloudflare Pages only. With apps on EAS, Fly and Cloudflare Pages, and
@@ -90,24 +94,25 @@ permissions:
 
 jobs:
   ship:
-    # uses: and with: as above
-    secrets:
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - uses: arnaud-zg/js-packages/.github/actions/ship@<commit> # shiplane@<version>
+        with:
+          # units, environment and dry-run as above
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
 ```
 
-With no adapter that reads a secret, there is no `secrets:` key.
+With no adapter that reads a secret, it passes none.
 
 1. **Create one GitHub Environment per channel** (Settings › Environments): `preview`, `production`;
    for npm packages, `snapshot`, `nightly`, `alpha`, `beta`, `rc` and `live` too. On npmjs.com,
    trust `ship.yml` for each package (Settings › Trusted publishing): no npm secret.
 2. **Add each adapter's secret to it**, by the name in
    [the sign-ins table](./how-to-hosts.md#set-up-the-sign-ins): `FLY_API_TOKEN`,
-   `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, `EXPO_TOKEN`. Setup lists the ones your
-   adapters read under `secrets:`; after adding an adapter, `pnpm shiplane doctor` offers to add its
-   secret there.
+   `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, `EXPO_TOKEN`. Setup passes the ones your
+   adapters read; after adding an adapter, `pnpm shiplane doctor` offers to add its secret there.
 3. **Ship:** `pnpm shiplane ship --via ci`, or Run workflow in the Actions tab.
 
 A unit that fails never stops the next one. The run page shows what ships before, and how each unit
@@ -126,7 +131,7 @@ Without `prepare`, a package about to publish from this machine, the runner, or 
 
 **Push as an app, not as Actions.** A push with the default token never starts another workflow. Add
 secrets `SHIPLANE_APP_ID` and `SHIPLANE_APP_PRIVATE_KEY` of a GitHub App installed on the repo, pass
-both under `secrets:` in `ship.yml`, and the workflow uses its token instead.
+both to the action in `ship.yml`, and the workflow uses its token instead.
 
 **Keep the pin current.** The workflow is pinned to the commit of a shiplane release, never a moving
 tag. After upgrading `shiplane`, `pnpm shiplane doctor` offers to re-pin it. If your repository uses

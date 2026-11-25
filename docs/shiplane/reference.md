@@ -254,34 +254,37 @@ repository that builds shiplane itself.
 ### `ship.yml`
 
 `shiplane setup` writes `.github/workflows/ship.yml` when it is missing, never over one there: a
-manual run (`units`, `environment`, `ref`) calling `shiplane-ship.yml`, pinned to the commit of the
-installed shiplane's tag (`uses: …/shiplane-ship.yml@<sha> # shiplane@x.y.z`). A test version
-(`x.y.z-<branch>.<short sha>`) has no tag: it pins the commit its short sha names, or says
+manual run (`units`, `environment`, `ref`) using the `.github/actions/ship` action, pinned to the
+commit of the installed shiplane's tag (`uses: …/actions/ship@<sha> # shiplane@x.y.z`). A test
+version (`x.y.z-<branch>.<short sha>`) has no tag: it pins the commit its short sha names, or says
 `no commit <short sha> for shiplane@x.y.z-…: pin shiplane-ship.yml by hand` when GitHub does not
 know it. Any other unreleased version:
 `no release tag shiplane@x.y.z: pin shiplane-ship.yml by hand`.
 
 A tag holds the `ship.yml` of the day it was cut. So that a ship, or its retry, runs today's
 workflow, `shiplane ship --via ci` starts the run on the default branch and passes the tag as `ref`:
-`gh workflow run ship.yml --ref main -f units=api -f environment=preview -f ref=api@1.2.0`.
-`shiplane-ship.yml` checks out `ref`, so what deploys is the tag's code, never main's. When the
-default branch's `ship.yml` does not pass `ref` on (`ref: ${{ inputs.ref }}` under `with:`), the run
-starts on the tag, as before.
+`gh workflow run ship.yml --ref main -f units=api -f environment=preview -f ref=api@1.2.0`. It
+checks out `ref`, so what deploys is the tag's code, never main's. When the default branch's
+`ship.yml` does not pass `ref` on (`ref: ${{ inputs.ref }}` under `with:`), the run starts on the
+tag, as before.
 
 Its `environment` input lists where the repository ships: apps' `environments`, then packages'
 `channels`, as the config says. Writing one that lists a channel, setup also gives it the
 permissions npm needs and a `dry-run` input. With neither key set, doctor leaves an existing list as
 it is.
 
-It passes, by name, only the secrets the configured adapters read (their requirements' `secrets`,
-sorted, but `GH_TOKEN`, which `shiplane-ship.yml` sets itself), and no `secrets:` key when none
-does. Its `permissions:` are `contents: read`, `deployments: write`, `actions: read`, plus
-`issues: write` and `pull-requests: write` when `features` holds `releaseComments`. An adapter can
-ask for more, such as `contents: write` and `pages: write` for GitHub Pages, or `contents`,
-`id-token`, `issues` and `pull-requests: write` for npm. The `variables` a unit's build reads are
-passed by name too, from the repository's or the environment's variables.
+A `ship.yml` calling the reusable workflow `shiplane-ship.yml` keeps working, and doctor keeps it
+that way: it is deprecated, removed with the next breaking release.
 
-`shiplane-ship.yml` declares the secrets it accepts, and gives them, with `GH_TOKEN`, only to its
+It passes, by name, only the secrets the configured adapters read (their requirements' `secrets`,
+sorted, but `GH_TOKEN`, which the action sets itself). Its `permissions:` are `contents: read`,
+`deployments: write`, `actions: read`, plus `issues: write` and `pull-requests: write` when
+`features` holds `releaseComments`. An adapter can ask for more, such as `contents: write` and
+`pages: write` for GitHub Pages, or `contents`, `id-token`, `issues` and `pull-requests: write` for
+npm. The `variables` a unit's build reads are passed by name too, from the repository's or the
+environment's variables.
+
+The action declares the secrets it accepts, and gives them, with `GH_TOKEN`, only to its
 `Check what ships` and `Ship` steps' `env:`; nothing goes to `$GITHUB_ENV`:
 
 | Secret                     | Read by                                                        |
@@ -294,10 +297,10 @@ passed by name too, from the repository's or the environment's variables.
 | `SHIPLANE_APP_PRIVATE_KEY` | the App token step, with `SHIPLANE_APP_ID`                     |
 
 GitHub rejects a secret the called workflow does not declare: a third-party plugin's secret needs
-its name added to `on.workflow_call.secrets` and to both steps' `env:`, in a copy of
-`shiplane-ship.yml` that `ship.yml` calls instead.
+its name added to `on.workflow_call.secrets` and to both steps' `env:`, in a copy of the action that
+`ship.yml` uses instead.
 
-With ship.yml calling `shiplane-ship.yml`, setup adds the preset
+With ship.yml using shiplane, setup adds the preset
 `github>arnaud-zg/js-packages//renovate/shiplane` to `extends` in a JSON Renovate config
 (`renovate.json`, `.github/`, `.gitlab/`, `.renovaterc`, `.renovaterc.json`) that lacks it, names
 the entry to add for a JSON5 or `package.json` config, and creates none.
@@ -307,7 +310,7 @@ the entry to add for a JSON5 or `package.json` config, and creates none.
 | Found                                                         | Fix offered                                                                  |
 | ------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | `ship.yml missing`                                            | Write it (yes by default; `--yes` writes it). Not said when `via` is `local` |
-| `ship.yml does not call shiplane-ship.yml`                    | Replace it (no by default; never with `--yes` or unattended)                 |
+| `ship.yml does not ship with shiplane`                        | Replace it (no by default; never with `--yes` or unattended)                 |
 | `ship.yml pins shiplane@0.5.2, installed 0.6.0`               | Re-pin: the `uses:` line, plus the `ref` input when missing                  |
 | `ship.yml passes no EXPO_TOKEN, and apps/expo ships with eas` | Rewrite only `secrets:` and `permissions:` (`--yes` rewrites them)           |
 

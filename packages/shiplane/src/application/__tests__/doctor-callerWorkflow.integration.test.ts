@@ -145,7 +145,7 @@ describe("Feature: doctor checks the workflow a repository ships from", () => {
 
     expect(await doctor(context)).toBe(true);
 
-    expect(output.lines).toContain("│  ✗ ship.yml does not call shiplane-ship.yml");
+    expect(output.lines).toContain("│  ✗ ship.yml does not ship with shiplane");
     const [asked = ""] = prompter.asked;
     expect(asked).toContain(`Replace ${SHIP_YML}`);
     expect(prompter.initials[asked]).toBe(false);
@@ -392,5 +392,56 @@ describe("Feature: doctor on a release that publishes packages", () => {
 
     expect(output.text).not.toMatch(/ship.yml (pins|does not)/);
     expect(prompter.asked).toEqual([]);
+  });
+});
+
+describe("Feature: doctor on a ship.yml using the ship action", () => {
+  const withAction = (version: string, pin = `@sha # shiplane@${version}`, secrets = "") =>
+    [
+      "permissions:",
+      "  contents: read",
+      "jobs:",
+      "  ship:",
+      "    steps:",
+      "      - uses: actions/checkout@v5",
+      "        with:",
+      "          fetch-depth: 0",
+      `      - uses: acme/shiplane/.github/actions/ship${pin}`,
+      "        with:",
+      "          environment: ${{ inputs.environment }}",
+      ...(secrets ? [`          ${secrets}: \${{ secrets.${secrets} }}`] : []),
+      "",
+    ].join("\n");
+
+  const on = (text: string) => {
+    const world = given({ files: { [SHIP_YML]: text } });
+    const pipeline: ServiceAdapter<CiPipelinePort> = {
+      name: "calling",
+      create: () =>
+        Object.assign(new CiPipelineFake(), {
+          callerWorkflow: () =>
+            Promise.resolve({ file: SHIP_YML, content: withAction("0.6.0"), pin: "sha" }),
+        }),
+    };
+    return { ...world, context: runningShiplane(world.context, "0.6.0", pipeline) };
+  };
+
+  it("given it pins another version, when the person agrees, then only its pin moves", async () => {
+    const { context, prompter, files } = on(withAction("0.5.2"));
+    prompter.answer(true);
+
+    await doctor(context);
+
+    expect(files.read(SHIP_YML)).toBe(withAction("0.6.0"));
+  });
+
+  it("given it passes a secret no adapter needs, when the person agrees, then it is dropped and the rest kept", async () => {
+    const { context, output, prompter, files } = on(withAction("0.6.0", undefined, "OLD_TOKEN"));
+    prompter.answer(true);
+
+    await doctor(context);
+
+    expect(output.text).toContain("passes OLD_TOKEN, which no adapter needs");
+    expect(files.read(SHIP_YML)).toBe(withAction("0.6.0"));
   });
 });

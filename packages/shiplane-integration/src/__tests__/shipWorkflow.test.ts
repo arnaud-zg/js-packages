@@ -66,12 +66,69 @@ const callerOf = async (
   return parse(made.content) as {
     on: { workflow_dispatch: { inputs: Record<string, { options?: string[]; default: unknown }> } };
     permissions: Record<string, string>;
-    jobs: { ship: { secrets?: Record<string, string>; with?: Record<string, string> } };
+    jobs: { ship: { steps: { with: Record<string, unknown> }[] } };
   };
 };
 
+type Caller = Awaited<ReturnType<typeof callerOf>>;
+
+/** What ship.yml gives the ship action. */
+const given = (caller: Caller) => caller.jobs.ship.steps.at(-1)?.with ?? {};
+
+/** The secrets among it, by name. */
+const secretsOf = (caller: Caller) =>
+  Object.fromEntries(
+    Object.entries(given(caller)).filter(([, value]) => String(value).includes("secrets.")),
+  );
+
 const byName = (names: readonly string[]) =>
   Object.fromEntries(names.map((name) => [name, `\${{ secrets.${name} }}`]));
+
+const ACTION = new URL("../../../../.github/actions/ship/action.yml", import.meta.url);
+const action = parse(readFileSync(ACTION, "utf8")) as {
+  inputs: Record<string, unknown>;
+  runs: { using: string; steps: (Step & { run?: string; shell?: string })[] };
+};
+
+describe("the ship action", () => {
+  const shipping = action.runs.steps.filter(({ name = "" }) =>
+    ["Check what ships", "Ship"].includes(name),
+  );
+
+  it("given the official adapters, when it is read, then it takes each secret they read, and the App's", () => {
+    const taken = Object.keys(action.inputs).filter((name) => /^[A-Z_]+$/.test(name));
+
+    expect(taken.filter((name) => !name.startsWith("SHIPLANE_APP_")).sort()).toEqual(
+      ADAPTER_SECRETS,
+    );
+  });
+
+  it("given it ships, when its steps are read, then only the check and the ship see a secret", () => {
+    expect(shipping).toHaveLength(2);
+    for (const { env = {} } of shipping) {
+      expect(env).toMatchObject(
+        Object.fromEntries(ADAPTER_SECRETS.map((name) => [name, `\${{ inputs.${name} }}`])),
+      );
+    }
+    const others = action.runs.steps.filter((step) => !shipping.includes(step));
+    for (const name of ADAPTER_SECRETS) expect(JSON.stringify(others)).not.toContain(name);
+  });
+
+  it("given the workflow it replaces, when both ship, then they run the same commands", () => {
+    const commands = (steps: { name?: string; run?: string }[]) =>
+      steps
+        .filter(({ name = "" }) => ["Build", "Check what ships", "Ship"].includes(name))
+        .map(({ run }) => run);
+
+    expect(commands(action.runs.steps)).toEqual(commands(workflow.jobs.ship.steps));
+  });
+
+  it("given a composite action, when its steps run, then each names its shell and reads no secret context", () => {
+    expect(action.runs.using).toBe("composite");
+    for (const step of action.runs.steps.filter(({ run }) => run)) expect(step.shell).toBeTruthy();
+    expect(JSON.stringify(action.runs.steps)).not.toMatch(/\bsecrets\.|toJSON\(vars\)/);
+  });
+});
 
 describe("the workflow every repository ships from", () => {
   it("given the official adapters, when shiplane-ship.yml is read, then it declares each secret they read and no other", () => {
@@ -97,9 +154,7 @@ describe("the workflow every repository ships from", () => {
   it("given apps on Cloudflare Pages only, when setup writes ship.yml, then it passes the two Cloudflare secrets", async () => {
     const caller = await callerOf([PAGES]);
 
-    expect(caller.jobs.ship.secrets).toEqual(
-      byName(["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN"]),
-    );
+    expect(secretsOf(caller)).toEqual(byName(["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN"]));
     expect(caller.permissions).toEqual({
       contents: "read",
       deployments: "write",
@@ -115,8 +170,8 @@ describe("the workflow every repository ships from", () => {
 
     const caller = await callerOf([FLY, PAGES, EAS], [comments]);
 
-    expect(caller.jobs.ship.secrets).toEqual(byName(ADAPTER_SECRETS));
-    expect(Object.keys(caller.jobs.ship.secrets ?? {})).toEqual([
+    expect(secretsOf(caller)).toEqual(byName(ADAPTER_SECRETS));
+    expect(Object.keys(secretsOf(caller))).toEqual([
       "CLOUDFLARE_ACCOUNT_ID",
       "CLOUDFLARE_API_TOKEN",
       "EXPO_TOKEN",
@@ -142,13 +197,13 @@ describe("the workflow every repository ships from", () => {
       actions: "read",
       pages: "write",
     });
-    expect(caller.jobs.ship.with).toMatchObject({ variables: "SITE_KEY SITE_REGION" });
-    expect(caller.jobs.ship).not.toHaveProperty("secrets");
+    expect(given(caller)).toMatchObject({ variables: "SITE_KEY SITE_REGION" });
+    expect(secretsOf(caller)).toEqual({});
   });
 
   it("given modules whose adapters read no secret, when setup writes ship.yml, then it passes none", async () => {
     const caller = await callerOf([]);
 
-    expect(caller.jobs.ship).not.toHaveProperty("secrets");
+    expect(secretsOf(caller)).toEqual({});
   });
 });
