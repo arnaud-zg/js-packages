@@ -1,5 +1,5 @@
 import { publishedPackage } from "shiplane/plugin";
-import { shipTo, testContext, testUnit } from "shiplane/testing";
+import { shipTo, TEST_FLOW, testContext, testUnit } from "shiplane/testing";
 import { describe, expect, it } from "vitest";
 
 import { catalog } from "../catalog";
@@ -85,6 +85,7 @@ describe("staging a package on npm", () => {
     const jobs = npmPackageRegistry({ staged: true })
       .create({ root: context.release.root, shell })
       .jobs({
+        flow: TEST_FLOW,
         unit: kitWith(),
         tag: "kit@0.2.0",
         environment: "preview",

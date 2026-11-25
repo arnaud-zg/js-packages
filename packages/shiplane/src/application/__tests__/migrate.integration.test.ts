@@ -81,6 +81,10 @@ modules:
     with:
       staticHosting: ./shiplane/adapters/fakes.ts
 tag: plugin
+deployApps:
+  promote:
+    - from: preview
+      to: production
 testComment: compact
 prepare: pnpm --filter {unit}... build
 `);
@@ -93,8 +97,8 @@ prepare: pnpm --filter {unit}... build
       workspace: repo,
     } = await run({
       "shiplane.config.ts": MODULE_CONFIG.replace(
-        "export default defineRelease({\n  flow,",
-        'export default defineRelease({\n  flow,\n  display: { mascot: () => "🦔" },',
+        "  flow,\n  modules",
+        '  flow,\n  display: { mascot: () => "🦔" },\n  modules',
       ),
       "apps/api/shiplane.unit.yml": SERVER_UNIT,
     });

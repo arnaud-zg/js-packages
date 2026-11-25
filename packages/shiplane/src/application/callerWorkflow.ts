@@ -3,11 +3,11 @@ import path from "node:path";
 import type { CallerNeeds, CallerWorkflow } from "../ports/ci-pipeline.port";
 import type { Release } from "./config/loadRelease";
 import type { SetupContext } from "./setupContext";
-import { LIVE } from "../domain/environment";
+import { RELEASE_CHANNEL } from "../domain/environment";
 import { channels } from "../domain/testChannel";
+import { deploysApps } from "./chooseEnvironments";
 import { requirementsOf } from "./requirements";
 import { paint, reasonOf } from "./say";
-import { flowOf } from "./targets";
 
 /** The step of a ship.yml that ships: shiplane's action, pinned, or `./` in shiplane's own repository. */
 const SHIPS = /\/\.github\/actions\/ship(@|[ \t]*$)/m;
@@ -33,10 +33,14 @@ const placesOf = (release: Release) => {
     capability === "package-registry";
   const packages = shipping.some(isPackage);
   const onBranch = release.onBranch === false ? [] : [channels.snapshot];
-  const every = [...Object.values(channels), ...Object.values(release.testRelease ?? {}), LIVE];
+  const every = [
+    ...Object.values(channels),
+    ...Object.values(release.testRelease ?? {}),
+    RELEASE_CHANNEL,
+  ];
   const named = release.channels ?? every.filter((name) => name !== channels.snapshot);
   return {
-    apps: packages && shipping.every(isPackage) ? [] : [...flowOf({ release }).path],
+    apps: shipping.some(deploysApps) ? [...release.appFlow.path] : [],
     channels: packages ? [...new Set([...onBranch, ...named])] : [],
   };
 };
@@ -52,7 +56,12 @@ export const callerNeedsOf = (release: Release): CallerNeeds => {
     if (permissions[name] !== "write") permissions[name] = level;
   }
   const variables = [...new Set(requirements.flatMap((r) => r.variables ?? []))].sort();
+  const { apps, channels: named } = placesOf(release);
+  const environments = [...apps, ...named];
   return {
+    apps,
+    // A repository with nothing to ship still has a list to write.
+    environments: environments.length > 0 ? environments : [RELEASE_CHANNEL],
     secrets: [...new Set(requirements.flatMap(({ secrets = [] }) => secrets))]
       .filter((name) => name !== "GH_TOKEN")
       .sort(),
@@ -71,18 +80,17 @@ const callerOf = ({ version, root, shell, files }: SetupContext, release: Releas
   // A release that ships from this machine runs no workflow; one already there is still checked.
   if (release.via === "local" && !files.exists(file)) return null;
   const base = callerNeedsOf(release);
-  const places = placesOf(release);
-  // One already there lists what the person chose, unless the config says otherwise.
-  const listed =
-    !files.exists(file) ||
-    release.appFlow !== undefined ||
-    release.channels !== undefined ||
-    release.onBranch !== undefined;
-  const publishes = listed && places.channels.length > 0;
+  // One already there lists the channels its person chose, unless the config names them.
+  const written = files.read(file);
+  const channelsNamed =
+    written === null || release.channels !== undefined || release.onBranch !== undefined;
+  const environments = base.environments.filter(
+    (name) => base.apps.includes(name) || channelsNamed || ci.offers?.(written, name),
+  );
+  const publishes = channelsNamed && placesOf(release).channels.length > 0;
   const needs: CallerNeeds = {
     ...base,
-    apps: places.apps,
-    environments: [...places.apps, ...places.channels],
+    environments,
     ...(publishes ? { permissions: { ...base.permissions, ...PUBLISHING } } : {}),
   };
   return {
@@ -90,7 +98,7 @@ const callerOf = ({ version, root, shell, files }: SetupContext, release: Releas
     name: path.posix.basename(file),
     version,
     needs,
-    offers: listed ? ci.offers?.bind(ci) : undefined,
+    offers: ci.offers?.bind(ci),
     make: () => make(version, needs),
   };
 };
@@ -263,8 +271,8 @@ const problemsOf = (release: Release, caller: Caller, text: string | null): Prob
       fix: repermitted,
     });
   }
-  const missing = (needs.environments ?? []).filter(
-    (environment) => caller.offers && !caller.offers(text, environment),
+  const missing = needs.environments.filter(
+    (environment) => OPTIONS.test(text) && caller.offers && !caller.offers(text, environment),
   );
   if (missing.length > 0) {
     problems.push({

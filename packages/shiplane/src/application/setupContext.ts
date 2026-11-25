@@ -1,3 +1,4 @@
+import type { Environment } from "../domain/environment";
 import type { AnyDeliveryAdapter } from "../modules/suggest";
 import type { Files } from "../ports/files.port";
 import type { Shell } from "../ports/shell.port";
@@ -20,6 +21,8 @@ export interface SetupContext {
   progress?: Progress;
   /** A release's context, for the rehearsal's plan; without it, the plan is not rehearsed. */
   compose?: (release: Release) => ReleaseContext;
+  /** The environments apps go through, as the command line names them; asked when absent. */
+  environments?: readonly Environment[];
   /** The shiplane running, which the caller workflow pins; none is written or checked without it. */
   version?: string;
 }

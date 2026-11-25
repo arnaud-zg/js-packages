@@ -52,6 +52,7 @@ const server = defineServerHosting({
 });
 
 export default defineRelease({
+  deployApps: { promote: [{ from: "preview", to: "production" }] },
   flow,
   modules: [backendService({ serverHosting: server }), webApp({ staticHosting: pages })],
 });
@@ -136,6 +137,8 @@ modules:
   - use: web-app
     with:
       staticHosting: ./shiplane/adapters/fakes.ts
+deployApps:
+  promote: [{ from: preview, to: production }]
 `;
 
 /** MODULE_CONFIG's release, its adapters imported from FAKES_CATALOG's file: what migrate converts. */
@@ -146,6 +149,7 @@ import { ciPipelineFake, codeHostFake, sourceControlFake, versioningFake } from 
 import { pages, server } from "./shiplane/adapters/fakes";
 
 export default defineRelease({
+  deployApps: { promote: [{ from: "preview", to: "production" }] },
   flow: releaseFlow({
     sourceControl: sourceControlFake(),
     codeHost: codeHostFake(),

@@ -8,6 +8,7 @@ import {
   webApp,
   z,
 } from "../../..";
+import { TEST_FLOW } from "../../../testing/flow";
 import { unitJsonSchema } from "../unitSchema";
 
 const pages = defineStaticHosting({
@@ -25,10 +26,10 @@ const server = defineServerHosting({
 
 describe("autocompletion in the editor", () => {
   it("given two composed modules, when the editor schema is generated, then the module an app names offers only its adapter's keys", () => {
-    const schema = unitJsonSchema([
-      webApp({ staticHosting: pages }),
-      backendService({ serverHosting: server }),
-    ]);
+    const schema = unitJsonSchema(
+      [webApp({ staticHosting: pages }), backendService({ serverHosting: server })],
+      TEST_FLOW.path,
+    );
     const variants = JSON.stringify(schema);
 
     expect(schema).toMatchObject({ $schema: expect.stringContaining("json-schema.org") });

@@ -8,10 +8,9 @@ import type { Command, DecideContext, Job } from "../ports/delivery.port";
 import type { Release } from "./config/loadRelease";
 import type { ReleaseContext } from "./context";
 import { changesReaching, codeFolders } from "../domain/codeScope";
-import { DEFAULT_FLOW, entryOf, keysOf } from "../domain/environment";
+import { entryOf } from "../domain/environment";
 import { tagName } from "../domain/tags";
 import { optionsFor } from "./config/optionsFor";
-import { settingsOn } from "./config/unitSchema";
 import { reasonOf } from "./say";
 
 /** The module that ships an app: the one its unit file names. */
@@ -28,15 +27,15 @@ export const resolvedOptions = (
   unit: ReleaseUnit,
   environment: Environment,
   units: readonly ReleaseUnit[],
-  path?: readonly Environment[],
+  path: readonly Environment[],
 ): Record<string, unknown> => {
-  const withDefaults = settingsOn(module.settings, path).parse(unit.options);
+  const withDefaults = module.settings.parse(unit.options);
   return optionsFor({ ...unit, options: withDefaults }, environment, units, path);
 };
 
 /** The way this repository's apps go to their users. */
 export const flowOf = ({ release }: { release: Pick<Release, "appFlow"> }): DeployFlow =>
-  release.appFlow ?? DEFAULT_FLOW;
+  release.appFlow;
 
 /** Where a release deploys. */
 export const entry = (context: { release: Pick<Release, "appFlow"> }) => entryOf(flowOf(context));
@@ -73,9 +72,9 @@ export const jobInput = (
     unit,
     environment,
     context.release.units,
-    keysOf(flowOf(context)),
+    context.release.appFlow.path,
   ),
-  ...(context.release.appFlow ? { flow: context.release.appFlow } : {}),
+  flow: context.release.appFlow,
 });
 
 /** The module that ships a unit and the tag it ships, or null when no module claims it. */
@@ -273,7 +272,7 @@ export const hasNoEnvironment = ({ kind, releaseOnly }: ReleaseModule) =>
   kind === "published-package" || releaseOnly === true;
 
 /**
- * What the person reads for an environment: when no unit has one, preview is where users get them,
+ * What the person reads for an environment: when no unit has one, the first is where users get them,
  * so it reads "live". Naming no unit asks about the whole repository.
  */
 export const environmentLabel = (
@@ -294,7 +293,7 @@ export const environmentLabel = (
   return noneHasOne ? "live" : environment;
 };
 
-/** Where a sentence sends units: "to preview", or "live" when none of them has an environment. */
+/** Where a sentence sends units: "to staging", or "live" when none of them has an environment. */
 export const destination = (
   context: ReleaseContext,
   units: Iterable<string>,

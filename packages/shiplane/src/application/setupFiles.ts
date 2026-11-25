@@ -7,12 +7,11 @@ import type { AnyDeliveryAdapter } from "../modules/suggest";
 import type { FolderView } from "../ports/delivery.port";
 import type { Files } from "../ports/files.port";
 import type { Release } from "./config/loadRelease";
-import { keysOf } from "../domain/environment";
 import { suggestedModule } from "../modules/suggest";
+import { stepsOf } from "./chooseEnvironments";
 import { UNIT_FILE } from "./config/readUnitFile";
 import { unitJsonSchema } from "./config/unitSchema";
 import { readManifest } from "./manifest";
-import { flowOf } from "./targets";
 
 export const CONFIG_FILE = "shiplane.config.ts";
 // Generated for the editor, never edited or committed: kept out of the repository's own folders.
@@ -156,12 +155,30 @@ export const changesetsConfig = (baseBranch: string) =>
 
 export const CHANGESETS_CLI = { name: "@changesets/cli", version: "^3.0.1" };
 
+/** The config's line saying how apps go to their users. */
+const promoteLine = (path: readonly string[]) => {
+  const steps = stepsOf(path).map(
+    (step) =>
+      `{ ${Object.entries(step)
+        .map(([key, name]) => `${key}: ${JSON.stringify(name)}`)
+        .join(", ")} }`,
+  );
+  return `  deployApps: { promote: [${steps.join(", ")}] },`;
+};
+
+/** An existing config saying how apps go to their users, or null when its shape is not ours. */
+export const withPromote = (config: string, path: readonly string[]): string | null =>
+  /^ {2}modules:/m.test(config) && !config.includes("deployApps")
+    ? config.replace(/^ {2}modules:/m, (found) => `${promoteLine(path)}\n${found}`)
+    : null;
+
 /** A root config with this flow (today's by default) and these modules, in the order given. */
 export const renderConfig = (
   entries: readonly ModuleEntry[],
   pkg: string = INSTALLED,
   flow: Record<FlowPort, FlowChoice> = DEFAULT_FLOW,
   units?: readonly string[],
+  path?: readonly string[] | null,
 ) => {
   const byPlugin = new Map<string, string[]>();
   const add = (from: string, name: string) =>
@@ -189,6 +206,7 @@ export const renderConfig = (
     ...FLOW_PORTS.map((port) => `    ${port}: ${flow[port].factory}(),`),
     "  }),",
     ...(units ? [`  units: [${units.map((unit) => JSON.stringify(unit)).join(", ")}],`] : []),
+    ...(path ? [promoteLine(path)] : []),
     "  // What gets released, in this order. The first app is the repository's Latest release.",
     "  modules: [",
     ...entries.map((entry) => `    ${moduleCall(entry)},`),
@@ -345,7 +363,7 @@ export const renderBlankUnit = (module: string, settings: z.ZodObject, schemaLin
 export const schemaLineFor = (dir: string) => path.posix.relative(dir, SCHEMA_FILE) || SCHEMA_FILE;
 
 /** The JSON Schema for every unit file: the module an app names picks the keys it takes. */
-export const schemaText = (modules: readonly ReleaseModule[], path?: readonly string[]) =>
+export const schemaText = (modules: readonly ReleaseModule[], path: readonly string[]) =>
   `${JSON.stringify(unitJsonSchema(modules, path), null, 2)}\n`;
 
 /**
@@ -353,7 +371,7 @@ export const schemaText = (modules: readonly ReleaseModule[], path?: readonly st
  * committed: every command keeps it current. True when it wrote.
  */
 export const refreshEditorSchema = (files: Files, release: Release) => {
-  const text = schemaText(release.modules, keysOf(flowOf({ release })));
+  const text = schemaText(release.modules, release.appFlow.path);
   if (files.read(SCHEMA_FILE) === text) return false;
   files.write(SCHEMA_FILE, text);
   return true;

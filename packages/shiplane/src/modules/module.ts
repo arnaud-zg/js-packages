@@ -114,7 +114,7 @@ export interface ReleaseModule {
   ) => Job | null;
   /** Where a tag lands and the jobs that ship it: data, never run by the module itself. */
   readonly ship: (context: DecideContext, input: AppInput) => ShipPlan;
-  /** How the tagged version does on preview, read before promoting it. Null when nothing says. */
+  /** How the tagged version does on an environment, read before promoting it. Null when nothing says. */
   readonly health?: (context: DecideContext, input: AppInput) => Promise<Health | null>;
   /** What `status --json` shows for an app, read from its platform. */
   readonly inspect?: (context: DecideContext, input: AppInput) => Promise<unknown>;

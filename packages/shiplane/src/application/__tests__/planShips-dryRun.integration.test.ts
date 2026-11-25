@@ -19,8 +19,8 @@ const notes = (told: string[]): Feature => ({
   },
 });
 
-describe("Feature: previewing with --dry-run every command a ship would run", () => {
-  it("given api tagged, when a ship is previewed, then it shows where api lands and the commands of both ways, the deploy record included, and runs nothing", async () => {
+describe("Feature: dry-running with --dry-run every command a ship would run", () => {
+  it("given api tagged, when a ship is dry-run, then it shows where api lands and the commands of both ways, the deploy record included, and runs nothing", async () => {
     // given
     const { context, output, shell, ci } = shipWorld(["api"]);
 
@@ -44,7 +44,7 @@ describe("Feature: previewing with --dry-run every command a ship would run", ()
     expect(ci.received).toEqual([]);
   });
 
-  it("given a prepare in the config, when a ship is previewed, then this machine's commands start with it, filled in for the unit", async () => {
+  it("given a prepare in the config, when a ship is dry-run, then this machine's commands start with it, filled in for the unit", async () => {
     // given
     const { context, output, shell } = shipWorld(["api"], { prepare: "make {unit} -C {dir}" });
 
@@ -61,7 +61,7 @@ describe("Feature: previewing with --dry-run every command a ship would run", ()
     expect(shell.calls).toEqual([]);
   });
 
-  it("given web not tagged yet, when a ship to production is previewed, then web says to release it first", async () => {
+  it("given web not tagged yet, when a ship to production is dry-run, then web says to release it first", async () => {
     // given
     const { context, output, source } = shipWorld(["api", "web"]);
     source.seed({ tags: { "api@0.1.0": "c-api" } });
@@ -77,7 +77,7 @@ describe("Feature: previewing with --dry-run every command a ship would run", ()
     expect(output.lines).toContain("  Plan  ·  production  · nothing runs");
   });
 
-  it("given a CI pipeline with no command line for its dispatch, when a ship is previewed, then it says in words what it would dispatch", async () => {
+  it("given a CI pipeline with no command line for its dispatch, when a ship is dry-run, then it says in words what it would dispatch", async () => {
     // given
     const { context, output, ci } = shipWorld(["api"]);
     ci.dispatchLine = undefined as unknown as typeof ci.dispatchLine;
@@ -91,7 +91,7 @@ describe("Feature: previewing with --dry-run every command a ship would run", ()
     );
   });
 
-  it("given a store upload that only runs on this machine and records nothing, when a ship is previewed, then only the upload command is shown", async () => {
+  it("given a store upload that only runs on this machine and records nothing, when a ship is dry-run, then only the upload command is shown", async () => {
     // given
     const deciding = decidingModule(() => ({ action: "none", status: "" }), {
       ship: () => ({
@@ -111,7 +111,7 @@ describe("Feature: previewing with --dry-run every command a ship would run", ()
     expect(output.text).not.toContain("Fake CI");
   });
 
-  it("given a feature that follows up on ships, when a ship is previewed, then it lists the follow-ups of the tagged apps only", async () => {
+  it("given a feature that follows up on ships, when a ship is dry-run, then it lists the follow-ups of the tagged apps only", async () => {
     // given
     const told: string[] = [];
     const tool = decidingModule(() => ({ action: "none", status: "" }), {
@@ -134,7 +134,7 @@ describe("Feature: previewing with --dry-run every command a ship would run", ()
     expect(output.lines).toContain("    comment on api@0.1.0");
   });
 
-  it("given a feature with nothing to follow up, when a ship is previewed, then no follow-up section is shown", async () => {
+  it("given a feature with nothing to follow up, when a ship is dry-run, then no follow-up section is shown", async () => {
     // given
     const { context, output } = shipWorld(["api"]);
     context.release.features = [

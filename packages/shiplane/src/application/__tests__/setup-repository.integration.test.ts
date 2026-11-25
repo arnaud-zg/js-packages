@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { MemoryFiles } from "../../adapters/files/__fakes__/memory-files.fake";
 import { serverHostingFake } from "../../adapters/server-hosting/__fakes__/server-hosting.fake";
 import { moduleFor } from "../../modules/suggest";
+import { TEST_FLOW } from "../../testing/flow";
 import {
   folderView,
   refreshEditorSchema,
@@ -49,13 +50,14 @@ describe("Feature: setup reading the repository it sets up", () => {
 describe("Feature: editor help while filling unit files", () => {
   it("given an editor schema out of date, when setup refreshes it twice, then it is written once and left alone the second time", () => {
     const files = new MemoryFiles();
-    const release = { modules: [moduleFor(cloud(), "backend-service")] } as Parameters<
-      typeof refreshEditorSchema
-    >[1];
+    const release = {
+      appFlow: TEST_FLOW,
+      modules: [moduleFor(cloud(), "backend-service")],
+    } as Parameters<typeof refreshEditorSchema>[1];
 
     expect(refreshEditorSchema(files, release)).toBe(true);
-    expect(files.read(SCHEMA_FILE)).toBe(schemaText(release.modules));
-    expect(schemaText(release.modules).endsWith("}\n")).toBe(true);
+    expect(files.read(SCHEMA_FILE)).toBe(schemaText(release.modules, TEST_FLOW.path));
+    expect(schemaText(release.modules, TEST_FLOW.path).endsWith("}\n")).toBe(true);
     expect(refreshEditorSchema(files, release)).toBe(false);
     expect(files.changes).toHaveLength(1);
   });

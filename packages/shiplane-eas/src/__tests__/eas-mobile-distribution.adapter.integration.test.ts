@@ -647,7 +647,7 @@ describe("promoting the mobile app after main moved on", () => {
 
 describe("promoting with preview's health", () => {
   const launches = { installs: 0, failedInstalls: 0, uniqueUsers: 0, crashRatePercent: 0 };
-  const previewRan = (
+  const entryRan = (
     totals: Record<"ios" | "android", Partial<typeof launches>>,
     updatedFrom = "tag-expo",
   ) => {
@@ -668,7 +668,7 @@ describe("promoting with preview's health", () => {
   };
 
   it("given the preview update crashed once, when promoting, then it shows preview's launches, asks before going on and stops when refused", async () => {
-    const { context, prompter, output } = previewRan({
+    const { context, prompter, output } = entryRan({
       ios: { installs: 3 },
       android: { installs: 12, failedInstalls: 1 },
     });
@@ -682,7 +682,7 @@ describe("promoting with preview's health", () => {
   });
 
   it("given the preview update ran with no crash, when promoting, then it shows its launches and goes on to production", async () => {
-    const { context, prompter, output } = previewRan({
+    const { context, prompter, output } = entryRan({
       ios: { installs: 3 },
       android: { installs: 12 },
     });
@@ -696,7 +696,7 @@ describe("promoting with preview's health", () => {
   });
 
   it("given preview got this release as a build, not an update, when promoting, then no health is shown and it goes on", async () => {
-    const { context, source, prompter, output } = previewRan({ ios: {}, android: {} }, "older");
+    const { context, source, prompter, output } = entryRan({ ios: {}, android: {} }, "older");
     source.seed({
       tags: { "expo@0.1.115": "tag-expo" },
       diffs: { "tag-expo..older": ["apps/expo/src/older.ts"] },

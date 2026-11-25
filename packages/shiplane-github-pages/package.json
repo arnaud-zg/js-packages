@@ -1,7 +1,7 @@
 {
   "name": "@shiplane/github-pages",
   "version": "0.5.2",
-  "description": "GitHub Pages plugin for shiplane: deploy a static site and its preview to one branch.",
+  "description": "GitHub Pages plugin for shiplane: deploy a static site, and one per environment, to one branch.",
   "keywords": [
     "shiplane",
     "github-pages",

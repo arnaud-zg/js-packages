@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { StatusPlan } from "../changes";
+import { TEST_FLOW } from "../../testing/flow";
 import { SAMPLE_UNITS } from "../../testing/sample";
 import { draggedUnits, releasedTogether } from "../companions";
 
@@ -105,7 +106,7 @@ describe("apps preview ran together, offered when promoting to production", () =
       ),
     };
 
-    expect(releasedTogether([expo], [api])).toEqual([
+    expect(releasedTogether([expo], [api], "preview")).toEqual([
       {
         app: "api",
         version: "0.0.8",
@@ -122,7 +123,7 @@ describe("apps preview ran together, offered when promoting to production", () =
       notes: notes("- Updated dependencies [9f1e2d3]", "  - @acme/assets@0.1.1"),
     };
 
-    expect(releasedTogether([expo], [admin])).toEqual([
+    expect(releasedTogether([expo], [admin], "preview")).toEqual([
       {
         app: "admin",
         version: "0.1.5",
@@ -148,7 +149,7 @@ describe("apps preview ran together, offered when promoting to production", () =
       ),
     };
 
-    expect(releasedTogether([expoMoved], [admin])).toEqual([
+    expect(releasedTogether([expoMoved], [admin], "preview")).toEqual([
       {
         app: "admin",
         version: "0.1.4",
@@ -165,6 +166,6 @@ describe("apps preview ran together, offered when promoting to production", () =
       notes: notes("- 5b6c7d8: Search results show the store links."),
     };
 
-    expect(releasedTogether([expo], [landing])).toEqual([]);
+    expect(releasedTogether([expo], [landing], "preview")).toEqual([]);
   });
 });

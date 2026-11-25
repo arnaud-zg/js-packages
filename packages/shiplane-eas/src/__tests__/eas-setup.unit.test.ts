@@ -35,6 +35,7 @@ describe("setting up an Expo app to ship with EAS", () => {
     expect(found).toEqual({
       certainty: "found",
       reason: "eas.json",
+      environments: ["preview", "production"],
       options: { update: { preview: "eas:update:preview", production: "eas:update:production" } },
     });
   });
@@ -115,4 +116,32 @@ describe("checking an Expo app is ready to ship with EAS", () => {
 
     expect(port.versionFiles?.(unit, [unit])).toEqual(["apps/expo/binary-version.json"]);
   });
+});
+
+describe("an app whose repository names its environments otherwise", () => {
+  const flow = { path: ["beta", "store"], users: "store" } as const;
+  const jobsOn = (environment: string) =>
+    eas.create({ root: "/repo", shell: new RecordingShell() }).jobs({
+      unit: testUnit("expo", { module: "mobile-app" }),
+      tag: "expo@1.0.0",
+      environment,
+      flow,
+      commit: "abc1234",
+      defaultBranch: "main",
+      options: { versionFile: "app-version.json", update: `update-${environment}` },
+    });
+
+  it.each([
+    ["beta", "expo@1.0.0"],
+    ["store", "main"],
+  ])(
+    "given %s, when its jobs are built, then EAS gets that profile and CI ships %s",
+    (environment, ref) => {
+      const [build, update] = jobsOn(environment);
+
+      expect(build?.local[0]?.args.join(" ")).toContain(`--profile ${environment}`);
+      expect(update?.local[0]?.env).toEqual({ APP_VARIANT: environment });
+      expect(update?.ci).toEqual({ ref });
+    },
+  );
 });

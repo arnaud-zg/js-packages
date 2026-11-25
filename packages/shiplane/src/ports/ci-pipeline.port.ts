@@ -19,9 +19,9 @@ export interface CallerNeeds {
   /** What the runner's token must be allowed, on top of what every ship needs. */
   permissions?: Readonly<Record<string, "read" | "write">>;
   /** Where its runs may ship to, in the order they are offered. */
-  environments?: readonly string[];
+  environments: readonly string[];
   /** Those of them apps deploy to: only these take a tag to check out. */
-  apps?: readonly string[];
+  apps: readonly string[];
   /** The variables a ship reads from the CI's settings, by name, sorted. */
   variables?: readonly string[];
 }

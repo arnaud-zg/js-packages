@@ -4,7 +4,7 @@ import type { PlannedChangeset } from "../../domain/changes";
 import type { Approval } from "../../domain/releasePr";
 import { planFrom } from "../../testing/plans";
 import { changesetText, testContext, testUnit } from "../../testing/releaseContext";
-import { releaseToPreview } from "../releaseToPreview";
+import { releaseToEntry } from "../releaseToEntry";
 
 const RATE_LIMIT: PlannedChangeset = {
   id: "rate-limit",
@@ -50,7 +50,7 @@ describe("Feature: waiting for a release PR", () => {
       world.host.seed({ openPrs: [OPEN_12] });
 
       // when
-      const ok = await releaseToPreview(world.context);
+      const ok = await releaseToEntry(world.context);
 
       // then
       expect(ok).toBe(true);
@@ -68,7 +68,7 @@ describe("Feature: waiting for a release PR", () => {
       world.prompter.press("m");
 
       // when
-      await releaseToPreview(world.context);
+      await releaseToEntry(world.context);
 
       // then
       expect(world.output.text).toContain("Waiting for approval on #12");
@@ -88,7 +88,7 @@ describe("Feature: waiting for a release PR", () => {
       world.prompter.press("m").answer("--squash");
 
       // when
-      await releaseToPreview(world.context);
+      await releaseToEntry(world.context);
 
       // then
       expect(world.output.lines).toContain(
@@ -107,7 +107,7 @@ describe("Feature: coming back to a release", () => {
       world.host.seed({ openPrs: [OPEN_12] });
 
       // when
-      const ok = await releaseToPreview(world.context);
+      const ok = await releaseToEntry(world.context);
 
       // then
       expect(ok).toBe(true);
@@ -132,7 +132,7 @@ describe("Feature: coming back to a release", () => {
       world.prompter.answer(true);
 
       // when
-      await releaseToPreview(world.context);
+      await releaseToEntry(world.context);
 
       // then
       expect(world.output.text).toContain("↻ Picking up a merged release");
@@ -150,7 +150,7 @@ describe("Feature: coming back to a release", () => {
       world.host.seed({ openPrs: [OPEN_12], prStates: { 12: ["OPEN", "CLOSED"] } });
 
       // when
-      const ok = await releaseToPreview(world.context);
+      const ok = await releaseToEntry(world.context);
 
       // then
       expect(ok).toBe(true);
@@ -160,7 +160,7 @@ describe("Feature: coming back to a release", () => {
       // and when shiplane runs again
       world.host.seed({ openPrs: [], prStates: { 1800: ["OPEN", "MERGED"] } });
       world.prompter.answer(["api"], "minor");
-      await releaseToPreview(world.context);
+      await releaseToEntry(world.context);
 
       // then
       expect(opened(world)).toHaveLength(1);
@@ -187,7 +187,7 @@ describe("Feature: main moved while the release PR waited", () => {
       world.source.seed(MOVED);
 
       // when
-      const ok = await releaseToPreview(world.context);
+      const ok = await releaseToEntry(world.context);
 
       // then
       expect(ok).toBe(true);
@@ -218,7 +218,7 @@ describe("Feature: main moved while the release PR waited", () => {
       world.host.failCreate(new Error("the host is down"));
 
       // when
-      const ok = await releaseToPreview(world.context);
+      const ok = await releaseToEntry(world.context);
 
       // then
       expect(ok).toBe(false);

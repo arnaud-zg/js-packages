@@ -487,7 +487,7 @@ describe("shipping to an environment, fire and forget", () => {
         { title: "Deploy admin@0.1.3 to preview", state: "done" },
       ],
     });
-    prompter.answer("prod");
+    prompter.answer("yes");
 
     expect(await shipTo(context, "production", {})).toBe(false);
     expect(host.received).toEqual([]);

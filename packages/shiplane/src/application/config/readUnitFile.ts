@@ -7,7 +7,6 @@ import type { Environment } from "../../domain/environment";
 import type { ReleaseModule } from "../../modules/module";
 import type { ConfigProblem } from "./problem";
 import { EnvToCheck, isEnvVarName } from "../../domain/checkEnvBeforeDeploy";
-import { DEFAULT_FLOW } from "../../domain/environment";
 import { didYouMean } from "./problem";
 import { checkEnvBeforeDeploySchema, keysAt, unitSchema } from "./unitSchema";
 import { isRecord } from "./values";
@@ -53,7 +52,7 @@ const closestBranch = (branches: readonly (readonly z.core.$ZodIssue[])[]) =>
 const describeIssue = (
   issue: z.core.$ZodIssue,
   file: string,
-  module: ReleaseModule,
+  { module, schema }: { module: ReleaseModule; schema: z.ZodType },
   lineAt: ReturnType<typeof locate>,
 ): ConfigProblem[] => {
   const at = issue.path;
@@ -61,7 +60,7 @@ const describeIssue = (
     const branch = closestBranch(issue.errors);
     if (branch) {
       return branch.flatMap((inner) =>
-        describeIssue({ ...inner, path: [...at, ...inner.path] }, file, module, lineAt),
+        describeIssue({ ...inner, path: [...at, ...inner.path] }, file, { module, schema }, lineAt),
       );
     }
   }
@@ -70,7 +69,7 @@ const describeIssue = (
       file,
       line: lineAt(at, key),
       message: `unknown key "${[...at, key].join(".")}" for ${module.name}`,
-      hint: didYouMean(key, keysAt(module.settings, at)),
+      hint: didYouMean(key, keysAt(schema, at)),
     }));
   }
   const name = at.join(".");
@@ -106,8 +105,8 @@ export const readUnitFile = (
   file: string,
   text: string,
   modules: readonly ReleaseModule[],
-  features: readonly string[] = [],
-  path: readonly Environment[] = DEFAULT_FLOW.path,
+  features: readonly string[],
+  path: readonly Environment[] | undefined,
 ): { unit?: UnitFile; problems: ConfigProblem[] } => {
   const counter = new LineCounter();
   const doc = parseDocument(text, { lineCounter: counter, uniqueKeys: true, prettyErrors: false });
@@ -153,10 +152,13 @@ export const readUnitFile = (
       didYouMean(named, names) ?? oneOf,
     );
   }
-  const parsed = unitSchema(module, path).safeParse(data);
+  const schema = unitSchema(module, path);
+  const parsed = schema.safeParse(data);
   if (!parsed.success) {
     return {
-      problems: parsed.error.issues.flatMap((issue) => describeIssue(issue, file, module, lineAt)),
+      problems: parsed.error.issues.flatMap((issue) =>
+        describeIssue(issue, file, { module, schema }, lineAt),
+      ),
     };
   }
   const options = Object.fromEntries(Object.entries(data).filter(([key]) => !CORE_KEYS.has(key)));

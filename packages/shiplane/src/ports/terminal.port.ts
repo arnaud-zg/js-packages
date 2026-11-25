@@ -31,7 +31,7 @@ export interface Prompter {
   readonly interactive: boolean;
   /** `initial` is the answer offered first: No unless said. */
   confirm: (question: string, initial?: boolean) => Promise<boolean>;
-  /** The typed confirmation production asks for: true only when the word is typed exactly. */
+  /** The typed confirmation asked for where users are: true only when the word is typed exactly. */
   typed: (question: string, word: string) => Promise<boolean>;
   select: <Value extends string>(
     message: string,

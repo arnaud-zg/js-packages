@@ -1,5 +1,5 @@
 import { isEnvVarName } from "shiplane/plugin";
-import { RecordingShell, testUnit } from "shiplane/testing";
+import { RecordingShell, TEST_FLOW, testUnit } from "shiplane/testing";
 import { describe, expect, it } from "vitest";
 
 import { easMobileDistribution } from "../eas-mobile-distribution.adapter";
@@ -20,7 +20,12 @@ describe("the env EAS holds for an app", () => {
       stdout: "EXPO_PUBLIC_API_URL=https://api-preview.example.com\nSENTRY_DSN=*****\n",
     });
 
-    const listed = await envOf(shell).listNames({ unit, environment: "preview", options });
+    const listed = await envOf(shell).listNames({
+      flow: TEST_FLOW,
+      unit,
+      environment: "preview",
+      options,
+    });
 
     expect([...listed]).toEqual(["EXPO_PUBLIC_API_URL", "SENTRY_DSN"]);
     expect(shell.calls[0]).toMatchObject({
@@ -37,12 +42,13 @@ describe("the env EAS holds for an app", () => {
     });
 
     await expect(
-      envOf(shell).listNames({ unit, environment: "production", options }),
+      envOf(shell).listNames({ flow: TEST_FLOW, unit, environment: "production", options }),
     ).rejects.toThrow("eas env:list production: Not logged in");
   });
 
   it("given two unset names, when the set command is printed, then each is created as a secret on that environment, run from the app's folder", () => {
     const command = envOf(new RecordingShell()).setCommand({
+      flow: TEST_FLOW,
       unit,
       environment: "production",
       options,

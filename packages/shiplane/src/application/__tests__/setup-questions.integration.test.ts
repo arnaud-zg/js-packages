@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { packageRegistryFake } from "../../adapters/package-registry/__fakes__/package-registry.fake";
 import { serverHostingFake } from "../../adapters/server-hosting/__fakes__/server-hosting.fake";
 import { staticHostingFake } from "../../adapters/static-hosting/__fakes__/static-hosting.fake";
+import { TEST_FLOW } from "../../testing/flow";
 import { detecting, memoryRepository } from "../../testing/memoryRepository";
 import { setup } from "../setup";
 import { SCHEMA_FILE, schemaText } from "../setupFiles";
@@ -93,7 +94,9 @@ describe("Feature: setup says what it found", () => {
     ]);
     expect(prompter.initials["Your apps and packages are in apps/* (1 folders)?"]).toBe(true);
     expect(prompter.initials["Releasable. Write it?"]).toBe(true);
-    expect(files.read(SCHEMA_FILE)).toBe(schemaText((await context.load()).modules));
+    expect(files.read(SCHEMA_FILE)).toBe(
+      schemaText((await context.load()).modules, TEST_FLOW.path),
+    );
     expect(files.read("apps/api/shiplane.unit.yml")).toContain(
       "# yaml-language-server: $schema=../../node_modules/.cache/shiplane/schema.json",
     );
@@ -583,4 +586,77 @@ describe("Feature: stopping setup part way writes nothing", () => {
       expect(repo.files.changes).toEqual([]);
     },
   );
+});
+
+describe("Feature: naming the environments apps go through", () => {
+  const unnamed = (files: Record<string, string> = PROVEN, interactive = true) => {
+    const repo = given(files, { interactive });
+    return { ...repo, context: { ...repo.context, environments: undefined } };
+  };
+  const QUESTION =
+    "Which environments do your apps go through, in order, where users are last? (comma separated)";
+
+  it("given an app and no name, when setup runs, then it asks and writes the steps in that order", async () => {
+    const { context, prompter, files } = unnamed();
+    prompter.answer(true, "dev, review, public", true);
+
+    expect(await setup(context, { yes: false })).toBe(true);
+
+    expect(prompter.asked).toContain(QUESTION);
+    expect(files.read("shiplane.config.ts")).toContain(
+      'deployApps: { promote: [{ from: "dev", to: "review" }, { from: "review", to: "public" }] },',
+    );
+  });
+
+  it("given names a file per environment shows, when setup asks, then they are offered to edit", async () => {
+    const seen = {
+      ...cloud(),
+      detect: () => ({
+        certainty: "found" as const,
+        reason: "x",
+        options: { service: "a" },
+        environments: ["blue", "green"],
+      }),
+    };
+    const repo = memoryRepository(PROVEN, [seen]);
+    repo.shell.seed("git remote get-url origin", { stdout: "git@github.com:acme/mono.git\n" });
+    const initials = recordTextInitials(repo.prompter);
+    repo.prompter.answer(true, null);
+
+    await setup({ ...repo.context, environments: undefined }, { yes: false });
+
+    expect(initials[QUESTION]).toBe("blue, green");
+  });
+
+  it("given one name, when setup writes it, then apps go straight there", async () => {
+    const { context, prompter, files } = unnamed();
+    prompter.answer(true, "Not A Name", "public", true);
+
+    expect(await setup(context, { yes: false })).toBe(true);
+
+    expect(files.read("shiplane.config.ts")).toContain(
+      'deployApps: { promote: [{ to: "public" }] },',
+    );
+  });
+
+  it("given --yes and no name, when setup runs, then it invents none and says what to add", async () => {
+    const { context, output, files } = unnamed();
+
+    expect(await setup(context, { yes: true })).toBe(false);
+
+    expect(output.text).toContain("add --environments <first>,<where users are>");
+    expect(files.exists("shiplane.config.ts")).toBe(false);
+  });
+
+  it("given packages only, when setup runs, then no environment is asked or written", async () => {
+    const registry = detecting(packageRegistryFake(), "registry", "package.json");
+    const { context, prompter, files, shell } = memoryRepository(PROVEN, [registry]);
+    shell.seed("git remote get-url origin", { stdout: "git@github.com:acme/mono.git\n" });
+    prompter.answer(true, true);
+
+    expect(await setup({ ...context, environments: undefined }, { yes: false })).toBe(true);
+
+    expect(prompter.asked).not.toContain(QUESTION);
+    expect(files.read("shiplane.config.ts")).not.toContain("deployApps");
+  });
 });

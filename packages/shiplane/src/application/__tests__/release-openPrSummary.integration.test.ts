@@ -62,7 +62,7 @@ const setUp = ({
 };
 
 describe("seeing what a release will do before anything is written", () => {
-  it("given api picked and admin left out, when the person previews the release, then api ships with its host and admin is held with its changesets pending", async () => {
+  it("given api picked and admin left out, when the person dry-runs the release, then api ships with its host and admin is held with its changesets pending", async () => {
     const { context, output, prompter } = setUp();
     prompter.answer(false);
 
@@ -84,7 +84,7 @@ describe("seeing what a release will do before anything is written", () => {
     ]);
   });
 
-  it("given api and admin picked, when the person previews the release, then the steps open one release PR per app, each named", async () => {
+  it("given api and admin picked, when the person dry-runs the release, then the steps open one release PR per app, each named", async () => {
     const { context, output, prompter } = setUp();
     prompter.answer(false);
 
@@ -110,7 +110,7 @@ describe("seeing what a release will do before anything is written", () => {
     ]);
   });
 
-  it("given a plugin that adds lines and a step for admin, when the person previews the release, then its lines stand under admin and its step is numbered", async () => {
+  it("given a plugin that adds lines and a step for admin, when the person dry-runs the release, then its lines stand under admin and its step is numbered", async () => {
     const { context, output, prompter } = setUp({
       adminModule: "contributing-app",
       modules: [
@@ -134,7 +134,7 @@ describe("seeing what a release will do before anything is written", () => {
     expect(output.lines).toContain("  3. Build admin on the store");
   });
 
-  it("given an app with no change, when the person previews the release, then it says nothing changed for it", async () => {
+  it("given an app with no change, when the person dry-runs the release, then it says nothing changed for it", async () => {
     const world = testContext({
       units: [testUnit("api", { version: "0.0.1" }), testUnit("landing", { version: "1.0.0" })],
     });
@@ -221,7 +221,7 @@ describe("seeing which apps a release takes along", () => {
     return world;
   };
 
-  it("given expo picked and api moved by a package it uses, when the person previews the release, then api goes along, named with why and its own waiting changeset", async () => {
+  it("given expo picked and api moved by a package it uses, when the person dry-runs the release, then api goes along, named with why and its own waiting changeset", async () => {
     const { context, output, prompter } = setUpAlong();
     prompter.answer(false);
 

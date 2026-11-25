@@ -43,8 +43,8 @@ import { myHostServerHosting } from "./my-host";
 
 // The contract every server host passes, run on this adapter and on the Fake tests use in its place.
 serverHostingContract([
-  { adapter: myHostServerHosting(), settings: { service: "web-preview" } },
-  { adapter: serverHostingFake(), settings: { service: "web-preview" } },
+  { adapter: myHostServerHosting(), settings: { service: "web-first" } },
+  { adapter: serverHostingFake(), settings: { service: "web-first" } },
 ]);
 `);
     const config = files.read("shiplane.config.ts") ?? "";

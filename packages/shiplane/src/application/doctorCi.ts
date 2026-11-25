@@ -4,7 +4,7 @@ import { z } from "zod";
 import type { Requirement } from "../ports/delivery.port";
 import type { Release } from "./config/loadRelease";
 import type { SetupContext } from "./setupContext";
-import { LIVE } from "../domain/environment";
+import { RELEASE_CHANNEL } from "../domain/environment";
 import { channelProblem } from "../domain/testChannel";
 import { checkStatus, requirementsOf, signInsOf } from "./requirements";
 import { paint } from "./say";
@@ -120,8 +120,7 @@ export const doctorCi = async (
   // Anything but an environment publishes packages: live, or a test release's channel.
   const publishes =
     packages.length > 0 &&
-    !path.includes(channel) &&
-    (channel === LIVE || channelProblem(channel) === null);
+    (channel === RELEASE_CHANNEL || (!path.includes(channel) && channelProblem(channel) === null));
   const named = unitsSchema(known).safeParse(
     units.length > 0 ? units : publishes ? packages : known,
   );

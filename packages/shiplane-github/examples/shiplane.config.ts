@@ -14,6 +14,7 @@ export default defineRelease({
     ciPipeline: gitHubActionsCiPipeline({ shipWorkflow: "deploy.yml" }),
     versioning: changesetsVersioning(),
   }),
+  deployApps: { promote: [{ from: "preview", to: "production" }] },
   modules: [backendService({ serverHosting: shellServerHosting() })],
   // After a ship, each PR in the version and each issue it relates to hears about it.
   features: [releaseComments({ codeHost, sourceControl })],

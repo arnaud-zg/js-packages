@@ -26,7 +26,7 @@ export interface ReleaseContext {
   /** The repository's files, as a branch release writes and puts back its versions. */
   files: Files;
   options: {
-    /** Answers yes to every confirmation; production never accepts it. */
+    /** Answers yes to every confirmation; where users are never accepts it. */
     yes: boolean;
     /** Running inside GitHub Actions: a ship runs on this runner, never dispatching another. */
     ci: boolean;

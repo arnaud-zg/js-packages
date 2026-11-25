@@ -12,7 +12,7 @@ import {
   versioningFake,
 } from "shiplane/testing";
 
-export default defineRelease({
+export default defineRelease({ deployApps: { promote: [{ from: "preview", to: "production" }] },
   flow: releaseFlow({
     sourceControl: sourceControlFake(),
     codeHost: codeHostFake(),

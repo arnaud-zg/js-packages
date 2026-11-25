@@ -16,7 +16,7 @@ import { rehearsal } from "shiplane/rehearsal";
 
 const fakes = rehearsal();
 
-export default defineRelease({
+export default defineRelease({ deployApps: { promote: [{ from: "preview", to: "production" }] },
   flow: releaseFlow({
     sourceControl: fakes.sourceControl,
     codeHost: fakes.codeHost,

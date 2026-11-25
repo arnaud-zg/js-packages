@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
 
+import type { DeployFlow } from "../../domain/environment";
 import { ciPipelineFake } from "../../adapters/ci-pipeline/__fakes__/ci-pipeline.fake";
 import { MemoryFiles } from "../../adapters/files/__fakes__/memory-files.fake";
 import { packageRegistryFake } from "../../adapters/package-registry/__fakes__/package-registry.fake";
 import { serverHostingFake } from "../../adapters/server-hosting/__fakes__/server-hosting.fake";
-import { DEFAULT_FLOW } from "../../domain/environment";
 import { registryDecision } from "../../domain/registry";
 import { scopeChoices } from "../../domain/scope";
 import { backendService } from "../../modules/backend-service/backend-service.module";
 import { publishedPackage } from "../../modules/published-package/published-package.module";
+import { TEST_FLOW } from "../../testing/flow";
 import { testContext, testUnit } from "../../testing/releaseContext";
 import { branchRelease } from "../branchRelease";
 import { callerWrite } from "../callerWorkflow";
@@ -39,8 +40,12 @@ const given = (config: object, units = [API]) => {
   };
 };
 
-const STRAIGHT = { appFlow: { path: ["production"], users: "production" } };
-const THREE = { appFlow: { path: ["dev", "staging", "prod"], users: "prod" } };
+const STRAIGHT: { appFlow: DeployFlow } = {
+  appFlow: { path: ["production"], users: "production" },
+};
+const THREE: { appFlow: DeployFlow } = {
+  appFlow: { path: ["dev", "review", "public"], users: "public" },
+};
 
 describe("Feature: choosing the environments apps go through", () => {
   it("given production only, when a release ships, then production gets it with no environment before, its name typed", async () => {
@@ -56,13 +61,13 @@ describe("Feature: choosing the environments apps go through", () => {
 
   it.each([
     ["production", {}, "preview"],
-    ["staging", THREE, "dev"],
-    ["prod", THREE, "staging"],
+    ["review", THREE, "dev"],
+    ["public", THREE, "review"],
   ])(
     "given %s asked before what comes first, when it ships, then it refuses",
     async (environment, config, first) => {
       const { context, prompter, output, shell } = given(config);
-      if (environment !== "staging") prompter.answer(environment);
+      if (environment !== "review") prompter.answer(environment);
 
       await shipTo(context, environment, { via: "local" });
 
@@ -73,21 +78,21 @@ describe("Feature: choosing the environments apps go through", () => {
 
   it("given three environments and a version on the second, when it ships to the third, then it goes, its name typed", async () => {
     const { context, prompter, host } = given(THREE);
-    host.seed({ deployments: [{ title: "Deploy api@1.0.0 to staging", state: "done" }] });
-    prompter.answer("prod", true);
+    host.seed({ deployments: [{ title: "Deploy api@1.0.0 to review", state: "done" }] });
+    prompter.answer("public", true);
 
-    expect(await shipTo(context, "prod", { via: "local" })).toBe(true);
+    expect(await shipTo(context, "public", { via: "local" })).toBe(true);
 
-    expect(prompter.asked[0]).toBe('Type "prod" to start:');
-    expect(host.received).toMatchObject([{ environment: "prod" }]);
+    expect(prompter.asked[0]).toBe('Type "public" to start:');
+    expect(host.received).toMatchObject([{ environment: "public" }]);
   });
 
   it("given three environments, when --yes ships to the one users are on, then it refuses, and not for the others", async () => {
     const { context, output, host } = given(THREE);
     const yes = { ...context, options: { yes: true, ci: false } };
 
-    expect(await shipTo(yes, "prod", { via: "local" })).toBe(false);
-    expect(output.text).toContain("No --yes on prod");
+    expect(await shipTo(yes, "public", { via: "local" })).toBe(false);
+    expect(output.text).toContain("No --yes on public");
     expect(await shipTo(yes, "dev", { via: "local" })).toBe(true);
     expect(host.received).toMatchObject([{ environment: "dev" }]);
   });
@@ -95,7 +100,7 @@ describe("Feature: choosing the environments apps go through", () => {
   it.each([
     ["production", STRAIGHT, "1.0.0 released, not on production yet", true],
     ["dev", THREE, "1.0.0 released, not on dev yet", true],
-    ["staging", THREE, "1.0.0 is not on dev yet: release it there first", false],
+    ["review", THREE, "1.0.0 is not on dev yet: release it there first", false],
   ])(
     "given a tagged app, when %s's scope is read, then it says where it stands",
     async (environment, config, hint, pending) => {
@@ -111,15 +116,15 @@ describe("Feature: choosing the environments apps go through", () => {
   it("given three environments, when a person promotes, then they pick where it goes", async () => {
     const { context, prompter, host } = given(THREE);
     host.seed({ deployments: [{ title: "Deploy api@1.0.0 to dev", state: "done" }] });
-    prompter.answer("staging", ["api"], true);
+    prompter.answer("review", ["api"], true);
 
     expect(await promote(context, "local")).toBe(true);
 
     expect(prompter.choices["Promote to?"]?.map(({ value, hint }) => [value, hint])).toEqual([
-      ["staging", "from what dev runs"],
-      ["prod", "from what staging runs"],
+      ["review", "from what dev runs"],
+      ["public", "from what review runs"],
     ]);
-    expect(host.received).toMatchObject([{ environment: "staging" }]);
+    expect(host.received).toMatchObject([{ environment: "review" }]);
   });
 
   it("given an option written per environment, when it is read, then each name has its value", () => {
@@ -127,7 +132,7 @@ describe("Feature: choosing the environments apps go through", () => {
     const module = backendService({ serverHosting: serverHostingFake() });
     const unit = testUnit("api", {
       module: "backend-service",
-      options: { service: "acme", url: { dev: "d", staging: "s", prod: "p" } },
+      options: { service: "acme", url: { dev: "d", review: "s", public: "p" } },
     });
 
     const urls = THREE.appFlow.path.map(
@@ -138,9 +143,9 @@ describe("Feature: choosing the environments apps go through", () => {
   });
 
   it.each([
-    ["production", DEFAULT_FLOW, "not-on-preview"],
+    ["production", TEST_FLOW, "not-on-previous"],
     ["production", STRAIGHT.appFlow, "publish"],
-    ["prod", THREE.appFlow, "not-on-preview"],
+    ["public", THREE.appFlow, "not-on-previous"],
     ["dev", THREE.appFlow, "publish"],
   ])(
     "given a registry asked for %s, when it decides, then the environment before counts",
@@ -163,11 +168,11 @@ describe("Feature: choosing the environments apps go through", () => {
 
 describe("Feature: choosing the channels packages publish on", () => {
   it("given channels without beta, when beta is asked, then it refuses and names them", async () => {
-    const { context, output } = given({ channels: ["nightly", "live"] }, [LIB]);
+    const { context, output } = given({ channels: ["nightly", "latest"] }, [LIB]);
 
     expect(await branchRelease(context, { onDefault: "publish", channel: "beta" })).toBe(false);
 
-    expect(output.text).toContain("publishPackages.channels is nightly, live");
+    expect(output.text).toContain("publishPackages.channels is nightly, latest");
   });
 });
 
@@ -181,7 +186,7 @@ describe("Feature: choosing what a branch publishes", () => {
   });
 
   it("given channels only, when a snapshot is asked, then it is not refused", async () => {
-    const { context, output } = given({ channels: ["live"] }, [LIB]);
+    const { context, output } = given({ channels: ["latest"] }, [LIB]);
 
     await branchRelease(context, { onDefault: "publish", channel: "snapshot", dryRun: true });
 
@@ -259,20 +264,25 @@ describe("Feature: deploying apps from a branch", () => {
 });
 
 describe("Feature: ship.yml lists what the config says", () => {
-  const every = ["snapshot", "nightly", "alpha", "beta", "rc", "live"];
+  const every = ["snapshot", "nightly", "alpha", "beta", "rc", "latest"];
 
   it.each([
     ["apps", {}, [API], ["preview", "production"]],
     ["apps on production only", STRAIGHT, [API], ["production"]],
-    ["apps on three", THREE, [API], ["dev", "staging", "prod"]],
+    ["apps on three", THREE, [API], ["dev", "review", "public"]],
     ["packages", {}, [LIB], every],
     [
       "packages on two channels",
-      { channels: ["nightly", "live"] },
+      { channels: ["nightly", "latest"] },
       [LIB],
-      ["snapshot", "nightly", "live"],
+      ["snapshot", "nightly", "latest"],
     ],
-    ["packages with nothing on a branch", { channels: ["live"], onBranch: false }, [LIB], ["live"]],
+    [
+      "packages with nothing on a branch",
+      { channels: ["latest"], onBranch: false },
+      [LIB],
+      ["latest"],
+    ],
     ["both", {}, [API, LIB], ["preview", "production", ...every]],
   ])("given %s, when setup writes it, then it asks for those", async (_, config, units, listed) => {
     const { context } = given(config, units);

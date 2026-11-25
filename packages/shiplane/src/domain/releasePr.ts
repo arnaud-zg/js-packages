@@ -185,7 +185,7 @@ export const releaseCommitBody = (bumps: AppBump[]) =>
 
 /**
  * The release PR's body; `onMerge` says what happens to each unit once it is merged, `where` where
- * the run ships them, such as "to preview".
+ * the run ships them, such as "to staging".
  */
 export const releasePrBody = (
   bumps: AppBump[],

@@ -15,7 +15,7 @@ export default defineRelease({
   modules: [publishedPackage({ packageRegistry: npmPackageRegistry({ staged: true }) })],
   // Packages only: nothing here deploys. From the earliest channel to the release.
   publishPackages: {
-    channels: ["nightly", "alpha", "beta", "rc", "live"],
+    channels: ["nightly", "alpha", "beta", "rc", "latest"],
     onBranch: "snapshot",
   },
   // Each package is built before it publishes: npm gets what this commit holds, not an older dist.

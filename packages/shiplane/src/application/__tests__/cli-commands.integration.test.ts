@@ -18,7 +18,7 @@ import { rehearsal } from "shiplane/rehearsal";
 
 const fakes = rehearsal();
 
-export default defineRelease({
+export default defineRelease({ deployApps: { promote: [{ from: "preview", to: "production" }] },
   flow: releaseFlow({
     sourceControl: fakes.sourceControl,
     codeHost: fakes.codeHost,
@@ -155,7 +155,7 @@ describe("Feature: finding the right command from the help", () => {
     expect(await run("help", "all")).toBe(0);
 
     expect(stdout()).toContain("shiplane remove <unit>          stop shipping a unit");
-    expect(stdout()).toContain("--channel <environment>         preview or production, or yours");
+    expect(stdout()).toContain("--channel <environment>         one deployApps.promote names");
   });
 
   it("given a mistyped command, when the person runs it, then shiplane names the word, lists every command and fails", async () => {
@@ -169,7 +169,7 @@ describe("Feature: finding the right command from the help", () => {
 });
 
 describe("Feature: choosing how and where a command ships with flags", () => {
-  it("given a script still passing --via github, when a ship is previewed, then the person is told the flag is now --via ci", async () => {
+  it("given a script still passing --via github, when a ship is dry-run, then the person is told the flag is now --via ci", async () => {
     const { run } = given();
 
     expect(await run("ship", "--dry-run", "--via", "github")).toBe(0);
@@ -188,12 +188,12 @@ describe("Feature: choosing how and where a command ships with flags", () => {
   it("given a channel shiplane does not know, when status is asked for it, then shiplane refuses rather than guess", async () => {
     const { run } = given();
 
-    expect(await run("status", "--channel", "staging")).toBe(1);
+    expect(await run("status", "--channel", "elsewhere")).toBe(1);
 
-    expect(stdout()).toContain('unknown environment "staging": preview, production');
+    expect(stdout()).toContain('unknown environment "elsewhere": preview, production');
   });
 
-  it("given a ship through this machine, when it is previewed, then no renamed-flag notice is shown", async () => {
+  it("given a ship through this machine, when it is dry-run, then no renamed-flag notice is shown", async () => {
     const { run } = given();
 
     expect(await run("ship", "--dry-run", "--via", "local")).toBe(0);
@@ -348,8 +348,8 @@ describe("Feature: seeing which providers and modules the release is wired to", 
   });
 });
 
-describe("Feature: previewing a ship before anything runs", () => {
-  it("given tagged apps, when the person previews a ship, then they see the preview dispatch and nothing is dispatched", async () => {
+describe("Feature: dry-running a ship before anything runs", () => {
+  it("given tagged apps, when the person dry-runs a ship, then they see the preview dispatch and nothing is dispatched", async () => {
     const { run, output, fakes } = given();
 
     expect(await run("ship", "--dry-run")).toBe(0);
@@ -359,7 +359,7 @@ describe("Feature: previewing a ship before anything runs", () => {
     expect(fakes.ciPipeline.fake.received).toEqual([]);
   });
 
-  it("given tagged apps, when the person previews a promote, then they see the production dispatch and nothing is dispatched", async () => {
+  it("given tagged apps, when the person dry-runs a promote, then they see the production dispatch and nothing is dispatched", async () => {
     const { run, output, fakes } = given();
 
     expect(await run("promote", "--dry-run")).toBe(0);

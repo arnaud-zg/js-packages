@@ -311,7 +311,7 @@ describe("knowing what GitHub Deployments already shipped", () => {
               nodes: [
                 { environment: "preview", state: "SUCCESS", ref: { name: "api@1.0.0" } },
                 { environment: "production", state: "IN_PROGRESS", ref: { name: "api@1.0.0" } },
-                { environment: "staging", state: "SUCCESS", ref: { name: "api@1.0.0" } },
+                { environment: "elsewhere", state: "SUCCESS", ref: { name: "api@1.0.0" } },
                 { environment: "preview", state: null, ref: { name: "web@1.0.0" } },
                 { environment: "preview", state: "SUCCESS", ref: null },
                 { environment: "production", state: "FAILURE", ref: { name: "web@1.0.0" } },
@@ -322,7 +322,7 @@ describe("knowing what GitHub Deployments already shipped", () => {
       }),
     );
 
-    await expect(hostOn(gh).deployments()).resolves.toEqual([
+    await expect(hostOn(gh).deployments(["preview", "production"])).resolves.toEqual([
       { title: "Deploy api@1.0.0 to preview", state: "done" },
       { title: "Deploy api@1.0.0 to production", state: "running" },
       { title: "Deploy web@1.0.0 to production", state: "none" },

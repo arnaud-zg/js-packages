@@ -1,5 +1,5 @@
 import type { DeployFlow, Environment } from "./environment";
-import { DEFAULT_FLOW, entryOf, previousOf } from "./environment";
+import { entryOf, previousOf } from "./environment";
 import { plural } from "./words";
 
 /** A unit whose live state its own platform knows, not GitHub Deployments: EAS for a mobile app. */
@@ -27,7 +27,7 @@ export interface ScopeInfo {
   /** GitHub Deployments record that version on the channel being released. */
   onChannel: boolean;
   /** ...and on the environment before it, which it is promoted from. */
-  onPreview: boolean;
+  onPrevious: boolean;
   decidedBy?: DecidedBy;
   /** Nothing deploys it: once tagged, every environment has it. */
   releaseOnly?: boolean;
@@ -102,7 +102,7 @@ const releaseChoice = (
 };
 
 const promoteChoice = (
-  { version, tagged, onChannel, onPreview, decidedBy, releaseOnly }: ScopeInfo,
+  { version, tagged, onChannel, onPrevious, decidedBy, releaseOnly }: ScopeInfo,
   environment: Environment,
   previous: Environment,
 ) => {
@@ -118,7 +118,7 @@ const promoteChoice = (
   }
   if (onChannel)
     return { pending: false, kind: NOTHING, hint: `${version} is on ${environment}, nothing new` };
-  return onPreview
+  return onPrevious
     ? {
         pending: true,
         kind: "to promote",
@@ -135,7 +135,7 @@ const promoteChoice = (
 export const scopeChoices = (
   apps: ScopeInfo[],
   environment: Environment,
-  flow: DeployFlow = DEFAULT_FLOW,
+  flow: DeployFlow,
 ): ScopeChoice[] => {
   const previous = previousOf(flow, environment);
   return apps.map((info) => ({

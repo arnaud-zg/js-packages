@@ -134,7 +134,7 @@ describe("shiplane.yml beside shiplane.config.ts", () => {
 
     const release = await load(root);
 
-    expect(release.problems).toEqual([expect.objectContaining({ file: "shiplane.yml", line: 14 })]);
+    expect(release.problems).toEqual([expect.objectContaining({ file: "shiplane.yml", line: 16 })]);
   });
 
   it("given a key shiplane.yml does not hold, when the release loads, then it lists the keys it does", async () => {
@@ -143,7 +143,7 @@ describe("shiplane.yml beside shiplane.config.ts", () => {
     const release = await load(root);
 
     expect(release.problems[0]).toMatchObject({
-      line: 13,
+      line: 15,
       message: "plugins is not a key of shiplane.yml",
     });
   });

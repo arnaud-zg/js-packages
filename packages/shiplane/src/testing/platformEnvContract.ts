@@ -5,6 +5,7 @@ import type { Environment } from "../domain/environment";
 import type { DeliveryAdapter } from "../ports/adapter.port";
 import { optionsFor } from "../application/config/optionsFor";
 import { isEnvVarName } from "../domain/checkEnvBeforeDeploy";
+import { TEST_FLOW } from "./flow";
 import { testUnit } from "./releaseContext";
 
 /** One adapter's env, with the shells that answer its listing: one that lists, one that fails. */
@@ -28,6 +29,7 @@ export const platformEnvContract = (cases: PlatformEnvCase[]) =>
         { ...unit, options: adapter.settings.parse(settings) },
         environment,
         [unit],
+        TEST_FLOW.path,
       );
       const envOn = (shell: RecordingShell) => {
         if (!adapter.env) throw new Error(`${adapter.name} lists no env`);
@@ -35,21 +37,32 @@ export const platformEnvContract = (cases: PlatformEnvCase[]) =>
       };
 
       it("given names set on the platform, when they are listed, then each is there as an env var name", async () => {
-        const listed = await envOn(listing.shell).listNames({ unit, environment, options });
+        const listed = await envOn(listing.shell).listNames({
+          unit,
+          environment,
+          flow: TEST_FLOW,
+          options,
+        });
 
         expect([...listed]).toEqual(expect.arrayContaining([...listing.names]));
         expect([...listed].every(isEnvVarName)).toBe(true);
       });
 
       it("given a listing the platform refuses, when names are listed, then it fails saying why", async () => {
-        await expect(envOn(failing).listNames({ unit, environment, options })).rejects.toThrow(
-          /\S/,
-        );
+        await expect(
+          envOn(failing).listNames({ unit, environment, flow: TEST_FLOW, options }),
+        ).rejects.toThrow(/\S/);
       });
 
       it("given names to set, when the person is told how, then the command names each of them", () => {
         const names = listing.names.filter(isEnvVarName);
-        const command = envOn(listing.shell).setCommand({ unit, environment, options, names });
+        const command = envOn(listing.shell).setCommand({
+          unit,
+          environment,
+          flow: TEST_FLOW,
+          options,
+          names,
+        });
 
         names.forEach((name) => expect(command).toContain(name));
       });

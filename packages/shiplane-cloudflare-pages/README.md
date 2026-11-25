@@ -37,6 +37,7 @@ export default defineRelease({
     ciPipeline: gitHubActionsCiPipeline(),
     versioning: changesetsVersioning(),
   }),
+  deployApps: { promote: [{ from: "preview", to: "production" }] },
   modules: [webApp({ staticHosting: cloudflarePagesStaticHosting() })],
 });
 ```
@@ -45,14 +46,15 @@ export default defineRelease({
 
 In the app's `shiplane.unit.yml`, next to `module: web-app`.
 
-| Key             | Default                                             | Means                                                |
-| --------------- | --------------------------------------------------- | ---------------------------------------------------- |
-| `project`       | required                                            | The Cloudflare Pages project                         |
-| `dist`          | `dist`                                              | What the build writes, relative to the unit's folder |
-| `build.command` | `pnpm turbo run build --filter=<package>`           | The build, run from the root, as a list              |
-| `build.env`     |                                                     | Variables the build reads, each per environment      |
-| `branch`        | `main` where users are, else the environment's name | The Pages branch, per environment                    |
-| `wrangler`      | `wrangler@4.141.0`                                  | The wrangler npx runs, pinned                        |
+| Key             | Default                                             | Means                                                                                                 |
+| --------------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `project`       | required                                            | The Cloudflare Pages project                                                                          |
+| `dist`          | `dist`                                              | What the build writes, relative to the unit's folder                                                  |
+| `build.command` | `pnpm turbo run build --filter=<package>`           | The build, run from the root, as a list                                                               |
+| `build.env`     |                                                     | Variables the build reads, each per environment                                                       |
+| `branch`        | `main` where users are, else the environment's name | The Pages branch, per environment                                                                     |
+| `secretsIn`     |                                                     | The Cloudflare environment holding its secrets, per environment; needed to check them before a deploy |
+| `wrangler`      | `wrangler@4.141.0`                                  | The wrangler npx runs, pinned                                                                         |
 
 Source: `PagesOptions` in `src/cloudflare-pages-static-hosting.adapter.ts`.
 
@@ -79,7 +81,7 @@ build:
   site@1.0.0 → acme-site on Pages (preview)  (not tagged yet: release first)
     this machine
       PUBLIC_API_URL=https://api-preview.acme.dev pnpm turbo run build --filter=@acme/site
-      npx --yes wrangler@4.141.0 pages deploy apps/site/dist --project-name=acme-site --branch=preview --commit-hash=3954c619a8fbede510f2b826fe5aaea9b3704815 --commit-message=site@1.0.0
+      npx --yes wrangler@4.141.0 pages deploy apps/site/dist --project-name=acme-site --branch=preview --commit-hash=29e2296c35bb876f1535439d2260c3052f7c7657 --commit-message=site@1.0.0
       then record site@1.0.0 on preview, on GitHub
     GitHub Actions
       gh workflow run ship.yml --ref site@1.0.0 -f units=site -f environment=preview

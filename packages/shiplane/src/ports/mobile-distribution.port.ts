@@ -37,6 +37,6 @@ export interface MobileDistributionPort<
   live?(context: DecideContext, input: JobInput<Options>): Promise<boolean>;
   /** What `status --json` shows for the app, read from its platform. */
   inspect?(context: DecideContext, input: JobInput<Options>): Promise<unknown>;
-  /** How the tagged version does on preview, read before promoting it. Null when nothing says. */
+  /** How the tagged version does on an environment, read before promoting it. Null when nothing says. */
   health?(context: DecideContext, input: JobInput<Options>): Promise<Health | null>;
 }

@@ -1,5 +1,5 @@
 import { publishedPackage } from "shiplane/plugin";
-import { changesetText, planFrom, releaseToPreview, testContext, testUnit } from "shiplane/testing";
+import { changesetText, planFrom, releaseToEntry, testContext, testUnit } from "shiplane/testing";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { npmPackageRegistry } from "../npm-package-registry.adapter";
@@ -41,7 +41,7 @@ describe("checking sign-ins before a release writes anything", () => {
     const { context, shell, host, output } = setUp({ yes: true });
     shell.seed("npm whoami", { status: 1 });
 
-    expect(await releaseToPreview(context)).toBe(false);
+    expect(await releaseToEntry(context)).toBe(false);
 
     expect(host.received.filter(({ type }) => type === "pr")).toEqual([]);
     expect(output.text).toContain("npm login");
@@ -52,7 +52,7 @@ describe("checking sign-ins before a release writes anything", () => {
     shell.seedOnce("npm whoami", { status: 1 });
     prompter.answer(["budget"], true, false);
 
-    await releaseToPreview(context);
+    await releaseToEntry(context);
 
     expect(prompter.asked).toContain("Run npm login now?");
     expect(shell.calls.some(({ command, args }) => command === "npm" && args[0] === "login")).toBe(
@@ -65,7 +65,7 @@ describe("checking sign-ins before a release writes anything", () => {
     const { context, prompter, host } = setUp({ interactive: true });
     prompter.answer(["budget"], "minor");
 
-    await releaseToPreview(context);
+    await releaseToEntry(context);
 
     expect(prompter.asked).not.toContain("Run npm login now?");
     expect(host.received.some(({ type }) => type === "pr")).toBe(true);
@@ -76,7 +76,7 @@ describe("checking sign-ins before a release writes anything", () => {
     const { context, shell, host } = setUp({ yes: true });
     shell.seed("npm whoami", { status: 1 });
 
-    await releaseToPreview(context);
+    await releaseToEntry(context);
 
     expect(shell.calls.some(({ args }) => args[0] === "whoami")).toBe(false);
     expect(host.received.some(({ type }) => type === "pr")).toBe(true);

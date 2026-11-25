@@ -279,7 +279,7 @@ describe("Feature: doctor on a release that publishes packages", () => {
           callerWorkflow: () =>
             Promise.resolve({
               file: SHIP_YML,
-              content: made("snapshot, nightly, live"),
+              content: made("snapshot, nightly, latest"),
               pin: "sha-0.6.0",
             }),
         }),
@@ -300,13 +300,13 @@ describe("Feature: doctor on a release that publishes packages", () => {
   };
 
   it("given ship.yml lacks the config's channels, when the person agrees, then it offers them", async () => {
-    const { context, output, prompter, files } = publishing("", ["nightly", "live"]);
+    const { context, output, prompter, files } = publishing("", ["nightly", "latest"]);
     prompter.answer(true, true);
 
     await doctor(context);
 
-    expect(output.text).toContain("ship.yml does not offer snapshot, nightly, live");
-    expect(files.read(SHIP_YML)).toContain("options: [snapshot, nightly, live]");
+    expect(output.text).toContain("ship.yml does not offer snapshot, nightly, latest");
+    expect(files.read(SHIP_YML)).toContain("options: [snapshot, nightly, latest]");
   });
 
   it("given no channels in the config, when doctor runs, then ship.yml's list is the person's", async () => {
@@ -322,7 +322,7 @@ describe("Feature: doctor on a release that publishes packages", () => {
     const { context, output, prompter } = publishing(
       [
         "name: Ship",
-        "        options: [snapshot, nightly, alpha, beta, rc, live]",
+        "        options: [snapshot, nightly, alpha, beta, rc, latest]",
         "      - uses: ./.github/actions/ship",
         "",
       ].join("\n"),

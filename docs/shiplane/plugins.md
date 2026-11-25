@@ -102,7 +102,7 @@ built-in ones do:
 | `commandFailed({ label, result })`, `firstLine(text)`    | The same failure from a result you hold, and the first line of output with text on it                      |
 | `retrying({ run, retryable, delays })`                   | Runs again after each delay while the result is retryable, such as a push the network dropped              |
 | `parseJson({ text, schema })`                            | Reads a tool's JSON against a zod schema, `{ success, data }` or `{ success: false, error }`, never throws |
-| `registryDecision({ environment, facts })`               | A package registry's rule: production only moves its tag to what preview published                         |
+| `registryDecision({ environment, facts })`               | A package registry's rule: a later environment only moves its tag to what the one before published         |
 | `previousTag({ tags, unit, version, format })`           | The tag a unit had before a version                                                                        |
 
 **Test it** with `shiplane/testing`: run the port's contract suite on your adapter, as
@@ -122,6 +122,7 @@ platformEnvContract([
     adapter: renderServerHosting(),
     settings: { service: "acme-api" },
     environment: "preview",
+    flow: { path: ["preview", "production"], users: "production" },
     listing: {
       shell: new RecordingShell().seed("render env list", { stdout: "API_KEY\n" }),
       names: ["API_KEY"],

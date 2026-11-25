@@ -3,6 +3,7 @@ import path from "node:path";
 import type { SetupContext } from "./setupContext";
 import type { ModuleEntry } from "./setupFiles";
 import { moduleFor } from "../modules/suggest";
+import { chooseEnvironments, needsEnvironments } from "./chooseEnvironments";
 import { UNIT_FILE } from "./config/readUnitFile";
 import { askOptions, scanFolders } from "./initRelease";
 import { paint } from "./say";
@@ -15,6 +16,7 @@ import {
   renderUnit,
   SCHEMA_FILE,
   schemaText,
+  withPromote,
 } from "./setupFiles";
 
 /** A new module joins the config's modules, or the person is told where to add it. */
@@ -69,12 +71,30 @@ export const addUnit = async (context: SetupContext, dir: string): Promise<boole
   const release = await context.load();
   const pkg = releasePackage(files);
   const placed = placeModule(adapter, release.modules, pkg);
+  const module = moduleFor(adapter, placed.name);
+  const needed = needsEnvironments({
+    modules: [...release.modules, module],
+    entries: [],
+    placed: [{ module: placed.name }],
+    existing: release,
+  });
+  const environments = needed
+    ? await chooseEnvironments(context, {
+        found: guess?.detection.environments ?? [],
+        yes: false,
+        needsPerson: [],
+      })
+    : null;
+  if (needed && !environments) {
+    output.line(paint("dim", "Nothing written."));
+    return false;
+  }
   files.write(file, renderUnit(placed.name, options, { reason: guess?.detection.reason }));
   if (placed.entry) addModule(context, { entry: placed.entry, pkg });
-  const modules = placed.entry
-    ? [...release.modules, moduleFor(adapter, placed.name)]
-    : release.modules;
-  files.write(SCHEMA_FILE, schemaText(modules));
+  const named = environments && withPromote(files.read(CONFIG_FILE) ?? "", environments);
+  if (named) files.write(CONFIG_FILE, named);
+  const modules = placed.entry ? [...release.modules, module] : release.modules;
+  files.write(SCHEMA_FILE, schemaText(modules, environments ?? release.appFlow.path));
   output.line(`${paint("green", "◇")}  Wrote ${file}`);
   return true;
 };

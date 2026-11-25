@@ -16,7 +16,7 @@ const withHealth = (health: () => Promise<Health | null>): ReleaseModule => ({
 });
 
 /** api and admin on preview, not yet on production; each module reads health as given. */
-const onPreview = ({
+const onPrevious = ({
   health,
   yes = false,
   interactive = true,
@@ -46,7 +46,7 @@ const onPreview = ({
 
 describe("promoting to production what preview runs", () => {
   it("given preview says api runs unwell, when the person promotes api, then its health is shown and they must confirm, No by default, before it ships", async () => {
-    const { context, output, prompter } = onPreview({
+    const { context, output, prompter } = onPrevious({
       health: () =>
         Promise.resolve({ ok: false, summary: "12 errors in 5 min", why: "error rate 4%" }),
     });
@@ -67,7 +67,7 @@ describe("promoting to production what preview runs", () => {
   });
 
   it("given unwell apps whose host gives no reason, when the person promotes them, then the question says each looks unwell", async () => {
-    const { context, prompter } = onPreview({
+    const { context, prompter } = onPrevious({
       health: () => Promise.resolve({ ok: false, summary: "down" }),
     });
     prompter.answer(["api", "admin"], false);
@@ -80,7 +80,7 @@ describe("promoting to production what preview runs", () => {
   });
 
   it("given preview says api runs well, when the person promotes api, then it shows healthy and goes on to ship to production without asking", async () => {
-    const { context, output, prompter, progress } = onPreview({
+    const { context, output, prompter, progress } = onPrevious({
       health: () => Promise.resolve({ ok: true, summary: "no errors" }),
     });
     prompter.answer(["api"], "not yet");
@@ -96,7 +96,7 @@ describe("promoting to production what preview runs", () => {
   });
 
   it("given the host cannot read health, when the person promotes, then no health is shown and it goes on to ship", async () => {
-    const { context, output, prompter, progress } = onPreview({
+    const { context, output, prompter, progress } = onPrevious({
       health: () => Promise.reject(new Error("timeout")),
     });
     prompter.answer(["api"], "not yet");
@@ -109,7 +109,7 @@ describe("promoting to production what preview runs", () => {
   });
 
   it("given the person picks nothing to promote, when promotion stops, then nothing ships", async () => {
-    const { context, prompter, progress, shell } = onPreview({
+    const { context, prompter, progress, shell } = onPrevious({
       health: () => Promise.resolve({ ok: true, summary: "fine" }),
     });
     prompter.answer(null);

@@ -114,7 +114,7 @@ export const codeHostContract = (name: string, subject: () => Promise<CodeHostSu
 
       await port.recordDeployment(name, "preview");
 
-      expect(await port.deployments()).toContainEqual({
+      expect(await port.deployments(["preview"])).toContainEqual({
         title: `Deploy ${name} to preview`,
         state: "done",
       });

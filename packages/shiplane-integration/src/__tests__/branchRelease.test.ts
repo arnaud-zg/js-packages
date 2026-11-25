@@ -7,6 +7,7 @@ import {
   changesetText,
   MemoryFiles,
   planFrom,
+  TEST_FLOW,
   testContext,
   testUnit,
 } from "shiplane/testing";
@@ -379,6 +380,7 @@ describe("Feature: a branch release for testers", () => {
 
     // when
     const jobs = port.jobs({
+      flow: TEST_FLOW,
       unit: KIT,
       tag: "kit@0.5.2",
       environment: "preview",

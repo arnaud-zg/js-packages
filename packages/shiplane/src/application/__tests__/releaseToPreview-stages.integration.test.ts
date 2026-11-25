@@ -6,7 +6,7 @@ import { serverHostingFake } from "../../adapters/server-hosting/__fakes__/serve
 import { backendService } from "../../modules/backend-service/backend-service.module";
 import { planFrom } from "../../testing/plans";
 import { changesetText, testContext, testUnit } from "../../testing/releaseContext";
-import { releaseToPreview } from "../releaseToPreview";
+import { releaseToEntry } from "../releaseToEntry";
 
 // `release` on preview, stage by stage: what it says and runs from the pick to the ship.
 
@@ -91,7 +91,7 @@ describe("Feature: releasing to preview, from picking the apps to shipping them"
     world.prompter.answer(["api"], true, true);
 
     // when
-    const ok = await releaseToPreview(world.context);
+    const ok = await releaseToEntry(world.context);
 
     // then
     expect(world.prompter.asked.slice(1)).toEqual([
@@ -124,7 +124,7 @@ describe("Feature: releasing to preview, from picking the apps to shipping them"
     world.prompter.answer(["api"]);
 
     // when
-    const ok = await releaseToPreview(world.context);
+    const ok = await releaseToEntry(world.context);
 
     // then
     expect(ok).toBe(false);
@@ -137,7 +137,7 @@ describe("Feature: releasing to preview, from picking the apps to shipping them"
     world.prompter.answer([]);
 
     // when
-    const ok = await releaseToPreview(world.context);
+    const ok = await releaseToEntry(world.context);
 
     // then
     expect(ok).toBe(true);
@@ -152,7 +152,7 @@ describe("Feature: releasing to preview, from picking the apps to shipping them"
     world.prompter.answer(["api"], true);
 
     // when
-    const ok = await releaseToPreview(world.context);
+    const ok = await releaseToEntry(world.context);
 
     // then
     expect(ok).toBe(true);
@@ -177,7 +177,7 @@ describe("Feature: releasing to preview, from picking the apps to shipping them"
     world.prompter.answer(["api"], false);
 
     // when
-    const ok = await releaseToPreview(world.context);
+    const ok = await releaseToEntry(world.context);
 
     // then
     expect(ok).toBe(false);
@@ -194,7 +194,7 @@ describe("Feature: replacing a release PR that main moved past", () => {
     world.prompter.answer(["api"]);
 
     // when
-    await releaseToPreview(world.context);
+    await releaseToEntry(world.context);
 
     // then
     expect(world.output.lines).toContain(
@@ -211,7 +211,7 @@ describe("Feature: replacing a release PR that main moved past", () => {
     world.prompter.answer(["api"]);
 
     // when
-    await releaseToPreview(world.context);
+    await releaseToEntry(world.context);
 
     // then
     expect(world.output.lines).toContain(
@@ -227,7 +227,7 @@ describe("Feature: replacing a release PR that main moved past", () => {
     world.prompter.answer(["api"]);
 
     // when
-    const ok = await releaseToPreview(world.context);
+    const ok = await releaseToEntry(world.context);
 
     // then
     expect(ok).toBe(true);
@@ -248,7 +248,7 @@ describe("Feature: replacing a release PR that main moved past", () => {
     world.prompter.answer(["api"]);
 
     // when
-    await releaseToPreview(world.context);
+    await releaseToEntry(world.context);
 
     // then
     expect(asked).toEqual([]);

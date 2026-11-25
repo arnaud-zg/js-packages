@@ -1,21 +1,40 @@
 import path from "node:path";
 import type { DeliveryAdapter, MobileDistributionPort } from "shiplane/plugin";
-import { defineMobileDistribution, z } from "shiplane/plugin";
+import { defineMobileDistribution, entryOf, z } from "shiplane/plugin";
 
 import { analyse, analysisJson, updateHealth } from "./eas/analyse";
 import { beforeVersion } from "./eas/before-version";
 import { clientFor } from "./eas/client";
+import { entryState } from "./eas/entry-state";
+import { entryDecision } from "./eas/entry.decision";
 import { easEnv } from "./eas/env";
 import { buildJob, updateJob } from "./eas/jobs";
 import { EasOptions } from "./eas/options";
-import { previewState } from "./eas/preview-state";
-import { previewDecision } from "./eas/preview.decision";
-import { productionDecision, productionState } from "./eas/production.decision";
+import { usersDecision, usersState } from "./eas/users.decision";
 import { binaryVersion } from "./eas/version-file";
+
+/** The environment an update script names, and whether a check runs first: `eas:update:<name>:gated`. */
+const UPDATE_SCRIPT = /update[:-]([a-z][a-z0-9-]*)(:gated)?$/;
+
+/** The script publishing each environment's update, the one with no check first when there are both. */
+const updateScripts = (names: readonly string[]) => {
+  const updates: Record<string, { script: string; gated: boolean }> = {};
+  for (const script of names) {
+    const [, environment, gate] = UPDATE_SCRIPT.exec(script) ?? [];
+    if (!environment) continue;
+    const gated = gate !== undefined;
+    if (!updates[environment] || (updates[environment].gated && !gated)) {
+      updates[environment] = { script, gated };
+    }
+  }
+  return Object.fromEntries(
+    Object.entries(updates).map(([environment, { script }]) => [environment, script]),
+  );
+};
 
 /**
  * A mobile app on EAS. The native fingerprint decides between a new binary and an over-the-air
- * update; production ships what preview validated, moving its version by PR first when it must.
+ * update; where users are ships what the environment before validated, moving its version by PR first when it must.
  */
 export type EasMobileDistributionAdapter = DeliveryAdapter<MobileDistributionPort>;
 
@@ -34,15 +53,13 @@ export const easMobileDistribution = (): EasMobileDistributionAdapter =>
         .object({ scripts: z.record(z.string(), z.string()).default({}) })
         .safeParse(JSON.parse(folder.read("package.json") ?? "{}"));
       const names = scripts.success ? Object.keys(scripts.data.scripts) : [];
-      const pick = (environment: string) =>
-        [`eas:update:${environment}`, `eas:update:${environment}:gated`].find((name) =>
-          names.includes(name),
-        ) ?? names.find((name) => name.includes("update") && name.includes(environment));
-      const [preview, production] = [pick("preview"), pick("production")];
+      const updates = updateScripts(names);
+      const environments = Object.keys(updates);
       return {
         certainty: "found",
         reason: "eas.json",
-        options: preview && production ? { update: { preview, production } } : {},
+        ...(environments.length > 0 ? { environments } : {}),
+        options: environments.length === 2 ? { update: updates } : {},
       };
     },
     questions: (_folder, found) =>
@@ -66,15 +83,15 @@ export const easMobileDistribution = (): EasMobileDistributionAdapter =>
     env: easEnv,
     jobs: (input) => [buildJob(input), updateJob(input)],
     decide: (context, input) =>
-      input.environment === "preview"
-        ? previewDecision({ context, input })
-        : productionDecision({ context, input }),
+      input.environment === entryOf(input.flow)
+        ? entryDecision({ context, input })
+        : usersDecision({ context, input }),
     // A running build counts: a retry would start a second one.
     live: async (context, input) =>
-      input.environment === "preview"
-        ? ["shipped", "wait"].includes((await previewState({ context, input })).ship)
+      input.environment === entryOf(input.flow)
+        ? ["shipped", "wait"].includes((await entryState({ context, input })).ship)
         : ["shipped", "finish-rollout", "wait"].includes(
-            (await productionState({ context, input })).decision,
+            (await usersState({ context, input })).decision,
           ),
     inspect: async (context, input) => {
       const { unit, environment, options } = input;
@@ -84,6 +101,7 @@ export const easMobileDistribution = (): EasMobileDistributionAdapter =>
           client,
           source: context.sourceControl,
           environment,
+          flow: input.flow,
           version: binaryVersion({ root: context.root, unit, options, environment }),
           unit: unit.name,
         }),
@@ -95,18 +113,19 @@ export const easMobileDistribution = (): EasMobileDistributionAdapter =>
         ...(rollout < 100 ? { rolloutPercentage: rollout } : {}),
       };
     },
-    // Only an update has launch data: a binary preview got for this release reports nothing here.
-    health: async (context, { unit, tag }) => {
+    // Only an update has launch data: a binary got for this release reports nothing here.
+    health: async (context, { unit, tag, environment }) => {
       const client = clientFor({ context, unit });
       const [last, tagged] = await Promise.all([
-        client.lastUpdate("preview"),
+        client.lastUpdate(environment),
         context.sourceControl.tagCommit(tag),
       ]);
       if (!last || !tagged) return null;
-      const { commit } = await client.updateOrigin({ group: last.group, environment: "preview" });
+      const { commit } = await client.updateOrigin({ group: last.group, environment });
       if (!commit || (await context.changedCode(unit, tagged, commit)).length > 0) return null;
       return updateHealth(
-        await client.updateLaunches({ group: last.group, environment: "preview" }),
+        await client.updateLaunches({ group: last.group, environment }),
+        environment,
       );
     },
     beforeVersion,

@@ -1,5 +1,6 @@
 import type { Release } from "../application/config/loadRelease";
 import type { ReleaseContext } from "../application/context";
+import type { DeployFlow } from "../domain/environment";
 import type { Approval } from "../domain/releasePr";
 import type { ReleaseUnit } from "../domain/unit";
 import type { Feature, ReleaseModule } from "../modules/module";
@@ -18,6 +19,7 @@ import {
 import { versioningFake } from "../adapters/versioning/__fakes__/versioning.fake";
 import { releaseFlow } from "../application/releaseFlow";
 import { DEFAULT_TAG_FORMAT } from "../domain/tags";
+import { TEST_FLOW } from "./flow";
 
 export const testUnit = (name: string, overrides: Partial<ReleaseUnit> = {}): ReleaseUnit => ({
   name,
@@ -52,6 +54,7 @@ export const testContext = ({
   root = "/repo",
   tagFormat = DEFAULT_TAG_FORMAT,
   approval,
+  appFlow = TEST_FLOW,
   files = new MemoryFiles(),
 }: {
   units: ReleaseUnit[];
@@ -64,6 +67,7 @@ export const testContext = ({
   tagFormat?: string;
   /** Whether someone else approves the release PR; the config default when absent. */
   approval?: Approval;
+  appFlow?: DeployFlow;
   /** The repository's files; empty when absent. */
   files?: Files;
 }) => {
@@ -85,6 +89,7 @@ export const testContext = ({
     units,
     problems: [],
     tagFormat,
+    appFlow,
   };
   const context: ReleaseContext = {
     release,

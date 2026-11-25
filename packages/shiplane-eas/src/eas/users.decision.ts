@@ -1,13 +1,13 @@
 import path from "node:path";
 import type { DecideContext, Decision } from "shiplane/plugin";
-import { tagName } from "shiplane/plugin";
+import { capitalized, entryOf, tagName } from "shiplane/plugin";
 
 import type { EasClient } from "./client";
 import type { EasInput } from "./options";
 import { analyse, rolloutLines, updateHealth } from "./analyse";
 import { buildRefusal, refuse } from "./build-refusal";
 import { clientFor } from "./client";
-import { productionMobile, ROLLOUT_STEPS, rolloutAdvice } from "./decide";
+import { ROLLOUT_STEPS, rolloutAdvice, usersMobile } from "./decide";
 import { buildJob, rolloutJob, updateJob } from "./jobs";
 import { binaryVersion, setBinaryVersion } from "./version-file";
 import { fewFiles } from "./wording";
@@ -80,7 +80,7 @@ const rolloutChoice = async ({
       environment,
       percentage,
       hoursOut,
-      health: updateHealth(launches),
+      health: updateHealth(launches, environment),
     }),
     question: `How far should ${tag} go on ${environment}?`,
     suggested,
@@ -89,27 +89,28 @@ const rolloutChoice = async ({
   };
 };
 
-/** What production still needs to run the version preview validated. */
-export const productionState = async ({
+/** What users still need to run the version the environment before validated. */
+export const usersState = async ({
   context,
   input,
 }: {
   context: DecideContext;
   input: EasInput;
 }) => {
-  const { unit, options } = input;
+  const { unit, options, environment, flow } = input;
   const client = clientFor({ context, unit });
-  const productionVersion = binaryVersion({
+  const usersVersion = binaryVersion({
     root: context.root,
     unit,
     options,
-    environment: "production",
+    environment,
   });
   const analysis = await analyse({
     client,
     source: context.sourceControl,
-    environment: "production",
-    version: productionVersion,
+    environment,
+    flow,
+    version: usersVersion,
     unit: unit.name,
   });
   const version = unit.version;
@@ -118,9 +119,9 @@ export const productionState = async ({
   const sinceTag = async (commit: string | null) =>
     tag !== null && commit !== null && (await codeSince(commit)).length === 0;
   const action = analysis.plan.action;
-  const lastUpdate = tag && action === "update" ? await client.lastUpdate("production") : null;
+  const lastUpdate = tag && action === "update" ? await client.lastUpdate(environment) : null;
   const origin = lastUpdate
-    ? await client.updateOrigin({ group: lastUpdate.group, environment: "production" })
+    ? await client.updateOrigin({ group: lastUpdate.group, environment })
     : null;
   const updateCommit = origin?.commit ?? null;
   const shippedCommits = [
@@ -130,11 +131,11 @@ export const productionState = async ({
   const builtVersion = analysis.checked[0]?.state.shipped?.appVersion ?? null;
   const shippedAny = (await Promise.all(shippedCommits.map(sinceTag))).some(Boolean);
   const rollout = lastUpdate?.rolloutPercentage ?? 100;
-  const decision = productionMobile(action, {
+  const decision = usersMobile(action, {
     tagged: tag !== null,
     sinceTagOnlyVersionFiles: await sinceTag(analysis.git.head),
     expoVersion: version,
-    productionVersion,
+    usersVersion,
     codeShipped: action === "submit" || shippedAny,
     builtVersion,
     partialRollout: rollout < 100 && (await sinceTag(updateCommit)),
@@ -143,7 +144,7 @@ export const productionState = async ({
     analysis,
     client,
     codeSince,
-    productionVersion,
+    usersVersion,
     builtVersion,
     lastUpdate,
     origin,
@@ -152,19 +153,20 @@ export const productionState = async ({
   };
 };
 
-/** The PR that moves production's binary version to the one preview validated. */
+/** The PR that moves users' binary version to the one validated before them. */
 const promotion = ({ context, input }: { context: DecideContext; input: EasInput }): Decision => {
-  const { unit, options } = input;
+  const { unit, options, environment } = input;
+  const first = entryOf(input.flow);
   const version = unit.version;
   return {
     action: "pull-request",
-    question: `Open the PR that moves production to ${unit.name} ${version}?`,
+    question: `Open the PR that moves ${environment} to ${unit.name} ${version}?`,
     branch: `chore/promote-${unit.name}-${version}`,
-    title: `chore(release): production builds ${unit.name} ${version}`,
+    title: `chore(release): ${environment} builds ${unit.name} ${version}`,
     body: [
       "## 🎯 What & why",
       "",
-      `Production builds ${unit.name} ${version}, the version preview validated: \`${path.posix.join(unit.dir, options.versionFile)}\` production moves to it, the runtime version production updates target. Merge it, then \`release --channel production\` builds.`,
+      `${capitalized(environment)} builds ${unit.name} ${version}, the version ${first} validated: \`${path.posix.join(unit.dir, options.versionFile)}\` ${environment} moves to it, the runtime version ${environment} updates target. Merge it, then \`release --channel ${environment}\` builds.`,
       "",
       "## ✅ Testing",
       "",
@@ -173,21 +175,22 @@ const promotion = ({ context, input }: { context: DecideContext; input: EasInput
     changesets: [],
     write: () =>
       Promise.resolve([
-        setBinaryVersion({ root: context.root, unit, options, environment: "production", version }),
+        setBinaryVersion({ root: context.root, unit, options, environment, version }),
       ]),
   };
 };
 
-export const productionDecision = async ({
+export const usersDecision = async ({
   context,
   input,
 }: {
   context: DecideContext;
   input: EasInput;
 }): Promise<Decision> => {
-  const { unit } = input;
+  const { unit, environment } = input;
+  const first = entryOf(input.flow);
   const version = unit.version;
-  const state = await productionState({ context, input });
+  const state = await usersState({ context, input });
   const { analysis, client, codeSince, lastUpdate, rollout } = state;
   switch (state.decision) {
     case "finish-rollout":
@@ -214,7 +217,7 @@ export const productionDecision = async ({
     case "wait":
       return {
         action: "none",
-        status: `${unit.name} ${state.productionVersion} is building on EAS, submitted to the stores when done`,
+        status: `${unit.name} ${state.usersVersion} is building on EAS, submitted to the stores when done`,
       };
     case "shipped":
       return {
@@ -224,18 +227,18 @@ export const productionDecision = async ({
     case "nothing":
       return {
         action: "none",
-        status: `No ${unit.name} release to promote yet: release to preview first.`,
+        status: `No ${unit.name} release to promote yet: release to ${first} first.`,
       };
     case "behind":
       return refuse({
         title: "main is behind",
-        detail: "the last production build carries a newer version.",
+        detail: `the last ${environment} build carries a newer version.`,
         commands: ["git pull"],
       });
     case "moved-past":
       return refuse({
         title: `main moved past ${tagName(unit.name, version, context.tagFormat)}`,
-        detail: `production ships what preview validated, and ${fewFiles(await codeSince(analysis.git.head))} changed since, code preview never ran: release it to preview first.`,
+        detail: `${environment} ships what ${first} validated, and ${fewFiles(await codeSince(analysis.git.head))} changed since, code ${first} never ran: release it to ${first} first.`,
         commands: ["pnpm changeset", "shiplane"],
       });
   }

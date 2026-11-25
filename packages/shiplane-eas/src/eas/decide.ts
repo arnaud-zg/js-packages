@@ -1,5 +1,5 @@
-import type { AppBump, Environment, PlannedChangeset } from "shiplane/plugin";
-import { compareVersions, nextPatch } from "shiplane/plugin";
+import type { AppBump, DeployFlow, Environment, PlannedChangeset } from "shiplane/plugin";
+import { compareVersions, entryOf, nextPatch } from "shiplane/plugin";
 
 import { count, timeOut } from "./wording";
 
@@ -110,14 +110,14 @@ const PRECEDENCE: ReleaseAction[] = ["pull", "build", "wait", "submit", "update"
 
 /** The next step for the whole release, with the release CLI commands that take it. */
 export const releasePlan = (
-  channel: Environment,
+  { channel, flow }: { channel: Environment; flow: DeployFlow },
   verdicts: PlatformVerdict[],
   unit: string,
 ): ReleasePlan => {
   const action =
     PRECEDENCE.find((candidate) => verdicts.some((verdict) => verdict.action === candidate)) ??
     "update";
-  const flag = channel === "preview" ? "" : ` --channel ${channel}`;
+  const flag = channel === entryOf(flow) ? "" : ` --channel ${channel}`;
   const COMMANDS: Record<ReleaseAction, string[]> = {
     // EAS submits a build when it is done: shipping it is one command.
     build: [`pnpm shiplane ship ${unit}${flag}`],
@@ -146,7 +146,7 @@ export type MobileRelease =
   | { ships: "blocked"; why: "build-running" | "behind" };
 
 /**
- * What the release does for mobile, from preview's verdict. A new native layer gets a new
+ * What the release does for mobile, from the first environment's verdict. A new native layer gets a new
  * version, so each binary's version names one native layer.
  */
 export const mobileRelease = (
@@ -210,7 +210,7 @@ export const mobileShip = (
   return action;
 };
 
-export type ProductionMobile =
+export type UsersMobile =
   | "promote"
   | "finish-rollout"
   | "build"
@@ -222,10 +222,10 @@ export type ProductionMobile =
   | "nothing";
 
 /**
- * What production still needs to run the app version preview validated. A new native layer needs
- * production's version moved first (the promotion PR).
+ * What users still need to run the app version validated before them. A new native layer needs
+ * their version moved first (the promotion PR).
  */
-export const productionMobile = (
+export const usersMobile = (
   action: ReleaseAction,
   state: {
     /** The current app version has a release tag. */
@@ -234,16 +234,16 @@ export const productionMobile = (
     sinceTagOnlyVersionFiles: boolean;
     /** The app's version, the one its tag names. */
     expoVersion: string;
-    /** The version file's production entry: the binary version production builds carry. */
-    productionVersion: string;
-    /** The last production build or update shipped the tagged code. */
+    /** The version file's entry: the binary version users' builds carry. */
+    usersVersion: string;
+    /** Their last build or update shipped the tagged code. */
     codeShipped: boolean;
-    /** The version of the last finished production build. */
+    /** The version of the last finished build of theirs. */
     builtVersion: string | null;
-    /** The last update, made from the tagged code, reaches only part of production. */
+    /** The last update, made from the tagged code, reaches only part of users. */
     partialRollout: boolean;
   },
-): ProductionMobile => {
+): UsersMobile => {
   if (!state.tagged) return "nothing";
   if (action === "wait") return "wait";
   if (action === "pull") return "behind";
@@ -252,16 +252,16 @@ export const productionMobile = (
   }
   if (!state.sinceTagOnlyVersionFiles) return "moved-past";
   if (action === "build") {
-    return state.productionVersion === state.expoVersion ? "build" : "promote";
+    return state.usersVersion === state.expoVersion ? "build" : "promote";
   }
   return "update";
 };
 
-/** The shares of people a production rollout widens through, in order. */
+/** The shares of people a rollout widens through, in order. */
 export const ROLLOUT_STEPS = [10, 25, 50, 100] as const;
 
 /**
- * The next move for an update reaching part of production: hold while it crashed, nobody ran it or
+ * The next move for an update reaching part of users: hold while it crashed, nobody ran it or
  * it is under a day old; otherwise the next step up.
  */
 export const rolloutAdvice = ({

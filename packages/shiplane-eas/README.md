@@ -39,6 +39,7 @@ export default defineRelease({
     ciPipeline: gitHubActionsCiPipeline(),
     versioning: changesetsVersioning(),
   }),
+  deployApps: { promote: [{ from: "preview", to: "production" }] },
   modules: [mobileApp({ mobileDistribution: easMobileDistribution() })],
 });
 ```

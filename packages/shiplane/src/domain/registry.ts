@@ -1,8 +1,8 @@
 import type { DeployFlow, Environment } from "./environment";
-import { DEFAULT_FLOW, previousOf } from "./environment";
+import { previousOf } from "./environment";
 
 export type RegistryShip =
-  "not-released" | "not-on-preview" | "moved-past" | "publish" | "on-tag" | "move-tag";
+  "not-released" | "not-on-previous" | "moved-past" | "publish" | "on-tag" | "move-tag";
 
 /**
  * What a package registry reads, each fact only once the decision needs it: a read costs a call to
@@ -20,20 +20,20 @@ export interface RegistryFacts {
 }
 
 /**
- * What one tagged package version still needs on an environment. Production only moves its tag to
- * what preview published, and a publish ships this checkout, so only while it is the tagged code.
+ * What one tagged package version still needs on an environment. A later one only moves its tag to
+ * what the one before published, and a publish ships this checkout, so only while it is the tagged code.
  */
 export const registryDecision = async ({
   environment,
-  flow = DEFAULT_FLOW,
+  flow,
   facts,
 }: {
   environment: Environment;
-  flow?: DeployFlow;
+  flow: DeployFlow;
   facts: RegistryFacts;
 }): Promise<RegistryShip> => {
   if (!(await facts.tagged())) return "not-released";
   if (await facts.published()) return (await facts.onDistTag()) ? "on-tag" : "move-tag";
-  if (previousOf(flow, environment) !== null) return "not-on-preview";
+  if (previousOf(flow, environment) !== null) return "not-on-previous";
   return (await facts.sinceTagOnlyVersionFiles()) ? "publish" : "moved-past";
 };

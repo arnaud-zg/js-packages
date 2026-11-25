@@ -60,11 +60,13 @@ describe("checkEnvBeforeDeploy in a unit file", () => {
 
   it("given an environment shiplane does not know, when the release loads, then it is an unknown key", async () => {
     const release = await loadApi(
-      `${SERVER_UNIT}checkEnvBeforeDeploy:\n  all:\n    - SENTRY_DSN\n  staging:\n    - DEBUG\n`,
+      `${SERVER_UNIT}checkEnvBeforeDeploy:\n  all:\n    - SENTRY_DSN\n  elsewhere:\n    - DEBUG\n`,
     );
 
     expect(release.problems).toEqual([
-      expect.objectContaining({ message: expect.stringContaining("checkEnvBeforeDeploy.staging") }),
+      expect.objectContaining({
+        message: expect.stringContaining("checkEnvBeforeDeploy.elsewhere"),
+      }),
     ]);
   });
 

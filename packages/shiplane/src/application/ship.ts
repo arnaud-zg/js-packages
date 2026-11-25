@@ -9,7 +9,7 @@ import type { Shipment } from "./askPath";
 import type { ReleaseContext } from "./context";
 import type { Outcomes, ShipStep } from "./shipSteps";
 import { onlyVersionFiles, shipsFrom, webShip } from "../domain/deploys";
-import { LIVE, previousOf, reachesUsers } from "../domain/environment";
+import { previousOf, reachesUsers, RELEASE_CHANNEL } from "../domain/environment";
 import { yesAllowed } from "../domain/governance";
 import { prepareLine } from "../domain/prepare";
 import { choosesPath, forcedPath, routeChoice, shipRuns } from "../domain/shipRoute";
@@ -53,7 +53,7 @@ interface Ready {
   confirmed: boolean;
 }
 
-const WEB_STATUS: Record<Exclude<WebShip, "deploy" | "not-on-preview">, string> = {
+const WEB_STATUS: Record<Exclude<WebShip, "deploy" | "not-on-previous">, string> = {
   deploying: "deploying already",
   shipped: "already there",
 };
@@ -73,13 +73,13 @@ const webDecision = (
     environment,
     flow,
     run: deployedOn(history, tag, environment),
-    onPreview: previous === null || deployedOn(history, tag, previous) === "done",
+    onPrevious: previous === null || deployedOn(history, tag, previous) === "done",
   });
   if (ship === "deploy") return { action: "ship", kind: "deploy", jobs };
   return {
     action: "none",
     status:
-      ship === "not-on-preview" ? `not on ${previous} yet: ship it there first` : WEB_STATUS[ship],
+      ship === "not-on-previous" ? `not on ${previous} yet: ship it there first` : WEB_STATUS[ship],
   };
 };
 
@@ -141,7 +141,7 @@ const decideAll = async (
 ): Promise<Ready[] | null> => {
   const { release, services, output } = context;
   const recorded = await services.codeHost
-    .deployments(context.release.appFlow?.path)
+    .deployments(context.release.appFlow.path)
     .catch(() => []);
   const picked = release.units.flatMap((unit) => {
     const found = unitTag(context, unit);
@@ -353,7 +353,7 @@ const shipQuestion = (
   return `Ship ${names} ${label === "live" ? "live" : `to ${label}`}${how}?`;
 };
 
-/** Production refuses --yes and asks for its name; on a runner, the person typed it before the dispatch. */
+/** Where users are refuses --yes and asks for its name; on a runner, the person typed it before the dispatch. */
 const mayStart = async (context: ReleaseContext, environment: Environment) => {
   const { output, prompter, options } = context;
   if (options.ci) return true;
@@ -406,7 +406,7 @@ const pathsOf = async (
   return { paths, stuck };
 };
 
-/** The person said no: preview offers production instead, which asks for its name on its own rules. */
+/** The person said no: the first environment offers the next instead, on its own rules. */
 const declined = async (
   context: ReleaseContext,
   {
@@ -469,7 +469,7 @@ const prepareStep = (
 /**
  * Ships every picked unit its environment does not run yet, and returns once each one is
  * triggered: EAS builds and workflows go on on their own, a Fly deploy from here once rolled out.
- * Production asks for its name first. False on a failure.
+ * Where users are asks for its name first. False on a failure.
  */
 export const shipTo = async (
   context: ReleaseContext,
@@ -535,7 +535,7 @@ export const shipTo = async (
   const defaultBranch = packages[0]?.input.defaultBranch;
   if (defaultBranch !== undefined) {
     const route = await publishRoute(context, {
-      environment: LIVE,
+      environment: RELEASE_CHANNEL,
       ref: defaultBranch,
       what: packages.map(({ input }) => input.tag).join(", "),
       via,
@@ -606,7 +606,7 @@ export const shipTo = async (
       run: () =>
         services.ciPipeline.dispatch(workflow, defaultBranch, {
           units: names.join(" "),
-          environment: LIVE,
+          environment: RELEASE_CHANNEL,
         }),
       tags: toDispatch.map(({ input }) => input.tag),
       unit: names.join(", "),

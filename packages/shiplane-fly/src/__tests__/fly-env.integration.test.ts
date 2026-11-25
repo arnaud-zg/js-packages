@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { isEnvVarName } from "shiplane/plugin";
-import { RecordingShell, testUnit } from "shiplane/testing";
+import { RecordingShell, TEST_FLOW, testUnit } from "shiplane/testing";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { flyServerHosting } from "../fly-server-hosting.adapter";
@@ -41,7 +41,12 @@ describe("the env Fly holds for an app", () => {
       'app = "acme-api-preview"\n\n[env]\n  NODE_ENV = "production"\n\n[http_service]\n  internal_port = 3000\n',
     );
 
-    const listed = await envOf(shell, at).listNames({ unit, environment: "preview", options });
+    const listed = await envOf(shell, at).listNames({
+      flow: TEST_FLOW,
+      unit,
+      environment: "preview",
+      options,
+    });
 
     expect([...listed]).toEqual(["SENTRY_DSN", "CLOUDFLARE_R2_BUCKET_NAME", "NODE_ENV"]);
   });
@@ -52,6 +57,7 @@ describe("the env Fly holds for an app", () => {
     });
 
     const listed = await envOf(shell, repository()).listNames({
+      flow: TEST_FLOW,
       unit,
       environment: "preview",
       options,
@@ -66,7 +72,12 @@ describe("the env Fly holds for an app", () => {
     });
 
     await expect(
-      envOf(shell, repository()).listNames({ unit, environment: "preview", options }),
+      envOf(shell, repository()).listNames({
+        flow: TEST_FLOW,
+        unit,
+        environment: "preview",
+        options,
+      }),
     ).rejects.toThrow("flyctl secrets list -a acme-api-preview: no secrets list in its output");
   });
 
@@ -77,7 +88,12 @@ describe("the env Fly holds for an app", () => {
     });
 
     await expect(
-      envOf(shell, repository()).listNames({ unit, environment: "preview", options }),
+      envOf(shell, repository()).listNames({
+        flow: TEST_FLOW,
+        unit,
+        environment: "preview",
+        options,
+      }),
     ).rejects.toThrow("flyctl secrets list -a acme-api-preview: Error: no access token available");
   });
 
@@ -100,6 +116,7 @@ describe("the env Fly holds for an app", () => {
     );
 
     const listed = await envOf(noSecrets(), at).listNames({
+      flow: TEST_FLOW,
       unit,
       environment: "preview",
       options,
@@ -114,6 +131,7 @@ describe("the env Fly holds for an app", () => {
     );
 
     const listed = await envOf(noSecrets(), at).listNames({
+      flow: TEST_FLOW,
       unit,
       environment: "preview",
       options,
@@ -129,6 +147,7 @@ describe("the env Fly holds for an app", () => {
     );
 
     const listed = await envOf(noSecrets(), at).listNames({
+      flow: TEST_FLOW,
       unit,
       environment: "preview",
       options: { app: "acme-api-preview" },
@@ -143,6 +162,7 @@ describe("the env Fly holds for an app", () => {
     });
 
     const listed = await envOf(shell, repository()).listNames({
+      flow: TEST_FLOW,
       unit,
       environment: "preview",
       options,
@@ -157,6 +177,7 @@ describe("the env Fly holds for an app", () => {
     });
 
     const listed = await envOf(shell, repository()).listNames({
+      flow: TEST_FLOW,
       unit,
       environment: "preview",
       options,
@@ -167,6 +188,7 @@ describe("the env Fly holds for an app", () => {
 
   it("given two unset names, when the set command is printed, then it stages them on the app with no value", () => {
     const command = envOf(new RecordingShell(), "/repo").setCommand({
+      flow: TEST_FLOW,
       unit,
       environment: "preview",
       options,

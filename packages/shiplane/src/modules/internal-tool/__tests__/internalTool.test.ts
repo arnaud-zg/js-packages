@@ -6,6 +6,7 @@ import { openReleasePr } from "../../../application/openReleasePr";
 import { prepareRelease } from "../../../application/prepareRelease";
 import { readStatus } from "../../../application/readStatus";
 import { shipTo } from "../../../application/ship";
+import { TEST_FLOW } from "../../../testing/flow";
 import { planFrom } from "../../../testing/plans";
 import { changesetText, testContext, testUnit } from "../../../testing/releaseContext";
 import { internalTool } from "../internal-tool.module";
@@ -30,6 +31,8 @@ describe("an app released but never deployed, like the release CLI", () => {
       "apps/shiplane/shiplane.unit.yml",
       "module: internal-tool\n",
       [internalTool()],
+      [],
+      TEST_FLOW.path,
     );
 
     expect(problems).toEqual([]);
@@ -41,6 +44,8 @@ describe("an app released but never deployed, like the release CLI", () => {
       "apps/shiplane/shiplane.unit.yml",
       "module: internal-tool\nworkflow: deploy-release.yml\n",
       [internalTool()],
+      [],
+      TEST_FLOW.path,
     );
 
     expect(problems.map(({ message }) => message)).toEqual([

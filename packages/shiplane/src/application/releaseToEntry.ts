@@ -143,7 +143,7 @@ const releasePrsOf = async (
  * `release`, to the first environment: the release PR, the wait for its merge, the tags, then the ship. It reads where things
  * stand first, so a run stopped anywhere picks up where it left off. False when something failed.
  */
-export const releaseToPreview = async (
+export const releaseToEntry = async (
   context: ReleaseContext,
   { via }: { via?: DeployPath } = {},
 ): Promise<boolean> => {

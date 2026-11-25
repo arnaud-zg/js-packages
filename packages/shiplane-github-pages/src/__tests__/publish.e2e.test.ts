@@ -3,7 +3,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { RecordingShell, testUnit } from "shiplane/testing";
+import { RecordingShell, TEST_FLOW, testUnit } from "shiplane/testing";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { githubPagesStaticHosting } from "../github-pages-static-hosting.adapter";
@@ -47,6 +47,7 @@ const ship = (
   settings: Record<string, unknown> = {},
 ) => {
   const [job] = pages.create({ root: repo, shell: new RecordingShell() }).jobs({
+    flow: TEST_FLOW,
     unit: testUnit("site", { module: "web-app" }),
     tag,
     environment,

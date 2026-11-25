@@ -9,6 +9,7 @@ import type { FlowChoice, FlowPort, ModuleEntry } from "./setupFiles";
 import { moduleFor } from "../modules/suggest";
 import { runner } from "./buildCommand";
 import { callerWrite, renovateWrite } from "./callerWorkflow";
+import { chooseEnvironments, needsEnvironments } from "./chooseEnvironments";
 import { UNIT_FILE, UNIT_FILES } from "./config/readUnitFile";
 import { expandPatterns, workspacePatterns } from "./config/workspaceFolders";
 import { YAML_CONFIG_FILE, YAML_CONFIG_FILES } from "./config/yamlDeclaration";
@@ -42,8 +43,9 @@ import {
   SCHEMA_FILE,
   schemaLineFor,
   schemaText,
+  withPromote,
 } from "./setupFiles";
-import { addToYamlConfig, renderYamlConfig, withCatalog } from "./setupYaml";
+import { addToYamlConfig, renderYamlConfig, withCatalog, withYamlPromote } from "./setupYaml";
 import { unattended } from "./unattended";
 
 /** A file setup writes: its text, and whether it is new. */
@@ -352,6 +354,8 @@ interface Placed {
   module: string;
   options: Record<string, unknown>;
   reason?: string;
+  /** The environments its detection saw. */
+  environments?: string[];
 }
 
 /** A package npm never publishes: with no sign of a host either, it ships inside the others. */
@@ -402,6 +406,7 @@ const placeFolder = async (
       module: place(sure.adapter),
       options,
       reason: sure.detection.reason,
+      environments: sure.detection.environments,
     };
   }
   if (state.yes) {
@@ -452,7 +457,8 @@ const placeFolder = async (
   if (adapter) {
     const known = guess?.adapter === adapter ? (guess.detection?.options ?? {}) : {};
     const options = await askOptions(context, folder, adapter, known, false);
-    return { folder, module: place(adapter), options };
+    const environments = guess?.adapter === adapter ? guess.detection?.environments : undefined;
+    return { folder, module: place(adapter), options, environments };
   }
   const port = CUSTOM_PORT_OF[kind];
   const name = await askName(
@@ -485,6 +491,7 @@ const configWrites = (
     flow,
     patterns,
     yaml,
+    path: environments,
   }: {
     existing: boolean;
     entries: readonly ModuleEntry[];
@@ -493,6 +500,8 @@ const configWrites = (
     patterns: string[] | null;
     /** Set when the config is, or is to be, shiplane.yml. */
     yaml: boolean;
+    /** The environments to write, when the config does not name any and an app needs them. */
+    path: readonly string[] | null;
   },
 ): Write[] => {
   const file = yaml ? YAML_CONFIG_FILE : CONFIG_FILE;
@@ -500,15 +509,19 @@ const configWrites = (
     const units =
       patterns && patterns.join() !== workspacePatterns(files).join() ? patterns : undefined;
     const text = yaml
-      ? renderYamlConfig(entries, flow ?? DEFAULT_FLOW, units)
-      : renderConfig(entries, pkg, flow ?? DEFAULT_FLOW, units);
+      ? renderYamlConfig(entries, flow ?? DEFAULT_FLOW, units, environments)
+      : renderConfig(entries, pkg, flow ?? DEFAULT_FLOW, units, environments);
     return [{ file, text, created: true }];
   }
-  if (entries.length === 0) return [];
+  if (entries.length === 0 && !environments) return [];
   const before = files.read(file) ?? "";
   const add = (text: string, entry: ModuleEntry) =>
     (yaml ? addToYamlConfig(text, entry) : addToConfig(text, entry, pkg)) ?? text;
-  return [{ file, text: entries.reduce(add, before), created: false }];
+  const added = entries.reduce(add, before);
+  const named =
+    environments &&
+    (yaml ? withYamlPromote(added, environments) : withPromote(added, environments));
+  return [{ file, text: named ?? added, created: false }];
 };
 
 /** In a YAML config, each custom adapter's file also exports the catalog shiplane.yml names. */
@@ -620,6 +633,16 @@ export const setup = async (
     }
   }
 
+  const needsPath = needsEnvironments({ modules, entries, placed, existing });
+  const environments = needsPath
+    ? await chooseEnvironments(context, {
+        found: placed.flatMap(({ environments: names = [] }) => names),
+        yes,
+        needsPerson,
+      })
+    : null;
+  if (needsPath && !environments && needsPerson.length === 0) return cancelled(context);
+
   if (needsPerson.length > 0) {
     output.line();
     output.line(
@@ -632,7 +655,15 @@ export const setup = async (
 
   if (yaml) writes.splice(0, writes.length, ...withCatalogs(writes, entries, flow, pkg));
   writes.unshift(
-    ...configWrites(context, { existing: existing !== null, entries, pkg, flow, patterns, yaml }),
+    ...configWrites(context, {
+      existing: existing !== null,
+      entries,
+      pkg,
+      flow,
+      patterns,
+      yaml,
+      path: environments,
+    }),
   );
   placed.forEach(({ folder, module, options, reason }) =>
     writes.push({
@@ -662,7 +693,8 @@ export const setup = async (
   writes.forEach(({ file, text }) => files.write(file, text));
   if (existing === null || entries.length > 0) {
     const release = await context.load();
-    if (release.modules.length > 0) files.write(SCHEMA_FILE, schemaText(release.modules));
+    if (release.modules.length > 0)
+      files.write(SCHEMA_FILE, schemaText(release.modules, release.appFlow.path));
     const written = existing ? null : await callerWrite(context, release);
     if (written) {
       before.push({ file: written.file, text: null });

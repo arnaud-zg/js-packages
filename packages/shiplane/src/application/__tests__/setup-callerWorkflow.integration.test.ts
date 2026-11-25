@@ -63,7 +63,12 @@ describe("Feature: setup writes the workflow a repository ships from", () => {
     expect(await setup(context, { yes: false })).toBe(true);
 
     expect(repo.files.read(SHIP_YML)).toBe(
-      callerFor("0.6.0", { secrets: ["CLOUD_API_TOKEN"], features: [] }),
+      callerFor("0.6.0", {
+        apps: [],
+        environments: [],
+        secrets: ["CLOUD_API_TOKEN"],
+        features: [],
+      }),
     );
   });
 

@@ -41,7 +41,7 @@ const FIXED = OWN.replace("  issues: write\n", "").replace(
   "          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}",
 );
 
-const NEEDS = { secrets: ["EXPO_TOKEN"], features: [] };
+const NEEDS = { apps: [], environments: [], secrets: ["EXPO_TOKEN"], features: [] };
 
 const given = ({
   files = {},

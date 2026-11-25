@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { PlannedChangeset } from "../../domain/changes";
 import { planFrom } from "../../testing/plans";
 import { changesetText, testContext, testUnit } from "../../testing/releaseContext";
-import { releaseToPreview } from "../releaseToPreview";
+import { releaseToEntry } from "../releaseToEntry";
 import { runSteps } from "../steps";
 
 const PLANT: PlannedChangeset = {
@@ -56,7 +56,7 @@ describe("showing where the release is", () => {
     });
     prompter.answer(["api"], false);
 
-    await releaseToPreview(context);
+    await releaseToEntry(context);
 
     expect(progress.events.filter(({ kind }) => kind === "stage").map(({ text }) => text)).toEqual([
       "What to release",
@@ -75,7 +75,7 @@ describe("showing where the release is", () => {
     source.seed({ tags: { "api@0.0.1": "t0" } });
     host.seed({ deployments: [{ title: "Deploy api@0.0.1 to preview", state: "done" }] });
 
-    await releaseToPreview(context);
+    await releaseToEntry(context);
 
     expect(progress.events.at(-1)).toEqual(
       expect.objectContaining({ kind: "say", mood: "resting" }),

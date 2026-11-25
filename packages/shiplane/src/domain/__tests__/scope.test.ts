@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { TEST_FLOW } from "../../testing/flow";
 import { STORE_DECIDES } from "../../testing/sample";
 import { scopeChoices } from "../scope";
 
@@ -9,7 +10,7 @@ describe("what the release covers, asked before anything runs", () => {
     tagged: false,
     versioned: false,
     onChannel: false,
-    onPreview: false,
+    onPrevious: false,
   };
   const choose = (
     info: Partial<typeof base> & { app: "expo" | "api" | "admin" | "landing"; version: string },
@@ -17,6 +18,7 @@ describe("what the release covers, asked before anything runs", () => {
     scopeChoices(
       [{ ...base, ...info, ...(info.app === "expo" ? { decidedBy: STORE_DECIDES } : {}) }],
       "preview",
+      TEST_FLOW,
     )[0];
 
   it("given expo has changesets, when asked, then it is offered and says Store decides build or update later", () => {
@@ -49,10 +51,12 @@ describe("what the release covers, asked before anything runs", () => {
   it("given a package with no environment, when asked, then it reads live or not, never preview", () => {
     const package_ = { ...base, app: "cli", version: "1.0.0", tagged: true, noEnvironment: true };
 
-    expect(scopeChoices([{ ...package_, onChannel: true }], "preview")[0]?.hint).toBe(
+    expect(scopeChoices([{ ...package_, onChannel: true }], "preview", TEST_FLOW)[0]?.hint).toBe(
       "1.0.0 is live, nothing new",
     );
-    expect(scopeChoices([package_], "preview")[0]?.hint).toBe("1.0.0 released, not live yet");
+    expect(scopeChoices([package_], "preview", TEST_FLOW)[0]?.hint).toBe(
+      "1.0.0 released, not live yet",
+    );
   });
 
   it("given expo released and on preview with nothing new, when asked, then it is greyed out and points to its build check", () => {
@@ -85,8 +89,9 @@ describe("what the release covers, asked before anything runs", () => {
   it("given admin 0.1.1 on preview only, when promoting to production, then it is offered", () => {
     expect(
       scopeChoices(
-        [{ ...base, app: "admin", version: "0.1.1", tagged: true, onPreview: true }],
+        [{ ...base, app: "admin", version: "0.1.1", tagged: true, onPrevious: true }],
         "production",
+        TEST_FLOW,
       )[0],
     ).toEqual({
       app: "admin",
@@ -98,7 +103,11 @@ describe("what the release covers, asked before anything runs", () => {
 
   it("given admin 0.1.1 not on preview yet, when promoting to production, then it is greyed out", () => {
     expect(
-      scopeChoices([{ ...base, app: "admin", version: "0.1.1", tagged: true }], "production")[0],
+      scopeChoices(
+        [{ ...base, app: "admin", version: "0.1.1", tagged: true }],
+        "production",
+        TEST_FLOW,
+      )[0],
     ).toEqual({
       app: "admin",
       pending: false,
@@ -116,11 +125,12 @@ describe("what the release covers, asked before anything runs", () => {
             app: "admin",
             version: "0.1.1",
             tagged: true,
-            onPreview: true,
+            onPrevious: true,
             onChannel: true,
           },
         ],
         "production",
+        TEST_FLOW,
       )[0],
     ).toEqual({
       app: "admin",
@@ -135,6 +145,7 @@ describe("what the release covers, asked before anything runs", () => {
       scopeChoices(
         [{ ...base, app: "release", version: "0.3.0", tagged: true, releaseOnly: true }],
         "preview",
+        TEST_FLOW,
       )[0],
     ).toEqual({
       app: "release",
@@ -149,6 +160,7 @@ describe("what the release covers, asked before anything runs", () => {
       scopeChoices(
         [{ ...base, app: "release", version: "0.3.0", tagged: true, releaseOnly: true }],
         "production",
+        TEST_FLOW,
       )[0],
     ).toEqual({
       app: "release",

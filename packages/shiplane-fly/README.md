@@ -37,6 +37,7 @@ export default defineRelease({
     ciPipeline: gitHubActionsCiPipeline(),
     versioning: changesetsVersioning(),
   }),
+  deployApps: { promote: [{ from: "preview", to: "production" }] },
   modules: [backendService({ serverHosting: flyServerHosting() })],
 });
 ```
@@ -44,7 +45,7 @@ export default defineRelease({
 ## 📋 Unit file keys
 
 In the app's `shiplane.unit.yml`, next to `module: backend-service`. A key marked per environment
-also takes a `preview:` / `production:` map.
+also takes a map keyed by the environments of `deployApps.promote`.
 
 | Key            | Default      | Means                                                                    |
 | -------------- | ------------ | ------------------------------------------------------------------------ |
@@ -88,8 +89,8 @@ url:
 ```
 
 The deploy waits until Fly rolled it out, then records it. `setup` offers this adapter for a folder
-with a `fly.toml` (or `fly-preview.toml` and `fly-production.toml`), and as a possibility for a
-folder with only a Dockerfile.
+with a `fly.toml` (or one `fly-<environment>.toml` each), and as a possibility for a folder with
+only a Dockerfile.
 
 ## 🔑 Tools and sign-ins
 

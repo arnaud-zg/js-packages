@@ -18,6 +18,7 @@ import {
   refreshEditorSchema,
   removeUnit,
   ScriptedPrompter,
+  TEST_FLOW,
 } from "shiplane/testing";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -66,6 +67,7 @@ const setUp = (files: Record<string, string> = {}) => {
       shellServerHosting(),
     ],
     load: () => loadRelease(workspace?.root ?? "", { aliases: PLUGIN_ALIASES }),
+    environments: TEST_FLOW.path,
   };
   return { context, prompter, output, shell, workspace };
 };

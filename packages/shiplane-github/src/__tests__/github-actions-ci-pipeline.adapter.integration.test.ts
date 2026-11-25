@@ -387,7 +387,7 @@ permissions:
 jobs:
   ship:
     name: Ship to \${{ inputs.environment }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # A dry run names none: naming one records a deployment.
     environment: \${{ !inputs.dry-run && inputs.environment || '' }}
     concurrency:
@@ -409,6 +409,8 @@ jobs:
 
 /** A release shipping to Cloudflare Pages, commenting on what it ships. */
 const NEEDS = {
+  apps: ["preview", "production"],
+  environments: ["preview", "production"],
   secrets: ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN"],
   features: ["release-comments"],
 };
@@ -527,10 +529,10 @@ describe("writing the workflow a repository ships from", () => {
 
 describe("what a caller workflow offers", () => {
   it.each([
-    ["inline", "options: [snapshot, live]", true],
-    ["one per line", "options:\n  - snapshot\n  - live\n", true],
-    ["only in a comment", "# live\noptions: [preview]", false],
-  ])("given live %s, when read, then it is offered: %s", (_, content, offered) => {
-    expect(pipeline().offers?.(content, "live")).toBe(offered);
+    ["inline", "options: [snapshot, latest]", true],
+    ["one per line", "options:\n  - snapshot\n  - latest\n", true],
+    ["only in a comment", "# latest\noptions: [preview]", false],
+  ])("given latest %s, when read, then it is offered: %s", (_, content, offered) => {
+    expect(pipeline().offers?.(content, "latest")).toBe(offered);
   });
 });

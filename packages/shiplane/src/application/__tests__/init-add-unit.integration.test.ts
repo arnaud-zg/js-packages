@@ -74,13 +74,18 @@ describe("Feature: starting to ship one more app", () => {
     expect(files.read(SCHEMA)).toContain('"backend-service"');
   });
 
-  it("given a config that already ships that kind of app, when the person adds one, then shiplane.config.ts is left as it was", async () => {
+  it("given a config that already ships that kind of app, when the person adds one, then shiplane.config.ts only says how apps go to their users", async () => {
     const { context, prompter, files } = given({ ...WORKSPACE, "shiplane.config.ts": CONFIG });
     prompter.answer(true);
 
     await addUnit(context, "apps/api");
 
-    expect(files.read("shiplane.config.ts")).toBe(CONFIG);
+    expect(files.read("shiplane.config.ts")).toBe(
+      CONFIG.replace(
+        /^ {2}modules:/m,
+        (found) => `  deployApps: { promote: [{ from: "preview", to: "production" }] },\n${found}`,
+      ),
+    );
     expect(files.read(SCHEMA)).toContain('"web-app"');
   });
 

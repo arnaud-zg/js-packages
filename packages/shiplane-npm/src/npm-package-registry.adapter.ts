@@ -11,7 +11,6 @@ import type {
   TaggedVersion,
 } from "shiplane/plugin";
 import {
-  DEFAULT_FLOW,
   definePackageRegistry,
   onlyVersionFiles,
   parseJson,
@@ -30,7 +29,7 @@ const NpmOptions = z.object({
   tag: perEnv(z.string())
     .default("latest")
     .describe(
-      "The dist-tag each environment moves: { preview: next, production: latest } to stage",
+      "The dist-tag a release moves; a map of one per environment publishes under the first, then moves the next",
     ),
 });
 
@@ -266,9 +265,9 @@ const decide = async (
   const releaseJob = staged ? stageJob : publishJob;
   const decisions: Record<RegistryShip, () => Decision> = {
     "not-released": () => ({ action: "none", status: "not released yet" }),
-    "not-on-preview": () => ({
+    "not-on-previous": () => ({
       action: "none",
-      status: `not on npm yet: ship it to ${previousOf(input.flow ?? DEFAULT_FLOW, environment)} first`,
+      status: `not on npm yet: ship it to ${previousOf(input.flow, environment)} first`,
     }),
     "moved-past": () => ({
       action: "fail",
@@ -291,8 +290,8 @@ const live = async (context: DecideContext, input: JobInput<Options>) => {
 
 /**
  * A package on npm. A release publishes the version straight under `latest`; with
- * `tag: { preview: next, production: latest }`, preview publishes under `next` and production moves
- * `latest` to it, never publishing twice. With `staged`, a release waits on npm for a person's
+ * a tag per environment, the first publishes under its own and each next one moves its own to it,
+ * never publishing twice. With `staged`, a release waits on npm for a person's
  * approval; a test release still publishes at once.
  */
 export type NpmPackageRegistryAdapter = DeliveryAdapter<PackageRegistryPort>;

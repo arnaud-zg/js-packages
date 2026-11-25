@@ -1,8 +1,26 @@
 # 🚢 shiplane
 
-Release a monorepo with several apps and hosts from one command: it finds what changed, versions it,
-tags it and ships each app in order. It talks to no host itself. You inject one adapter per port in
-`shiplane.config.ts`.
+Releasing a monorepo by hand means remembering what changed, in which order to ship it, and what
+each environment runs. shiplane does it in one command, for your API, your site, your mobile app and
+your npm packages.
+
+- **Users only get what you checked:** an app reaches them after running on the environment before,
+  and its name is typed first.
+- **Nothing to remember:** it finds what changed, versions it, tags it and ships it in order.
+  Stopped halfway, run it again: it picks up where it left off.
+- **See it first:** `--dry-run` prints every command and runs none.
+- **Your hosts, your names:** Fly, Cloudflare Pages, GitHub Pages, EAS, npm, or any deploy command,
+  on the environments you name. One `ship.yml` does it on GitHub Actions too.
+
+[Where your apps deploy and your packages publish](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to-destinations.md)
+is yours to say:
+
+```ts
+deployApps: { promote: [{ from: "preview", to: "production" }] },
+publishPackages: { channels: ["nightly", "latest"] },
+```
+
+You inject one adapter per port in `shiplane.config.ts`; the core talks to no host itself.
 
 ```mermaid
 flowchart LR
@@ -83,6 +101,7 @@ export default defineRelease({
     ciPipeline: gitHubActionsCiPipeline(),
     versioning: commitsVersioning(),
   }),
+  deployApps: { promote: [{ from: "preview", to: "production" }] },
   modules: [
     backendService({ serverHosting: flyServerHosting() }),
     webApp({ staticHosting: cloudflarePagesStaticHosting() }),
@@ -120,7 +139,7 @@ Modules, in release order
 
   backend-service    fly  app, config, dockerfile, url, buildSecrets
                      used by api
-  web-app            cloudflare-pages  project, dist, build, branch, wrangler
+  web-app            cloudflare-pages  project, dist, build, branch, secretsIn, wrangler
                      used by site
   mobile-app         eas  versionFile, update
                      used by mobile

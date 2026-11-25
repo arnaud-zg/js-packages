@@ -1,6 +1,6 @@
 import path from "node:path";
 import type { Command, DeliveryAdapter, DeployFlow, StaticHostingPort } from "shiplane/plugin";
-import { DEFAULT_FLOW, defineStaticHosting, perEnv, reachesUsers, z } from "shiplane/plugin";
+import { defineStaticHosting, perEnv, reachesUsers, z } from "shiplane/plugin";
 
 const GH_PAGES = "gh-pages@6.3.0";
 
@@ -70,7 +70,7 @@ export const githubPagesStaticHosting = (): GithubPagesStaticHostingAdapter =>
     name: "github-pages",
     settings: GithubPagesOptions,
     typicalMinutes: 2,
-    describe: ({ options, environment, flow = DEFAULT_FLOW }) =>
+    describe: ({ options, environment, flow }) =>
       `${addressOf(options.url, flow, environment)} (GitHub Pages)`,
     detect: (folder) => {
       const built = folder.files.find((file) => BUILT.test(file));
@@ -105,7 +105,7 @@ export const githubPagesStaticHosting = (): GithubPagesStaticHostingAdapter =>
         },
       ];
     },
-    jobs: ({ unit, tag, environment, options, defaultBranch, flow = DEFAULT_FLOW }) => {
+    jobs: ({ unit, tag, environment, options, defaultBranch, flow }) => {
       const { branch, domain } = options;
       if (branch === defaultBranch) {
         throw new Error(

@@ -1,4 +1,4 @@
-import { RecordingShell, testUnit } from "shiplane/testing";
+import { RecordingShell, TEST_FLOW, testUnit } from "shiplane/testing";
 import { describe, expect, it } from "vitest";
 
 import { npmPackageRegistry } from "../npm-package-registry.adapter";
@@ -17,6 +17,7 @@ const jobsFor = (
   npmPackageRegistry()
     .create({ root: "/repo", shell: new RecordingShell() })
     .jobs({
+      flow: TEST_FLOW,
       unit: KIT,
       tag: "kit@0.6.0-feat-x.ae08284",
       environment: "preview",
@@ -66,6 +67,7 @@ describe("the versions npm holds, for a numbered test release", () => {
     shell.seed("npm view kit-workspace time", reply);
     const port = npmPackageRegistry().create({ root: "/repo", shell });
     return port.publishedVersions?.({ shell } as never, {
+      flow: TEST_FLOW,
       unit: KIT,
       tag: "kit@0.6.0",
       environment: "preview",

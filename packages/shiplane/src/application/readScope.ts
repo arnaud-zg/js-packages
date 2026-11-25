@@ -46,7 +46,7 @@ export const readScope = async (
   const refs = unitRefs(release.units);
   const named = pending.map(({ text }) => changesetApps(text, refs));
   const [deployed, tags] = await Promise.all([
-    services.codeHost.deployments(release.appFlow?.path).catch(() => []),
+    services.codeHost.deployments(release.appFlow.path).catch(() => []),
     services.sourceControl.tags(),
   ]);
   return Promise.all(
@@ -75,7 +75,7 @@ export const readScope = async (
           commit !== null &&
           firstRelease(unit.name, unit.version, tags, context.release.tagFormat),
         onChannel: await live(environment),
-        onPreview: previous === null || (await live(previous)),
+        onPrevious: previous === null || (await live(previous)),
         ...(decidedBy ? { decidedBy } : {}),
         ...(target?.releaseOnly ? { releaseOnly: true } : {}),
         ...(target && hasNoEnvironment(target) ? { noEnvironment: true } : {}),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { releaseToPreview } from "../releaseToPreview";
+import { releaseToEntry } from "../releaseToEntry";
 import { branchWorld, kit, lib, manifest } from "./releaseBranchWorld";
 
 const built = (name: string, fields: Record<string, unknown> = {}) =>
@@ -52,7 +52,7 @@ const world = ({
       );
   const builds = () => commands().filter((command) => !command.includes("echo"));
   const published = () => commands().filter((command) => command.includes("echo publish"));
-  return { ...made, commands, builds, published, release: () => releaseToPreview(made.context) };
+  return { ...made, commands, builds, published, release: () => releaseToEntry(made.context) };
 };
 
 const wroteNothing = ({ source, host, published }: ReturnType<typeof world>) => {

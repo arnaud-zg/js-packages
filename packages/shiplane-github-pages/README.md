@@ -2,7 +2,8 @@
 
 Ships a static site to GitHub Pages: fills
 [shiplane](https://github.com/arnaud-zg/packages/blob/main/packages/shiplane/README.md)'s **static
-hosting** port. Preview and production share one branch, and neither removes the other.
+hosting** port. Each environment has its own folder on one branch, users' the rest, and none removes
+another.
 
 ```mermaid
 flowchart LR
@@ -10,7 +11,7 @@ flowchart LR
     MOD --> GH["githubPagesStaticHosting()"]
     GH --> BUILD["build with BASE_PATH"]
     BUILD --> PRE["preview: /preview/"]
-    BUILD --> PROD["production: the rest of the branch"]
+    BUILD --> PRODUCTION["production: the rest of the branch"]
 ```
 
 ## ⚡ Install
@@ -40,6 +41,7 @@ export default defineRelease({
     ciPipeline: gitHubActionsCiPipeline(),
     versioning: changesetsVersioning(),
   }),
+  deployApps: { promote: [{ from: "preview", to: "production" }] },
   modules: [webApp({ staticHosting: githubPagesStaticHosting() })],
 });
 ```

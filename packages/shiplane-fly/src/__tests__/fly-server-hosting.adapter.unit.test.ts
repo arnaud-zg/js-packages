@@ -1,5 +1,5 @@
 import { z } from "shiplane/plugin";
-import { RecordingShell, testUnit } from "shiplane/testing";
+import { RecordingShell, TEST_FLOW, testUnit } from "shiplane/testing";
 import { describe, expect, it } from "vitest";
 
 import { flyServerHosting } from "../fly-server-hosting.adapter";
@@ -36,6 +36,18 @@ describe("recognising an app Fly ships", () => {
     expect(found?.options).toEqual({
       app: { preview: "acme-api-preview", production: "acme-api" },
       config: { preview: "fly-preview.toml", production: "fly-production.toml" },
+    });
+  });
+
+  it("given tomls named by the repository's own environments, when init looks at the folder, then those name the map", () => {
+    const found = fly.detect?.(
+      folder({ "fly-eu-dev.toml": 'app = "a"\n', "fly-live-eu.toml": 'app = "b"\n' }),
+    );
+
+    expect(found?.environments).toEqual(["eu-dev", "live-eu"]);
+    expect(found?.options).toEqual({
+      app: { "eu-dev": "a", "live-eu": "b" },
+      config: { "eu-dev": "fly-eu-dev.toml", "live-eu": "fly-live-eu.toml" },
     });
   });
 
@@ -153,6 +165,7 @@ describe("deploying to Fly", () => {
   it("given build secrets, when the deploy job is built, then each is passed by name and never by value", () => {
     const unit = testUnit("api", { module: "backend-service" });
     const [job] = port.jobs({
+      flow: TEST_FLOW,
       unit,
       tag: "api@1.0.0",
       environment: "preview",
@@ -175,6 +188,7 @@ describe("deploying to Fly", () => {
     const options = fly.settings.parse({ app: "acme-api-preview" });
 
     const [job] = port.jobs({
+      flow: TEST_FLOW,
       unit,
       tag: "api@1.0.0",
       environment: "preview",

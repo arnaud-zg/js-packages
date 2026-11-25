@@ -76,7 +76,7 @@ describe("Feature: commenting, labelling and paging once apps ship", () => {
     expect(output.lines).toEqual([]);
   });
 
-  it("given features with follow-ups, when the person previews a ship, then the follow-ups are listed and none runs", async () => {
+  it("given features with follow-ups, when the person dry-runs a ship, then the follow-ups are listed and none runs", async () => {
     const { context, output, ran } = given();
 
     await planFollowUps(context, SHIPPED);
@@ -92,7 +92,7 @@ describe("Feature: commenting, labelling and paging once apps ship", () => {
     ]);
   });
 
-  it("given nothing to ship, when the person previews a ship, then no follow-up section is shown", async () => {
+  it("given nothing to ship, when the person dry-runs a ship, then no follow-up section is shown", async () => {
     const { context, output } = given();
 
     await planFollowUps(context, []);

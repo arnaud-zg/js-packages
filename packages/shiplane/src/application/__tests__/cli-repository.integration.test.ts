@@ -11,6 +11,7 @@ import { MemoryOutput } from "../../adapters/terminal/__fakes__/terminal.fake";
 import { composeContext, composeServices, composeSetup, opener } from "../../cli/compose";
 import { findRoot } from "../../cli/findRoot";
 import { installedAdapters } from "../../cli/plugins";
+import { TEST_FLOW } from "../../testing/flow";
 import { fakeFlow } from "../../testing/memoryRepository";
 import { SOURCE_ALIASES } from "../../testing/workspace";
 
@@ -169,6 +170,7 @@ describe("Feature: every command acting on the repository through its shell", ()
     const release = {
       root,
       flow: fakeFlow(),
+      appFlow: TEST_FLOW,
       modules: [],
       features: [],
       units: [],
@@ -199,7 +201,7 @@ describe("Feature: every command acting on the repository through its shell", ()
       "shiplane.config.ts": `import { backendService, defineRelease, releaseFlow } from "shiplane";
 import { ciPipelineFake, codeHostFake, serverHostingFake, sourceControlFake, versioningFake } from "shiplane/testing";
 
-export default defineRelease({
+export default defineRelease({ deployApps: { promote: [{ from: "preview", to: "production" }] },
   flow: releaseFlow({
     sourceControl: sourceControlFake(),
     codeHost: codeHostFake(),
@@ -245,6 +247,7 @@ export default defineRelease({
     const release = {
       root,
       flow: fakeFlow(),
+      appFlow: TEST_FLOW,
       modules: [],
       features: [],
       units: [],

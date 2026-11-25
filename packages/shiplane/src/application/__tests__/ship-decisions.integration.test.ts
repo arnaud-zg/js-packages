@@ -369,7 +369,7 @@ describe("Feature: shipping to production only with a person's say-so", () => {
   it("given the person types something other than production, when shipping to production, then nothing runs", async () => {
     // given
     const { context, prompter, output } = shipWorld(["api"]);
-    prompter.answer("prod");
+    prompter.answer("yes");
 
     // when
     const ok = await shipTo(context, "production", { via: "ci" });

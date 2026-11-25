@@ -15,6 +15,8 @@ const REPO = {
   "apps/site/shiplane.unit.yml": "module: backend-service\nservice: site\n",
 };
 const NEEDS = {
+  apps: [],
+  environments: [],
   secrets: [],
   features: [],
   permissions: { contents: "write" as const },

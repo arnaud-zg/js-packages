@@ -16,6 +16,7 @@ import { mobileApp } from "../../modules/mobile-app/mobile-app.module";
 import { publishedPackage } from "../../modules/published-package/published-package.module";
 import { moduleFor, suggestedModule } from "../../modules/suggest";
 import { webApp } from "../../modules/web-app/web-app.module";
+import { TEST_FLOW } from "../../testing/flow";
 import { testContext, testUnit } from "../../testing/releaseContext";
 import { decideContext } from "../targets";
 
@@ -26,6 +27,7 @@ const MOBILE = testUnit("phone", { module: "mobile-app", version: "2.0.0" });
 const PACKAGE = testUnit("kit", { module: "published-package", version: "1.2.0" });
 
 const inputFor = (unit: ReleaseUnit, options: Record<string, unknown>): AppInput => ({
+  flow: TEST_FLOW,
   unit,
   tag: `${unit.name}@${unit.version}`,
   environment: "preview",

@@ -5,7 +5,9 @@ import type { AnyDeliveryAdapter } from "../modules/suggest";
 import type { Detection, FolderView } from "../ports/delivery.port";
 import type { SetupContext } from "./setupContext";
 import type { ModuleEntry } from "./setupFiles";
+import { NO_APPS } from "../domain/environment";
 import { moduleFor } from "../modules/suggest";
+import { chooseEnvironments, needsEnvironments } from "./chooseEnvironments";
 import { UNIT_FILE, UNIT_FILES } from "./config/readUnitFile";
 import { isRecord } from "./config/values";
 import { expandPatterns, workspacePatterns } from "./config/workspaceFolders";
@@ -27,6 +29,7 @@ import {
   schemaLineFor,
   schemaText,
   withEditorSchema,
+  withPromote,
 } from "./setupFiles";
 
 interface Candidate {
@@ -40,6 +43,8 @@ interface Placed {
   adapter: AnyDeliveryAdapter;
   options: Record<string, unknown>;
   reason?: string;
+  /** The environments its detection saw. */
+  environments?: string[];
 }
 
 interface Write {
@@ -144,11 +149,26 @@ const review = async (context: SetupContext, writes: Write[], yes: boolean) => {
 /** The config: written whole the first time, else each new module added to the one there. */
 const configWrites = (
   { files }: SetupContext,
-  { existing, entries, pkg }: { existing: boolean; entries: readonly ModuleEntry[]; pkg: string },
+  {
+    existing,
+    entries,
+    pkg,
+    path: environments,
+  }: {
+    existing: boolean;
+    entries: readonly ModuleEntry[];
+    pkg: string;
+    /** The environments to write, when the config names none and an app needs them. */
+    path: readonly string[] | null;
+  },
 ): Write[] => {
-  if (!existing) return [{ file: CONFIG_FILE, text: renderConfig(entries, pkg), created: true }];
+  if (!existing) {
+    const text = renderConfig(entries, pkg, undefined, undefined, environments);
+    return [{ file: CONFIG_FILE, text, created: true }];
+  }
   const before = files.read(CONFIG_FILE) ?? "";
-  const config = entries.reduce((text, entry) => addToConfig(text, entry, pkg) ?? text, before);
+  const added = entries.reduce((text, entry) => addToConfig(text, entry, pkg) ?? text, before);
+  const config = (environments && withPromote(added, environments)) ?? added;
   if (config === files.read(CONFIG_FILE)) return [];
   return [{ file: CONFIG_FILE, text: config, created: false }];
 };
@@ -261,6 +281,7 @@ export const initRelease = async (
       adapter,
       options,
       reason: guess?.adapter === adapter ? guess.detection.reason : undefined,
+      environments: guess?.adapter === adapter ? guess.detection.environments : undefined,
     });
   }
   const extras = [
@@ -289,7 +310,25 @@ export const initRelease = async (
     }
     return { ...entry, module: name };
   });
-  const writes: Write[] = configWrites(context, { existing: existing !== null, entries, pkg });
+  const needsPerson: string[] = [];
+  const environments = needsEnvironments({ modules, entries, placed: named, existing })
+    ? await chooseEnvironments(context, {
+        found: placed.flatMap(({ environments: names = [] }) => names),
+        yes,
+        needsPerson,
+      })
+    : [];
+  if (environments === null) {
+    needsPerson.forEach((item) => output.line(`${paint("red", "✗")}  ${item}`));
+    output.line(paint("dim", "Nothing written."));
+    return false;
+  }
+  const writes: Write[] = configWrites(context, {
+    existing: existing !== null,
+    entries,
+    pkg,
+    path: environments.length > 0 ? environments : null,
+  });
   named.forEach(({ folder, adapter, module, options, reason }) => {
     const schemaLine = editor ? undefined : schemaLineFor(folder.dir);
     writes.push({
@@ -302,7 +341,14 @@ export const initRelease = async (
   });
   writes.push({
     file: SCHEMA_FILE,
-    text: schemaText(modules),
+    text: schemaText(
+      modules,
+      existing && environments.length === 0
+        ? existing.appFlow.path
+        : environments.length > 0
+          ? environments
+          : NO_APPS.path,
+    ),
     created: !files.exists(SCHEMA_FILE),
   });
   if (editor) writes.push(...editorWrites(context));

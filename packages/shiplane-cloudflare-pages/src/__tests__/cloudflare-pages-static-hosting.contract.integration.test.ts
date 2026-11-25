@@ -2,7 +2,7 @@ import { platformEnvContract, RecordingShell, staticHostingContract } from "ship
 
 import { cloudflarePagesStaticHosting } from "../cloudflare-pages-static-hosting.adapter";
 
-const settings = { project: "admin-site" };
+const settings = { project: "admin-site", secretsIn: "theirs" };
 
 staticHostingContract([{ adapter: cloudflarePagesStaticHosting(), settings }]);
 
