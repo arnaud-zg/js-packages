@@ -9,5 +9,5 @@ and `channels` for npm packages. Both are optional and unset changes nothing. `s
 writes a `ship.yml` listing them, with the permissions npm needs, and `shiplane doctor` keeps it in
 step.
 
-`ship.yml` is the only workflow: it uses the `.github/actions/ship` action. One calling
-`shiplane-ship.yml` keeps working; that reusable workflow is deprecated.
+`ship.yml` is the only workflow: it uses the `.github/actions/ship` action. The reusable workflow
+`shiplane-ship.yml` is gone: run `shiplane doctor` and let it replace a `ship.yml` that calls it.

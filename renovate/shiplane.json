@@ -7,7 +7,7 @@
       "description": "The ship.yml that shiplane setup writes uses shiplane pinned to a release commit.",
       "managerFilePatterns": ["/(^|/)\\.github/workflows/[^/]+\\.ya?ml$/"],
       "matchStrings": [
-        "arnaud-zg/js-packages/\\.github/(?:workflows/shiplane-ship\\.yml|actions/(?:ship|setup-node-project))@(?<currentDigest>[a-f0-9]{40}) # shiplane@(?<currentValue>\\S+)"
+        "arnaud-zg/js-packages/\\.github/actions/(?:ship|setup-node-project)@(?<currentDigest>[a-f0-9]{40}) # shiplane@(?<currentValue>\\S+)"
       ],
       "depNameTemplate": "shiplane",
       "packageNameTemplate": "arnaud-zg/js-packages",

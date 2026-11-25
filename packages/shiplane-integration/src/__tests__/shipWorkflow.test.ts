@@ -11,7 +11,7 @@ import { callerNeedsOf, RecordingShell, testContext, testUnit } from "shiplane/t
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
-// The workflow every repository ships from, read as GitHub reads it, against the secrets the
+// The action every repository ships with, read as GitHub reads it, against the secrets the
 // official adapters read on a runner; and the ship.yml setup writes for a release of them.
 
 const API = testUnit("api", { module: "backend-service", options: { app: "acme-api" } });
@@ -36,15 +36,6 @@ interface Step {
   name?: string;
   env?: Record<string, string>;
 }
-interface ShipWorkflow {
-  on: { workflow_call: { secrets: Record<string, unknown> } };
-  jobs: { ship: { env?: Record<string, string>; steps: Step[] } };
-}
-
-const WORKFLOW = new URL("../../../../.github/workflows/shiplane-ship.yml", import.meta.url);
-const workflow = parse(readFileSync(WORKFLOW, "utf8")) as ShipWorkflow;
-const stepsNamed = (...names: string[]) =>
-  workflow.jobs.ship.steps.filter(({ name = "" }) => names.includes(name));
 
 const COMMIT = "c0ffee0000000000000000000000000000000000";
 
@@ -120,26 +111,6 @@ describe("the ship action", () => {
 });
 
 describe("the workflow every repository ships from", () => {
-  it("given the official adapters, when shiplane-ship.yml is read, then it declares each secret they read and no other", () => {
-    const declared = Object.keys(workflow.on.workflow_call.secrets)
-      .filter((name) => !name.startsWith("SHIPLANE_APP_"))
-      .sort();
-
-    expect(declared).toEqual(ADAPTER_SECRETS);
-  });
-
-  it("given the official adapters, when shiplane-ship.yml checks and ships, then those two steps alone see each secret they read, and GH_TOKEN", () => {
-    const shipping = stepsNamed("Check what ships", "Ship");
-
-    expect(shipping).toHaveLength(2);
-    for (const { env = {} } of shipping) {
-      expect(env).toMatchObject(byName(ADAPTER_SECRETS));
-      expect(env.GH_TOKEN).toBe("${{ steps.app.outputs.token || github.token }}");
-    }
-    const others = workflow.jobs.ship.steps.filter((step) => !shipping.includes(step));
-    expect(JSON.stringify(others.map(({ env }) => env))).not.toContain("secrets.");
-  });
-
   it("given apps on Cloudflare Pages only, when setup writes ship.yml, then it passes the two Cloudflare secrets", async () => {
     const caller = await callerOf([PAGES]);
 

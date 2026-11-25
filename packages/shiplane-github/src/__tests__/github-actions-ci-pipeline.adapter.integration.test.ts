@@ -105,7 +105,7 @@ describe("dispatching a workflow", () => {
   const MAIN_CALLER = [
     "jobs:",
     "  ship:",
-    "    uses: arnaud-zg/js-packages/.github/workflows/shiplane-ship.yml@abc # shiplane@1.0.0",
+    "    uses: arnaud-zg/js-packages/.github/actions/ship@abc # shiplane@1.0.0",
     "    with:",
     "      units: ${{ inputs.units }}",
     "      ref: ${{ inputs.ref }}",
@@ -448,17 +448,6 @@ describe("writing the workflow a repository ships from", () => {
     expect(made && "content" in made && made.content).not.toContain("secrets.");
   });
 
-  it("given a ship.yml calling the reusable workflow, when it is made, then it still does, secrets by name", async () => {
-    const gh = fakeGh().seed(REF, JSON.stringify({ object: { sha: COMMIT, type: "commit" } }));
-
-    const made = await pipelineOn(gh).callerWorkflow?.("0.6.0", { ...NEEDS, reusable: true });
-
-    const content = made && "content" in made ? made.content : "";
-    expect(content).toContain(`/.github/workflows/shiplane-ship.yml@${COMMIT} # shiplane@0.6.0`);
-    expect(content).toContain("    secrets:\n      CLOUDFLARE_ACCOUNT_ID:");
-    expect(content).not.toContain("dry-run");
-  });
-
   it("given a release without release comments, when the caller workflow is made, then it may not write to issues or pull requests", async () => {
     const gh = fakeGh().seed(REF, JSON.stringify({ object: { sha: COMMIT, type: "commit" } }));
 
@@ -485,7 +474,7 @@ describe("writing the workflow a repository ships from", () => {
     const gh = fakeGh().seed(REF, { status: 1, stderr: "gh: Not Found (HTTP 404)\n" });
 
     expect(await pipelineOn(gh).callerWorkflow?.("0.6.0", NEEDS)).toEqual({
-      error: "no release tag shiplane@0.6.0: pin shiplane-ship.yml by hand",
+      error: "no release tag shiplane@0.6.0: pin ship.yml by hand",
     });
   });
 
@@ -523,7 +512,7 @@ describe("writing the workflow a repository ships from", () => {
     });
 
     expect(await pipelineOn(gh).callerWorkflow?.("0.6.0-main.329aafb", NEEDS)).toEqual({
-      error: "no commit 329aafb for shiplane@0.6.0-main.329aafb: pin shiplane-ship.yml by hand",
+      error: "no commit 329aafb for shiplane@0.6.0-main.329aafb: pin ship.yml by hand",
     });
   });
 

@@ -121,9 +121,7 @@ describe("Feature: setup writes the workflow a repository ships from", () => {
 
     expect(await setup(context, { yes: false })).toBe(true);
 
-    expect(output.lines).toContain(
-      "  ! no release tag shiplane@0.6.0: pin shiplane-ship.yml by hand",
-    );
+    expect(output.lines).toContain("  ! no release tag shiplane@0.6.0: pin ship.yml by hand");
     expect(files.exists(SHIP_YML)).toBe(false);
     expect(files.exists("shiplane.config.ts")).toBe(true);
   });
@@ -180,7 +178,7 @@ describe("Feature: setup has Renovate keep the ship.yml pin current", () => {
     expect(files.read("renovate.json")).toBe("{}");
   });
 
-  it("given a set up repository whose ship.yml calls shiplane-ship.yml and a .renovaterc with no extends, when setup runs again, then extends is made with the preset", async () => {
+  it("given a set up repository whose ship.yml ships with shiplane and a .renovaterc with no extends, when setup runs again, then extends is made with the preset", async () => {
     const { context, prompter, files } = given(PROVEN);
     prompter.answer(true, true);
     await setup(context, { yes: false });
@@ -263,7 +261,7 @@ describe("Feature: setup has Renovate keep the ship.yml pin current", () => {
     expect(output.lines.join("\n")).not.toContain("renovate");
   });
 
-  it("given a ship.yml that does not call shiplane-ship.yml, when setup runs, then Renovate is not mentioned", async () => {
+  it("given a ship.yml that does not ship with shiplane, when setup runs, then Renovate is not mentioned", async () => {
     const { context, prompter, output, files } = given({
       ...PROVEN,
       [SHIP_YML]: "name: Mine\n",

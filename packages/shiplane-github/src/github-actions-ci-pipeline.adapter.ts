@@ -47,36 +47,11 @@ const permissionsOf = ({ features, permissions = {} }: CallerNeeds) => {
   return ["permissions:", ...Object.entries(allowed).map(([name, level]) => `  ${name}: ${level}`)];
 };
 
-/** Each secret its adapters read, passed by name: GitHub hands a called workflow no other. */
-const secretsOf = ({ secrets }: CallerNeeds) =>
-  secrets.length === 0
-    ? []
-    : ["    secrets:", ...secrets.map((name) => `      ${name}: \${{ secrets.${name} }}`)];
-
-const DRY_RUN_INPUT = [
-  "      dry-run:",
-  '        description: "Show what would ship, ship nothing"',
-  "        type: boolean",
-  "        default: false",
-];
-
-/** The job of a ship.yml from before the ship action, calling shiplane's reusable workflow. */
-const reusableJob = (pin: string, needs: CallerNeeds) => [
-  `    uses: ${SHIPLANE_REPO}/.github/workflows/shiplane-ship.yml@${pin}`,
-  "    with:",
-  "      units: ${{ inputs.units }}",
-  "      environment: ${{ inputs.environment }}",
-  "      ref: ${{ inputs.ref }}",
-  ...(needs.environments ? ["      dry-run: ${{ inputs.dry-run }}"] : []),
-  ...(needs.variables ? [`      variables: ${needs.variables.join(" ")}`] : []),
-  ...secretsOf(needs),
-];
-
 /** An npm channel publishes the ref the run is on: its environment's branch rule holds. */
 const CHECKED_OUT = `\${{ contains(fromJSON('["preview", "production"]'), inputs.environment) && inputs.ref || '' }}`;
 
 /** The job: its own environment and permissions, and one step that ships, given secrets by name. */
-const actionJob = (pin: string, needs: CallerNeeds) => [
+const shipJob = (pin: string, needs: CallerNeeds) => [
   "    name: Ship to ${{ inputs.environment }}",
   "    runs-on: ubuntu-latest",
   "    # A dry run names none: naming one records a deployment.",
@@ -102,7 +77,7 @@ const actionJob = (pin: string, needs: CallerNeeds) => [
 
 /** The workflow a repository ships from: a manual run using shiplane, pinned to a commit. */
 const callerContent = (sha: string, version: string, needs: CallerNeeds) => {
-  const { environments = ["preview", "production"], reusable } = needs;
+  const { environments = ["preview", "production"] } = needs;
   const pin = `${sha} # shiplane@${version}`;
   return [
     "# Ships with shiplane: `pnpm shiplane ship --via ci`, or Run workflow here.",
@@ -126,13 +101,16 @@ const callerContent = (sha: string, version: string, needs: CallerNeeds) => {
     '        description: "The tag to ship; shiplane sets it (empty: the ref this runs on)"',
     "        type: string",
     '        default: ""',
-    ...(reusable && !needs.environments ? [] : DRY_RUN_INPUT),
+    "      dry-run:",
+    '        description: "Show what would ship, ship nothing"',
+    "        type: boolean",
+    "        default: false",
     "",
     ...permissionsOf(needs),
     "",
     "jobs:",
     "  ship:",
-    ...(reusable ? reusableJob(pin, needs) : actionJob(pin, needs)),
+    ...shipJob(pin, needs),
     "",
   ].join("\n");
 };
@@ -256,7 +234,7 @@ const githubActions = (root: string, shell: Shell, shipWorkflow: string): CiPipe
           orMissing,
         );
         if (commit === null) {
-          return { error: `no commit ${short} for ${tag}: pin shiplane-ship.yml by hand` };
+          return { error: `no commit ${short} for ${tag}: pin ship.yml by hand` };
         }
         const { sha } = CommitSchema.parse(commit);
         return {
@@ -268,7 +246,7 @@ const githubActions = (root: string, shell: Shell, shipWorkflow: string): CiPipe
       const ref = await json(["api", `repos/${SHIPLANE_REPO}/git/ref/tags/${tag}`]).catch(
         orMissing,
       );
-      if (ref === null) return { error: `no release tag ${tag}: pin shiplane-ship.yml by hand` };
+      if (ref === null) return { error: `no release tag ${tag}: pin ship.yml by hand` };
       const { object } = RefSchema.parse(ref);
       // An annotated tag points at a tag object, which points at the commit.
       const sha =

@@ -92,9 +92,9 @@ run, on the first one's tag, and the Actions run and its GitHub deployment show 
 that ships `main` on purpose, like an Expo production update, runs on `main`.
 
 That workflow is yours, but its steps are not: `shiplane setup` writes a `ship.yml` that only calls
-`shiplane-ship.yml`, a reusable workflow published from shiplane's repository. Every repository then
-runs the same steps, and a fix to them reaches all of them with an upgrade. The call is pinned to
-the commit of a shiplane release, not to a tag or a branch: a commit cannot move, so nothing changes
+`.github/actions/ship`, an action published from shiplane's repository. Every repository then runs
+the same steps, and a fix to them reaches all of them with an upgrade. The call is pinned to the
+commit of a shiplane release, not to a tag or a branch: a commit cannot move, so nothing changes
 what runs on your secrets until you re-pin, and `shiplane doctor` offers that after each upgrade.
 
 Your ship workflow needs no change for this: a `workflow_dispatch` workflow that checks out
