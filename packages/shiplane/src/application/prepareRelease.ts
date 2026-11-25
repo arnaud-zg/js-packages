@@ -6,7 +6,7 @@ import type { ReleaseContext } from "./context";
 import { appBumps, packageBumps, splitChangesets } from "../domain/changes";
 import { draggedUnits } from "../domain/companions";
 import { namedUnits, unitRefs } from "./readScope";
-import { checkout, decideContext, unitTarget } from "./targets";
+import { checkout, decideContext, entry, unitTarget } from "./targets";
 import { unattended } from "./unattended";
 
 export type Split = ReturnType<typeof splitChangesets>;
@@ -59,7 +59,7 @@ const contributionsOf = async (
       contributions[unit.name] = answered;
       continue;
     }
-    const target = unitTarget(context, { unit, environment: "preview", ...at });
+    const target = unitTarget(context, { unit, environment: entry(context), ...at });
     const version = target?.module.version?.bind(target.module);
     if (!target || !version) continue;
     const { input } = target;

@@ -11,10 +11,12 @@ import type {
   TaggedVersion,
 } from "shiplane/plugin";
 import {
+  DEFAULT_FLOW,
   definePackageRegistry,
   onlyVersionFiles,
   parseJson,
   perEnv,
+  previousOf,
   registryDecision,
   z,
 } from "shiplane/plugin";
@@ -26,7 +28,7 @@ const NpmOptions = z.object({
     .describe("The name it publishes under, when its workspace name is not a valid npm name"),
   access: z.enum(["public", "restricted"]).default("public").describe("Who can install it"),
   tag: perEnv(z.string())
-    .default({ preview: "latest", production: "latest" })
+    .default("latest")
     .describe(
       "The dist-tag each environment moves: { preview: next, production: latest } to stage",
     ),
@@ -255,7 +257,7 @@ const decide = async (
   const { tag, environment, options } = input;
   const ship = await registryDecision({
     environment,
-    stages: input.stages,
+    flow: input.flow,
     facts: registryFacts(context, input),
   });
   if (staged && ship === "publish" && (await waitsForApproval(context, input))) {
@@ -266,7 +268,7 @@ const decide = async (
     "not-released": () => ({ action: "none", status: "not released yet" }),
     "not-on-preview": () => ({
       action: "none",
-      status: "not on npm yet: ship it to preview first",
+      status: `not on npm yet: ship it to ${previousOf(input.flow ?? DEFAULT_FLOW, environment)} first`,
     }),
     "moved-past": () => ({
       action: "fail",

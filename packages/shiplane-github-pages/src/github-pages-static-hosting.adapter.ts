@@ -1,15 +1,17 @@
 import path from "node:path";
-import type { Command, DeliveryAdapter, StaticHostingPort } from "shiplane/plugin";
-import { defineStaticHosting, perEnv, z } from "shiplane/plugin";
+import type { Command, DeliveryAdapter, DeployFlow, StaticHostingPort } from "shiplane/plugin";
+import { DEFAULT_FLOW, defineStaticHosting, perEnv, reachesUsers, z } from "shiplane/plugin";
 
 const GH_PAGES = "gh-pages@6.3.0";
 
-/** Where preview lives on the branch. Production is the rest of it. */
-const PREVIEW = "preview";
+/** The folder of the branch an environment lives in; users' is the rest of it. */
+const folderOf = (flow: DeployFlow, environment: string) =>
+  reachesUsers(flow, environment) ? null : environment;
 
-/** Everything at the branch root but these, as a glob. It starts with a brace where it is used: a
- * leading `!` would negate the whole pattern. */
-const KEPT = `!(CNAME|${PREVIEW})`;
+/** Everything at the branch root but CNAME and the other environments' folders, as a glob. It starts
+ * with a brace where it is used: a leading `!` would negate the whole pattern. */
+const keptBy = ({ path: names, users }: DeployFlow) =>
+  `!(${["CNAME", ...names.filter((name) => name !== users)].join("|")})`;
 
 const BUILT = /^(vite|astro|next|nuxt|svelte)\.config\.(ts|js|mjs|cjs)$/;
 
@@ -31,9 +33,10 @@ const GithubPagesOptions = z.object({
     .describe("Variables the build reads from this machine or, on CI, from GitHub's variables"),
 });
 
-const addressOf = (url: string, environment: string) => {
+const addressOf = (url: string, flow: DeployFlow, environment: string) => {
   const root = url.endsWith("/") ? url : `${url}/`;
-  return environment === PREVIEW ? `${root}${PREVIEW}/` : root;
+  const folder = folderOf(flow, environment);
+  return folder === null ? root : `${root}${folder}/`;
 };
 
 /** Where GitHub serves a repository's site: a user's or organisation's is named by its address. */
@@ -59,7 +62,7 @@ const startBranch = (branch: string): Command => ({
   args: ["-c", START, "sh", branch],
 });
 
-/** A static build on GitHub Pages: preview in its own folder, production in the rest of the branch. */
+/** A static build on GitHub Pages: each environment in its own folder, users' in the rest of the branch. */
 export type GithubPagesStaticHostingAdapter = DeliveryAdapter<StaticHostingPort>;
 
 export const githubPagesStaticHosting = (): GithubPagesStaticHostingAdapter =>
@@ -67,7 +70,8 @@ export const githubPagesStaticHosting = (): GithubPagesStaticHostingAdapter =>
     name: "github-pages",
     settings: GithubPagesOptions,
     typicalMinutes: 2,
-    describe: ({ options, environment }) => `${addressOf(options.url, environment)} (GitHub Pages)`,
+    describe: ({ options, environment, flow = DEFAULT_FLOW }) =>
+      `${addressOf(options.url, flow, environment)} (GitHub Pages)`,
     detect: (folder) => {
       const built = folder.files.find((file) => BUILT.test(file));
       if (!built) return null;
@@ -101,14 +105,16 @@ export const githubPagesStaticHosting = (): GithubPagesStaticHostingAdapter =>
         },
       ];
     },
-    jobs: ({ unit, tag, environment, options, defaultBranch }) => {
+    jobs: ({ unit, tag, environment, options, defaultBranch, flow = DEFAULT_FLOW }) => {
       const { branch, domain } = options;
       if (branch === defaultBranch) {
         throw new Error(
           `${unit.name}: branch "${branch}" holds the source, and a ship replaces its files. Use another, such as gh-pages.`,
         );
       }
-      const address = addressOf(options.url, environment);
+      const address = addressOf(options.url, flow, environment);
+      const folder = folderOf(flow, environment);
+      const kept = keptBy(flow);
       return [
         {
           label: `build ${tag} and publish it to ${address}`,
@@ -131,7 +137,7 @@ export const githubPagesStaticHosting = (): GithubPagesStaticHostingAdapter =>
                 "--nojekyll",
                 ...(domain ? [`--cname=${domain}`] : []),
                 // Each environment replaces its own files only; CNAME outlives both.
-                environment === PREVIEW ? `--dest=${PREVIEW}` : `--remove={${KEPT},${KEPT}/**}`,
+                folder === null ? `--remove={${kept},${kept}/**}` : `--dest=${folder}`,
               ],
             },
             { command: "sh", args: ["-c", ASK] },

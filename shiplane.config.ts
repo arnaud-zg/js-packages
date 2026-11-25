@@ -13,6 +13,11 @@ export default defineRelease({
     versioning: changesetsVersioning({ line: lines.whatsChanged, thanks: presets.none }),
   }),
   modules: [publishedPackage({ packageRegistry: npmPackageRegistry({ staged: true }) })],
+  // Packages only: nothing here deploys. From the earliest channel to the release.
+  publishPackages: {
+    channels: ["nightly", "alpha", "beta", "rc", "live"],
+    onBranch: "snapshot",
+  },
   // Each package is built before it publishes: npm gets what this commit holds, not an older dist.
   prepare: "pnpm --filter ./{dir} build",
 });

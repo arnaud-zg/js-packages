@@ -45,14 +45,14 @@ export default defineRelease({
 
 In the app's `shiplane.unit.yml`, next to `module: web-app`.
 
-| Key             | Default                                   | Means                                                        |
-| --------------- | ----------------------------------------- | ------------------------------------------------------------ |
-| `project`       | required                                  | The Cloudflare Pages project                                 |
-| `dist`          | `dist`                                    | What the build writes, relative to the unit's folder         |
-| `build.command` | `pnpm turbo run build --filter=<package>` | The build, run from the root, as a list                      |
-| `build.env`     |                                           | Variables the build reads, each per environment              |
-| `branch`        | `preview` / `main`                        | The Pages branch; production is the project's production one |
-| `wrangler`      | `wrangler@4.141.0`                        | The wrangler npx runs, pinned                                |
+| Key             | Default                                             | Means                                                |
+| --------------- | --------------------------------------------------- | ---------------------------------------------------- |
+| `project`       | required                                            | The Cloudflare Pages project                         |
+| `dist`          | `dist`                                              | What the build writes, relative to the unit's folder |
+| `build.command` | `pnpm turbo run build --filter=<package>`           | The build, run from the root, as a list              |
+| `build.env`     |                                                     | Variables the build reads, each per environment      |
+| `branch`        | `main` where users are, else the environment's name | The Pages branch, per environment                    |
+| `wrangler`      | `wrangler@4.141.0`                                  | The wrangler npx runs, pinned                        |
 
 Source: `PagesOptions` in `src/cloudflare-pages-static-hosting.adapter.ts`.
 

@@ -114,15 +114,40 @@ describe("what doctor checks before a site ships to Cloudflare Pages", () => {
 });
 
 describe("relying on defaults in a Cloudflare Pages unit file", () => {
-  it("given a unit file naming only a project, when shiplane reads it, then the site ships from dist, to preview and main, with a pinned wrangler", () => {
+  it("given a unit file naming only a project, when shiplane reads it, then the site ships from dist, with a pinned wrangler", () => {
     expect(pages.settings.parse({ project: "acme-site" })).toEqual({
       project: "acme-site",
       dist: "dist",
       build: {},
-      branch: { preview: "preview", production: "main" },
       wrangler: "wrangler@4.141.0",
     });
   });
+});
+
+describe("choosing the branch an upload goes to", () => {
+  const THREE = { path: ["dev", "staging", "prod"], users: "prod" };
+
+  it.each([
+    ["preview", undefined, "preview"],
+    ["production", undefined, "main"],
+    ["staging", THREE, "staging"],
+    ["prod", THREE, "main"],
+  ])(
+    "given no branch named, when a site ships to %s, then it goes to %s's branch",
+    (environment, flow, branch) => {
+      const [job] = pages.create({ root: "/repo", shell: new RecordingShell() }).jobs({
+        unit: testUnit("site", { module: "web-app" }),
+        tag: "site@1.0.0",
+        environment,
+        ...(flow ? { flow } : {}),
+        commit: "abc1234",
+        defaultBranch: "main",
+        options: { project: "acme-site", dist: "dist", build: {}, wrangler: "wrangler@4.141.0" },
+      });
+
+      expect(job?.local.at(-1)?.args).toContain(`--branch=${branch}`);
+    },
+  );
 });
 
 describe("building and uploading to Cloudflare Pages", () => {

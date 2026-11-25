@@ -131,3 +131,32 @@ describe("building and publishing to GitHub Pages", () => {
     );
   });
 });
+
+describe("publishing to environments named otherwise", () => {
+  const flow = { path: ["dev", "staging", "prod"], users: "prod" };
+  const argsOn = (environment: string) =>
+    githubPagesStaticHosting()
+      .create({ root: "/repo", shell: new RecordingShell() })
+      .jobs({
+        unit: testUnit("site", { module: "web-app" }),
+        tag: "site@1.0.0",
+        environment,
+        flow,
+        commit: "abc1234",
+        defaultBranch: "main",
+        options: {
+          url: "https://acme.github.io/site/",
+          branch: "gh-pages",
+          dist: "dist",
+          variables: [],
+        },
+      })[0]?.local[2]?.args;
+
+  it("given one users are not on, when it publishes, then it goes to a folder of its name", () => {
+    expect(argsOn("staging")).toContain("--dest=staging");
+  });
+
+  it("given the one users are on, when it publishes, then it replaces all but the others' folders", () => {
+    expect(argsOn("prod")).toContain("--remove={!(CNAME|dev|staging),!(CNAME|dev|staging)/**}");
+  });
+});

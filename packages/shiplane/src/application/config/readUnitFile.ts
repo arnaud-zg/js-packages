@@ -7,6 +7,7 @@ import type { Environment } from "../../domain/environment";
 import type { ReleaseModule } from "../../modules/module";
 import type { ConfigProblem } from "./problem";
 import { EnvToCheck, isEnvVarName } from "../../domain/checkEnvBeforeDeploy";
+import { DEFAULT_FLOW } from "../../domain/environment";
 import { didYouMean } from "./problem";
 import { checkEnvBeforeDeploySchema, keysAt, unitSchema } from "./unitSchema";
 import { isRecord } from "./values";
@@ -85,17 +86,15 @@ const CORE_KEYS = new Set(["module", "buildCommand", "checkEnvBeforeDeploy"]);
 
 const envVarNames = (list: readonly string[] = []) => list.filter(isEnvVarName);
 
-const envToCheck = (written: z.infer<typeof checkEnvBeforeDeploySchema>) =>
+type WrittenEnv = readonly string[] | Record<string, readonly string[] | undefined>;
+
+const envToCheck = (written: WrittenEnv) =>
   new EnvToCheck(
     Array.isArray(written)
       ? envVarNames(written)
-      : {
-          all: envVarNames(written.all),
-          ...({
-            preview: envVarNames(written.preview),
-            production: envVarNames(written.production),
-          } satisfies Record<Environment, EnvVarName[]>),
-        },
+      : Object.fromEntries(
+          Object.entries(written).map(([key, names]) => [key, envVarNames(names)]),
+        ),
   );
 
 const problem = (file: string, line: number | undefined, message: string, hint: string) => ({
@@ -108,6 +107,7 @@ export const readUnitFile = (
   text: string,
   modules: readonly ReleaseModule[],
   features: readonly string[] = [],
+  path: readonly Environment[] = DEFAULT_FLOW.path,
 ): { unit?: UnitFile; problems: ConfigProblem[] } => {
   const counter = new LineCounter();
   const doc = parseDocument(text, { lineCounter: counter, uniqueKeys: true, prettyErrors: false });
@@ -153,7 +153,7 @@ export const readUnitFile = (
       didYouMean(named, names) ?? oneOf,
     );
   }
-  const parsed = unitSchema(module).safeParse(data);
+  const parsed = unitSchema(module, path).safeParse(data);
   if (!parsed.success) {
     return {
       problems: parsed.error.issues.flatMap((issue) => describeIssue(issue, file, module, lineAt)),

@@ -1,14 +1,17 @@
 import os from "node:os";
 import path from "node:path";
 
-import type { Environment } from "../domain/environment";
+import type { DeployFlow, Environment } from "../domain/environment";
 import type { ReleaseUnit } from "../domain/unit";
 import type { AfterShipContext, AppInput, ReleaseModule } from "../modules/module";
 import type { Command, DecideContext, Job } from "../ports/delivery.port";
+import type { Release } from "./config/loadRelease";
 import type { ReleaseContext } from "./context";
 import { changesReaching, codeFolders } from "../domain/codeScope";
+import { DEFAULT_FLOW, entryOf, keysOf } from "../domain/environment";
 import { tagName } from "../domain/tags";
 import { optionsFor } from "./config/optionsFor";
+import { settingsOn } from "./config/unitSchema";
 import { reasonOf } from "./say";
 
 /** The module that ships an app: the one its unit file names. */
@@ -25,20 +28,18 @@ export const resolvedOptions = (
   unit: ReleaseUnit,
   environment: Environment,
   units: readonly ReleaseUnit[],
+  path?: readonly Environment[],
 ): Record<string, unknown> => {
-  const withDefaults = module.settings.parse(unit.options);
-  return optionsFor({ ...unit, options: withDefaults }, environment, units);
+  const withDefaults = settingsOn(module.settings, path).parse(unit.options);
+  return optionsFor({ ...unit, options: withDefaults }, environment, units, path);
 };
 
-/** The repository has no preview: a release goes straight to production. */
-export const skipsPreview = ({ release }: Pick<ReleaseContext, "release">) =>
-  release.environments !== undefined && !release.environments.includes("preview");
+/** The way this repository's apps go to their users. */
+export const flowOf = ({ release }: { release: Pick<Release, "appFlow"> }): DeployFlow =>
+  release.appFlow ?? DEFAULT_FLOW;
 
-/** Where a run lands: production when preview is asked and there is none. */
-export const landing = (
-  context: Pick<ReleaseContext, "release">,
-  environment: Environment,
-): Environment => (environment === "preview" && skipsPreview(context) ? "production" : environment);
+/** Where a release deploys. */
+export const entry = (context: { release: Pick<Release, "appFlow"> }) => entryOf(flowOf(context));
 
 /** Where this checkout stands: the commit it is on and the branch releases start from. */
 export interface Checkout {
@@ -67,8 +68,14 @@ export const jobInput = (
   environment,
   commit,
   defaultBranch,
-  options: resolvedOptions(module, unit, environment, context.release.units),
-  ...(skipsPreview(context) ? { stages: false } : {}),
+  options: resolvedOptions(
+    module,
+    unit,
+    environment,
+    context.release.units,
+    keysOf(flowOf(context)),
+  ),
+  ...(context.release.appFlow ? { flow: context.release.appFlow } : {}),
 });
 
 /** The module that ships a unit and the tag it ships, or null when no module claims it. */
@@ -274,7 +281,7 @@ export const environmentLabel = (
   units: Iterable<string>,
   environment: string,
 ) => {
-  if (environment !== "preview") return environment;
+  if (environment !== entry(context)) return environment;
   const named = [...units];
   const names = named.length > 0 ? named : context.release.units.map(({ name }) => name);
   const noneHasOne =
@@ -284,7 +291,7 @@ export const environmentLabel = (
       const module = unit && moduleOf(context, unit);
       return module !== undefined && hasNoEnvironment(module);
     });
-  return noneHasOne ? "live" : landing(context, environment);
+  return noneHasOne ? "live" : environment;
 };
 
 /** Where a sentence sends units: "to preview", or "live" when none of them has an environment. */

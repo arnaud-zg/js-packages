@@ -35,7 +35,7 @@ export interface CodeHostPort {
   /** Publishes a tag's notes; with the tag before it, they end on a link comparing the two. */
   createRelease: (tag: string, notes: string, latest: boolean, previous?: string) => Promise<void>;
   /** Every deploy recorded for a tag, by a workflow or by this machine. */
-  deployments: () => Promise<Deploy[]>;
+  deployments: (environments?: readonly Environment[]) => Promise<Deploy[]>;
   recordDeployment: (ref: string, environment: Environment) => Promise<void>;
   /** Each pull request's body and the issues it closes, in the order asked, read in one go. */
   pullRequests: (numbers: readonly number[]) => Promise<LinkedPr[]>;

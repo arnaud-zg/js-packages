@@ -1,21 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { channelChoice, releaseSource } from "../governance";
-
-describe("where a release goes", () => {
-  it("given --channel production, when releasing, then it goes there without asking", () => {
-    expect(channelChoice({ flag: "production", yes: false, interactive: true })).toBe("production");
-  });
-
-  it("given no --channel in a terminal, when releasing, then the person is asked, preview first", () => {
-    expect(channelChoice({ flag: undefined, yes: false, interactive: true })).toBeNull();
-  });
-
-  it("given --yes or no terminal, when releasing, then it goes to preview", () => {
-    expect(channelChoice({ flag: undefined, yes: true, interactive: true })).toBe("preview");
-    expect(channelChoice({ flag: undefined, yes: false, interactive: false })).toBe("preview");
-  });
-});
+import { releaseSource } from "../governance";
 
 describe("where a release may start from", () => {
   const main = { branch: "main", head: "abc", originMain: "abc" };

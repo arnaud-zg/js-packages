@@ -32,10 +32,9 @@ const refuseDirty = (context: ReleaseContext) => {
 };
 
 const printOthers = ({ output, release }: ReleaseContext, others: readonly string[]) => {
-  const why =
-    release.deployOnBranch === "preview"
-      ? "deployApps.onBranch is not available yet: nothing deploys from a branch"
-      : "test release not available yet: npm packages only";
+  const why = release.deployOnBranch
+    ? "deployApps.onBranch is not available yet: nothing deploys from a branch"
+    : "test release not available yet: npm packages only";
   others.forEach((name) => output.line(`  ${paint("dim", "–")} ${name}  ${paint("dim", why)}`));
 };
 

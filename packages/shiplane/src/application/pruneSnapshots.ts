@@ -4,7 +4,7 @@ import { ageProblem, DEFAULT_AGE_DAYS, staleSnapshotTags } from "../domain/snaps
 import { plural } from "../domain/words";
 import { padded } from "./branchPublish";
 import { fail, paint, reasonOf } from "./say";
-import { checkout, decideContext, runHere, unitTarget } from "./targets";
+import { checkout, decideContext, entry as firstOf, runHere, unitTarget } from "./targets";
 
 type Target = NonNullable<ReturnType<typeof unitTarget>>;
 
@@ -22,7 +22,7 @@ const staleTags = async (context: ReleaseContext, olderThanDays: number): Promis
   const now = context.clock.now();
   const perUnit = await Promise.all(
     context.release.units.map(async (unit) => {
-      const target = unitTarget(context, { unit, environment: "preview", ...at });
+      const target = unitTarget(context, { unit, environment: firstOf(context), ...at });
       const read = target?.module.tags;
       if (!target || !read) return [];
       const name = target.module.publishedName?.(decide, target.input) ?? unit.packageName;
@@ -83,7 +83,7 @@ const removeAll = async (context: ReleaseContext, stale: readonly Stale[], otp?:
         await context.progress.during(
           job.label,
           "working",
-          () => runHere(context, job, { tag: entry.target.tag, environment: "preview" }),
+          () => runHere(context, job, { tag: entry.target.tag, environment: firstOf(context) }),
           { index, total: stale.length },
         );
         break;

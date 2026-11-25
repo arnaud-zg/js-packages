@@ -2,10 +2,19 @@ import path from "node:path";
 import type {
   AdapterContext,
   DeliveryAdapter,
+  DeployFlow,
   PlatformEnvPort,
   StaticHostingPort,
 } from "shiplane/plugin";
-import { defineStaticHosting, firstLine, isEnvVarName, perEnv, z } from "shiplane/plugin";
+import {
+  DEFAULT_FLOW,
+  defineStaticHosting,
+  firstLine,
+  isEnvVarName,
+  perEnv,
+  reachesUsers,
+  z,
+} from "shiplane/plugin";
 
 const WRANGLER = "wrangler@4.141.0";
 
@@ -27,16 +36,31 @@ const PagesOptions = z.object({
     })
     .default({}),
   branch: perEnv(z.string())
-    .default({ preview: "preview", production: "main" })
-    .describe("The Pages branch; production is the project's production branch"),
+    .optional()
+    .describe("The Pages branch; by default main where users are, else the environment's name"),
   wrangler: z.string().default(WRANGLER).describe("The wrangler npx runs, pinned"),
 });
 
 const SECRET_LINE = /^\s*-\s+([A-Za-z_][A-Za-z0-9_]*):/;
 
+/** Pages knows two environments of its own: its production is where users are. */
+const pagesEnvironment = (environment: string, flow: DeployFlow = DEFAULT_FLOW) =>
+  reachesUsers(flow, environment) ? "production" : "preview";
+
+/** The branch the upload goes to: the project's production branch is where users are. */
+const branchOf = ({
+  options,
+  environment,
+  flow = DEFAULT_FLOW,
+}: {
+  options: { branch?: string | undefined };
+  environment: string;
+  flow?: DeployFlow | undefined;
+}) => options.branch ?? (reachesUsers(flow, environment) ? "main" : environment);
+
 /** Pages secrets of the environment, plus the variables the unit file gives its build. */
 const pagesEnv = ({ shell }: AdapterContext): PlatformEnvPort => ({
-  listNames: async ({ environment, options }) => {
+  listNames: async ({ environment, flow, options }) => {
     const { project, wrangler, build } = PagesOptions.parse(options);
     const result = await shell.capture("npx", [
       "--yes",
@@ -47,7 +71,7 @@ const pagesEnv = ({ shell }: AdapterContext): PlatformEnvPort => ({
       "--project-name",
       project,
       "--env",
-      environment,
+      pagesEnvironment(environment, flow),
     ]);
     if (result.status !== 0) {
       const reason = firstLine(result.stderr) ?? `exit ${result.status}`;
@@ -59,12 +83,12 @@ const pagesEnv = ({ shell }: AdapterContext): PlatformEnvPort => ({
     });
     return new Set([...secrets, ...Object.keys(build.env ?? {})].filter(isEnvVarName));
   },
-  setCommand: ({ environment, options, names }) => {
+  setCommand: ({ environment, flow, options, names }) => {
     const { project, wrangler } = PagesOptions.parse(options);
     return names
       .map(
         (name) =>
-          `npx --yes ${wrangler} pages secret put ${name} --project-name ${project} --env ${environment}`,
+          `npx --yes ${wrangler} pages secret put ${name} --project-name ${project} --env ${pagesEnvironment(environment, flow)}`,
       )
       .join(" && ");
   },
@@ -79,7 +103,7 @@ export const cloudflarePagesStaticHosting = (): CloudflarePagesStaticHostingAdap
     settings: PagesOptions,
     env: pagesEnv,
     typicalMinutes: 5,
-    describe: ({ options }) => `${options.project} on Pages (${options.branch})`,
+    describe: (input) => `${input.options.project} on Pages (${branchOf(input)})`,
     detect: (folder) => {
       const wrangler = folder.files.find((file) => /^wrangler\.(toml|jsonc?)$/.test(file));
       if (wrangler) {
@@ -114,11 +138,13 @@ export const cloudflarePagesStaticHosting = (): CloudflarePagesStaticHostingAdap
         },
       ];
     },
-    jobs: ({ unit, tag, options, commit }) => {
+    jobs: (input) => {
+      const { unit, tag, options, commit } = input;
+      const branch = branchOf(input);
       const env = options.build.env;
       return [
         {
-          label: `build ${tag} and upload it to ${options.project} (${options.branch})`,
+          label: `build ${tag} and upload it to ${options.project} (${branch})`,
           local: [
             {
               command: options.build.command?.[0] ?? "pnpm",
@@ -140,7 +166,7 @@ export const cloudflarePagesStaticHosting = (): CloudflarePagesStaticHostingAdap
                 path.posix.join(unit.dir, options.dist),
                 `--project-name=${options.project}`,
                 // The upload is the deploy: it returns in seconds.
-                `--branch=${options.branch}`,
+                `--branch=${branch}`,
                 `--commit-hash=${commit}`,
                 `--commit-message=${tag}`,
               ],

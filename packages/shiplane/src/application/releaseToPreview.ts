@@ -14,7 +14,7 @@ import { hostLabel, listed, paint } from "./say";
 import { shipTo } from "./ship";
 import { runSteps } from "./steps";
 import { missingTags, tagRelease } from "./tagRelease";
-import { destination, landing } from "./targets";
+import { destination, entry } from "./targets";
 import { waitForMerge } from "./waitForMerge";
 
 /** The commits main gained since a release PR's branch, or none when the host did not say. */
@@ -132,7 +132,7 @@ const releasePrsOf = async (
       `    Left to do: tag ${plural(missing.length, "version")} → ship ${destination(
         context,
         missing.map(({ app }) => app),
-        "preview",
+        entry(context),
       )}`,
     ),
   );
@@ -140,7 +140,7 @@ const releasePrsOf = async (
 };
 
 /**
- * `release` on preview: the release PR, the wait for its merge, the tags, then the ship. It reads where things
+ * `release`, to the first environment: the release PR, the wait for its merge, the tags, then the ship. It reads where things
  * stand first, so a run stopped anywhere picks up where it left off. False when something failed.
  */
 export const releaseToPreview = async (
@@ -150,7 +150,7 @@ export const releaseToPreview = async (
   const { output, services, progress } = context;
   const stage = (name: (typeof STAGES)[number]) => progress.stage(STAGES, STAGES.indexOf(name));
   stage("What to release");
-  const picked = await pickScope(context, "preview");
+  const picked = await pickScope(context, entry(context));
   if (!picked || picked.scope.size === 0) {
     progress.say("resting", paint("dim", "Nothing ran."));
     return true;
@@ -159,7 +159,7 @@ export const releaseToPreview = async (
   const picking = context.release.units.filter(({ name }) => picked.scope.has(name));
   if (
     !(await checkEnvBeforeDeploy(context, {
-      environment: landing(context, "preview"),
+      environment: entry(context),
       units: picking,
     }))
   ) {
@@ -211,7 +211,7 @@ export const releaseToPreview = async (
   if (!(await tagRelease(current, tags))) return false;
   stage("Ship");
   // A unit the release took along unpicked is tagged with the rest, so it ships with them too.
-  return shipTo(current, "preview", {
+  return shipTo(current, entry(current), {
     scope: new Set([...picked.scope, ...tags.map(({ app }) => app)]),
     envChecked: picked.scope,
     // A merge moved the versions: what was built before it is not what ships.

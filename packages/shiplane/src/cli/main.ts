@@ -28,7 +28,8 @@ import { CONFIG_FILE, refreshEditorSchema } from "../application/setupFiles";
 import { shipTo } from "../application/ship";
 import { shipLive } from "../application/shipLive";
 import { missingTags, tagRelease } from "../application/tagRelease";
-import { ENVIRONMENTS, LIVE } from "../domain/environment";
+import { entry, flowOf } from "../application/targets";
+import { LIVE } from "../domain/environment";
 import { composeContext, composeSetup, loadReleaseFrom, loadReleaseOnDisk } from "./compose";
 import { findRoot } from "./findRoot";
 import { out, printProblems } from "./output";
@@ -78,8 +79,8 @@ const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, tri
   shiplane schema                 the editor schema of shiplane.yml, with the plugins installed and your own adapters
   shiplane help [all]             the main commands; all: this, every command and flag
 
-  --channel preview|production    where status reads (preview by default)
-                                  ship also takes live: the released packages, tagged then published
+  --channel <environment>         preview or production, or yours (deployApps.promote); the first by default
+                                  ship also takes live, the released packages, or a test release channel
   --via ci|local                  ship through the CI pipeline (such as GitHub Actions) or this machine, without asking
   --yes                           answer yes to every question (never on production)
   --dry-run                       with shiplane, ship or promote: every command it would run, run nothing;
@@ -114,7 +115,7 @@ const parse = (argv: string[]) =>
       "dry-run": { type: "boolean", default: false },
       json: { type: "boolean", default: false },
       yes: { type: "boolean", short: "y", default: false },
-      channel: { type: "string", default: "preview" },
+      channel: { type: "string" },
       via: { type: "string" },
       blank: { type: "boolean", default: false },
       ci: { type: "boolean", default: false },
@@ -148,11 +149,8 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
   const { values, positionals } = parsed;
 
   const [command = "next", ...units] = positionals;
-  // doctor --ci says an unknown channel itself, with the environments it knows.
-  // live publishes the released packages: only ship and its dry run take it.
-  const live = command === "ship" && values.channel === LIVE;
-  const environment =
-    command === "doctor" || live ? "preview" : z.enum(ENVIRONMENTS).parse(values.channel);
+  // What --channel names is the release's to say: read once it is loaded.
+  let environment = "";
   const via = viaFlag(values.via);
   // shiplane test-release [channel] [--dry-run]
   const testRelease = {
@@ -165,9 +163,9 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
 
   const commands: Record<string, (context: ReleaseContext) => Promise<boolean | void>> = {
     next: (context) =>
-      environment === "preview"
+      environment === entry(context)
         ? branchRelease(context, { onDefault: "release", via })
-        : promote(context, via),
+        : promote(context, via, environment),
     "test-release": (context) => branchRelease(context, testRelease),
     "prune-snapshots": (context) =>
       pruneSnapshots(context, {
@@ -179,21 +177,24 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
       }),
     // The command's first name, kept working, left out of the help.
     branch: (context) => branchRelease(context, testRelease),
-    promote: (context) => promote(context, via),
+    promote: (context) => promote(context, via, values.channel),
     status: (context) => statusCommand(context, { environment, json: values.json }),
     version: async (context) => {
-      const picked = await pickScope(context, "preview");
+      const picked = await pickScope(context, entry(context));
       if (!picked || picked.scope.size === 0) return true;
       return (await openReleasePr(context, await prepareRelease(context, picked.scope))) !== null;
     },
     tag: async (context) => tagRelease(context, await missingTags(context)),
-    ship: (context) =>
-      live
+    // Where it ships says what: an environment apps, live the released packages, a channel test ones.
+    ship: (context) => {
+      if (flowOf(context).path.includes(environment)) {
+        const scope = units.length > 0 ? { scope: new Set(units) } : {};
+        return shipTo(context, environment, { via, ...scope });
+      }
+      return environment === LIVE
         ? shipLive(context, units)
-        : shipTo(context, environment, {
-            via,
-            ...(units.length > 0 ? { scope: new Set(units) } : {}),
-          }),
+        : branchRelease(context, { ...testRelease, channel: environment, units });
+    },
     // Deprecated: --dry-run does it. Kept working, left out of the help.
     plan: (context) => {
       out(
@@ -236,7 +237,7 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
     remove: (context) => removeUnit(context, first),
     doctor: (context) =>
       values.ci
-        ? doctorCi(context, { units, channel: values.channel })
+        ? doctorCi(context, { units, channel: values.channel ?? "" })
         : doctor(context, { yes: values.yes }),
     adapter: (context) => {
       if (first === "new" && units[1]) return newAdapter(context, units[1]);
@@ -266,8 +267,15 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
   // A dry run prints every command a ship would run, the way it would go, and runs none.
   const run =
     values["dry-run"] && DRY_RUNS.has(command)
-      ? (context: ReleaseContext) =>
-          planShips(context, command === "promote" ? "production" : environment)
+      ? (context: ReleaseContext) => {
+          const { path } = flowOf(context);
+          if (command === "promote")
+            return planShips(context, values.channel ?? path[1] ?? environment);
+          if (environment === LIVE) return planShips(context, entry(context));
+          return path.includes(environment)
+            ? planShips(context, environment)
+            : branchRelease(context, { ...testRelease, channel: environment, units });
+        }
       : commands[command];
   const setUp = setupCommands[firstRun ? "setup" : command];
   if (setUp) {
@@ -288,14 +296,16 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
     printProblems(release.problems);
     return 2;
   }
-  if (release.environments && !release.environments.includes(environment)) {
-    const only = release.environments.join(", ");
-    if (environment === "production" || command === "promote") {
-      out(
-        `${paint("red", "✗")}  no ${environment === "preview" ? "promote" : environment} here: deployApps.promote names only ${only}`,
-      );
-      return 1;
-    }
+  const { path } = flowOf({ release });
+  environment = values.channel ?? entry({ release });
+  // Only a ship goes anywhere but an environment: to live, or to a test release's channel.
+  const unknown = command !== "ship" && !path.includes(environment);
+  const nowhere = command === "promote" && (path.length < 2 || values.channel === path[0]);
+  if (unknown || nowhere) {
+    out(
+      `${paint("red", "✗")}  ${nowhere ? "nothing to promote to" : `unknown environment "${environment}"`}: ${path.join(", ")}`,
+    );
+    return 1;
   }
   (release.renames ?? []).forEach(({ from, to }) =>
     out(`${paint("yellow", "!")}  rename ${from} to ${to}: the old name still works for now`),

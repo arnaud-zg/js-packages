@@ -2,7 +2,7 @@ import type { ReleaseContext } from "../application/context";
 import type { Environment } from "../domain/environment";
 import { readStatus } from "../application/readStatus";
 import { paint } from "../application/say";
-import { environmentLabel, landing } from "../application/targets";
+import { environmentLabel } from "../application/targets";
 import { out } from "./output";
 
 const NEXT: Record<string, string> = {
@@ -33,7 +33,7 @@ export const statusCommand = async (
   context: ReleaseContext,
   { environment, json }: { environment: Environment; json: boolean },
 ) => {
-  const status = await readStatus(context, landing(context, environment));
+  const status = await readStatus(context, environment);
   if (json) {
     out(JSON.stringify(status, null, 2));
     return;

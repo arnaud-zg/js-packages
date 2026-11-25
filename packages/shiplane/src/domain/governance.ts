@@ -1,4 +1,5 @@
-import type { Environment } from "./environment";
+import type { DeployFlow, Environment } from "./environment";
+import { DEFAULT_FLOW, reachesUsers } from "./environment";
 
 export type ReleaseIntent = "build" | "update" | "submit";
 
@@ -26,24 +27,17 @@ export const releaseSource = (
     defaultBranch = "main",
   }: { tagCommit?: string | null; defaultBranch?: string } = {},
 ): SourceResult => {
-  const needsMain = intent === "build" || (intent === "update" && channel === "production");
+  const needsMain =
+    intent === "build" || (intent === "update" && reachesUsers(DEFAULT_FLOW, channel));
   if (!needsMain || head === tagCommit) return { allowed: true };
   if (branch !== defaultBranch) return { allowed: false, why: "not-main" };
   if (head !== originMain) return { allowed: false, why: "behind-main" };
   return { allowed: true };
 };
 
-/** Where `pnpm shiplane` goes: --channel when given, preview under --yes or with no terminal, else asked. */
-export const channelChoice = ({
-  flag,
-  yes,
-  interactive,
-}: {
-  flag: Environment | undefined;
-  yes: boolean;
-  interactive: boolean;
-}): Environment | null => flag ?? (yes || !interactive ? "preview" : null);
-
-/** Production never runs a step nobody confirmed. */
-export const yesAllowed = (channel: Environment, yes: boolean) =>
-  !(yes && channel === "production");
+/** Where users are, nothing runs that nobody confirmed. */
+export const yesAllowed = (
+  environment: Environment,
+  yes: boolean,
+  flow: DeployFlow = DEFAULT_FLOW,
+) => !(yes && reachesUsers(flow, environment));
