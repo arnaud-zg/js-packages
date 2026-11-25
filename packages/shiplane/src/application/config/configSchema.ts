@@ -163,7 +163,6 @@ export const configJsonSchema = (catalog: readonly CatalogEntry[]): JsonSchema =
           "How deployed apps reach their users: a release deploys to from, a promote takes it to to. Not for packages.",
         type: "object",
         additionalProperties: false,
-        required: ["promote"],
         properties: {
           promote: {
             type: "array",
@@ -175,6 +174,10 @@ export const configJsonSchema = (catalog: readonly CatalogEntry[]): JsonSchema =
               minProperties: 1,
               properties: { from: { enum: ["preview"] }, to: { enum: ["production"] } },
             },
+          },
+          onBranch: {
+            description: "Where any branch may deploy. Not available yet.",
+            enum: ["preview", false],
           },
         },
       },

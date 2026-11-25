@@ -31,12 +31,13 @@ const refuseDirty = (context: ReleaseContext) => {
   return false;
 };
 
-const printOthers = ({ output }: ReleaseContext, others: readonly string[]) =>
-  others.forEach((name) =>
-    output.line(
-      `  ${paint("dim", "–")} ${name}  ${paint("dim", "test release not available yet: npm packages only")}`,
-    ),
-  );
+const printOthers = ({ output, release }: ReleaseContext, others: readonly string[]) => {
+  const why =
+    release.deployOnBranch === "preview"
+      ? "deployApps.onBranch is not available yet: nothing deploys from a branch"
+      : "test release not available yet: npm packages only";
+  others.forEach((name) => output.line(`  ${paint("dim", "–")} ${name}  ${paint("dim", why)}`));
+};
 
 const nothingToPublish = ({ progress, services }: ReleaseContext, plan: BranchPlan) => {
   const why =

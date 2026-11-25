@@ -15,7 +15,12 @@ export interface DeployApps {
    * `[{ to: "production" }]` deploys straight there; `[{ from: "preview" }]` never promotes. EAS
    * needs preview.
    */
-  promote: readonly [PromoteStep];
+  promote?: readonly [PromoteStep];
+  /**
+   * Where any branch may deploy to try a change, outside the steps: `"preview"`, or `false` (when
+   * unset). Not available yet: shiplane says so and deploys nothing from a branch.
+   */
+  onBranch?: "preview" | false;
 }
 
 /** How packages are published. */

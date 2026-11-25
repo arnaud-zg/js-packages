@@ -107,6 +107,29 @@ describe("Feature: choosing what a branch publishes", () => {
     expect(output.text).toContain("publishPackages.onBranch is false");
   });
 
+  it("given apps may deploy on a branch, when a test release runs with one pending, then it says that is not available yet and deploys nothing", async () => {
+    const { context, output, versioning, shell } = given({ deployOnBranch: "preview" });
+    versioning.seed({
+      plan: () => ({
+        changesets: [],
+        releases: [
+          {
+            name: "@acme/api",
+            type: "minor",
+            oldVersion: "1.0.0",
+            newVersion: "1.1.0",
+            changesets: [],
+          },
+        ],
+      }),
+    });
+
+    await branchRelease(context, { onDefault: "publish", channel: "snapshot" });
+
+    expect(output.text).toContain("deployApps.onBranch is not available yet");
+    expect(shell.calls).toEqual([]);
+  });
+
   it("given channels only, when a snapshot is asked, then it is not refused", async () => {
     const { context, output } = given({ channels: ["live"] }, [LIB]);
 

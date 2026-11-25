@@ -1091,9 +1091,6 @@
       "description": "How deployed apps reach their users: a release deploys to from, a promote takes it to to. Not for packages.",
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "promote"
-      ],
       "properties": {
         "promote": {
           "type": "array",
@@ -1116,6 +1113,13 @@
               }
             }
           }
+        },
+        "onBranch": {
+          "description": "Where any branch may deploy. Not available yet.",
+          "enum": [
+            "preview",
+            false
+          ]
         }
       }
     },

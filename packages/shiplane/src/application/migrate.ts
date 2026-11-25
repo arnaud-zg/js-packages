@@ -38,6 +38,7 @@ const composed = (release: Release) =>
       release.environments,
       release.channels,
       release.onBranch,
+      release.deployOnBranch,
       release.testComment,
       release.testRelease,
       release.prepare,
