@@ -47,22 +47,36 @@ source maps map back to the source. `expo-pnpm-catalog` and `agent-context-budge
 
 ## Package lifecycle
 
-Two questions decide what happens to a package: is it stable, and has it outgrown this repo?
+A package gets a **maturity score out of 8**: one point per sign it has reached.
 
-|                                                | Not stable: under 5 of 5 stability          | Stable: 5 of 5 stability                           |
-| ---------------------------------------------- | ------------------------------------------- | -------------------------------------------------- |
-| **Little traction**: under 2 of 3 maturity     | **Stay here, `0.x`**: keep experimenting    | **Stay here, `1.x`**: release `1.0.0`, a fine home |
-| **Outside traction**: at least 2 of 3 maturity | **Stay here, `0.x`**: work on `1.0.0` first | **Discuss its own repo**, once `1.0.0` is released |
+1. Count the 5 [stability](#stability-indicators) points.
+2. At 5 of 5, add the 3 [traction](#traction-indicators) points. Below 5, traction adds nothing yet.
+3. Read what to do:
 
-**A package must be stable (`1.0.0` or later) before it gets its own repo.** The numbers open each
-decision; the maintainer makes it. A family counts as one package: `shiplane` and its `@shiplane/*`
-plugins share one version, so every plugin must qualify, and they move together.
+| Score  | Level      | Version | What to do                                      |
+| ------ | ---------- | ------- | ----------------------------------------------- |
+| 0 to 4 | Incubating | `0.x`   | Stay here and work on the missing stability     |
+| 5 or 6 | Stable     | `1.x`   | Release `1.0.0` and stay here, for good if fine |
+| 7 or 8 | Outgrown   | `1.x`   | Release `1.0.0`, then discuss its own repo      |
+
+The same decision as a matrix:
+
+|                             | Stability under 5                     | Stability 5 of 5               |
+| --------------------------- | ------------------------------------- | ------------------------------ |
+| **Traction under 2 of 3**   | Incubating: stay, `0.x`               | Stable: stay, `1.x`            |
+| **Traction 2 of 3 or more** | Incubating: stay, reach `1.0.0` first | Outgrown: discuss its own repo |
+
+**A package must be stable (`1.0.0` or later) before it gets its own repo.** The score opens each
+decision; the maintainer makes it.
+
+Example: stability 4 and traction 3 scores **4**, Incubating. With the fifth stability point it
+scores **8**, Outgrown.
 
 ### Stability indicators
 
-All 5 are required. Why: see [Explanation](./explanation.md#when-a-package-is-stable).
+One point each. Why: see [Explanation](./explanation.md#when-a-package-is-stable).
 
-| Indicator            | Reached at                                                                | Where to look                     |
+| Point                | Reached at                                                                | Where to look                     |
 | -------------------- | ------------------------------------------------------------------------- | --------------------------------- |
 | API is quiet         | No breaking change for 3 months, with at least 3 releases in that time    | `CHANGELOG.md`                    |
 | Proven in real use   | 2 projects used it for 3 months, at least one outside this repo           | Their `package.json` and lockfile |
@@ -72,16 +86,19 @@ All 5 are required. Why: see [Explanation](./explanation.md#when-a-package-is-st
 
 After `1.0.0`, two majors within 6 months mean it went stable too early.
 
-### Maturity indicators
+### Traction indicators
 
-Three signs of outside traction, per package. Not strict: **2 of the 3** open the discussion about a
-dedicated repo. Why: see [Explanation](./explanation.md#why-this-repo-is-an-incubator).
+One point each, counted from people outside. Why: see
+[Explanation](./explanation.md#why-this-repo-is-an-incubator).
 
-| Indicator            | Reached at                                         | Where to look                                    |
+| Point                | Reached at                                         | Where to look                                    |
 | -------------------- | -------------------------------------------------- | ------------------------------------------------ |
 | npm downloads        | 5,000 a month, 3 months in a row                   | `https://npm-stat.com/charts.html?package=<pkg>` |
 | Issues from users    | 10 in total, not opened by the maintainer or a bot | The `pkg: <name>` label                          |
 | Outside contributors | 3 people with a merged pull request                | Merged pull requests touching `packages/<dir>`   |
+
+A family gets one score: `shiplane` and its `@shiplane/*` plugins share one version, so every plugin
+must reach the stability points, and they move together.
 
 ## Findability rules
 

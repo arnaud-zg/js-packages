@@ -71,7 +71,7 @@ on another. Each starts at `0.1.0`: usable, not yet stable, expect breaking chan
 
 ## Make a package stable
 
-When a package reaches all 5 [stability indicators](./reference.md#stability-indicators):
+When its [maturity score](./reference.md#package-lifecycle) reaches 5:
 
 1. Open an issue with the numbers, and decide there.
 2. Add the changeset and release it:
@@ -82,8 +82,8 @@ pnpm changeset --major <pkg> -m "Stable: breaking changes are now major versions
 
 ## Move a mature package to its own repo
 
-When a package is [stable](./reference.md#stability-indicators) (`1.0.0` or later) and reaches
-enough [maturity indicators](./reference.md#maturity-indicators):
+When a package is on `1.0.0` or later and its [maturity score](./reference.md#package-lifecycle)
+reaches 7:
 
 1. Open an issue with the numbers, and decide there.
 2. Create the new repo, keeping the package's git history and npm name.

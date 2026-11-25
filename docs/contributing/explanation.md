@@ -21,9 +21,9 @@ release notes, stars and maintainers. From there this repo is too small for it, 
 the successful end of the incubation.
 
 A package must be stable before it moves out: stability is a gate. The
-[maturity indicators](./reference.md#maturity-indicators) then say when to have that conversation.
-They are a hint: numbers start the discussion, the maintainer decides. They only count what people
-outside do, and downloads alone are not enough: npm counts bots, mirrors and CI installs too.
+[maturity score](./reference.md#package-lifecycle) then says when to have that conversation. It is a
+hint: numbers start the discussion, the maintainer decides. Traction only counts what people outside
+do, and downloads alone are not enough: npm counts bots, mirrors and CI installs too.
 
 ## Versioning policy
 
@@ -40,11 +40,14 @@ the bump, so the one who writes the changeset applies this rule.
 
 `1.0.0` says the API can be relied on, not that the package is popular: a small package can be
 stable and stay here. So the [stability indicators](./reference.md#stability-indicators) count
-confidence, and the maturity indicators count traction. An abandoned API is quiet too, which is why
-the quiet months must include releases.
+confidence, and the [traction indicators](./reference.md#traction-indicators) count people outside.
+An abandoned API is quiet too, which is why the quiet months must include releases.
 
 Moving out already changes the repo, the issues and the links. A stable API means users do not face
 breaking changes at the same time.
+
+A package that gains traction first keeps its low score on purpose: the score shows the next thing
+to do, which is stability.
 
 ## Why every package is written to be found
 
