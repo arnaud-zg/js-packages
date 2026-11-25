@@ -219,6 +219,11 @@ export interface Requirement {
   /** What fixes it, offered to run. */
   fix?: Command;
   /**
+   * Why a runner cannot ship while the check fails, when its fix is a person's, on their own machine.
+   * Checked as it ships, before anything is written, never as a tool to install.
+   */
+  help?: string;
+  /**
    * How a Linux runner installs the tool when it is missing; `path` is the folder it lands in, put
    * first on PATH afterwards (`$NAME` reads a variable, such as `$HOME/.fly/bin`).
    */

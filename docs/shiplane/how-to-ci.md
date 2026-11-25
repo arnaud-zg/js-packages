@@ -109,6 +109,7 @@ With no adapter that reads a secret, it passes none.
 1. **Create one GitHub Environment per choice** (Settings › Environments): `preview`, `production`;
    for npm packages, `snapshot`, `nightly`, `alpha`, `beta`, `rc` and `latest` too. On npmjs.com,
    trust `ship.yml` for each package (Settings › Trusted publishing): no npm secret.
+   [The command, and the error without it](../../packages/shiplane-npm/README.md#-npm-does-not-trust-the-workflow).
 2. **Add each adapter's secret to it**, by the name in
    [the sign-ins table](./how-to-hosts.md#set-up-the-sign-ins): `FLY_API_TOKEN`,
    `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, `EXPO_TOKEN`. Setup passes the ones your

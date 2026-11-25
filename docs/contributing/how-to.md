@@ -93,9 +93,38 @@ The environment is also the GitHub Environment, so each run shows under **Deploy
 A test release publishes what the pending changesets release: with none, nothing. `latest` refuses
 when `main` moved past the release.
 
-**One-time setup, per package**, on npmjs.com (Settings › Trusted publishing): GitHub Actions,
-repository `arnaud-zg/js-packages`, workflow `ship.yml`, environment empty. Allow `npm publish`
-(test releases) and `npm dist-tag` (dropping a snapshot's tag). A package must already be on npm.
+**One-time setup, per package**, from your own terminal (npm asks for 2FA; accept skipping it for a
+few minutes). A package must already be on npm. Add a new one to this list:
+
+```sh
+for p in \
+  shiplane \
+  @shiplane/changesets \
+  @shiplane/cloudflare-pages \
+  @shiplane/eas \
+  @shiplane/fly \
+  @shiplane/git \
+  @shiplane/github \
+  @shiplane/github-pages \
+  @shiplane/npm \
+  agent-context-budget \
+  expo-native-guard \
+  expo-pnpm-catalog \
+  vite-workspace-resolver
+do
+  echo "== $p"
+  npx -y npm@^11.21.0 trust github "$p" --file ship.yml \
+    --repo arnaud-zg/js-packages --allow-publish --allow-stage-publish -y \
+    || echo "FAILED: $p"
+  sleep 2
+done
+```
+
+No environment: one entry serves every channel. `--allow-publish` is for test releases,
+`--allow-stage-publish` for `latest`. For `snapshot`, also allow `npm dist-tag` on npmjs.com
+(Settings › Trusted publishing), to drop its tag. `FAILED`, or a run stopping with
+`Not signed in: npm trust for …` or `ENEEDAUTH`:
+[npm does not trust the workflow](../../packages/shiplane-npm/README.md#-npm-does-not-trust-the-workflow).
 
 ## Make a package stable
 
