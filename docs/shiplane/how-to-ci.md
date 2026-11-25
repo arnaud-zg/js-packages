@@ -100,7 +100,9 @@ jobs:
 
 With no adapter that reads a secret, there is no `secrets:` key.
 
-1. **Create one GitHub Environment per channel** (Settings › Environments): `preview`, `production`.
+1. **Create one GitHub Environment per channel** (Settings › Environments): `preview`, `production`;
+   for npm packages, `snapshot`, `nightly`, `alpha`, `beta`, `rc` and `live` too. On npmjs.com,
+   trust `ship.yml` for each package (Settings › Trusted publishing): no npm secret.
 2. **Add each adapter's secret to it**, by the name in
    [the sign-ins table](./how-to-hosts.md#set-up-the-sign-ins): `FLY_API_TOKEN`,
    `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, `EXPO_TOKEN`. Setup lists the ones your

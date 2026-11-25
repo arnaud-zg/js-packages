@@ -31,8 +31,10 @@ import {
   dispatchShip,
   environmentLabel,
   jobInput,
+  landing,
   runHere,
   shipPlanOf,
+  skipsPreview,
   unitTag,
   versionFiles,
 } from "./targets";
@@ -68,7 +70,7 @@ const webDecision = (
   const ship = webShip({
     environment: input.environment,
     run: deployedOn(history, input.tag, input.environment),
-    onPreview: deployedOn(history, input.tag, "preview") === "done",
+    onPreview: input.stages === false || deployedOn(history, input.tag, "preview") === "done",
   });
   return ship === "deploy"
     ? { action: "ship", kind: "deploy", jobs }
@@ -461,7 +463,7 @@ const prepareStep = (
  */
 export const shipTo = async (
   context: ReleaseContext,
-  environment: Environment,
+  asked: Environment,
   {
     scope,
     via,
@@ -477,6 +479,7 @@ export const shipTo = async (
   },
 ): Promise<boolean> => {
   const { output, prompter, options, services } = context;
+  const environment = landing(context, asked);
   if (!(await mayStart(context, environment))) return false;
   const ready = await decideAll(context, environment, scope);
   if (!ready) return false;
@@ -512,7 +515,7 @@ export const shipTo = async (
   const { paths, stuck } = routed;
   // One question and one run for every package a release publishes, not one each.
   const packages =
-    environment === "preview"
+    environment === "preview" || skipsPreview(context)
       ? ready.filter(
           ({ module, kind, jobs }) =>
             module.kind === "published-package" &&

@@ -288,6 +288,15 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
     printProblems(release.problems);
     return 2;
   }
+  if (release.environments && !release.environments.includes(environment)) {
+    const only = release.environments.join(", ");
+    if (environment === "production" || command === "promote") {
+      out(
+        `${paint("red", "✗")}  no ${environment === "preview" ? "promote" : environment} here: environments is ${only}`,
+      );
+      return 1;
+    }
+  }
   (release.renames ?? []).forEach(({ from, to }) =>
     out(`${paint("yellow", "!")}  rename ${from} to ${to}: the old name still works for now`),
   );

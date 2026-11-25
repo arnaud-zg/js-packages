@@ -64,6 +64,7 @@ const callerOf = async (
     .callerWorkflow?.("0.6.0", callerNeedsOf(context.release));
   if (!made || "error" in made) throw new Error("no caller workflow made");
   return parse(made.content) as {
+    on: { workflow_dispatch: { inputs: Record<string, { options?: string[]; default: unknown }> } };
     permissions: Record<string, string>;
     jobs: { ship: { secrets?: Record<string, string>; with?: Record<string, string> } };
   };

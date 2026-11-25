@@ -2,6 +2,7 @@ import type { DeployPath } from "../domain/deploys";
 import type { ReleaseContext } from "./context";
 import { OTHER_PATH } from "../domain/shipRoute";
 import { ciLabel, pathLabel } from "./askPath";
+import { allows, callerNeedsOf } from "./callerWorkflow";
 import { fail, paint } from "./say";
 import { unattended } from "./unattended";
 
@@ -20,7 +21,7 @@ interface Publish {
 
 /** Why the CI pipeline cannot publish it, or null when it can. */
 const ciBlocked = async (
-  { services }: ReleaseContext,
+  { services, release }: ReleaseContext,
   { environment, ref, head }: Publish,
 ): Promise<string | null> => {
   const { ciPipeline, sourceControl } = services;
@@ -32,6 +33,12 @@ const ciBlocked = async (
   const content = await sourceControl.fileAt(ref, file);
   if (content === null) return `no ${workflow}`;
   if (!ciPipeline.offers(content, environment)) return `${workflow} does not offer ${environment}`;
+  const lacking = Object.entries(callerNeedsOf(release).permissions ?? {}).filter(
+    ([permission, level]) => !allows(content, permission, level),
+  );
+  if (lacking.length > 0) {
+    return `${workflow} does not allow ${lacking.map(([name, level]) => `${name}: ${level}`).join(", ")}`;
+  }
   if (head !== undefined && sourceControl.pushedHead) {
     const pushed = await sourceControl.pushedHead(ref);
     if (pushed !== head) return `${ref} is not pushed as it is here`;

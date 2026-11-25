@@ -7,7 +7,15 @@ import type { ReleaseContext } from "./context";
 import { changesetApps } from "../domain/changes";
 import { deployRunTitle } from "../domain/deploys";
 import { cameWithRelease, firstRelease, tagName } from "../domain/tags";
-import { checkout, decideContext, hasNoEnvironment, jobInput, moduleOf } from "./targets";
+import {
+  checkout,
+  decideContext,
+  hasNoEnvironment,
+  jobInput,
+  landing,
+  moduleOf,
+  skipsPreview,
+} from "./targets";
 
 export const MANIFEST = "package.json";
 
@@ -72,8 +80,9 @@ export const readScope = async (
           !tagged &&
           commit !== null &&
           firstRelease(unit.name, unit.version, tags, context.release.tagFormat),
-        onChannel: await live(environment),
-        onPreview: await live("preview"),
+        onChannel: await live(landing(context, environment)),
+        onPreview: skipsPreview(context) || (await live("preview")),
+        ...(skipsPreview(context) ? { noPreview: true } : {}),
         ...(decidedBy ? { decidedBy } : {}),
         ...(target?.releaseOnly ? { releaseOnly: true } : {}),
         ...(target && hasNoEnvironment(target) ? { noEnvironment: true } : {}),
