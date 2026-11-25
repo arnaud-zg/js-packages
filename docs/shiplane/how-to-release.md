@@ -8,11 +8,57 @@
 Pick a version, preview it, promote it, and retry when a ship fails. Every option named here is in
 the [Reference](./reference.md).
 
+- [Pick from a long list](#pick-from-a-long-list)
+- [Fix a build that stops the release](#fix-a-build-that-stops-the-release)
 - [Force another version](#force-another-version)
 - [Preview every command](#preview-every-command)
 - [Promote to production](#promote-to-production)
 - [Widen a production rollout](#widen-a-production-rollout)
 - [Retry a failed release](#retry-a-failed-release)
+
+## Pick from a long list
+
+With more than 15 units, `pnpm shiplane` and `pnpm shiplane promote` ask by parent folder:
+
+```text
+◆  What do you want to release to preview? Greyed units have nothing to release.
+│  42 of 44 selected · 2 with changesets, 40 first release
+│  ❯ ▾ ◼ apps/  2/2 selected · 2 with changesets, 2 with nothing to release
+│        ◼ shop (1 changeset)
+│        ◼ admin (2 changesets)
+│        ◻ blog (0.3.0 is on preview, nothing new)
+│        ◻ docs (nothing new)
+│    ▸ ◼ packages/  40/40 selected · 40 first release
+│  ↑/↓ move • →/← open or close a folder • space select • a all or none
+│  enter confirm • esc cancel
+└
+```
+
+- **A folder opens when it holds more than first releases.** One with only first releases or nothing
+  to release starts closed. Its row still counts what is selected, and why.
+- **Space on a folder** selects all of it, or none when all of it was. `◧` is a folder partly
+  selected. Greyed units stay out.
+- **Units with something new come first** in their folder, then first releases, then greyed ones.
+- **First releases start ticked**, as in a short list. To leave 40 of them out, press space on their
+  folder.
+
+`--yes` and a run without a terminal ask nothing and take everything pending.
+
+## Fix a build that stops the release
+
+Every picked unit builds before a release writes anything. When one fails, shiplane shows the end of
+its output and stops:
+
+```text
+✗ build shop failed: pnpm run build in apps/shop exited with 1, the steps after it did not run.
+    │ src/cart.ts(12,3): error TS2322
+    Nothing was written: no release PR, tag or publish. Fix the build, then run:
+    shiplane
+```
+
+Fix it and run `pnpm shiplane` again, or untick that unit. When a unit has a `build` script that a
+release should not run, give it another command with `buildCommand:` in its `shiplane.unit.yml`.
+What runs is in the [reference](./reference.md#build-before-a-release).
 
 ## Force another version
 

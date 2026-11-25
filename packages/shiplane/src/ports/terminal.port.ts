@@ -12,6 +12,20 @@ export interface Choice<Value extends string> {
   disabled?: boolean;
 }
 
+/** A choice inside a group. */
+export interface GroupedChoice<Value extends string> extends Choice<Value> {
+  /** What its group counts it as: `first release`. */
+  kind: string;
+}
+
+/** Choices asked under one heading, such as a folder; it opens, closes and selects as a whole. */
+export interface ChoiceGroup<Value extends string> {
+  label: string;
+  choices: GroupedChoice<Value>[];
+  /** Whether its choices show at first. */
+  open: boolean;
+}
+
 /** Questions to the person. Without a terminal, nothing is asked: each answer is null or false. */
 export interface Prompter {
   readonly interactive: boolean;
@@ -27,6 +41,12 @@ export interface Prompter {
   multiselect: <Value extends string>(
     message: string,
     choices: Choice<Value>[],
+    initial: Value[],
+  ) => Promise<Value[] | null>;
+  /** As `multiselect`, for a list too long to read flat. */
+  multiselectGroups: <Value extends string>(
+    message: string,
+    groups: ChoiceGroup<Value>[],
     initial: Value[],
   ) => Promise<Value[] | null>;
   text: (message: string, initial?: string) => Promise<string | null>;

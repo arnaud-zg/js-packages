@@ -434,7 +434,12 @@ export const preparing = (
   };
 };
 
-const prepareStep = (context: ReleaseContext, { unit, input, jobs }: Ready): ShipStep[] => {
+const prepareStep = (
+  context: ReleaseContext,
+  { unit, input, jobs }: Ready,
+  built: ReadonlySet<string>,
+): ShipStep[] => {
+  if (built.has(unit.name)) return [];
   const step =
     preparing(context, unit, input.tag) ??
     buildingIfNeeded(context, { unit, tag: input.tag, jobs });
@@ -461,11 +466,14 @@ export const shipTo = async (
     scope,
     via,
     envChecked = new Set(),
+    built = new Set(),
   }: {
     scope?: ReadonlySet<string>;
     via?: DeployPath;
     /** Units whose env this run already checked on this environment. */
     envChecked?: ReadonlySet<string>;
+    /** Units this run already built from this commit. */
+    built?: ReadonlySet<string>;
   },
 ): Promise<boolean> => {
   const { output, prompter, options, services } = context;
@@ -562,7 +570,7 @@ export const shipTo = async (
   const workflow = services.ciPipeline.shipWorkflow;
   const steps: ShipStep[] = [
     ...here.flatMap((entry) => [
-      ...prepareStep(context, entry),
+      ...prepareStep(context, entry, built),
       ...entry.jobs.map((job) => ({
         label: job.label,
         run: () => runHere(context, job, entry.input),

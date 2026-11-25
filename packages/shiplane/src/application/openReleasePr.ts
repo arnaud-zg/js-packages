@@ -113,6 +113,33 @@ const refused = (context: ReleaseContext, { contributions }: Prepared) => {
   return Boolean(blocked);
 };
 
+/** Whether this checkout may open a release PR: the default branch, up to date, all committed. */
+export const mayVersion = async (context: ReleaseContext): Promise<boolean> => {
+  const { services } = context;
+  const defaultBranch = await services.sourceControl.defaultBranch();
+  const source = releaseSource("build", "preview", await services.sourceControl.position(), {
+    defaultBranch,
+  });
+  if (!source.allowed) {
+    fail(
+      context,
+      source.why === "not-main" ? `Not from ${defaultBranch}` : `${defaultBranch} is behind origin`,
+      "a release versions what is merged.",
+      [`git switch ${defaultBranch}`, "git pull", "shiplane"],
+    );
+    return false;
+  }
+  if (!(await services.sourceControl.isClean())) {
+    fail(
+      context,
+      "Uncommitted changes",
+      "commit or stash them first, the release PR commits every change.",
+    );
+    return false;
+  }
+  return true;
+};
+
 /**
  * Versions what `prepared` covers on one branch from the default branch, opens its PR, and goes
  * back to it.
@@ -128,26 +155,7 @@ export const openReleasePr = async (
   printSummary(context, prepared);
   if (refused(context, prepared)) return null;
   const defaultBranch = await services.sourceControl.defaultBranch();
-  const source = releaseSource("build", "preview", await services.sourceControl.position(), {
-    defaultBranch,
-  });
-  if (!source.allowed) {
-    fail(
-      context,
-      source.why === "not-main" ? `Not from ${defaultBranch}` : `${defaultBranch} is behind origin`,
-      "a release versions what is merged.",
-      [`git switch ${defaultBranch}`, "git pull", "shiplane"],
-    );
-    return null;
-  }
-  if (!(await services.sourceControl.isClean())) {
-    fail(
-      context,
-      "Uncommitted changes",
-      "commit or stash them first, the release PR commits every change.",
-    );
-    return null;
-  }
+  if (!(await mayVersion(context))) return null;
   const kindOf: KindOf = (app) => {
     const unit = context.release.units.find(({ name }) => name === app);
     return unit && moduleOf(context, unit)?.kind;
