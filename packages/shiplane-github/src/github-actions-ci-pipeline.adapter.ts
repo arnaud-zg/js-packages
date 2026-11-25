@@ -95,6 +95,17 @@ const callerContent = (sha: string, version: string, needs: CallerNeeds) =>
 /** A caller that hands shiplane's workflow the tag to check out, so it can run from main. */
 const PASSES_REF = /^[ \t]+ref:[ \t]*\$\{\{[ \t]*inputs\.ref[ \t]*\}\}/m;
 
+/** Whether one of the workflow's choice inputs lists the environment, inline or one per line. */
+const offers = (content: string, environment: string) => {
+  const inline = [...content.matchAll(/options:[ \t]*\[([^\]]*)\]/g)].flatMap(([, list = ""]) =>
+    list.split(","),
+  );
+  const listed = [...content.matchAll(/^[ \t]*-[ \t]+(\S+)[ \t]*$/gm)].map(([, item = ""]) => item);
+  return [...inline, ...listed].some(
+    (item) => item.trim().replace(/^["']|["']$/g, "") === environment,
+  );
+};
+
 /** gh names the scope a call lacks, and the command that grants it. */
 const SCOPE_HINT = /needs the "([^"]+)" scope\.[^\n]*?run:\s+(gh auth refresh [^\n]+)/;
 
@@ -228,8 +239,9 @@ const githubActions = (root: string, shell: Shell, shipWorkflow: string): CiPipe
     },
     // A tag holds the workflow of its day: when main's caller passes `ref`, the run starts on main,
     // with today's workflow, and checks out the tag. An older caller still runs on the tag.
-    dispatch: async (workflow, ref, inputs) => {
-      const main = await fromMain(workflow, ref);
+    offers,
+    dispatch: async (workflow, ref, inputs, { direct = false } = {}) => {
+      const main = direct ? null : await fromMain(workflow, ref);
       const run = main ? { ref: main, inputs: { ...inputs, ref } } : { ref, inputs };
       await must([
         "workflow",

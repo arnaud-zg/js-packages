@@ -31,6 +31,7 @@ export class CiPipelineFake implements CiPipelinePort {
   // Names no provider: what the core says comes from the port, whatever the pipeline.
   readonly label = "Fake CI";
   readonly runsLine = "fake-ci runs";
+  offers = (content: string, environment: string) => content.split(" ").includes(environment);
   workflowFile = (workflow: string) => `ci/${workflow}`;
   dispatchLine = (workflow: string, ref: string, inputs: Record<string, string>) =>
     [

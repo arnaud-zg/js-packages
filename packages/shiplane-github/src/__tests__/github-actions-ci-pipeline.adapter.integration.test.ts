@@ -507,3 +507,13 @@ describe("writing the workflow a repository ships from", () => {
     );
   });
 });
+
+describe("what a caller workflow offers", () => {
+  it.each([
+    ["inline", "options: [snapshot, live]", true],
+    ["one per line", "options:\n  - snapshot\n  - live\n", true],
+    ["only in a comment", "# live\noptions: [preview]", false],
+  ])("given live %s, when read, then it is offered: %s", (_, content, offered) => {
+    expect(pipeline().offers?.(content, "live")).toBe(offered);
+  });
+});

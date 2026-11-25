@@ -1,0 +1,40 @@
+# Publishes this repo's packages to npm with shiplane's own workflow: `pnpm shiplane test-release
+# --via ci`, `pnpm release`, or Run workflow here. Signed in by npm trusted publishing: no secret.
+# Set up and use: docs/contributing/how-to.md#publish-from-github-actions
+name: Ship
+run-name: Ship ${{ inputs.units || 'every package' }} to ${{ inputs.environment }}${{ inputs.dry-run && ' (dry run)' || '' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      units:
+        description: "Packages to publish, space separated (empty: every pending one)"
+        type: string
+        default: ""
+      environment:
+        description: "A test release channel, or live: the released versions"
+        type: choice
+        options: [snapshot, nightly, alpha, beta, rc, live]
+        default: snapshot
+      dry-run:
+        description: "Show what would publish, publish nothing"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write # live pushes the release tags and writes the GitHub Releases
+  id-token: write # npm trusted publishing
+  issues: write # the test release's comment
+  pull-requests: write
+  deployments: write
+  actions: read
+
+jobs:
+  ship:
+    uses: ./.github/workflows/shiplane-ship.yml
+    with:
+      units: ${{ inputs.units }}
+      environment: ${{ inputs.environment }}
+      dry-run: ${{ inputs.dry-run }}
+      # shiplane ships itself: its dist is built first, then the install links its command.
+      build: pnpm build && pnpm install --frozen-lockfile --prefer-offline

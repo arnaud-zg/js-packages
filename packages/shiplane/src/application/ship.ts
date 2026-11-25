@@ -9,6 +9,7 @@ import type { Shipment } from "./askPath";
 import type { ReleaseContext } from "./context";
 import type { Outcomes, ShipStep } from "./shipSteps";
 import { onlyVersionFiles, shipsFrom, webShip } from "../domain/deploys";
+import { LIVE } from "../domain/environment";
 import { yesAllowed } from "../domain/governance";
 import { prepareLine } from "../domain/prepare";
 import { choosesPath, forcedPath, routeChoice, shipRuns } from "../domain/shipRoute";
@@ -17,6 +18,7 @@ import { buildingIfNeeded } from "./buildIfNeeded";
 import { checkEnvBeforeDeploy } from "./checkEnvBeforeDeploy";
 import { runFollowUps } from "./followUps";
 import { mapLimit } from "./mapLimit";
+import { publishRoute } from "./publishRoute";
 import { pullRequestFirst } from "./pullRequestFirst";
 import { deployedOn } from "./readScope";
 import { signIn, signInsOf } from "./requirements";
@@ -500,6 +502,32 @@ export const shipTo = async (
     return prompter.interactive;
   }
   const { paths, stuck } = routed;
+  // One question and one run for every package a release publishes, not one each.
+  const packages =
+    environment === "preview"
+      ? ready.filter(
+          ({ module, kind, jobs }) =>
+            module.kind === "published-package" &&
+            kind === "publish" &&
+            jobs.some(({ needsBuild }) => needsBuild),
+        )
+      : [];
+  const defaultBranch = packages[0]?.input.defaultBranch;
+  if (defaultBranch !== undefined) {
+    const route = await publishRoute(context, {
+      environment: LIVE,
+      ref: defaultBranch,
+      what: packages.map(({ input }) => input.tag).join(", "),
+      via,
+    });
+    if (route === "refused") return false;
+    if (route === null) {
+      output.line(paint("dim", "  Nothing shipped."));
+      return true;
+    }
+    packages.forEach((entry) => paths.set(entry, route));
+  }
+  const toDispatch = packages.filter((entry) => paths.get(entry) === "ci");
   const going = ready.filter((entry) => !choosesPath(entry) || paths.has(entry));
   if (going.length === 0) return !stuck;
   // A job run from its tag's worktree leaves this checkout alone.
@@ -551,6 +579,20 @@ export const shipTo = async (
       stage: "ship" as const,
     })),
   ];
+  if (defaultBranch !== undefined && toDispatch.length > 0) {
+    const names = toDispatch.map(({ unit }) => unit.name);
+    steps.push({
+      label: `publish ${names.join(", ")} from ${defaultBranch} (${workflow})`,
+      run: () =>
+        services.ciPipeline.dispatch(workflow, defaultBranch, {
+          units: names.join(" "),
+          environment: LIVE,
+        }),
+      tags: toDispatch.map(({ input }) => input.tag),
+      unit: names.join(", "),
+      stage: "ship",
+    });
+  }
   await writePlan(context, environment, new Set(going.map(({ unit }) => unit.name)));
   const outcomes: Outcomes = new Map();
   const shipped = await runShipSteps(context, steps, outcomes);
@@ -572,7 +614,7 @@ export const shipTo = async (
     going.map(({ unit, input }) => ({ unit, tag: input.tag, environment })),
   );
   const { runsLine } = context.services.ciPipeline;
-  if (runs.length > 0 && runsLine) {
+  if (runs.length + toDispatch.length > 0 && runsLine) {
     output.line(`    ${paint("cyan", runsLine)}`);
   }
   // A package has no channel to read, so status has nothing to show for one.

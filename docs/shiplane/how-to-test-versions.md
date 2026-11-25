@@ -23,6 +23,11 @@ pnpm shiplane test-release beta         # this run on beta: 0.6.0-beta.2 under n
 pnpm shiplane test-release --dry-run    # each package's version and npm tag, nothing published
 ```
 
+Each run asks **your CI pipeline or this machine**, unless `--via` or the config's `via` says. CI
+needs a `ship.yml` that offers the channel, and the branch pushed; otherwise it says why and
+publishes from here. `--yes`, or no terminal, publishes from this machine. After the channel, name
+packages to publish only those: `pnpm shiplane test-release beta my-lib`.
+
 Each version builds on the version the changesets give the package next, so it always sorts above
 the last release. Two kinds of channel:
 
