@@ -1,11 +1,11 @@
 import type { ActionsMinutes } from "../../../domain/budget";
 import type { ServiceAdapter } from "../../../ports/adapter.port";
-import type { CiPipelinePort } from "../../../ports/ci-pipeline.port";
+import type { CiPipelinePort, MinutesBlocked } from "../../../ports/ci-pipeline.port";
 import type { Deploy } from "../../../ports/code-host.port";
 
 interface PipelineState {
   workflowRuns: Record<string, Deploy[]>;
-  minutes: ActionsMinutes | null;
+  minutes: ActionsMinutes | MinutesBlocked | null;
   measured: Record<string, number[]>;
 }
 
@@ -18,7 +18,11 @@ export interface Dispatched {
 
 /** A CI pipeline held in memory: seed its runs and minutes, read back what was dispatched. */
 export class CiPipelineFake implements CiPipelinePort {
-  private state: PipelineState = { workflowRuns: {}, minutes: null, measured: {} };
+  private state: PipelineState = {
+    workflowRuns: {},
+    minutes: null,
+    measured: {},
+  };
 
   readonly received: Dispatched[] = [];
 

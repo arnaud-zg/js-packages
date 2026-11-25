@@ -194,6 +194,7 @@ describe("dispatching a workflow", () => {
 describe("checking a ship fits the GitHub Actions minutes budget", () => {
   it("given an organization on the team plan, when the minutes are read, then the month's usage is weighed against its allowance", async () => {
     const gh = fakeGh()
+      .seed("api users/{owner} --jq", JSON.stringify({ login: "acme", type: "Organization" }))
       .seed("api orgs/{owner}", "team\n")
       .seed(
         "api organizations/{owner}/settings/billing/usage/summary",
@@ -211,13 +212,85 @@ describe("checking a ship fits the GitHub Actions minutes budget", () => {
       left: 2800,
     });
     expect(gh.args).toEqual([
-      ["api", "orgs/{owner}", "--jq", ".plan.name"],
+      ["api", "users/{owner}", "--jq", "{login, type}"],
       ["api", "organizations/{owner}/settings/billing/usage/summary"],
+      ["api", "orgs/{owner}", "--jq", ".plan.name"],
     ]);
   });
 
-  it("given a personal account whose billing gh cannot read, when the minutes are read, then there is no budget", async () => {
-    const gh = fakeGh().seed("api orgs/{owner}", { status: 1, stderr: "HTTP 404: Not Found" });
+  const owner = (login: string, type: string) =>
+    fakeGh()
+      .seed("api users/{owner} --jq", JSON.stringify({ login, type }))
+      .seed("api user --jq .login", "ada\n")
+      .seed("api user --jq .plan.name", "pro\n");
+  const BILLING = "api users/{owner}/settings/billing/usage/summary";
+  const ORG_BILLING = "api organizations/{owner}/settings/billing/usage/summary";
+  const needing = (scope: string) => ({
+    status: 1,
+    stderr: `gh: Not Found (HTTP 404)\ngh: This API operation needs the "${scope}" scope. To request it, run:  gh auth refresh -h github.com -s ${scope}\n`,
+  });
+
+  it("given a personal account, when the minutes are read, then its own billing is weighed against its plan", async () => {
+    const gh = owner("ada", "User").seed(
+      BILLING,
+      JSON.stringify({
+        usageItems: [{ sku: "actions_linux", grossQuantity: 54, unitType: "minutes" }],
+      }),
+    );
+
+    await expect(pipelineOn(gh).minutes()).resolves.toEqual({
+      used: 54,
+      included: 3000,
+      left: 2946,
+    });
+  });
+
+  it("given a personal account and a token without its scope, when the minutes are read, then the scope is named with the command that grants it", async () => {
+    const gh = owner("ada", "User").seed(BILLING, needing("user"));
+
+    await expect(pipelineOn(gh).minutes()).resolves.toEqual({
+      reason: 'gh needs the "user" scope to read them.',
+      url: "https://github.com/settings/billing",
+      fix: "gh auth refresh -h github.com -s user",
+    });
+  });
+
+  it("given an organization and a token without its scope, when the minutes are read, then the scope is named with the command that grants it", async () => {
+    const gh = owner("acme", "Organization").seed(ORG_BILLING, needing("admin:org"));
+
+    await expect(pipelineOn(gh).minutes()).resolves.toEqual({
+      reason: 'gh needs the "admin:org" scope to read them.',
+      url: "https://github.com/organizations/acme/settings/billing",
+      fix: "gh auth refresh -h github.com -s admin:org",
+    });
+  });
+
+  it("given an organization whose billing this account may not read, when the minutes are read, then it says so with no command", async () => {
+    const gh = owner("acme", "Organization").seed(ORG_BILLING, {
+      status: 1,
+      stderr: "gh: Forbidden (HTTP 403)",
+    });
+
+    await expect(pipelineOn(gh).minutes()).resolves.toEqual({
+      reason: "GitHub does not let this account read the billing of acme.",
+      url: "https://github.com/organizations/acme/settings/billing",
+    });
+  });
+
+  it("given someone else's personal account, when the minutes are read, then no scope is asked for", async () => {
+    const gh = owner("bob", "User").seed(BILLING, needing("user"));
+
+    await expect(pipelineOn(gh).minutes()).resolves.toBeNull();
+  });
+
+  it("given billing failing for another reason, when the minutes are read, then there is no budget and no scope is asked for", async () => {
+    const gh = owner("ada", "User").seed(BILLING, { status: 1, stderr: "gh: (HTTP 500)" });
+
+    await expect(pipelineOn(gh).minutes()).resolves.toBeNull();
+  });
+
+  it("given GitHub cannot say who owns the repository, when the minutes are read, then there is no budget", async () => {
+    const gh = fakeGh().seed("api users/{owner}", { status: 1, stderr: "gh: (HTTP 500)" });
 
     await expect(pipelineOn(gh).minutes()).resolves.toBeNull();
   });

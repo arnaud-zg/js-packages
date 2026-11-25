@@ -22,6 +22,15 @@ export interface CallerNeeds {
   variables?: readonly string[];
 }
 
+/** Why a pipeline won't say its minutes, where to read them, and what shows them next time. */
+export interface MinutesBlocked {
+  reason: string;
+  /** The page that shows the numbers. */
+  url: string;
+  /** The command that grants the right; unset when only someone else can. */
+  fix?: string;
+}
+
 /** Where workflows run: dispatched on a ref, their runs read back, the minutes they cost. */
 export interface CiPipelinePort {
   /** The one workflow that ships on CI: `shiplane ship` on a runner, given units and an environment. */
@@ -29,8 +38,8 @@ export interface CiPipelinePort {
   /** A workflow's runs, each titled `Deploy <tag> to <environment>` when it deploys. */
   workflowRuns: (workflow: string) => Promise<Deploy[]>;
   dispatch: (workflow: string, ref: string, inputs: Record<string, string>) => Promise<void>;
-  /** This month's minutes, or null when the pipeline won't say. */
-  minutes: () => Promise<ActionsMinutes | null>;
+  /** This month's minutes, why they cannot be read, or null when the pipeline won't say. */
+  minutes: () => Promise<ActionsMinutes | MinutesBlocked | null>;
   /** Billed minutes of a workflow's last successful runs. */
   measuredMinutes: (workflow: string) => Promise<number[]>;
   /** What a person calls this pipeline, such as `GitHub Actions`; `CI` when unset. */

@@ -1,7 +1,7 @@
 import type { ActionsMinutes } from "../domain/budget";
 import type { DeployPath, ShipItem } from "../domain/deploys";
 import type { Environment } from "../domain/environment";
-import type { CiPipelinePort } from "../ports/ci-pipeline.port";
+import type { CiPipelinePort, MinutesBlocked } from "../ports/ci-pipeline.port";
 import type { ReleaseContext } from "./context";
 import { deployEstimate, minutesBudget } from "../domain/budget";
 import { fail, paint } from "./say";
@@ -43,6 +43,19 @@ const showMinutes = (
   output.line();
 };
 
+/** Why the minutes are not shown, where to read them, and what shows them next time. */
+const warnBlocked = (
+  { output, services }: ReleaseContext,
+  { reason, url, fix }: MinutesBlocked,
+) => {
+  const label = ciLabel(services.ciPipeline);
+  output.line();
+  output.line(`  ${paint("yellow", `⚠ ${label} minutes not shown: ${reason}`)} You can continue.`);
+  output.line(`    See them: ${paint("cyan", url)}`);
+  if (fix) output.line(`    Show them here next time: ${paint("cyan", fix)}`);
+  output.line();
+};
+
 /**
  * How each unit ships, asked one by one with this month's Actions minutes shown once: GitHub Actions
  * or this machine, in the order given. Null when cancelled or without a terminal to ask.
@@ -75,7 +88,10 @@ export const askPaths = async (
     measured,
     typical,
   );
-  const budget = await services.ciPipeline.minutes();
+  const minutes = await services.ciPipeline.minutes();
+  const blocked = minutes && "reason" in minutes ? minutes : null;
+  const budget = minutes && "included" in minutes ? minutes : null;
+  if (blocked && prompter.interactive) warnBlocked(context, blocked);
   if (budget) showMinutes(context, budget, estimate);
   if (!prompter.interactive) {
     fail(context, "Not a terminal", "say how to ship.", [
@@ -88,7 +104,7 @@ export const askPaths = async (
     budget !== null && minutesBudget(budget, clock.now(), 30, estimate.total).tone === "red";
   const paths: DeployPath[] = [];
   for (const { item } of shipments) {
-    const minutes = estimate.lines.find(({ app }) => app === item.app)?.minutes;
+    const cost = estimate.lines.find(({ app }) => app === item.app)?.minutes;
     const path = await prompter.select<DeployPath>(
       `How should ${item.tag} ship to ${environment}?`,
       [
@@ -96,7 +112,7 @@ export const askPaths = async (
           value: "ci",
           label: pathLabel(services.ciPipeline, "ci"),
           hint: budget
-            ? `runs on ${ciLabel(services.ciPipeline)} from its tag, about ${minutes} of ${budget.left.toLocaleString("en-US")} minutes left`
+            ? `runs on ${ciLabel(services.ciPipeline)} from its tag, about ${cost} of ${budget.left.toLocaleString("en-US")} minutes left`
             : `its workflow runs on ${ciLabel(services.ciPipeline)}, from its tag`,
         },
         {
