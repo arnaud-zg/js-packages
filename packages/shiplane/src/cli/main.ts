@@ -292,7 +292,7 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
     const only = release.environments.join(", ");
     if (environment === "production" || command === "promote") {
       out(
-        `${paint("red", "✗")}  no ${environment === "preview" ? "promote" : environment} here: environments is ${only}`,
+        `${paint("red", "✗")}  no ${environment === "preview" ? "promote" : environment} here: deployApps.promote names only ${only}`,
       );
       return 1;
     }

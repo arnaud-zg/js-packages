@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { z } from "zod";
 
 import type { DeployPath } from "../../domain/deploys";
 import type { DisplayChoice } from "../../domain/display";
@@ -15,7 +16,7 @@ import type { UnitFile } from "./readUnitFile";
 import { ENVIRONMENTS, LIVE } from "../../domain/environment";
 import { PrepareSchema } from "../../domain/prepare";
 import { DEFAULT_TAG_FORMAT, TAG_FORMATS, tagFormatNamed } from "../../domain/tags";
-import { channelProblem } from "../../domain/testChannel";
+import { channelProblem, channels } from "../../domain/testChannel";
 import { ConfigError } from "../../ports/config.port";
 import { releaseFlow } from "../releaseFlow";
 import { reasonOf } from "../say";
@@ -48,10 +49,14 @@ export interface Release {
   problems: ConfigProblem[];
   /** How a tag names a version, such as `{name}@{version}`. */
   tagFormat: string;
-  /** Where apps ship; preview then production when unset. */
+  /** The environments apps are promoted through (`deployApps.promote`); both when unset. */
   environments?: readonly Environment[];
-  /** The channels packages publish on; any when unset. */
+  /** The channels packages publish on (`publishPackages.channels`); any when unset. */
   channels?: readonly string[];
+  /** Where a branch may deploy apps (`deployApps.onBranch`): not available yet. */
+  deployOnBranch?: "preview" | false;
+  /** What a branch publishes outside the channels (`publishPackages.onBranch`); a snapshot when unset. */
+  onBranch?: "snapshot" | false;
   /** How a unit ships when both ways can, as the config asks; unset, each ship asks. */
   via?: DeployPath;
   /** How much the release says while it runs, as the config asks. */
@@ -80,6 +85,8 @@ type Composed = Pick<
   | "via"
   | "environments"
   | "channels"
+  | "onBranch"
+  | "deployOnBranch"
   | "prepare"
 > & {
   units?: string[];
@@ -208,42 +215,79 @@ const checkConfig = (loaded: unknown): Composed => {
     ...testCommentOf(loaded.testComment),
     ...testReleaseOf(loaded.testRelease),
     via: viaOf(loaded.via),
-    ...environmentsOf(loaded.environments),
-    ...channelsOf(loaded.channels),
+    ...deployAppsOf(loaded.deployApps),
+    ...publishPackagesOf(loaded.publishPackages),
     ...prepareOf(loaded.prepare),
   };
 };
 
-const listOfNames = (value: unknown) =>
-  Array.isArray(value) && value.length > 0 && value.every((name) => typeof name === "string")
-    ? [...new Set<string>(value)]
-    : null;
+const DeployAppsSchema = z.strictObject({
+  promote: z
+    .tuple([
+      z
+        .strictObject({
+          from: z.literal("preview").optional(),
+          to: z.literal("production").optional(),
+        })
+        .refine(({ from, to }) => from !== undefined || to !== undefined),
+    ])
+    .optional(),
+  onBranch: z.union([z.literal("preview"), z.literal(false)]).optional(),
+});
 
-/** The config's `environments`: one or both, in promotion order. */
-const environmentsOf = (value: unknown): { environments?: Environment[] } => {
+const PublishPackagesSchema = z.strictObject({
+  channels: z.array(z.string()).min(1).optional(),
+  onBranch: z.union([z.literal("snapshot"), z.literal(false)]).optional(),
+});
+
+/** `deployApps`: where a release deploys apps, where a promote takes them, what a branch may do. */
+const deployAppsOf = (value: unknown): Pick<Release, "environments" | "deployOnBranch"> => {
   if (value === undefined) return {};
-  const names = listOfNames(value);
-  const unknown = names?.find((name) => !ENVIRONMENTS.some((known) => known === name));
-  if (!names || unknown !== undefined) {
-    throw new Error(`environments lists ${ENVIRONMENTS.join(", ")}, or one of them`);
+  const parsed = DeployAppsSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new Error(
+      'deployApps takes promote, [{ from: "preview", to: "production" }], one step, or only one of from and to; and onBranch, "preview" or false',
+    );
   }
-  return { environments: ENVIRONMENTS.filter((name) => names.includes(name)) };
+  const { promote, onBranch } = parsed.data;
+  const environments = promote?.flatMap(({ from, to }): Environment[] => [
+    ...(from ? [from] : []),
+    ...(to ? [to] : []),
+  ]);
+  if (onBranch === "preview" && environments && !environments.includes("preview")) {
+    throw new Error('deployApps.onBranch is "preview", and promote names no preview');
+  }
+  return {
+    ...(environments ? { environments } : {}),
+    ...(onBranch === undefined ? {} : { deployOnBranch: onBranch }),
+  };
 };
 
-/** The config's `channels`: live, and names npm takes as a test release's. */
-const channelsOf = (value: unknown): { channels?: string[] } => {
+/** Why a name cannot be a channel of `publishPackages`, or null when it can. */
+const channelRefused = (name: string) => {
+  if (name === LIVE) return null;
+  if (name === channels.snapshot) return "snapshot is what onBranch publishes, not a channel";
+  if (ENVIRONMENTS.some((known) => known === name))
+    return `${name} is an environment apps deploy to`;
+  return channelProblem(name);
+};
+
+/** `publishPackages`: the channels, and what a branch publishes. */
+const publishPackagesOf = (value: unknown): Pick<Release, "channels" | "onBranch"> => {
   if (value === undefined) return {};
-  const names = listOfNames(value);
-  if (!names) throw new Error('channels lists names, such as ["nightly", "live"]');
-  for (const name of names) {
-    const problem = ENVIRONMENTS.some((known) => known === name)
-      ? `${name} is an environment`
-      : name === LIVE
-        ? null
-        : channelProblem(name);
-    if (problem) throw new Error(`channels: ${problem}`);
+  const parsed = PublishPackagesSchema.safeParse(value);
+  if (!parsed.success) {
+    throw new Error(
+      'publishPackages takes channels, a list of names, and onBranch, "snapshot" or false',
+    );
   }
-  return { channels: names };
+  const { channels: names, onBranch } = parsed.data;
+  const problem = names?.map(channelRefused).find((found) => found !== null);
+  if (problem) throw new Error(`publishPackages.channels: ${problem}`);
+  return {
+    ...(names ? { channels: [...new Set(names)] } : {}),
+    ...(onBranch === undefined ? {} : { onBranch }),
+  };
 };
 
 /** The config's `prepare`, its placeholders known; the first problem is thrown. */
@@ -467,7 +511,7 @@ export const loadRelease = async (root: string, ports: LoadPorts): Promise<Relea
       problems.push({
         file: path.basename(configFile),
         message: `${unit.name} needs preview: its platform builds production from what preview runs`,
-        hint: 'add "preview" to environments',
+        hint: 'name "preview" as from in deployApps.promote',
       }),
     );
   }
@@ -488,6 +532,8 @@ export const loadRelease = async (root: string, ports: LoadPorts): Promise<Relea
     ...(config.via ? { via: config.via } : {}),
     ...(config.environments ? { environments: config.environments } : {}),
     ...(config.channels ? { channels: config.channels } : {}),
+    ...(config.deployOnBranch === undefined ? {} : { deployOnBranch: config.deployOnBranch }),
+    ...(config.onBranch === undefined ? {} : { onBranch: config.onBranch }),
     units: ordered.map(({ unit }) => unit),
     problems: sortProblems(problems),
     display: config.display,

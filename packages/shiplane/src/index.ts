@@ -9,7 +9,11 @@ export { isEnvVarName } from "./domain/checkEnvBeforeDeploy";
 export type { PlatformEnvPort } from "./ports/platform-env.port";
 export type { PerEnv } from "./application/config/perEnv";
 export { perEnv } from "./application/config/perEnv";
-export type { ReleaseConfig } from "./application/config/defineRelease";
+export type {
+  DeployApps,
+  PublishPackages,
+  ReleaseConfig,
+} from "./application/config/defineRelease";
 export { defineRelease } from "./application/config/defineRelease";
 export { comments } from "./domain/branchRelease";
 export type { Channel, TestReleaseBranches } from "./domain/testChannel";
