@@ -130,8 +130,8 @@ Without `prepare`, a package about to publish from this machine, the runner, or 
 [builds only if needed](./reference.md#build-before-publishing).
 
 **Push as an app, not as Actions.** A push with the default token never starts another workflow. Add
-secrets `SHIPLANE_APP_ID` and `SHIPLANE_APP_PRIVATE_KEY` of a GitHub App installed on the repo, pass
-both to the action in `ship.yml`, and the workflow uses its token instead.
+a step with `actions/create-github-app-token` before the action and give it the token:
+`github-token`.
 
 **Keep the pin current.** The workflow is pinned to the commit of a shiplane release, never a moving
 tag. After upgrading `shiplane`, `pnpm shiplane doctor` offers to re-pin it. If your repository uses

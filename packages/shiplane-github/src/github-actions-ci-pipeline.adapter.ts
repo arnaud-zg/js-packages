@@ -84,6 +84,9 @@ const actionJob = (pin: string, needs: CallerNeeds) => [
   "    concurrency:",
   "      group: ship-${{ inputs.environment }}",
   "      cancel-in-progress: false",
+  ...(needs.variables
+    ? ["    env:", ...needs.variables.map((name) => `      ${name}: \${{ vars.${name} }}`)]
+    : []),
   "    steps:",
   "      - uses: actions/checkout@v5",
   "        with:",
@@ -94,9 +97,6 @@ const actionJob = (pin: string, needs: CallerNeeds) => [
   "          units: ${{ inputs.units }}",
   "          environment: ${{ inputs.environment }}",
   "          dry-run: ${{ inputs.dry-run }}",
-  ...(needs.variables
-    ? [`          variables: ${needs.variables.join(" ")}`, "          vars: ${{ toJSON(vars) }}"]
-    : []),
   ...needs.secrets.map((name) => `          ${name}: \${{ secrets.${name} }}`),
 ];
 

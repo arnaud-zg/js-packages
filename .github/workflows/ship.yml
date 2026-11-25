@@ -48,4 +48,4 @@ jobs:
           environment: ${{ inputs.environment }}
           dry-run: ${{ inputs.dry-run }}
           # shiplane ships itself: its dist is built first, then the install links its command.
-          build: pnpm build && pnpm install --frozen-lockfile --prefer-offline
+          install-command: pnpm install --frozen-lockfile && pnpm build && pnpm install --frozen-lockfile --offline

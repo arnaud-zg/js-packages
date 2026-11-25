@@ -34,18 +34,9 @@ inputs:
   working-directory:
     description: "Last resort: the folder holding shiplane.config.ts or shiplane.yml, when it is not the repo root"
     default: "."
-  build:
-    description: "Last resort: a command run after the install, when the repo builds shiplane or an adapter itself"
-    default: ""
-  variables:
-    description: "Names of the variables the build reads, space separated. Not for secrets"
-    default: ""
-  vars:
-    description: "The variables to read them from: toJSON(vars)"
-    default: ""
-  mascot:
-    description: "Draw the mascot beside each step in the log"
-    default: "false"
+  github-token:
+    description: "The token shiplane acts with; a GitHub App's, to start other workflows"
+    default: ${{ github.token }}
   FLY_API_TOKEN:
     description: "Fly: flyServerHosting deploys with it"
     default: ""
@@ -57,12 +48,6 @@ inputs:
     default: ""
   EXPO_TOKEN:
     description: "EAS: easMobileDistribution builds and updates with it"
-    default: ""
-  SHIPLANE_APP_ID:
-    description: "A GitHub App shiplane acts as, instead of the workflow's token"
-    default: ""
-  SHIPLANE_APP_PRIVATE_KEY:
-    description: "That GitHub App's private key"
     default: ""
 
 runs:
@@ -226,47 +211,6 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       run: npm install --global npm@^11.21.0
 
-    - name: Build
-      if: ${{ inputs.build != '' }}
-      env:
-        BUILD_COMMAND: ${{ inputs.build }}
-      shell: bash
-      working-directory: ${{ inputs.working-directory }}
-      run: eval "$BUILD_COMMAND"
-
-    - name: Mint a GitHub App token
-      id: app
-      if: ${{ inputs.SHIPLANE_APP_ID != '' }}
-      uses: actions/create-github-app-token@v2
-      with:
-        app-id: ${{ inputs.SHIPLANE_APP_ID }}
-        private-key: ${{ inputs.SHIPLANE_APP_PRIVATE_KEY }}
-
-    # Only the variables named, never every one: a build reads them as its environment.
-    - name: Read the build's variables
-      if: ${{ inputs.variables != '' }}
-      env:
-        NAMES: ${{ inputs.variables }}
-        VARS: ${{ inputs.vars }}
-      shell: node {0}
-      working-directory: ${{ inputs.working-directory }}
-      run: |
-        const fs = require("node:fs");
-        const { randomUUID } = require("node:crypto");
-        const vars = JSON.parse(process.env.VARS || "{}") ?? {};
-        for (const name of process.env.NAMES.split(/\s+/).filter(Boolean)) {
-          if (!/^[A-Z][A-Z0-9_]*$/.test(name) || /^(PATH|NODE_OPTIONS|LD_.*|GITHUB_.*|GH_.*|RUNNER_.*|ACTIONS_.*)$/.test(name)) {
-            console.log(`::error::${name} cannot be a build variable`);
-            process.exit(1);
-          }
-          if (vars[name] === undefined) {
-            console.log(`::notice::${name} is not set in this repository's or environment's variables`);
-            continue;
-          }
-          const end = randomUUID();
-          fs.appendFileSync(process.env.GITHUB_ENV, `${name}<<${end}\n${vars[name]}\n${end}\n`);
-        }
-
     # Fails here, before anything ships, when something is not supported; installs missing tools.
     - name: Check what ships
       # The only steps that see the secrets: each one an adapter reads, by name.
@@ -275,10 +219,8 @@ runs:
         UNITS: ${{ inputs.units }}
         ENVIRONMENT: ${{ inputs.environment }}
         DRY_RUN: ${{ inputs.dry-run == 'true' && '--dry-run' || '' }}
-        # A log reads plainer without the mascot: --no-mascot wins over the config's display.mascot.
-        MASCOT: ${{ inputs.mascot == 'true' && '--mascot' || '--no-mascot' }}
         # gh and every adapter calling it read GH_TOKEN.
-        GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
+        GH_TOKEN: ${{ inputs.github-token }}
         FLY_API_TOKEN: ${{ inputs.FLY_API_TOKEN }}
         CLOUDFLARE_API_TOKEN: ${{ inputs.CLOUDFLARE_API_TOKEN }}
         CLOUDFLARE_ACCOUNT_ID: ${{ inputs.CLOUDFLARE_ACCOUNT_ID }}
@@ -295,10 +237,8 @@ runs:
         UNITS: ${{ inputs.units }}
         ENVIRONMENT: ${{ inputs.environment }}
         DRY_RUN: ${{ inputs.dry-run == 'true' && '--dry-run' || '' }}
-        # A log reads plainer without the mascot: --no-mascot wins over the config's display.mascot.
-        MASCOT: ${{ inputs.mascot == 'true' && '--mascot' || '--no-mascot' }}
         # gh and every adapter calling it read GH_TOKEN.
-        GH_TOKEN: ${{ steps.app.outputs.token || github.token }}
+        GH_TOKEN: ${{ inputs.github-token }}
         FLY_API_TOKEN: ${{ inputs.FLY_API_TOKEN }}
         CLOUDFLARE_API_TOKEN: ${{ inputs.CLOUDFLARE_API_TOKEN }}
         CLOUDFLARE_ACCOUNT_ID: ${{ inputs.CLOUDFLARE_ACCOUNT_ID }}
@@ -309,12 +249,12 @@ runs:
         # shellcheck disable=SC2086 # one word per unit, and the exec prefix's words
         case "$ENVIRONMENT" in
           preview | production)
-            $EXEC shiplane ship $UNITS --channel "$ENVIRONMENT" --yes "$MASCOT" $DRY_RUN ;;
+            $EXEC shiplane ship $UNITS --channel "$ENVIRONMENT" --yes --no-mascot $DRY_RUN ;;
           live)
             # The release tags are annotated, which needs an identity.
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            $EXEC shiplane ship $UNITS --channel live --yes "$MASCOT" $DRY_RUN ;;
+            $EXEC shiplane ship $UNITS --channel live --yes --no-mascot $DRY_RUN ;;
           *)
-            $EXEC shiplane test-release "$ENVIRONMENT" $UNITS --yes "$MASCOT" $DRY_RUN ;;
+            $EXEC shiplane test-release "$ENVIRONMENT" $UNITS --yes --no-mascot $DRY_RUN ;;
         esac

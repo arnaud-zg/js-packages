@@ -272,7 +272,18 @@ export const allows = (text: string, permission: string, level: string) => {
 };
 
 const VARIABLES = /^[ \t]+variables:[ \t]*["']?([^"'\n]*)["']?[ \t]*$/m;
-const variablesOf = (text: string) => (VARIABLES.exec(text)?.[1] ?? "").split(/\s+/);
+/** The reusable workflow takes their names; a job of its own holds them in its `env:`. */
+const variablesOf = (text: string) => [
+  ...(VARIABLES.exec(text)?.[1] ?? "").split(/\s+/),
+  ...[...text.matchAll(/\$\{\{[ \t]*vars\.(\w+)/g)].map(([, name = ""]) => name),
+];
+
+/** `text` with the variables in its job's `env:`, before its steps. */
+const withJobEnv = (text: string, names: readonly string[]) =>
+  text.replace(/^([ \t]+)(env:[ \t]*\n|steps:)/m, (found, indent: string, key: string) => {
+    const lines = names.map((name) => `${indent}  ${name}: \${{ vars.${name} }}\n`).join("");
+    return key.startsWith("env") ? `${found}${lines}` : `${indent}env:\n${lines}${found}`;
+  });
 
 /** `text` passing the variables `content` does, the rest as written. */
 const withVariables = (text: string, content: string) => {
@@ -280,14 +291,6 @@ const withVariables = (text: string, content: string) => {
   if (!passes) return text;
   if (VARIABLES.test(text)) return text.replace(VARIABLES, (line) => `${indentOf(line)}${passes}`);
   const lines = text.split("\n");
-  if (!CALLS_REUSABLE.test(text)) {
-    const uses = lines.findIndex((line) => USES.test(line));
-    const at = lines.findIndex((line, index) => index > uses && WITH.test(line));
-    if (at === -1) return text;
-    const indent = `${indentOf(lines[at])}  `;
-    const added = [`${indent}${passes}`, `${indent}vars: \${{ toJSON(vars) }}`];
-    return [...lines.slice(0, at + 1), ...added, ...lines.slice(at + 1)].join("\n");
-  }
   const passing = blockOf(lines, WITH);
   if (passing && passing.end > passing.start + 1) {
     const line = `${indentOf(lines[passing.start + 1])}${passes}`;
@@ -422,7 +425,10 @@ const problemsOf = (release: Release, caller: Caller, text: string | null): Prob
     problems.push({
       said: `${name} passes no ${unread.join(", ")}`,
       ask: `Pass ${file} the variables its builds read?`,
-      fix: withVariables,
+      fix: (current, content) =>
+        CALLS_REUSABLE.test(current)
+          ? withVariables(current, content)
+          : withJobEnv(current, unread),
     });
   }
   return problems;

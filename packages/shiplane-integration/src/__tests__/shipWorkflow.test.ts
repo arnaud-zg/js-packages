@@ -38,7 +38,7 @@ interface Step {
 }
 interface ShipWorkflow {
   on: { workflow_call: { secrets: Record<string, unknown> } };
-  jobs: { ship: { steps: Step[] } };
+  jobs: { ship: { env?: Record<string, string>; steps: Step[] } };
 }
 
 const WORKFLOW = new URL("../../../../.github/workflows/shiplane-ship.yml", import.meta.url);
@@ -66,7 +66,7 @@ const callerOf = async (
   return parse(made.content) as {
     on: { workflow_dispatch: { inputs: Record<string, { options?: string[]; default: unknown }> } };
     permissions: Record<string, string>;
-    jobs: { ship: { steps: { with: Record<string, unknown> }[] } };
+    jobs: { ship: { env?: Record<string, string>; steps: { with: Record<string, unknown> }[] } };
   };
 };
 
@@ -95,12 +95,10 @@ describe("the ship action", () => {
     ["Check what ships", "Ship"].includes(name),
   );
 
-  it("given the official adapters, when it is read, then it takes each secret they read, and the App's", () => {
+  it("given the official adapters, when it is read, then it takes each secret they read and no other", () => {
     const taken = Object.keys(action.inputs).filter((name) => /^[A-Z_]+$/.test(name));
 
-    expect(taken.filter((name) => !name.startsWith("SHIPLANE_APP_")).sort()).toEqual(
-      ADAPTER_SECRETS,
-    );
+    expect(taken.sort()).toEqual(ADAPTER_SECRETS);
   });
 
   it("given it ships, when its steps are read, then only the check and the ship see a secret", () => {
@@ -112,15 +110,6 @@ describe("the ship action", () => {
     }
     const others = action.runs.steps.filter((step) => !shipping.includes(step));
     for (const name of ADAPTER_SECRETS) expect(JSON.stringify(others)).not.toContain(name);
-  });
-
-  it("given the workflow it replaces, when both ship, then they run the same commands", () => {
-    const commands = (steps: { name?: string; run?: string }[]) =>
-      steps
-        .filter(({ name = "" }) => ["Build", "Check what ships", "Ship"].includes(name))
-        .map(({ run }) => run);
-
-    expect(commands(action.runs.steps)).toEqual(commands(workflow.jobs.ship.steps));
   });
 
   it("given a composite action, when its steps run, then each names its shell and reads no secret context", () => {
@@ -197,7 +186,10 @@ describe("the workflow every repository ships from", () => {
       actions: "read",
       pages: "write",
     });
-    expect(given(caller)).toMatchObject({ variables: "SITE_KEY SITE_REGION" });
+    expect(caller.jobs.ship.env).toEqual({
+      SITE_KEY: "${{ vars.SITE_KEY }}",
+      SITE_REGION: "${{ vars.SITE_REGION }}",
+    });
     expect(secretsOf(caller)).toEqual({});
   });
 

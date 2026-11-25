@@ -444,4 +444,50 @@ describe("Feature: doctor on a ship.yml using the ship action", () => {
     expect(output.text).toContain("passes OLD_TOKEN, which no adapter needs");
     expect(files.read(SHIP_YML)).toBe(withAction("0.6.0"));
   });
+
+  /** A site whose build reads SITE_KEY. */
+  const reading = (text: string) => {
+    const pages = { ...serverHostingFake(), name: "pages" };
+    pages.fake.seed({
+      requirements: [
+        { label: "pages", check: { command: "true", args: [] }, variables: ["SITE_KEY"] },
+      ],
+    });
+    const site = {
+      "apps/site/package.json": JSON.stringify({ name: "@acme/site", version: "0.1.0" }),
+      "apps/site/shiplane.unit.yml": "module: backend-service\nservice: site\n",
+    };
+    const repo = memoryRepository({ ...REPO, ...site, [SHIP_YML]: text }, [pages], {
+      interactive: true,
+    });
+    return { ...repo, context: runningShiplane(repo.context, "0.6.0", callingPipeline(["0.6.0"])) };
+  };
+
+  it.each([
+    ["no env", "", "    env:\n      SITE_KEY: ${{ vars.SITE_KEY }}\n"],
+    [
+      "an env of its own",
+      "    env:\n      OWN: 1\n",
+      "    env:\n      SITE_KEY: ${{ vars.SITE_KEY }}\n      OWN: 1\n",
+    ],
+  ])(
+    "given the ship action in a job with %s, when the person agrees, then its env holds the variable",
+    async (_, env, fixed) => {
+      const job = (held: string) =>
+        [
+          "permissions: write-all",
+          "jobs:",
+          "  ship:",
+          `${held}    steps:`,
+          "      - uses: acme/shiplane/.github/actions/ship@sha # shiplane@0.6.0",
+          "",
+        ].join("\n");
+      const { context, prompter, files } = reading(job(env));
+      prompter.answer(true);
+
+      expect(await doctor(context)).toBe(true);
+
+      expect(files.read(SHIP_YML)).toBe(job(fixed));
+    },
+  );
 });

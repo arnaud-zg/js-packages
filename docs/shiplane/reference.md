@@ -225,10 +225,9 @@ Source: `src/application/steps.ts`, `src/application/requirements.ts`, `src/appl
 On a runner (`GITHUB_ACTIONS=true`) the workflow runs
 `shiplane doctor --ci <units> --channel <env>`, then
 `shiplane ship <units> --channel <env> --yes --no-mascot`: a log reads plainer without the mascot,
-whatever `display.mascot` says. A caller passing `mascot: true` gets it back (`--mascot`). `ship`
-there ships every unit even when one fails, each in its own log group, writes a plan table and a
-result table (`Prepare`, `Ship`: success, failed or skipped) to `GITHUB_STEP_SUMMARY`, and exits 1
-when any failed.
+whatever `display.mascot` says. `ship` there ships every unit even when one fails, each in its own
+log group, writes a plan table and a result table (`Prepare`, `Ship`: success, failed or skipped) to
+`GITHUB_STEP_SUMMARY`, and exits 1 when any failed.
 
 | Check             | Supported                                                                                                                    | Fails with                                                                                                                         |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
@@ -245,8 +244,7 @@ With packages, an environment that is neither `preview` nor `production` publish
 `shiplane ship --channel live`, any other name `shiplane test-release <name> <units>`. The caller
 lists the names as choices and allows `contents: write` and `id-token: write`. `ref` is then
 ignored: the run publishes the ref it is on, so the environment's branch rule holds. `dry-run: true`
-shows what would ship and records no deployment. `build` runs a command after the install, for a
-repository that builds shiplane itself.
+shows what would ship and records no deployment.
 
 `doctor --ci` stops at the first problem and prints this section's link. Source:
 `src/application/doctorCi.ts`, `src/application/shipSteps.ts`.
@@ -280,25 +278,20 @@ It passes, by name, only the secrets the configured adapters read (their require
 sorted, but `GH_TOKEN`, which the action sets itself). Its `permissions:` are `contents: read`,
 `deployments: write`, `actions: read`, plus `issues: write` and `pull-requests: write` when
 `features` holds `releaseComments`. An adapter can ask for more, such as `contents: write` and
-`pages: write` for GitHub Pages, or `contents`, `id-token`, `issues` and `pull-requests: write` for
-npm. The `variables` a unit's build reads are passed by name too, from the repository's or the
-environment's variables.
+`pages: write` for GitHub Pages. The variables a unit's build reads are in the job's `env:`, by
+name.
 
 The action declares the secrets it accepts, and gives them, with `GH_TOKEN`, only to its
 `Check what ships` and `Ship` steps' `env:`; nothing goes to `$GITHUB_ENV`:
 
-| Secret                     | Read by                                                        |
-| -------------------------- | -------------------------------------------------------------- |
-| `FLY_API_TOKEN`            | `flyServerHosting`                                             |
-| `CLOUDFLARE_API_TOKEN`     | `cloudflarePagesStaticHosting`                                 |
-| `CLOUDFLARE_ACCOUNT_ID`    | `cloudflarePagesStaticHosting`                                 |
-| `EXPO_TOKEN`               | `easMobileDistribution`                                        |
-| `SHIPLANE_APP_ID`          | the App token step, when set; pass it by hand, doctor keeps it |
-| `SHIPLANE_APP_PRIVATE_KEY` | the App token step, with `SHIPLANE_APP_ID`                     |
+| Secret                  | Read by                        |
+| ----------------------- | ------------------------------ |
+| `FLY_API_TOKEN`         | `flyServerHosting`             |
+| `CLOUDFLARE_API_TOKEN`  | `cloudflarePagesStaticHosting` |
+| `CLOUDFLARE_ACCOUNT_ID` | `cloudflarePagesStaticHosting` |
+| `EXPO_TOKEN`            | `easMobileDistribution`        |
 
-GitHub rejects a secret the called workflow does not declare: a third-party plugin's secret needs
-its name added to `on.workflow_call.secrets` and to both steps' `env:`, in a copy of the action that
-`ship.yml` uses instead.
+A third-party plugin's secret goes in the job's `env:`: every step then sees it.
 
 With ship.yml using shiplane, setup adds the preset
 `github>arnaud-zg/js-packages//renovate/shiplane` to `extends` in a JSON Renovate config

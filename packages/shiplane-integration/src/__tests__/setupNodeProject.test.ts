@@ -22,6 +22,8 @@ const action = read<{
   runs: { using: string; steps: Step[] };
 }>("actions/setup-node-project/action.yml");
 
+const ship = read<typeof action>("actions/ship/action.yml");
+
 const FIRST = "Detect the package manager and Node version";
 const LAST = "Install";
 
@@ -53,7 +55,7 @@ describe("the setup-node-project action other repositories import", () => {
     });
   });
 
-  it("given shiplane-ship.yml, when its setup steps are compared with the action's, then they are the same steps", () => {
+  it("given shiplane-ship.yml and the ship action, when their setup steps are compared with the action's, then they are the same steps", () => {
     const inline = setupSteps(workflow.jobs.ship.steps);
 
     expect(inline.map(({ name }) => name)).toEqual([
@@ -66,6 +68,7 @@ describe("the setup-node-project action other repositories import", () => {
       LAST,
     ]);
     expect(setupSteps(action.runs.steps)).toEqual(inline);
+    expect(setupSteps(ship.runs.steps)).toEqual(inline);
   });
 
   it("given the action, when each run step runs, then it runs in bash or node from the working-directory input", () => {
