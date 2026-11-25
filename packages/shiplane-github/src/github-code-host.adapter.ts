@@ -1,5 +1,5 @@
 import type { CodeHostPort, ServiceAdapter, Shell } from "shiplane/plugin";
-import { deployRunTitle, deployState, z } from "shiplane/plugin";
+import { DEFAULT_FLOW, deployRunTitle, deployState, z } from "shiplane/plugin";
 
 import { GH_REQUIREMENT, ghCli, sleep } from "./gh-cli";
 
@@ -80,9 +80,11 @@ const MERGE_QUERY = `query($owner: String!, $name: String!) {
     mergeCommitAllowed squashMergeAllowed rebaseMergeAllowed viewerDefaultMergeMethod
   }
 }`;
-const DEPLOYMENTS_QUERY = `query($owner: String!, $name: String!) {
+const deploymentsQuery = (
+  environments: readonly string[],
+) => `query($owner: String!, $name: String!) {
   repository(owner: $owner, name: $name) {
-    deployments(environments: ["preview", "production"], first: 100, orderBy: {field: CREATED_AT, direction: DESC}) {
+    deployments(environments: [${environments.map((name) => JSON.stringify(name)).join(", ")}], first: 100, orderBy: {field: CREATED_AT, direction: DESC}) {
       nodes { environment state ref { name } }
     }
   }
@@ -194,7 +196,7 @@ export const githubHost = (root: string, shell: Shell): CodeHostPort => {
         ...(latest ? [] : ["--latest=false"]),
       ]);
     },
-    deployments: async () => {
+    deployments: async (environments = DEFAULT_FLOW.path) => {
       const { data } = DeploymentsSchema.parse(
         await json([
           "api",
@@ -204,11 +206,11 @@ export const githubHost = (root: string, shell: Shell): CodeHostPort => {
           "-F",
           "name={repo}",
           "-f",
-          `query=${DEPLOYMENTS_QUERY}`,
+          `query=${deploymentsQuery(environments)}`,
         ]),
       );
       return data.repository.deployments.nodes.flatMap(({ environment, state, ref }) =>
-        ref && state && (environment === "preview" || environment === "production")
+        ref && state && environment && environments.some((name) => name === environment)
           ? [{ title: deployRunTitle(ref.name, environment), state: deployState([state]) }]
           : [],
       );

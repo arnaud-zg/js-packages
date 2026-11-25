@@ -2,11 +2,11 @@ import type { ReleaseContext } from "./context";
 import { fail } from "./say";
 import { shipTo } from "./ship";
 import { missingTags, tagRelease } from "./tagRelease";
-import { isRegistry } from "./targets";
+import { entry, flowOf, isRegistry } from "./targets";
 
 /**
  * `shiplane ship --channel live`: the released packages, tagged when they are not, then published.
- * On a runner, production's dist-tag follows. Apps never ship: they have preview and production.
+ * On a runner, the dist-tag of where users are follows. Apps never ship: they have environments.
  */
 export const shipLive = async (
   context: ReleaseContext,
@@ -22,6 +22,8 @@ export const shipLive = async (
   const scope = new Set(names.length > 0 ? names : packages);
   const tags = (await missingTags(context)).filter(({ app }) => scope.has(app));
   if (!(await tagRelease(context, tags))) return false;
-  if (!(await shipTo(context, "preview", { scope, via: "local" }))) return false;
-  return context.options.ci ? shipTo(context, "production", { scope, via: "local" }) : true;
+  if (!(await shipTo(context, entry(context), { scope, via: "local" }))) return false;
+  const { users } = flowOf(context);
+  if (!context.options.ci || users === null || users === entry(context)) return true;
+  return shipTo(context, users, { scope, via: "local" });
 };

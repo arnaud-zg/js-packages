@@ -25,7 +25,7 @@ import { signIn, signInsOf } from "./requirements";
 import { paint, reasonOf } from "./say";
 import { preparing } from "./ship";
 import { runSteps } from "./steps";
-import { decideContext, isRegistry, runHere, shipPlanOf, unitTarget } from "./targets";
+import { decideContext, entry, isRegistry, runHere, shipPlanOf, unitTarget } from "./targets";
 
 /** Where this checkout stands, as a branch release reads it. */
 export interface Here {
@@ -69,7 +69,7 @@ const pendingUnits = async (
 const publishedVersionsOf = async (context: ReleaseContext, unit: ReleaseUnit, here: Here) => {
   const target = unitTarget(context, {
     unit,
-    environment: "preview",
+    environment: entry(context),
     commit: here.head,
     defaultBranch: here.defaultBranch,
   });
@@ -158,7 +158,7 @@ const publishingOf = (
   const unit = { ...candidate.unit, version: candidate.version };
   const target = unitTarget(context, {
     unit,
-    environment: "preview",
+    environment: entry(context),
     commit: here.head,
     defaultBranch: here.defaultBranch,
   });
@@ -179,7 +179,7 @@ const publishingOf = (
     ...(prepare ? [prepare] : []),
     ...jobs.map((job) => ({
       label: job.label,
-      run: () => runHere(context, job, { tag: target.tag, environment: "preview" }),
+      run: () => runHere(context, job, { tag: target.tag, environment: entry(context) }),
     })),
   ];
   return [{ published: { name, version: candidate.version, tag, onNpmjs }, steps }];

@@ -1,4 +1,6 @@
 import type { StatusPlan, UnitRef } from "./changes";
+import type { Environment } from "./environment";
+import { DEFAULT_FLOW } from "./environment";
 
 /** A unit that goes out with the picked ones without being picked, and why. */
 export interface Companion {
@@ -140,7 +142,11 @@ const sharedReason = (partner: Released, other: Released, id: string) => {
  * Production: the units preview runs with the picked ones that are not picked. Two versions went to
  * preview together when their notes share a change, their own or one a package they use moved for.
  */
-export const releasedTogether = (picked: Released[], others: Released[]): Companion[] =>
+export const releasedTogether = (
+  picked: Released[],
+  others: Released[],
+  environment: Environment = DEFAULT_FLOW.path[0],
+): Companion[] =>
   others.flatMap((other) => {
     const ids = changeIds(other.notes);
     const partners = picked.flatMap((partner) => {
@@ -155,7 +161,7 @@ export const releasedTogether = (picked: Released[], others: Released[]): Compan
         app: other.app,
         version: other.version,
         with: partners.map(({ partner }) => partner.app),
-        why: `went to preview with ${names}${sharedReason(first.partner, other, first.shared)}`,
+        why: `went to ${environment} with ${names}${sharedReason(first.partner, other, first.shared)}`,
       },
     ];
   });

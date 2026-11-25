@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { Environment } from "../../domain/environment";
 import type { ReleaseModule } from "../../modules/module";
 import { ENV_VAR_NAME } from "../../domain/checkEnvBeforeDeploy";
+import { DEFAULT_FLOW } from "../../domain/environment";
 
 interface Inspectable {
   def: {
@@ -26,30 +27,46 @@ const definition = (schema: z.ZodType) => inspect(schema).def;
 const mapShape = (shape: Record<string, z.ZodType>, map: (schema: z.ZodType) => z.ZodType) =>
   Object.fromEntries(Object.entries(shape).map(([key, value]) => [key, map(value)]));
 
+const DEFAULT_PATH: readonly Environment[] = DEFAULT_FLOW.path;
+
+/** A `perEnv` map, written for the default environments, with a key for each of `path`'s instead. */
+const onPath = (shape: Record<string, z.ZodType>, path: readonly Environment[]) => {
+  const value = shape[DEFAULT_FLOW.path[0]];
+  const perEnv =
+    value !== undefined &&
+    Object.keys(shape).join() === DEFAULT_PATH.join() &&
+    Object.values(shape).every((schema) => schema === value);
+  return perEnv ? Object.fromEntries(path.map((environment) => [environment, value])) : shape;
+};
+
 /**
- * The same schema, refusing unknown keys at every depth. Read through `def.type` rather than
- * `instanceof`: a config loads its own copy of zod.
+ * The same schema, refusing unknown keys at every depth, its per-environment maps keyed by `path`.
+ * Read through `def.type` rather than `instanceof`: a config loads its own copy of zod.
  */
-export const deepStrict = (schema: z.ZodType): z.ZodType => {
+export const deepStrict = (
+  schema: z.ZodType,
+  path: readonly Environment[] = DEFAULT_PATH,
+): z.ZodType => {
+  const deep = (inner: z.ZodType) => deepStrict(inner, path);
   const def = definition(schema);
   const strict = (): z.ZodType => {
     switch (def.type) {
       case "object":
-        return z.strictObject(mapShape(def.shape ?? {}, deepStrict));
+        return z.strictObject(mapShape(onPath(def.shape ?? {}, path), deep));
       case "optional":
-        return def.innerType ? deepStrict(def.innerType).optional() : schema;
+        return def.innerType ? deep(def.innerType).optional() : schema;
       case "nullable":
-        return def.innerType ? deepStrict(def.innerType).nullable() : schema;
+        return def.innerType ? deep(def.innerType).nullable() : schema;
       case "default":
-        return def.innerType ? deepStrict(def.innerType).default(def.defaultValue) : schema;
+        return def.innerType ? deep(def.innerType).default(def.defaultValue) : schema;
       case "union":
-        return z.union((def.options ?? []).map(deepStrict));
+        return z.union((def.options ?? []).map(deep));
       case "record":
         return def.keyType && def.valueType
-          ? z.record(def.keyType as z.ZodString, deepStrict(def.valueType))
+          ? z.record(def.keyType as z.ZodString, deep(def.valueType))
           : schema;
       case "array":
-        return def.element ? z.array(deepStrict(def.element)) : schema;
+        return def.element ? z.array(deep(def.element)) : schema;
       default:
         return schema;
     }
@@ -83,26 +100,25 @@ const envVarNames = z
 const onlyOn = (environment: Environment) =>
   envVarNames.optional().describe(`Checked on ${environment} only, on top of all`);
 
-const environmentLists = {
-  preview: onlyOn("preview"),
-  production: onlyOn("production"),
-} satisfies Record<Environment, z.ZodOptional<typeof envVarNames>>;
+const environmentLists = (path: readonly Environment[]) =>
+  Object.fromEntries(path.map((environment) => [environment, onlyOn(environment)]));
 
 /** One list for every environment, or `all` plus a list per environment. */
-export const checkEnvBeforeDeploySchema = z
-  .union([
-    envVarNames,
-    z.strictObject({
-      all: envVarNames.optional().describe("Checked on every environment, current and future"),
-      ...environmentLists,
-    }),
-  ])
-  .describe(
-    "Before each deploy, shiplane checks these env var names are set on the platform; you set the values",
-  );
+export const checkEnvBeforeDeploySchema = (path: readonly Environment[] = DEFAULT_PATH) =>
+  z
+    .union([
+      envVarNames,
+      z.strictObject({
+        all: envVarNames.optional().describe("Checked on every environment, current and future"),
+        ...environmentLists(path),
+      }),
+    ])
+    .describe(
+      "Before each deploy, shiplane checks these env var names are set on the platform; you set the values",
+    );
 
 /** What a unit file naming this module may hold: `module`, then its adapter's settings. */
-export const unitSchema = (module: ReleaseModule) =>
+export const unitSchema = (module: ReleaseModule, path: readonly Environment[] = DEFAULT_PATH) =>
   z.strictObject({
     module: z
       .literal(module.name)
@@ -111,10 +127,25 @@ export const unitSchema = (module: ReleaseModule) =>
       .string()
       .optional()
       .describe('How to build this app, when its package.json has no "build" script'),
-    checkEnvBeforeDeploy: checkEnvBeforeDeploySchema.optional(),
-    ...mapShape(module.settings.shape, deepStrict),
+    checkEnvBeforeDeploy: checkEnvBeforeDeploySchema(path).optional(),
+    ...mapShape(module.settings.shape, (schema) => deepStrict(schema, path)),
   });
 
 /** The JSON Schema editors read for `shiplane.unit.yml`: the module an app names picks its keys. */
-export const unitJsonSchema = (modules: readonly ReleaseModule[]) =>
-  z.toJSONSchema(z.union(modules.map(unitSchema)), { io: "input", unrepresentable: "any" });
+/** A module's settings with their per-environment maps keyed by `path`, unknown keys kept as it says. */
+export const settingsOn = (
+  settings: z.ZodObject,
+  path: readonly Environment[] = DEFAULT_PATH,
+): z.ZodType<Record<string, unknown>> =>
+  path.join() === DEFAULT_PATH.join()
+    ? settings
+    : z.object(mapShape(settings.shape, (schema) => deepStrict(schema, path)));
+
+export const unitJsonSchema = (
+  modules: readonly ReleaseModule[],
+  path: readonly Environment[] = DEFAULT_PATH,
+) =>
+  z.toJSONSchema(z.union(modules.map((module) => unitSchema(module, path))), {
+    io: "input",
+    unrepresentable: "any",
+  });

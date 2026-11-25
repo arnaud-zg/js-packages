@@ -4,23 +4,29 @@ import type { TagFormatName } from "../../domain/tags";
 import type { Channel, TestReleaseBranches } from "../../domain/testChannel";
 import type { Feature, ReleaseFlow, ReleaseModule } from "../../modules/module";
 
-/** One step of an app's way to its users: a release deploys to `from`, a promote takes it to `to`. */
-export type PromoteStep =
-  { from: "preview"; to?: "production" } | { from?: undefined; to: "production" };
+/** One step of an app's way to its users. Each name is yours. */
+export interface PromoteStep {
+  /** Where the version runs; of the first step, where a release deploys. */
+  from?: Environment;
+  /** Where a promote takes it; of the last step, where users are. */
+  to?: Environment;
+}
 
 /** How apps are deployed. */
 export interface DeployApps {
   /**
-   * The steps, one for now: `[{ from: "preview", to: "production" }]` when unset.
-   * `[{ to: "production" }]` deploys straight there; `[{ from: "preview" }]` never promotes. EAS
-   * needs preview.
+   * The steps in order, each starting where the one before ends:
+   * `[{ from: "preview", to: "production" }]` when unset. A lone `{ to: "production" }` deploys
+   * straight there; a lone `{ from: "preview" }` never promotes. A mobile app on EAS takes only
+   * preview and production.
    */
-  promote?: readonly [PromoteStep];
+  promote?: readonly PromoteStep[];
   /**
-   * Where any branch may deploy to try a change, outside the steps: `"preview"`, or `false` or
-   * unset for nowhere. Not available yet: shiplane says so and deploys nothing from a branch.
+   * Where any branch may deploy to try a change, outside the steps, or `false` or unset for nowhere.
+   * A test release on a branch then deploys its pending apps there from this machine, asked first,
+   * over what runs there until the next release. Never where users are; EAS is left out.
    */
-  onBranch?: "preview" | false | undefined;
+  onBranch?: Environment | false | undefined;
 }
 
 /** How packages are published. */

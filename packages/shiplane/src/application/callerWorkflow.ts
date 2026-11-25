@@ -3,10 +3,11 @@ import path from "node:path";
 import type { CallerNeeds, CallerWorkflow } from "../ports/ci-pipeline.port";
 import type { Release } from "./config/loadRelease";
 import type { SetupContext } from "./setupContext";
-import { ENVIRONMENTS, LIVE } from "../domain/environment";
+import { LIVE } from "../domain/environment";
 import { channels } from "../domain/testChannel";
 import { requirementsOf } from "./requirements";
 import { paint, reasonOf } from "./say";
+import { flowOf } from "./targets";
 
 /** The step of a ship.yml that ships: shiplane's action, pinned, or `./` in shiplane's own repository. */
 const SHIPS = /\/\.github\/actions\/ship(@|[ \t]*$)/m;
@@ -22,8 +23,8 @@ const PUBLISHING = {
   "pull-requests": "write",
 } as const;
 
-/** Where a release ships: its apps' environments, then its packages' channels; null when neither is asked for. */
-const environmentsOf = (release: Release) => {
+/** Where a release ships: its apps' environments, and its packages' channels. */
+const placesOf = (release: Release) => {
   const shipping = release.units.flatMap((unit) => {
     const module = release.modules.find(({ name }) => name === unit.module);
     return module && !module.releaseOnly ? [module] : [];
@@ -31,18 +32,13 @@ const environmentsOf = (release: Release) => {
   const isPackage = ({ capability }: (typeof shipping)[number]) =>
     capability === "package-registry";
   const packages = shipping.some(isPackage);
-  if (!packages && !release.environments) return null;
   const onBranch = release.onBranch === false ? [] : [channels.snapshot];
   const every = [...Object.values(channels), ...Object.values(release.testRelease ?? {}), LIVE];
   const named = release.channels ?? every.filter((name) => name !== channels.snapshot);
-  return [
-    ...new Set([
-      ...(shipping.some((module) => !isPackage(module))
-        ? (release.environments ?? ENVIRONMENTS)
-        : []),
-      ...(packages ? [...onBranch, ...named] : []),
-    ]),
-  ];
+  return {
+    apps: packages && shipping.every(isPackage) ? [] : [...flowOf({ release }).path],
+    channels: packages ? [...new Set([...onBranch, ...named])] : [],
+  };
 };
 
 /**
@@ -75,18 +71,18 @@ const callerOf = ({ version, root, shell, files }: SetupContext, release: Releas
   // A release that ships from this machine runs no workflow; one already there is still checked.
   if (release.via === "local" && !files.exists(file)) return null;
   const base = callerNeedsOf(release);
-  const environments = environmentsOf(release);
+  const places = placesOf(release);
   // One already there lists what the person chose, unless the config says otherwise.
   const listed =
     !files.exists(file) ||
-    release.environments ||
-    release.channels ||
+    release.appFlow !== undefined ||
+    release.channels !== undefined ||
     release.onBranch !== undefined;
-  const publishes =
-    listed && environments?.some((name) => !ENVIRONMENTS.some((app) => app === name));
+  const publishes = listed && places.channels.length > 0;
   const needs: CallerNeeds = {
     ...base,
-    ...(listed && environments?.length ? { environments } : {}),
+    apps: places.apps,
+    environments: [...places.apps, ...places.channels],
     ...(publishes ? { permissions: { ...base.permissions, ...PUBLISHING } } : {}),
   };
   return {
@@ -94,7 +90,7 @@ const callerOf = ({ version, root, shell, files }: SetupContext, release: Releas
     name: path.posix.basename(file),
     version,
     needs,
-    offers: ci.offers?.bind(ci),
+    offers: listed ? ci.offers?.bind(ci) : undefined,
     make: () => make(version, needs),
   };
 };

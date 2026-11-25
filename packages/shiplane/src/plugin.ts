@@ -37,6 +37,8 @@ export { releaseSource, yesAllowed } from "./domain/governance";
 export type { IssueRef, LinkedPr } from "./domain/issues";
 export { issueName } from "./domain/issues";
 export { actionsMinutes, billedMinutes } from "./domain/budget";
+export { DEFAULT_FLOW, previousOf, reachesUsers } from "./domain/environment";
+export type { DeployFlow } from "./domain/environment";
 export { deployRunTitle, deployState, onlyVersionFiles } from "./domain/deploys";
 export type { RegistryFacts, RegistryShip } from "./domain/registry";
 export { registryDecision } from "./domain/registry";

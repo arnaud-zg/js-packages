@@ -16,7 +16,7 @@ import { chooseVersion } from "./chooseVersion";
 import { prepareRelease } from "./prepareRelease";
 import { fail, listed, paint } from "./say";
 import { branchStep, openPrStep, pushStep, runSteps } from "./steps";
-import { destination, environmentLabel, moduleOf } from "./targets";
+import { destination, entry, environmentLabel, moduleOf } from "./targets";
 
 /** What happens to a unit once the release PR merges: its module ships the version. */
 const shipsOnMerge =
@@ -31,7 +31,7 @@ const shipsOnMerge =
       : bump.movedWith.length > 0
         ? ` (moved with ${bump.movedWith.join(", ")})`
         : "";
-    return `Ship ${destination(context, [bump.app], "preview")} with ${(unit && moduleOf(context, unit)?.provider) ?? "its target"}${reason}`;
+    return `Ship ${destination(context, [bump.app], entry(context))} with ${(unit && moduleOf(context, unit)?.provider) ?? "its target"}${reason}`;
   };
 
 /** Where a release sends what it moves. */
@@ -39,7 +39,7 @@ const whereTo = (context: ReleaseContext, { bumps }: Prepared) =>
   destination(
     context,
     bumps.map(({ app }) => app),
-    "preview",
+    entry(context),
   );
 
 /** Units going out unpicked, each with the package that takes it along. */
@@ -69,7 +69,7 @@ export const printSummary = (context: ReleaseContext, prepared: Prepared) => {
   const moving = bumps.map(({ app }) => app);
   output.line();
   output.line(
-    `  ${paint("bold", "Release")}  ${dot}  ${environmentLabel(context, moving, "preview")}  ${dot}  ${plural(pending, "changeset")}${heldLabel}`,
+    `  ${paint("bold", "Release")}  ${dot}  ${environmentLabel(context, moving, entry(context))}  ${dot}  ${plural(pending, "changeset")}${heldLabel}`,
   );
   output.line();
   // The unit column fits the longest name, as status does.
@@ -77,7 +77,7 @@ export const printSummary = (context: ReleaseContext, prepared: Prepared) => {
   output.line(
     paint(
       "dim",
-      `  ${"Unit".padEnd(width)}${"Version".padEnd(20)}Ships ${destination(context, moving, "preview")}`,
+      `  ${"Unit".padEnd(width)}${"Version".padEnd(20)}Ships ${destination(context, moving, entry(context))}`,
     ),
   );
   release.units.forEach((unit) => {
@@ -117,7 +117,7 @@ const refused = (context: ReleaseContext, { contributions }: Prepared) => {
 export const mayVersion = async (context: ReleaseContext): Promise<boolean> => {
   const { services } = context;
   const defaultBranch = await services.sourceControl.defaultBranch();
-  const source = releaseSource("build", "preview", await services.sourceControl.position(), {
+  const source = releaseSource("build", entry(context), await services.sourceControl.position(), {
     defaultBranch,
   });
   if (!source.allowed) {

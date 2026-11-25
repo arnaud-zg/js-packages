@@ -1,16 +1,17 @@
-import type { Environment } from "../domain/environment";
+import type { DeployFlow, Environment } from "../domain/environment";
 import type { ScopeChoice, ScopeInfo } from "../domain/scope";
 import type { ReleaseContext } from "./context";
+import { previousOf } from "../domain/environment";
 import { byFolder, isLong, scopeChoices } from "../domain/scope";
 import { readScope } from "./readScope";
 import { paint } from "./say";
-import { destination } from "./targets";
+import { destination, flowOf } from "./targets";
 import { unattended } from "./unattended";
 
 /** Every unit with something to release here: what --yes and a run without a terminal cover. */
-export const defaultScope = (info: ScopeInfo[], environment: Environment) =>
+export const defaultScope = (info: ScopeInfo[], environment: Environment, flow?: DeployFlow) =>
   new Set(
-    scopeChoices(info, environment)
+    scopeChoices(info, environment, flow)
       .filter(({ pending }) => pending)
       .map(({ app }) => app),
   );
@@ -29,7 +30,9 @@ export const pickScope = async (
     "thinking",
     () => readScope(context, environment),
   );
-  const choices = scopeChoices(info, environment);
+  const flow = flowOf(context);
+  const previous = previousOf(flow, environment);
+  const choices = scopeChoices(info, environment, flow);
   const where = destination(
     context,
     info.map(({ app }) => app),
@@ -42,10 +45,10 @@ export const pickScope = async (
     );
     output.line();
     // Nothing promotes a release-only unit: only a new change moves it.
-    const queue = environment === "preview" || info.every(({ releaseOnly }) => releaseOnly);
+    const queue = previous === null || info.every(({ releaseOnly }) => releaseOnly);
     progress.say(
       "resting",
-      `${paint("bold", `Nothing to release ${where}.`)} ${paint("dim", queue ? "Queue a change first:" : "Release to preview first:")}`,
+      `${paint("bold", `Nothing to release ${where}.`)} ${paint("dim", queue ? "Queue a change first:" : `Release to ${previous} first:`)}`,
     );
     output.line(
       `    ${paint("cyan", queue ? context.services.versioning.nextChange : "shiplane")}`,
@@ -53,9 +56,9 @@ export const pickScope = async (
     output.line();
     return null;
   }
-  if (unattended(context)) return { scope: defaultScope(info, environment), info };
+  if (unattended(context)) return { scope: defaultScope(info, environment, flow), info };
   const question = `What do you want to release ${where}? Greyed units have nothing to release.`;
-  const initial = [...defaultScope(info, environment)];
+  const initial = [...defaultScope(info, environment, flow)];
   const flat = ({ app, pending, hint }: ScopeChoice) => ({
     value: app,
     label: app,

@@ -6,16 +6,9 @@ import type { Deploy } from "../ports/code-host.port";
 import type { ReleaseContext } from "./context";
 import { changesetApps } from "../domain/changes";
 import { deployRunTitle } from "../domain/deploys";
+import { previousOf } from "../domain/environment";
 import { cameWithRelease, firstRelease, tagName } from "../domain/tags";
-import {
-  checkout,
-  decideContext,
-  hasNoEnvironment,
-  jobInput,
-  landing,
-  moduleOf,
-  skipsPreview,
-} from "./targets";
+import { checkout, decideContext, flowOf, hasNoEnvironment, jobInput, moduleOf } from "./targets";
 
 export const MANIFEST = "package.json";
 
@@ -48,11 +41,12 @@ export const readScope = async (
   environment: Environment,
 ): Promise<ScopeInfo[]> => {
   const { release, services } = context;
+  const previous = previousOf(flowOf(context), environment);
   const pending = await services.versioning.pending();
   const refs = unitRefs(release.units);
   const named = pending.map(({ text }) => changesetApps(text, refs));
   const [deployed, tags] = await Promise.all([
-    services.codeHost.deployments().catch(() => []),
+    services.codeHost.deployments(release.appFlow?.path).catch(() => []),
     services.sourceControl.tags(),
   ]);
   return Promise.all(
@@ -80,9 +74,8 @@ export const readScope = async (
           !tagged &&
           commit !== null &&
           firstRelease(unit.name, unit.version, tags, context.release.tagFormat),
-        onChannel: await live(landing(context, environment)),
-        onPreview: skipsPreview(context) || (await live("preview")),
-        ...(skipsPreview(context) ? { noPreview: true } : {}),
+        onChannel: await live(environment),
+        onPreview: previous === null || (await live(previous)),
         ...(decidedBy ? { decidedBy } : {}),
         ...(target?.releaseOnly ? { releaseOnly: true } : {}),
         ...(target && hasNoEnvironment(target) ? { noEnvironment: true } : {}),

@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import type { DeployPath } from "../../domain/deploys";
 import type { DisplayChoice } from "../../domain/display";
-import type { Environment } from "../../domain/environment";
+import type { DeployFlow, Environment } from "../../domain/environment";
 import type { TestReleaseBranches } from "../../domain/testChannel";
 import type { ReleaseUnit } from "../../domain/unit";
 import type { Feature, ReleaseFlow, ReleaseModule } from "../../modules/module";
@@ -13,7 +13,7 @@ import type { ConfigReader } from "../../ports/config.port";
 import type { ManifestReader } from "../../ports/manifest.port";
 import type { ConfigProblem } from "./problem";
 import type { UnitFile } from "./readUnitFile";
-import { ENVIRONMENTS, LIVE } from "../../domain/environment";
+import { DEFAULT_FLOW, keysOf, LIVE, reachesUsers } from "../../domain/environment";
 import { PrepareSchema } from "../../domain/prepare";
 import { DEFAULT_TAG_FORMAT, TAG_FORMATS, tagFormatNamed } from "../../domain/tags";
 import { channelProblem, channels } from "../../domain/testChannel";
@@ -49,12 +49,12 @@ export interface Release {
   problems: ConfigProblem[];
   /** How a tag names a version, such as `{name}@{version}`. */
   tagFormat: string;
-  /** The environments apps are promoted through (`deployApps.promote`); both when unset. */
-  environments?: readonly Environment[];
+  /** The way apps go to their users (`deployApps.promote`); preview then production when unset. */
+  appFlow?: DeployFlow;
   /** The channels packages publish on (`publishPackages.channels`); any when unset. */
   channels?: readonly string[];
-  /** Where a branch may deploy apps (`deployApps.onBranch`): not available yet. */
-  deployOnBranch?: "preview" | false;
+  /** Where a branch may deploy apps (`deployApps.onBranch`). */
+  deployOnBranch?: Environment | false;
   /** What a branch publishes outside the channels (`publishPackages.onBranch`); a snapshot when unset. */
   onBranch?: "snapshot" | false;
   /** How a unit ships when both ways can, as the config asks; unset, each ship asks. */
@@ -83,7 +83,7 @@ type Composed = Pick<
   | "testComment"
   | "testRelease"
   | "via"
-  | "environments"
+  | "appFlow"
   | "channels"
   | "onBranch"
   | "deployOnBranch"
@@ -204,6 +204,7 @@ const checkConfig = (loaded: unknown): Composed => {
     ? loaded.units.filter((unit): unit is string => typeof unit === "string")
     : undefined;
   const display = isRecord(loaded.display) ? loaded.display : {};
+  const deployApps = deployAppsOf(loaded.deployApps);
   const flag = (value: unknown) => (typeof value === "boolean" ? value : undefined);
   return {
     flow: loaded.flow,
@@ -215,65 +216,88 @@ const checkConfig = (loaded: unknown): Composed => {
     ...testCommentOf(loaded.testComment),
     ...testReleaseOf(loaded.testRelease),
     via: viaOf(loaded.via),
-    ...deployAppsOf(loaded.deployApps),
-    ...publishPackagesOf(loaded.publishPackages),
+    ...deployApps,
+    ...publishPackagesOf(loaded.publishPackages, (deployApps.appFlow ?? DEFAULT_FLOW).path),
     ...prepareOf(loaded.prepare),
   };
 };
 
+const EnvironmentName = z.string().regex(/^[a-z][a-z0-9-]*$/);
+
 const DeployAppsSchema = z.strictObject({
   promote: z
-    .tuple([
-      z
-        .strictObject({
-          from: z.literal("preview").optional(),
-          to: z.literal("production").optional(),
-        })
-        .refine(({ from, to }) => from !== undefined || to !== undefined),
-    ])
+    .array(z.strictObject({ from: EnvironmentName.optional(), to: EnvironmentName.optional() }))
+    .min(1)
     .optional(),
-  onBranch: z.union([z.literal("preview"), z.literal(false)]).optional(),
+  onBranch: z.union([EnvironmentName, z.literal(false)]).optional(),
 });
+
+type Steps = NonNullable<z.infer<typeof DeployAppsSchema>["promote"]>;
+
+/** The way the steps describe, or why they describe none. */
+const flowOfSteps = (steps: Steps): DeployFlow | string => {
+  const [first, ...rest] = steps;
+  if (!first || (first.from === undefined && first.to === undefined)) {
+    return "each step names from, to, or both";
+  }
+  if (rest.length > 0 && steps.some(({ from, to }) => from === undefined || to === undefined)) {
+    return "with more than one step, each names both from and to";
+  }
+  const broken = rest.find(({ from }, index) => from !== steps[index]?.to);
+  if (broken) return `the step from ${broken.from} must start where the one before it ends`;
+  const path = [first.from, ...steps.map(({ to }) => to)].filter((name) => name !== undefined);
+  if (new Set(path).size < path.length) return "an environment is named twice";
+  const channel = path.find(
+    (name) => name === LIVE || Object.values<string>(channels).includes(name),
+  );
+  if (channel) return `${channel} is a channel packages publish on`;
+  return { path, users: steps.at(-1)?.to ?? null };
+};
 
 const PublishPackagesSchema = z.strictObject({
   channels: z.array(z.string()).min(1).optional(),
   onBranch: z.union([z.literal("snapshot"), z.literal(false)]).optional(),
 });
 
-/** `deployApps`: where a release deploys apps, where a promote takes them, what a branch may do. */
-const deployAppsOf = (value: unknown): Pick<Release, "environments" | "deployOnBranch"> => {
+/** `deployApps`: the way apps go to their users, and what a branch may do. */
+const deployAppsOf = (value: unknown): Pick<Release, "appFlow" | "deployOnBranch"> => {
   if (value === undefined) return {};
   const parsed = DeployAppsSchema.safeParse(value);
   if (!parsed.success) {
     throw new Error(
-      'deployApps takes promote, [{ from: "preview", to: "production" }], one step, or only one of from and to; and onBranch, "preview" or false',
+      'deployApps takes promote, steps such as [{ from: "preview", to: "production" }], and onBranch, an environment or false',
     );
   }
   const { promote, onBranch } = parsed.data;
-  const environments = promote?.flatMap(({ from, to }): Environment[] => [
-    ...(from ? [from] : []),
-    ...(to ? [to] : []),
-  ]);
-  if (onBranch === "preview" && environments && !environments.includes("preview")) {
-    throw new Error('deployApps.onBranch is "preview", and promote names no preview');
+  const appFlow = promote && flowOfSteps(promote);
+  if (typeof appFlow === "string") throw new Error(`deployApps.promote: ${appFlow}`);
+  if (onBranch && !(appFlow ?? DEFAULT_FLOW).path.some((name) => name === onBranch)) {
+    throw new Error(`deployApps.onBranch is ${onBranch}, and promote does not name it`);
+  }
+  if (onBranch && reachesUsers(appFlow ?? DEFAULT_FLOW, onBranch)) {
+    throw new Error(
+      `deployApps.onBranch is ${onBranch}, where users are: a branch never deploys there`,
+    );
   }
   return {
-    ...(environments ? { environments } : {}),
+    ...(appFlow ? { appFlow } : {}),
     ...(onBranch === undefined ? {} : { deployOnBranch: onBranch }),
   };
 };
 
 /** Why a name cannot be a channel of `publishPackages`, or null when it can. */
-const channelRefused = (name: string) => {
+const channelRefused = (name: string, path: readonly Environment[]) => {
+  if (path.includes(name)) return `${name} is an environment apps deploy to`;
   if (name === LIVE) return null;
   if (name === channels.snapshot) return "snapshot is what onBranch publishes, not a channel";
-  if (ENVIRONMENTS.some((known) => known === name))
-    return `${name} is an environment apps deploy to`;
   return channelProblem(name);
 };
 
 /** `publishPackages`: the channels, and what a branch publishes. */
-const publishPackagesOf = (value: unknown): Pick<Release, "channels" | "onBranch"> => {
+const publishPackagesOf = (
+  value: unknown,
+  path: readonly Environment[],
+): Pick<Release, "channels" | "onBranch"> => {
   if (value === undefined) return {};
   const parsed = PublishPackagesSchema.safeParse(value);
   if (!parsed.success) {
@@ -282,7 +306,7 @@ const publishPackagesOf = (value: unknown): Pick<Release, "channels" | "onBranch
     );
   }
   const { channels: names, onBranch } = parsed.data;
-  const problem = names?.map(channelRefused).find((found) => found !== null);
+  const problem = names?.map((name) => channelRefused(name, path)).find((found) => found !== null);
   if (problem) throw new Error(`publishPackages.channels: ${problem}`);
   return {
     ...(names ? { channels: [...new Set(names)] } : {}),
@@ -457,6 +481,7 @@ export const loadRelease = async (root: string, ports: LoadPorts): Promise<Relea
         fs.readFileSync(path.join(root, relative), "utf8"),
         config.modules,
         features,
+        keysOf(config.appFlow ?? DEFAULT_FLOW),
       );
       problems.push(...result.problems);
       const manifest = manifests.read(root, dir);
@@ -503,17 +528,20 @@ export const loadRelease = async (root: string, ports: LoadPorts): Promise<Relea
     ].filter((name) => name !== entry.unit.name && ordered.some(({ unit }) => unit.name === name));
   });
 
-  if (config.environments && !config.environments.includes("preview")) {
-    const needing = ordered.filter(({ unit }) =>
-      config.modules.some(({ name, decidedBy }) => name === unit.module && decidedBy),
-    );
-    needing.forEach(({ unit }) =>
-      problems.push({
-        file: path.basename(configFile),
-        message: `${unit.name} needs preview: its platform builds production from what preview runs`,
-        hint: 'name "preview" as from in deployApps.promote',
-      }),
-    );
+  // Such a platform builds what users get from what runs before it, under its own two names.
+  const names = (config.appFlow ?? DEFAULT_FLOW).path;
+  if (names.some((name, index) => name !== DEFAULT_FLOW.path[index])) {
+    ordered
+      .filter(({ unit }) =>
+        config.modules.some(({ name, decidedBy }) => name === unit.module && decidedBy),
+      )
+      .forEach(({ unit }) =>
+        problems.push({
+          file: path.basename(configFile),
+          message: `${unit.name} ships on a platform that knows ${DEFAULT_FLOW.path.join(" and ")} only`,
+          hint: "name them in deployApps.promote, from the first to the second",
+        }),
+      );
   }
 
   if (ordered.length > 1 && !config.tagFormat.includes("{name}")) {
@@ -530,7 +558,7 @@ export const loadRelease = async (root: string, ports: LoadPorts): Promise<Relea
     modules: config.modules,
     features: config.features,
     ...(config.via ? { via: config.via } : {}),
-    ...(config.environments ? { environments: config.environments } : {}),
+    ...(config.appFlow ? { appFlow: config.appFlow } : {}),
     ...(config.channels ? { channels: config.channels } : {}),
     ...(config.deployOnBranch === undefined ? {} : { deployOnBranch: config.deployOnBranch }),
     ...(config.onBranch === undefined ? {} : { onBranch: config.onBranch }),

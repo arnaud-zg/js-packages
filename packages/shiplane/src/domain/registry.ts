@@ -1,4 +1,5 @@
-import type { Environment } from "./environment";
+import type { DeployFlow, Environment } from "./environment";
+import { DEFAULT_FLOW, previousOf } from "./environment";
 
 export type RegistryShip =
   "not-released" | "not-on-preview" | "moved-past" | "publish" | "on-tag" | "move-tag";
@@ -24,16 +25,15 @@ export interface RegistryFacts {
  */
 export const registryDecision = async ({
   environment,
-  stages = true,
+  flow = DEFAULT_FLOW,
   facts,
 }: {
   environment: Environment;
-  /** False when the repository has no preview to publish on first. */
-  stages?: boolean;
+  flow?: DeployFlow;
   facts: RegistryFacts;
 }): Promise<RegistryShip> => {
   if (!(await facts.tagged())) return "not-released";
   if (await facts.published()) return (await facts.onDistTag()) ? "on-tag" : "move-tag";
-  if (stages && environment === "production") return "not-on-preview";
+  if (previousOf(flow, environment) !== null) return "not-on-preview";
   return (await facts.sinceTagOnlyVersionFiles()) ? "publish" : "moved-past";
 };

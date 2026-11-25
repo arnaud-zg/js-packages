@@ -1,5 +1,5 @@
 import type { EnvVarName } from "../domain/checkEnvBeforeDeploy";
-import type { Environment } from "../domain/environment";
+import type { DeployFlow, Environment } from "../domain/environment";
 import type { ReleaseUnit } from "../domain/unit";
 
 /** Where an app's env lives on its platform, read by name only: values are never read or written. */
@@ -8,6 +8,8 @@ export interface PlatformEnvPort {
   listNames: (input: {
     unit: ReleaseUnit;
     environment: Environment;
+    /** The way to users it is on; preview then production when absent. */
+    flow?: DeployFlow;
     /** The unit's settings for that environment, as its jobs receive them. */
     options: Record<string, unknown>;
   }) => Promise<ReadonlySet<EnvVarName>>;
@@ -15,6 +17,8 @@ export interface PlatformEnvPort {
   setCommand: (input: {
     unit: ReleaseUnit;
     environment: Environment;
+    /** The way to users it is on; preview then production when absent. */
+    flow?: DeployFlow;
     options: Record<string, unknown>;
     names: readonly EnvVarName[];
   }) => string;

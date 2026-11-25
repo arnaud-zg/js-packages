@@ -4,9 +4,9 @@ import type { Output } from "../ports/terminal.port";
 import type { Checked, UnitPlatformEnv } from "./checkEnvBeforeDeploy";
 import type { Release } from "./config/loadRelease";
 import { findUnset } from "../domain/checkEnvBeforeDeploy";
-import { ENVIRONMENTS } from "../domain/environment";
 import { listing, platformEnvOf, STEP } from "./checkEnvBeforeDeploy";
 import { paint, reasonOf } from "./say";
+import { flowOf } from "./targets";
 
 const doctorLine = (output: Output, mark: string, text: string) =>
   output.line(`${paint("dim", "│")}  ${mark} ${text}`);
@@ -79,7 +79,7 @@ export const reportEnvToCheck = async ({
       );
       continue;
     }
-    for (const environment of ENVIRONMENTS) {
+    for (const environment of flowOf({ release }).path) {
       allSet = (await reportUnit(output, port, entry, environment)) && allSet;
     }
   }

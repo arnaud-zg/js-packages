@@ -102,6 +102,17 @@ export default defineRelease({
 });
 ```
 
+### Deploy a branch
+
+```ts
+deployApps: { onBranch: "preview" },
+```
+
+A snapshot test release on a branch then also deploys its pending apps to `preview`, from this
+machine and asked first. It replaces what runs there until the next release. It is not recorded as a
+deploy: nothing is promoted from it. Mobile apps on EAS are left out, as are runs on CI, and it is
+never where users are.
+
 ### The pull request comment
 
 With an open pull request, one comment on it, edited on each run, gives the commit, each package and
