@@ -47,7 +47,7 @@ describe("Feature: starting to ship one more app", () => {
     expect(files.read("apps/api/shiplane.unit.yml")).toBe(
       [
         "# Written by shiplane init. Every key: shiplane docs backend-service",
-        "# Read from fly.toml",
+        "# Read from cloud.toml",
         "",
         "module: backend-service",
         "service: api",
@@ -55,7 +55,7 @@ describe("Feature: starting to ship one more app", () => {
       ].join("\n"),
     );
     expect(files.read("shiplane.config.ts")).toContain(
-      "backendService({ serverHosting: flyServerHosting() })",
+      "backendService({ serverHosting: cloudServerHosting() })",
     );
     expect(files.read(SCHEMA)).toContain('"backend-service"');
     expect(output.lines.at(-1)).toBe("◇  Wrote apps/api/shiplane.unit.yml");
@@ -69,7 +69,7 @@ describe("Feature: starting to ship one more app", () => {
 
     expect(files.exists("shiplane.config.ts")).toBe(false);
     expect(output.lines).toContain(
-      "!  add backendService({ serverHosting: flyServerHosting() }) to the modules in shiplane.config.ts",
+      "!  add backendService({ serverHosting: cloudServerHosting() }) to the modules in shiplane.config.ts",
     );
     expect(files.read(SCHEMA)).toContain('"backend-service"');
   });
@@ -99,7 +99,7 @@ describe("Feature: starting to ship one more app", () => {
     expect(prompter.initials["How does apps/web ship?"]).toBe("pages");
     expect(prompter.choices["How does apps/web ship?"]).toEqual([
       { value: "docker", label: "docker", hint: "" },
-      { value: "fly", label: "fly", hint: "" },
+      { value: "cloud", label: "cloud", hint: "" },
       { value: "pages", label: "pages", hint: "vite.config.ts (recommended)" },
     ]);
     expect(files.read("apps/web/shiplane.unit.yml")).toContain("module: web-app\nsite: acme-web\n");

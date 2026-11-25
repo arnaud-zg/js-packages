@@ -8,7 +8,7 @@ import { backendService } from "../../modules/backend-service/backend-service.mo
 import { testContext, testUnit } from "../../testing/releaseContext";
 
 /** The workflow file a tag holds when it can ship through the CI pipeline. */
-export const SHIP_YML = ".github/workflows/ship.yml";
+export const SHIP_YML = "ci/ship.yml";
 
 /** A module whose own platform decides, answering `decide` per tag. */
 export const decidingModule = (

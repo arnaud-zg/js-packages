@@ -14,20 +14,20 @@ import {
 
 // What setup reads from and writes to the repository, on in-memory files: nothing on disk changes.
 
-const fly = () => ({ ...serverHostingFake(), name: "fly" });
+const cloud = () => ({ ...serverHostingFake(), name: "cloud" });
 
 describe("Feature: setup reading the repository it sets up", () => {
-  it("given an app folder with a fly.toml, when adapters look at it to guess how it ships, then they see its name, its files and what they hold", () => {
-    const files = new MemoryFiles({ "apps/api/fly.toml": "app = 1", "apps/api/src/a.ts": "" });
+  it("given an app folder with a cloud.toml, when adapters look at it to guess how it ships, then they see its name, its files and what they hold", () => {
+    const files = new MemoryFiles({ "apps/api/cloud.toml": "app = 1", "apps/api/src/a.ts": "" });
 
     const view = folderView(files, "apps/api");
 
     expect(view.dir).toBe("apps/api");
     expect(view.name).toBe("api");
-    expect(view.files).toEqual(expect.arrayContaining(["fly.toml"]));
-    expect(view.has("fly.toml")).toBe(true);
-    expect(view.has("wrangler.toml")).toBe(false);
-    expect(view.read("fly.toml")).toBe("app = 1");
+    expect(view.files).toEqual(expect.arrayContaining(["cloud.toml"]));
+    expect(view.has("cloud.toml")).toBe(true);
+    expect(view.has("pages.toml")).toBe(false);
+    expect(view.read("cloud.toml")).toBe("app = 1");
   });
 
   it("given a scoped root package or none named, when setup names the repository, then it drops the scope or falls back to the folder, and the config imports the CLI as shiplane", () => {
@@ -49,7 +49,7 @@ describe("Feature: setup reading the repository it sets up", () => {
 describe("Feature: editor help while filling unit files", () => {
   it("given an editor schema out of date, when setup refreshes it twice, then it is written once and left alone the second time", () => {
     const files = new MemoryFiles();
-    const release = { modules: [moduleFor(fly(), "backend-service")] } as Parameters<
+    const release = { modules: [moduleFor(cloud(), "backend-service")] } as Parameters<
       typeof refreshEditorSchema
     >[1];
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { EAS_DECIDES } from "../../testing/sample";
+import { STORE_DECIDES } from "../../testing/sample";
 import { scopeChoices } from "../scope";
 
 describe("what the release covers, asked before anything runs", () => {
@@ -15,15 +15,15 @@ describe("what the release covers, asked before anything runs", () => {
     info: Partial<typeof base> & { app: "expo" | "api" | "admin" | "landing"; version: string },
   ) =>
     scopeChoices(
-      [{ ...base, ...info, ...(info.app === "expo" ? { decidedBy: EAS_DECIDES } : {}) }],
+      [{ ...base, ...info, ...(info.app === "expo" ? { decidedBy: STORE_DECIDES } : {}) }],
       "preview",
     )[0];
 
-  it("given expo has changesets, when asked, then it is offered and says EAS decides build or update later", () => {
+  it("given expo has changesets, when asked, then it is offered and says Store decides build or update later", () => {
     expect(choose({ app: "expo", version: "0.1.115", changesets: 2, tagged: true })).toEqual({
       app: "expo",
       pending: true,
-      hint: "2 changesets · EAS decides build or update once picked",
+      hint: "2 changesets · Store decides build or update once picked",
     });
   });
 

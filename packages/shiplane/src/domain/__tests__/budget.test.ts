@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { SAMPLE_TYPICAL_MINUTES } from "../../testing/sample";
 import { actionsMinutes, billedMinutes, deployEstimate, minutesBudget } from "../budget";
 
-describe("the GitHub Actions minutes a deploy spends", () => {
+describe("the CI minutes a deploy spends", () => {
   // October 2026's usage summary for acme, trimmed.
   const OCTOBER = [
     { sku: "actions_linux", grossQuantity: 216, unitType: "minutes" },
@@ -18,7 +18,7 @@ describe("the GitHub Actions minutes a deploy spends", () => {
     expect(actionsMinutes("pro", OCTOBER)?.included).toBe(3000);
   });
 
-  it("given macOS minutes too, when read, then each counts ten times, as GitHub bills them", () => {
+  it("given macOS minutes too, when read, then each counts ten times, as they are billed", () => {
     const usage = [...OCTOBER, { sku: "actions_macos", grossQuantity: 10, unitType: "minutes" }];
 
     expect(actionsMinutes("free", usage)?.used).toBe(316);
@@ -39,10 +39,10 @@ describe("the GitHub Actions minutes a deploy spends", () => {
 
   it("given 216 of 2,000 used on 11 October, when drawn, then a mostly full green bar and a pace well within the plan", () => {
     expect(
-      minutesBudget({ used: 216, included: 2000, left: 1784 }, OCTOBER_11, 20, 0, "GitHub Actions"),
+      minutesBudget({ used: 216, included: 2000, left: 1784 }, OCTOBER_11, 20, 0, "Fake CI"),
     ).toEqual({
       tone: "green",
-      title: "GitHub Actions minutes · October 2026",
+      title: "Fake CI minutes · October 2026",
       bar: "██████████████████░░",
       amount: "1,784 of 2,000 left · 11% used",
       pace: "At this pace about 645 used by October 31, within the 2,000 included.",
@@ -57,12 +57,10 @@ describe("the GitHub Actions minutes a deploy spends", () => {
       OCTOBER_11,
       20,
       17,
-      "GitHub Actions",
+      "Fake CI",
     );
 
-    expect(budget.after).toBe(
-      "This release: about 17 min on GitHub Actions, about 1,767 left after it",
-    );
+    expect(budget.after).toBe("This release: about 17 min on Fake CI, about 1,767 left after it");
     expect(budget.pace).toBe(
       "At this pace, with this release, about 662 used by October 31, within the 2,000 included.",
     );
@@ -100,7 +98,7 @@ describe("the GitHub Actions minutes a deploy spends", () => {
   });
 });
 
-describe("what a release costs on GitHub Actions", () => {
+describe("what a release costs on Fake CI", () => {
   it("given the landing deploy's two jobs, when billed, then each rounds up to the minute", () => {
     expect(
       billedMinutes([
@@ -111,7 +109,7 @@ describe("what a release costs on GitHub Actions", () => {
     ).toBe(4);
   });
 
-  it("given api with no past run and landing measured at 4, when estimated, then the EAS build is left out", () => {
+  it("given api with no past run and landing measured at 4, when estimated, then the Store build is left out", () => {
     expect(
       deployEstimate(
         [

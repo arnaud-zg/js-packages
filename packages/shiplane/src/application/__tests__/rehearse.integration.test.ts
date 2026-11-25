@@ -10,13 +10,13 @@ import { rehearse } from "../rehearse";
 // A rehearsal in memory: the release loads from Fake files, builds and checks go to a Fake shell.
 
 const SIGNED_IN = {
-  label: "fly signed in",
-  check: { command: "flyctl", args: ["auth", "whoami"] },
-  fix: { command: "flyctl", args: ["auth", "login"] },
+  label: "host signed in",
+  check: { command: "hostctl", args: ["auth", "whoami"] },
+  fix: { command: "hostctl", args: ["auth", "login"] },
 };
 
-const fly = () => ({
-  ...detecting(serverHostingFake(), "fly", "fly.toml"),
+const cloud = () => ({
+  ...detecting(serverHostingFake(), "cloud", "cloud.toml"),
   requirements: () => [SIGNED_IN],
 });
 
@@ -33,7 +33,7 @@ const REPO = {
 };
 
 const given = (files: Record<string, string> = {}) =>
-  memoryRepository({ ...REPO, ...files }, [fly()]);
+  memoryRepository({ ...REPO, ...files }, [cloud()]);
 
 describe("Feature: rehearsing a release", () => {
   it("given an app with a build script, when the release is rehearsed, then it builds in its folder with the repository's package manager", async () => {
@@ -65,21 +65,21 @@ describe("Feature: rehearsing a release", () => {
 
   it("given a sign-in that is missing, when the release is rehearsed, then it fails and says what to run", async () => {
     const { context, shell, output } = given();
-    shell.seed("flyctl auth whoami", { status: 1 });
+    shell.seed("hostctl auth whoami", { status: 1 });
 
     expect(await rehearse(context)).toBe(false);
 
-    expect(output.text).toContain("✗ fly signed in");
-    expect(output.text).toContain("run flyctl auth login, then shiplane setup");
+    expect(output.text).toContain("✗ host signed in");
+    expect(output.text).toContain("run hostctl auth login, then shiplane setup");
   });
 
   it("given a tool that is not installed, when the release is rehearsed, then it says which one", async () => {
     const { context, shell, output } = given();
-    shell.seed("flyctl", { status: 127 });
+    shell.seed("hostctl", { status: 127 });
 
     expect(await rehearse(context)).toBe(false);
 
-    expect(output.text).toContain("not installed: flyctl");
+    expect(output.text).toContain("not installed: hostctl");
   });
 
   it("given a unit file naming no module, when the release is rehearsed, then nothing builds and the file is named", async () => {
@@ -115,7 +115,7 @@ describe("Feature: rehearsing a release", () => {
 
     expect(await rehearse(context)).toBe(true);
 
-    expect(shell.calls.map(({ command }) => command)).toEqual(["pnpm", "flyctl"]);
+    expect(shell.calls.map(({ command }) => command)).toEqual(["pnpm", "hostctl"]);
   });
 
   it("given a terminal, when the release is rehearsed, then each wait runs under a spinner", async () => {
@@ -125,6 +125,6 @@ describe("Feature: rehearsing a release", () => {
 
     await rehearse(context);
 
-    expect(progress.events.map(({ text }) => text)).toEqual(["build 1 app", "fly signed in"]);
+    expect(progress.events.map(({ text }) => text)).toEqual(["build 1 app", "host signed in"]);
   });
 });

@@ -256,8 +256,8 @@ describe("opening the release pull request", () => {
 });
 
 const DROPPED = new CommandFailed(
-  "git push exited with 128: Connection to github.com closed by remote host.",
-  "Connection to github.com closed by remote host.\nfatal: the remote end hung up unexpectedly",
+  "git push exited with 128: Connection to host.test closed by remote host.",
+  "Connection to host.test closed by remote host.\nfatal: the remote end hung up unexpectedly",
 );
 
 const openFailing = async (failing: (world: ReturnType<typeof setUp>) => void) => {
@@ -320,7 +320,7 @@ describe("a release that fails part way", () => {
   it("given closing the PR fails while cancelling, when the release stops, then the rest is still taken back and it says what is left to do by hand", async () => {
     const { source, host, output } = await openFailing(({ source, host }) => {
       source.failAt("switch", 1, new Error("a file is in the way"));
-      host.failClose(new Error("gh pr close exited with 1: HTTP 502"));
+      host.failClose(new Error("codehost pr close exited with 1: HTTP 502"));
     });
 
     expect(ofType(source.received, "delete-branch")).toHaveLength(1);

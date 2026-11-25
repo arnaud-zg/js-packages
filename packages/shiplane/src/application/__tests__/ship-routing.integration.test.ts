@@ -161,7 +161,7 @@ describe("Feature: forcing a way that cannot ship an app", () => {
     // then
     expect(ok).toBe(true);
     expect(output.lines).toContain(
-      "  ! api@0.1.0  main moved past it: this machine builds its checkout, ship it through GitHub Actions",
+      "  ! api@0.1.0  main moved past it: this machine builds its checkout, ship it through Fake CI",
     );
     expect(shell.calls).toEqual([]);
   });
@@ -259,9 +259,7 @@ describe("Feature: being told the only way an app can ship", () => {
     await shipTo(context, "preview", {});
 
     // then
-    expect(output.lines).toContain(
-      "  · api@0.1.0  main moved past it: ships through GitHub Actions",
-    );
+    expect(output.lines).toContain("  · api@0.1.0  main moved past it: ships through Fake CI");
     expect(ci.received).toHaveLength(1);
   });
 
@@ -307,7 +305,7 @@ describe("Feature: choosing how each app ships when both ways can", () => {
     // given
     const { context, prompter, shell, ci, progress } = shipWorld(["api", "web"]);
     prompter.answer("ci", "local", true);
-    const question = "Ship api@0.1.0 (GitHub Actions), web@0.1.0 (this machine) to preview?";
+    const question = "Ship api@0.1.0 (Fake CI), web@0.1.0 (this machine) to preview?";
 
     // when
     const ok = await shipTo(context, "preview", {});
@@ -347,7 +345,7 @@ describe("Feature: choosing how each app ships when both ways can", () => {
     await shipTo(context, "preview", {});
 
     // then
-    expect(prompter.asked).toEqual(["Ship api@0.1.0 to preview through GitHub Actions?"]);
+    expect(prompter.asked).toEqual(["Ship api@0.1.0 to preview through Fake CI?"]);
     expect(ci.received).toHaveLength(1);
   });
 

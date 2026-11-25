@@ -43,7 +43,7 @@ const CATALOG: readonly CatalogEntry[] = [
     make: () => versioningFake(),
   }),
   adapterEntry({
-    name: "fly",
+    name: "cloud",
     port: "serverHosting",
     description: "",
     options: z.object({}),

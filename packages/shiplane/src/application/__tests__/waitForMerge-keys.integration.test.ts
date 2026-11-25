@@ -6,7 +6,7 @@ import { waitForMerge } from "../waitForMerge";
 
 // Waiting on a release PR: polled until it merges or closes, with keys to act on it meanwhile.
 
-const PR = { number: 12, url: "https://github.com/acme/repo/pull/12" };
+const PR = { number: 12, url: "https://host.test/acme/repo/pull/12" };
 
 const setUp = ({
   approval,

@@ -77,17 +77,17 @@ describe("Feature: setup offering the provider plugins installed in the reposito
     const root = folder({
       "package.json": JSON.stringify({
         name: "acme",
-        dependencies: { "fly-plugin": "1.0.0", "plain-lib": "1.0.0", "not-installed": "1.0.0" },
+        dependencies: { "cloud-plugin": "1.0.0", "plain-lib": "1.0.0", "not-installed": "1.0.0" },
         devDependencies: { "pages-plugin": "1.0.0", "broken-plugin": "1.0.0" },
       }),
       ...plugin(
-        "fly-plugin",
-        { shiplane: { adapters: ["flyHosting", "notAFactory", "missingFactory"] } },
-        `export const flyHosting = () => ({ name: "fly", capability: "server-hosting" });
+        "cloud-plugin",
+        { shiplane: { adapters: ["cloudHosting", "notAFactory", "missingFactory"] } },
+        `export const cloudHosting = () => ({ name: "cloud", capability: "server-hosting" });
 export const notAFactory = 42;
 `,
       ),
-      ...plugin("plain-lib", {}, "export const flyHosting = () => ({ name: 'plain' });\n"),
+      ...plugin("plain-lib", {}, "export const cloudHosting = () => ({ name: 'plain' });\n"),
       ...plugin(
         "pages-plugin",
         { shiplane: { adapters: ["pagesHosting"] } },
@@ -102,7 +102,7 @@ export const notAFactory = 42;
 
     const names = (await installedAdapters(root)).map(({ name }) => name);
 
-    expect(names).toEqual(["fly", "pages", "shell"]);
+    expect(names).toEqual(["cloud", "pages", "shell"]);
   });
 
   it("given a dependency that declares no provider, when setup lists providers, then its code never runs", async () => {

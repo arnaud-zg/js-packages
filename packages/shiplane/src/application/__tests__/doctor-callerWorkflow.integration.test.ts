@@ -28,7 +28,7 @@ const OWN_PINNED = [
   "",
 ].join("\n");
 
-/** A caller workflow as GitHub's adapter writes it, taking the tag to ship when `ref` is set. */
+/** A caller workflow as a real adapter writes it, taking the tag to ship when `ref` is set. */
 const callerTaking = (version: string, { ref }: { ref: boolean }) =>
   [
     "name: Ship",
@@ -247,14 +247,15 @@ describe("Feature: doctor checks the workflow a repository ships from", () => {
     expect(files.read(SHIP_YML)).toBe(OWN_PINNED);
   });
 
-  it("given a pipeline that cannot reach GitHub, when the person agrees to write ship.yml, then the failure is said and doctor fails", async () => {
+  it("given a pipeline that cannot reach its host, when the person agrees to write ship.yml, then the failure is said and doctor fails", async () => {
     const repo = memoryRepository(REPO, [serverHostingFake()]);
     const pipeline = callingPipeline([]);
     const broken = {
       ...pipeline,
       create: (adapterContext: Parameters<typeof pipeline.create>[0]) => ({
         ...pipeline.create(adapterContext),
-        callerWorkflow: () => Promise.reject(new Error("gh api exited with 1: Bad credentials")),
+        callerWorkflow: () =>
+          Promise.reject(new Error("codehost api exited with 1: Bad credentials")),
       }),
     };
     const context = runningShiplane(repo.context, "0.6.0", broken);
@@ -262,7 +263,7 @@ describe("Feature: doctor checks the workflow a repository ships from", () => {
 
     expect(await doctor(context)).toBe(false);
 
-    expect(repo.output.lines).toContain("│  ! gh api exited with 1: Bad credentials");
+    expect(repo.output.lines).toContain("│  ! codehost api exited with 1: Bad credentials");
   });
 
   it("given doctor on a runner, when it runs, then ship.yml is not checked", async () => {

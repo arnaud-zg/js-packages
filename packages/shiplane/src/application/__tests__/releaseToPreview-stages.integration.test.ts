@@ -16,7 +16,7 @@ const RATE_LIMIT: PlannedChangeset = {
   releases: [{ name: "@acme/api", type: "minor" }],
 };
 
-const PR_12 = { number: 12, url: "https://github.com/acme/repo/pull/12", head: "pr12" };
+const PR_12 = { number: 12, url: "https://host.test/acme/repo/pull/12", head: "pr12" };
 const OPEN_12 = { branch: "shiplane/release-2026-10-11-0900", pr: PR_12 };
 
 const MOVED = {
@@ -167,13 +167,13 @@ describe("Feature: releasing to preview, from picking the apps to shipping them"
     world.hosting.seed({
       requirements: [
         {
-          label: "fly signed in",
-          check: { command: "flyctl", args: ["auth", "whoami"] },
-          fix: { command: "flyctl", args: ["auth", "login"] },
+          label: "host signed in",
+          check: { command: "hostctl", args: ["auth", "whoami"] },
+          fix: { command: "hostctl", args: ["auth", "login"] },
         },
       ],
     });
-    world.shell.seed("flyctl auth whoami", { status: 1 });
+    world.shell.seed("hostctl auth whoami", { status: 1 });
     world.prompter.answer(["api"], false);
 
     // when

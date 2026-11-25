@@ -22,7 +22,7 @@ import {
   versioningFake,
 } from "../../adapters/versioning/__fakes__/versioning.fake";
 
-const PR = { number: 7, url: "https://github.com/acme/repo/pull/7", head: "sha-7" };
+const PR = { number: 7, url: "https://host.test/acme/repo/pull/7", head: "sha-7" };
 
 describe("rehearsing a release against files held in memory", () => {
   it("given files in nested folders, when the root and a folder are listed, then entries and folders are told apart", () => {
@@ -208,7 +208,7 @@ describe("rehearsing a release against a repository history held in memory", () 
   });
 });
 
-describe("rehearsing a release against GitHub held in memory", () => {
+describe("rehearsing a release against a code host held in memory", () => {
   it("given a pull request that opens then merges, when a release waits on it, then it sees each state and stays merged", async () => {
     const fake = new CodeHostFake().seed({ prStates: { 7: ["OPEN", "MERGED"] } });
 
@@ -245,12 +245,12 @@ describe("rehearsing a release against GitHub held in memory", () => {
     expect(await fake.openPrsFrom("release/")).toEqual([release]);
     expect(release).toEqual({
       number: 1800,
-      url: "https://github.com/acme/repo/pull/1800",
+      url: "https://host.test/acme/repo/pull/1800",
       head: "sha-1800",
     });
   });
 
-  it("given GitHub refusing every write, when a release tries each, then each fails and nothing is recorded", async () => {
+  it("given the host refusing every write, when a release tries each, then each fails and nothing is recorded", async () => {
     const error = new Error("forbidden");
     const fake = new CodeHostFake()
       .failCreate(error)
@@ -295,7 +295,7 @@ describe("rehearsing a release against GitHub held in memory", () => {
     ]);
   });
 
-  it("given GitHub releases with and without a previous tag, when they are published, then the previous tag is kept only when given", async () => {
+  it("given releases with and without a previous tag, when they are published, then the previous tag is kept only when given", async () => {
     const { fake, name, create } = codeHostFake();
 
     await fake.createRelease("v2", "notes", true, "v1");
@@ -313,7 +313,7 @@ describe("rehearsing a release against GitHub held in memory", () => {
 });
 
 describe("rehearsing a ship through CI held in memory", () => {
-  it("given a ship sent to CI, when it is dispatched, then it is recorded and the line shown is the gh command to run it by hand", async () => {
+  it("given a ship sent to CI, when it is dispatched, then it is recorded and the line shown is the command to run it by hand", async () => {
     const { fake, name } = ciPipelineFake();
 
     await fake.dispatch("ship.yml", "v1", { app: "api" });
@@ -323,11 +323,11 @@ describe("rehearsing a ship through CI held in memory", () => {
       { type: "dispatch", workflow: "ship.yml", ref: "v1", inputs: { app: "api" } },
     ]);
     expect(fake.dispatchLine("ship.yml", "v1", { app: "api", env: "preview" })).toBe(
-      "gh workflow run ship.yml --ref v1 -f app=api -f env=preview",
+      "fake-ci run ship.yml --ref v1 -f app=api -f env=preview",
     );
-    expect(fake.workflowFile("ship.yml")).toBe(".github/workflows/ship.yml");
+    expect(fake.workflowFile("ship.yml")).toBe("ci/ship.yml");
     expect([fake.label, fake.shipWorkflow, new CiPipelineFake("deploy.yml").shipWorkflow]).toEqual([
-      "GitHub Actions",
+      "Fake CI",
       "ship.yml",
       "deploy.yml",
     ]);

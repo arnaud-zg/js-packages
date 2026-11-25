@@ -135,40 +135,43 @@ describe("Feature: checking the release is ready to ship", () => {
   it("given missing tools and sign-ins, when the person runs doctor, then each says what fixes it, only the fixes they accept run, and it fails", async () => {
     const { context, output, prompter, shell } = given({
       requirements: [
-        need("GitHub sign-in", "gh auth status", { command: "gh", args: ["auth", "login"] }),
-        need("EAS CLI", "eas --version", { command: "eas", args: ["login"] }),
+        need("Code host sign-in", "codehost auth status", {
+          command: "codehost",
+          args: ["auth", "login"],
+        }),
+        need("Store CLI", "storectl --version", { command: "storectl", args: ["login"] }),
         need("Docker", "docker info"),
-        need("Fly sign-in", "flyctl auth whoami", {
-          command: "flyctl",
+        need("Host sign-in", "hostctl auth whoami", {
+          command: "hostctl",
           args: ["auth", "login"],
           cwd: "apps/api",
-          env: { FLY_ORG: "acme" },
+          env: { CLOUD_ORG: "acme" },
         }),
       ],
     });
     shell
-      .seed("gh auth status", { status: 1 })
-      .seed("eas --version", { status: 127 })
+      .seed("codehost auth status", { status: 1 })
+      .seed("storectl --version", { status: 127 })
       .seed("docker info", { status: 1 })
-      .seed("flyctl auth whoami", { status: 2 });
+      .seed("hostctl auth whoami", { status: 2 });
     prompter.answer(false, true);
 
     expect(await doctor(context)).toBe(false);
 
-    expect(output.lines).toContain("│  ✗ GitHub sign-in  fix: gh auth login");
-    expect(output.lines).toContain("│  ✗ EAS CLI  not installed: eas");
+    expect(output.lines).toContain("│  ✗ Code host sign-in  fix: codehost auth login");
+    expect(output.lines).toContain("│  ✗ Store CLI  not installed: storectl");
     expect(output.lines).toContain("│  ✗ Docker  not available here");
-    expect(output.lines).toContain("│  ✗ Fly sign-in  fix: FLY_ORG=acme flyctl auth login");
+    expect(output.lines).toContain("│  ✗ Host sign-in  fix: CLOUD_ORG=acme hostctl auth login");
     expect(prompter.asked).toEqual([
-      "Run gh auth login now?",
-      "Run FLY_ORG=acme flyctl auth login now?",
+      "Run codehost auth login now?",
+      "Run CLOUD_ORG=acme hostctl auth login now?",
     ]);
     expect(shell.calls.filter(({ args }) => args.includes("login"))).toEqual([
       {
-        command: "flyctl",
+        command: "hostctl",
         args: ["auth", "login"],
         cwd: "/memory/acme/apps/api",
-        env: { FLY_ORG: "acme" },
+        env: { CLOUD_ORG: "acme" },
       },
     ]);
     expect(output.lines.at(-1)).toBe("└  Next: shiplane doctor");
@@ -178,10 +181,13 @@ describe("Feature: checking the release is ready to ship", () => {
     const { context, prompter, shell } = given({
       interactive: false,
       requirements: [
-        need("GitHub sign-in", "gh auth status", { command: "gh", args: ["auth", "login"] }),
+        need("Code host sign-in", "codehost auth status", {
+          command: "codehost",
+          args: ["auth", "login"],
+        }),
       ],
     });
-    shell.seed("gh auth status", { status: 1 });
+    shell.seed("codehost auth status", { status: 1 });
 
     expect(await doctor(context)).toBe(false);
 
@@ -192,10 +198,13 @@ describe("Feature: checking the release is ready to ship", () => {
   it("given a missing tool whose fix needs that tool, when the person runs doctor, then the fix is not offered", async () => {
     const { context, prompter, shell } = given({
       requirements: [
-        need("GitHub sign-in", "gh auth status", { command: "gh", args: ["auth", "login"] }),
+        need("Code host sign-in", "codehost auth status", {
+          command: "codehost",
+          args: ["auth", "login"],
+        }),
       ],
     });
-    shell.seed("gh auth status", { status: 127 });
+    shell.seed("codehost auth status", { status: 127 });
 
     expect(await doctor(context)).toBe(false);
 

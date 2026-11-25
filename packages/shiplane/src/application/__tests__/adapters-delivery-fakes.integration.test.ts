@@ -14,8 +14,8 @@ const CONTEXT = { root: "/repo", shell: new RecordingShell() };
 // The fakes decide from what they were seeded, never from the release around them.
 const DECIDE = {} as DecideContext;
 const NEED: Requirement = {
-  label: "flyctl",
-  check: { command: "flyctl", args: ["version"] },
+  label: "hostctl",
+  check: { command: "hostctl", args: ["version"] },
 };
 
 const inputFor = (options: Record<string, unknown>, version = "1.0.0") => ({

@@ -96,7 +96,7 @@ describe("the built shiplane CLI, installed in a repository", () => {
     expect(output).toContain("api@1.0.0 → ./deploy.sh --fast  (not tagged yet: release first)");
     expect(output).toContain("      ./deploy.sh --fast");
     expect(output).toContain(
-      "gh workflow run ship.yml --ref api@1.0.0 -f units=api -f environment=preview",
+      "fake-ci run ship.yml --ref api@1.0.0 -f units=api -f environment=preview",
     );
   });
 
@@ -105,7 +105,7 @@ describe("the built shiplane CLI, installed in a repository", () => {
 
     expect(status).toBe(0);
     expect(output).toContain(
-      "gh workflow run ship.yml --ref api@1.0.0 -f units=api -f environment=production",
+      "fake-ci run ship.yml --ref api@1.0.0 -f units=api -f environment=production",
     );
   });
 

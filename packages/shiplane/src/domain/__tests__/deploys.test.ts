@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { deployRunTitle, deployState, deployVia, needsPath, shipsFrom, webShip } from "../deploys";
 
 describe("shipping the web apps", () => {
-  it("given api@0.0.2 deployed to preview, when its run is named, then the Actions list says which version went where", () => {
+  it("given api@0.0.2 deployed to preview, when its run is named, then the runs list says which version went where", () => {
     expect(deployRunTitle("api@0.0.2", "preview")).toBe("Deploy api@0.0.2 to preview");
   });
 
@@ -29,7 +29,7 @@ describe("shipping the web apps", () => {
     expect(webShip({ environment: "production", run: "none", onPreview: true })).toBe("deploy");
   });
 
-  it("given a GitHub deployment that succeeded, when read, then the version is deployed", () => {
+  it("given a deployment that succeeded, when read, then the version is deployed", () => {
     expect(deployState(["SUCCESS"])).toBe("done");
   });
 
@@ -66,7 +66,7 @@ describe("how a release deploys", () => {
     expect(deployVia({ via: undefined, yes: false })).toBeNull();
   });
 
-  it("given only an EAS build ships, when deploying, then no path is asked: EAS builds it either way", () => {
+  it("given only an Store build ships, when deploying, then no path is asked: Store builds it either way", () => {
     expect(needsPath([BUILD])).toBe(false);
   });
 

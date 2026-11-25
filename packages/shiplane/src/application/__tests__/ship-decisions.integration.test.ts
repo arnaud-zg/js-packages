@@ -218,7 +218,7 @@ describe("Feature: choosing how far a rollout or build goes", () => {
       { value: "half", label: "To 50%", hint: "about half", disabled: undefined },
       { value: "hold", label: "Hold", hint: undefined, disabled: true },
     ]);
-    expect(output.lines).toContain("  · a@0.1.0  no key here: ships through GitHub Actions");
+    expect(output.lines).toContain("  · a@0.1.0  no key here: ships through Fake CI");
     expect(prompter.asked).toEqual(["How far does a@0.1.0 go?"]);
     expect(ci.received.map(({ ref }) => ref)).toEqual(["a@0.1.0"]);
   });
@@ -252,7 +252,7 @@ describe("Feature: choosing how far a rollout or build goes", () => {
     expect(prompter.asked).toEqual([
       "How far does a@0.1.0 go?",
       "How should a@0.1.0 ship to preview?",
-      "Ship a@0.1.0 to preview through GitHub Actions?",
+      "Ship a@0.1.0 to preview through Fake CI?",
     ]);
   });
 
@@ -385,7 +385,7 @@ describe("Feature: shipping to production only with a person's say-so", () => {
     const { context, prompter, host, ci } = shipWorld(["api"]);
     host.seed({ deployments: [{ title: "Deploy api@0.1.0 to preview", state: "done" }] });
     prompter.answer("production", true);
-    const question = "Ship api@0.1.0 to production through GitHub Actions?";
+    const question = "Ship api@0.1.0 to production through Fake CI?";
 
     // when
     const ok = await shipTo(context, "production", { via: "ci" });
@@ -409,7 +409,7 @@ describe("Feature: declining a ship", () => {
     // then
     expect(ok).toBe(true);
     expect(prompter.asked).toEqual([
-      "Ship api@0.1.0 to preview through GitHub Actions?",
+      "Ship api@0.1.0 to preview through Fake CI?",
       "Ship to production instead?",
     ]);
     expect(output.lines).toContain("Nothing shipped.");
@@ -432,10 +432,10 @@ describe("Feature: declining a ship", () => {
     // then
     expect(ok).toBe(true);
     expect(prompter.asked).toEqual([
-      "Ship api@0.1.0 to preview through GitHub Actions?",
+      "Ship api@0.1.0 to preview through Fake CI?",
       "Ship to production instead?",
       'Type "production" to start:',
-      "Ship api@0.1.0 to production through GitHub Actions?",
+      "Ship api@0.1.0 to production through Fake CI?",
     ]);
     expect(ci.received.map(({ inputs }) => inputs.environment)).toEqual(["production"]);
   });

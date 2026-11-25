@@ -20,52 +20,50 @@ import {
 
 // The text setup and init write: configs, unit files and the editor's schema, all in memory.
 
-const FLY = {
+const CLOUD = {
   factory: "backendService",
   port: "serverHosting",
-  adapter: "flyServerHosting",
-  from: "@shiplane/fly",
+  adapter: "cloudServerHosting",
+  from: "@shiplane/cloud",
 };
 const PAGES = {
   factory: "webApp",
   port: "staticHosting",
-  adapter: "cloudflarePagesStaticHosting",
-  from: "@shiplane/cloudflare-pages",
+  adapter: "pagesStaticHosting",
+  from: "@shiplane/pages",
 };
 
-const fly = () => ({ ...serverHostingFake(), name: "fly" });
+const cloud = () => ({ ...serverHostingFake(), name: "cloud" });
 
 describe("Feature: choosing which module ships each app in the config", () => {
-  it("given an adapter named cloudflare-pages, when the config calls it, then its factory reads cloudflarePagesStaticHosting", () => {
-    expect(adapterFactory({ ...staticHostingFake(), name: "cloudflare-pages" })).toBe(
-      "cloudflarePagesStaticHosting",
-    );
+  it("given an adapter named pages, when the config calls it, then its factory reads pagesStaticHosting", () => {
+    expect(adapterFactory({ ...staticHostingFake(), name: "pages" })).toBe("pagesStaticHosting");
   });
 
-  it("given no module yet, when an app on Fly is placed, then a module of the kind's name is added, imported from the plugin", () => {
-    expect(placeModule(fly(), [], "shiplane")).toEqual({
+  it("given no module yet, when an app on Cloud is placed, then a module of the kind's name is added, imported from the plugin", () => {
+    expect(placeModule(cloud(), [], "shiplane")).toEqual({
       name: "backend-service",
       entry: {
         factory: "backendService",
         port: "serverHosting",
-        adapter: "flyServerHosting",
-        from: "@shiplane/fly",
+        adapter: "cloudServerHosting",
+        from: "@shiplane/cloud",
       },
     });
   });
 
-  it("given a module already shipping on Fly, when another app on Fly is placed, then it joins that module", () => {
-    const held = moduleFor(fly(), "api-servers");
+  it("given a module already shipping on Cloud, when another app on Cloud is placed, then it joins that module", () => {
+    const held = moduleFor(cloud(), "api-servers");
 
-    expect(placeModule(fly(), [held])).toEqual({ name: "api-servers" });
+    expect(placeModule(cloud(), [held])).toEqual({ name: "api-servers" });
   });
 
-  it("given the kind's name taken by another provider, when an app on Fly is placed, then its module is named after the provider", () => {
+  it("given the kind's name taken by another provider, when an app on Cloud is placed, then its module is named after the provider", () => {
     const other = moduleFor({ ...serverHostingFake(), name: "render" }, "backend-service");
 
-    expect(placeModule(fly(), [other]).entry).toMatchObject({
-      name: "backend-service-fly",
-      from: "@shiplane/fly",
+    expect(placeModule(cloud(), [other]).entry).toMatchObject({
+      name: "backend-service-cloud",
+      from: "@shiplane/cloud",
     });
   });
 
@@ -86,22 +84,22 @@ describe("Feature: getting a readable first shiplane.config.ts", () => {
       from: "shiplane",
     };
 
-    const text = renderConfig([PAGES, shell, { ...FLY, name: "api" }]);
+    const text = renderConfig([PAGES, shell, { ...CLOUD, name: "api" }]);
 
     expect(text.split("\n").slice(0, 6)).toEqual([
       'import { backendService, defineRelease, releaseFlow, shellServerHosting, webApp } from "shiplane";',
       'import { changesetsVersioning } from "@shiplane/changesets";',
-      'import { cloudflarePagesStaticHosting } from "@shiplane/cloudflare-pages";',
-      'import { flyServerHosting } from "@shiplane/fly";',
+      'import { cloudServerHosting } from "@shiplane/cloud";',
       'import { gitSourceControl } from "@shiplane/git";',
       'import { gitHubActionsCiPipeline, gitHubCodeHost } from "@shiplane/github";',
+      'import { pagesStaticHosting } from "@shiplane/pages";',
     ]);
     expect(text).toContain(
       [
         "  modules: [",
-        "    webApp({ staticHosting: cloudflarePagesStaticHosting() }),",
+        "    webApp({ staticHosting: pagesStaticHosting() }),",
         "    backendService({ serverHosting: shellServerHosting() }),",
-        '    backendService({ name: "api", serverHosting: flyServerHosting() }),',
+        '    backendService({ name: "api", serverHosting: cloudServerHosting() }),',
         "  ],",
         "});",
         "",
@@ -112,14 +110,14 @@ describe("Feature: getting a readable first shiplane.config.ts", () => {
 
   it("given two local adapters, when the config is rendered, then they come after the plugins, sorted", () => {
     const text = renderConfig([
-      { ...FLY, from: "./shiplane/adapters/z-host" },
+      { ...CLOUD, from: "./shiplane/adapters/z-host" },
       { ...PAGES, from: "./shiplane/adapters/a-host" },
     ]);
 
     const lines = text.split("\n");
-    expect(
-      lines.indexOf('import { cloudflarePagesStaticHosting } from "./shiplane/adapters/a-host";'),
-    ).toBe(lines.indexOf('import { flyServerHosting } from "./shiplane/adapters/z-host";') - 1);
+    expect(lines.indexOf('import { pagesStaticHosting } from "./shiplane/adapters/a-host";')).toBe(
+      lines.indexOf('import { cloudServerHosting } from "./shiplane/adapters/z-host";') - 1,
+    );
     expect(lines.findIndex((line) => line.includes("./shiplane"))).toBeGreaterThan(
       lines.findIndex((line) => line.includes("@shiplane/github")),
     );
@@ -135,27 +133,27 @@ describe("Feature: getting a readable first shiplane.config.ts", () => {
 describe("Feature: adding an app to a shiplane.config.ts the person already edited", () => {
   const CONFIG = [
     'import { defineRelease, releaseFlow, webApp } from "shiplane";',
-    'import { cloudflarePagesStaticHosting } from "@shiplane/cloudflare-pages";',
+    'import { pagesStaticHosting } from "@shiplane/pages";',
     "",
     "export default defineRelease({",
     "  modules: [",
-    "    webApp({ staticHosting: cloudflarePagesStaticHosting() }),",
+    "    webApp({ staticHosting: pagesStaticHosting() }),",
     "  ],",
     "});",
     "",
   ].join("\n");
 
   it("given a config over several lines, when a module is added, then it goes last with its import after the others", () => {
-    expect(addToConfig(CONFIG, FLY)).toBe(
+    expect(addToConfig(CONFIG, CLOUD)).toBe(
       [
         'import { backendService, defineRelease, releaseFlow, webApp } from "shiplane";',
-        'import { cloudflarePagesStaticHosting } from "@shiplane/cloudflare-pages";',
-        'import { flyServerHosting } from "@shiplane/fly";',
+        'import { pagesStaticHosting } from "@shiplane/pages";',
+        'import { cloudServerHosting } from "@shiplane/cloud";',
         "",
         "export default defineRelease({",
         "  modules: [",
-        "    webApp({ staticHosting: cloudflarePagesStaticHosting() }),",
-        "    backendService({ serverHosting: flyServerHosting() }),",
+        "    webApp({ staticHosting: pagesStaticHosting() }),",
+        "    backendService({ serverHosting: cloudServerHosting() }),",
         "  ],",
         "});",
         "",
@@ -164,13 +162,10 @@ describe("Feature: adding an app to a shiplane.config.ts the person already edit
   });
 
   it("given a last module with no trailing comma, when one is added, then a comma is put between them", () => {
-    const config = CONFIG.replace(
-      "cloudflarePagesStaticHosting() }),",
-      "cloudflarePagesStaticHosting() })",
-    );
+    const config = CONFIG.replace("pagesStaticHosting() }),", "pagesStaticHosting() })");
 
-    expect(addToConfig(config, FLY)).toContain(
-      "    webApp({ staticHosting: cloudflarePagesStaticHosting() }),\n    backendService(",
+    expect(addToConfig(config, CLOUD)).toContain(
+      "    webApp({ staticHosting: pagesStaticHosting() }),\n    backendService(",
     );
   });
 
@@ -178,8 +173,8 @@ describe("Feature: adding an app to a shiplane.config.ts the person already edit
     const config =
       'import { defineRelease } from "shiplane";\nexport default defineRelease({ modules: [a()] });\n';
 
-    expect(addToConfig(config, FLY)).toContain(
-      "modules: [a(), backendService({ serverHosting: flyServerHosting() })] });",
+    expect(addToConfig(config, CLOUD)).toContain(
+      "modules: [a(), backendService({ serverHosting: cloudServerHosting() })] });",
     );
   });
 
@@ -187,8 +182,8 @@ describe("Feature: adding an app to a shiplane.config.ts the person already edit
     const config =
       'import { defineRelease } from "shiplane";\nexport default defineRelease({ modules: [] });\n';
 
-    expect(addToConfig(config, FLY)).toContain(
-      "modules: [backendService({ serverHosting: flyServerHosting() })] });",
+    expect(addToConfig(config, CLOUD)).toContain(
+      "modules: [backendService({ serverHosting: cloudServerHosting() })] });",
     );
   });
 
@@ -196,25 +191,25 @@ describe("Feature: adding an app to a shiplane.config.ts the person already edit
     const config =
       'import { defineRelease } from "shiplane";\ndefineRelease({ modules: [a({ b: [1] })], other: [2] });\n';
 
-    expect(addToConfig(config, FLY)).toContain(
-      "modules: [a({ b: [1] }), backendService({ serverHosting: flyServerHosting() })], other: [2]",
+    expect(addToConfig(config, CLOUD)).toContain(
+      "modules: [a({ b: [1] }), backendService({ serverHosting: cloudServerHosting() })], other: [2]",
     );
   });
 
   it("given the plugin already imported and the factory already there, when one is added, then no import is repeated", () => {
     const config = `${CONFIG.replace("webApp }", "backendService, webApp }")}`.replace(
-      '"@shiplane/cloudflare-pages";',
-      '"@shiplane/cloudflare-pages";\nimport { flyServerHosting } from "@shiplane/fly";',
+      '"@shiplane/pages";',
+      '"@shiplane/pages";\nimport { cloudServerHosting } from "@shiplane/cloud";',
     );
 
-    const text = addToConfig(config, FLY) ?? "";
+    const text = addToConfig(config, CLOUD) ?? "";
 
-    expect(text.match(/@shiplane\/fly/g)).toHaveLength(1);
+    expect(text.match(/@shiplane\/cloud/g)).toHaveLength(1);
     expect(text.match(/backendService/g)).toHaveLength(2);
   });
 
   it("given a built-in adapter, when it is added, then it joins the CLI's own import", () => {
-    const shell = { ...FLY, adapter: "shellServerHosting", from: "shiplane" };
+    const shell = { ...CLOUD, adapter: "shellServerHosting", from: "shiplane" };
 
     expect(addToConfig(CONFIG, shell)).toContain(
       'import { backendService, defineRelease, releaseFlow, shellServerHosting, webApp } from "shiplane";',
@@ -222,16 +217,20 @@ describe("Feature: adding an app to a shiplane.config.ts the person already edit
   });
 
   it("given a config that imports nothing, when one is added, then both imports go on top", () => {
-    const text = addToConfig("export default defineRelease({ modules: [] });\n", FLY, "@acme/cli");
+    const text = addToConfig(
+      "export default defineRelease({ modules: [] });\n",
+      CLOUD,
+      "@acme/cli",
+    );
 
     expect(text).toBe(
-      'import { backendService } from "@acme/cli";\nimport { flyServerHosting } from "@shiplane/fly";\nexport default defineRelease({ modules: [backendService({ serverHosting: flyServerHosting() })] });\n',
+      'import { backendService } from "@acme/cli";\nimport { cloudServerHosting } from "@shiplane/cloud";\nexport default defineRelease({ modules: [backendService({ serverHosting: cloudServerHosting() })] });\n',
     );
   });
 
   it("given a config with no modules list or an unclosed one, when a module is added, then setup leaves the file alone", () => {
-    expect(addToConfig("export default {};", FLY)).toBeNull();
-    expect(addToConfig("export default { modules: [ a(", FLY)).toBeNull();
+    expect(addToConfig("export default {};", CLOUD)).toBeNull();
+    expect(addToConfig("export default { modules: [ a(", CLOUD)).toBeNull();
   });
 });
 
@@ -241,13 +240,13 @@ describe("Feature: unit files a person can read and fill in", () => {
       renderUnit(
         "backend-service",
         { service: "api" },
-        { reason: "fly.toml", schemaLine: "../s.json" },
+        { reason: "cloud.toml", schemaLine: "../s.json" },
       ),
     ).toBe(
       [
         "# yaml-language-server: $schema=../s.json",
         "# Written by shiplane init. Every key: shiplane docs backend-service",
-        "# Read from fly.toml",
+        "# Read from cloud.toml",
         "",
         "module: backend-service",
         "service: api",

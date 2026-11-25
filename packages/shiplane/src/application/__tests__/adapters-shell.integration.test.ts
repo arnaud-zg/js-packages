@@ -99,12 +99,12 @@ describe("writing a plugin's commands with shiplane's helpers", () => {
 
   it("given a tool that fails printing nothing to stderr, when the failure is reported, then it names only the step and status, and keeps stdout", () => {
     const error = commandFailed({
-      label: "eas build",
+      label: "storectl build",
       result: { status: 2, stdout: "  partial  ", stderr: "   " },
     });
 
     expect({ message: error.message, output: error.output }).toEqual({
-      message: "eas build exited with 2",
+      message: "storectl build exited with 2",
       output: "partial",
     });
   });
@@ -114,26 +114,26 @@ describe("writing a plugin's commands with shiplane's helpers", () => {
 
     await mustCapture({
       shell,
-      command: "gh",
+      command: "codehost",
       args: ["api", "user"],
       cwd: "/repo",
-      env: { GH_TOKEN: "t" },
+      env: { HOST_TOKEN: "t" },
       input: "body",
     });
 
     expect(shell.calls).toEqual([
-      { command: "gh", args: ["api", "user"], cwd: "/repo", env: { GH_TOKEN: "t" } },
+      { command: "codehost", args: ["api", "user"], cwd: "/repo", env: { HOST_TOKEN: "t" } },
     ]);
   });
 
   it("given a failing command, when the plugin runs it, then the error names its step, or the bare command when it has no arguments", async () => {
-    const shell = new RecordingShell().seed("wrangler", { status: 1, stderr: "nope" });
+    const shell = new RecordingShell().seed("sitectl", { status: 1, stderr: "nope" });
 
     await expect(
-      mustCapture({ shell, command: "wrangler", args: ["deploy"], label: "upload the site" }),
+      mustCapture({ shell, command: "sitectl", args: ["deploy"], label: "upload the site" }),
     ).rejects.toThrow("upload the site exited with 1: nope");
-    await expect(mustCapture({ shell, command: "wrangler", args: [] })).rejects.toThrow(
-      /^wrangler exited with 1: nope$/,
+    await expect(mustCapture({ shell, command: "sitectl", args: [] })).rejects.toThrow(
+      /^sitectl exited with 1: nope$/,
     );
   });
 

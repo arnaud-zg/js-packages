@@ -9,14 +9,14 @@ import { setup } from "../setup";
 // Every scenario runs in memory: files, shell, person and adapters are Fakes. Nothing on this
 // machine is read, written, pushed, published or deployed.
 
-const fly = () =>
-  detecting(serverHostingFake(), "fly", "fly.toml", (folder) => ({ service: folder.name }));
+const cloud = () =>
+  detecting(serverHostingFake(), "cloud", "cloud.toml", (folder) => ({ service: folder.name }));
 const pages = () => ({
-  ...detecting(staticHostingFake(), "pages", "wrangler.toml", (folder) => ({ site: folder.name })),
+  ...detecting(staticHostingFake(), "pages", "pages.toml", (folder) => ({ site: folder.name })),
   questions: (_folder: unknown, found: Record<string, unknown>) =>
     found.site ? [] : [{ key: "site", message: "Site name?", initial: "web" }],
 });
-const ADAPTERS = () => [fly(), pages(), packageRegistryFake()];
+const ADAPTERS = () => [cloud(), pages(), packageRegistryFake()];
 
 const manifest = (name: string, scripts: Record<string, string> = { build: "tsc" }) =>
   JSON.stringify({ name, version: "0.1.0", scripts });
@@ -29,7 +29,7 @@ const PROVEN = {
   ".github/workflows/ci.yml": "on: push\n",
   ".changeset/config.json": "{}\n",
   "apps/api/package.json": manifest("@acme/api"),
-  "apps/api/fly.toml": 'app = "acme-api"\n',
+  "apps/api/cloud.toml": 'app = "acme-api"\n',
 };
 
 const given = (files: Record<string, string>, options?: { interactive?: boolean }) => {
@@ -43,7 +43,7 @@ const touchedNothingOutside = (calls: { command: string; args: string[] }[]) =>
   calls.every(
     ({ command, args }) =>
       !(command === "git" && ["push", "tag", "commit"].includes(args[0] ?? "")) &&
-      !["gh", "flyctl", "wrangler", "eas"].includes(command) &&
+      !["gh", "hostctl", "sitectl", "storectl"].includes(command) &&
       !(command === "npm" && args[0] === "publish"),
   );
 
@@ -59,7 +59,7 @@ describe("Feature: setting up a new repository", () => {
       "Your apps and packages are in apps/* (1 folders)?",
       "Releasable. Write it?",
     ]);
-    expect(output.text).toContain("proof: fly.toml");
+    expect(output.text).toContain("proof: cloud.toml");
     expect(files.read("shiplane.config.ts")).toContain("gitHubActionsCiPipeline()");
     expect(files.read("apps/api/shiplane.unit.yml")).toContain("service: api");
     expect(touchedNothingOutside(shell.calls)).toBe(true);
@@ -97,7 +97,7 @@ describe("Feature: setting up a new repository", () => {
       ...PROVEN,
       "pnpm-workspace.yaml": "packages:\n  - services/*\n",
       "tools/cli/package.json": manifest("@acme/cli"),
-      "tools/cli/fly.toml": "",
+      "tools/cli/cloud.toml": "",
     });
     prompter.answer("nowhere/*", "tools/*", true);
 
@@ -352,7 +352,7 @@ describe("Feature: running setup again", () => {
     await setup(context, { yes: false });
     const api = files.read("apps/api/shiplane.unit.yml");
     files.write("apps/admin/package.json", manifest("@acme/admin"));
-    files.write("apps/admin/wrangler.toml", "");
+    files.write("apps/admin/pages.toml", "");
     prompter.answer(true);
 
     expect(await setup(context, { yes: false })).toBe(true);

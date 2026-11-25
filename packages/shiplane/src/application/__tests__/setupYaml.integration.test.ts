@@ -5,13 +5,13 @@ import { detecting, memoryRepository } from "../../testing/memoryRepository";
 import { setup } from "../setup";
 import { addToYamlConfig } from "../setupYaml";
 
-const fly = () =>
-  detecting(serverHostingFake(), "fly", "fly.toml", (folder) => ({ service: folder.name }));
+const cloud = () =>
+  detecting(serverHostingFake(), "cloud", "cloud.toml", (folder) => ({ service: folder.name }));
 
 const manifest = (name: string) =>
   JSON.stringify({ name, version: "0.1.0", scripts: { build: "tsc" } });
 
-/** A repository whose git, GitHub, Actions and Changesets are all proven, one app on Fly. */
+/** A repository whose git, GitHub, Actions and Changesets are all proven, one app on Cloud. */
 const PROVEN = {
   "package.json": JSON.stringify({ name: "acme", private: true }),
   "pnpm-workspace.yaml": "packages:\n  - apps/*\n",
@@ -19,11 +19,11 @@ const PROVEN = {
   ".github/workflows/ci.yml": "on: push\n",
   ".changeset/config.json": "{}\n",
   "apps/api/package.json": manifest("@acme/api"),
-  "apps/api/fly.toml": 'app = "acme-api"\n',
+  "apps/api/cloud.toml": 'app = "acme-api"\n',
 };
 
 const given = (files: Record<string, string>) => {
-  const repo = memoryRepository(files, [fly()]);
+  const repo = memoryRepository(files, [cloud()]);
   repo.shell.seed("git remote get-url origin", { stdout: "git@github.com:acme/mono.git\n" });
   return repo;
 };
@@ -58,7 +58,7 @@ flow:
 modules:
   - use: backend-service
     with:
-      serverHosting: fly
+      serverHosting: cloud
 `);
   });
 
@@ -76,15 +76,15 @@ modules:
     const added = addToYamlConfig(YAML, {
       factory: "webApp",
       port: "staticHosting",
-      adapter: "cloudflarePagesStaticHosting",
+      adapter: "pagesStaticHosting",
       name: "site",
-      from: "@shiplane/cloudflare-pages",
+      from: "@shiplane/pages",
     });
 
     expect(added).toBe(`${YAML}  - use: web-app
     with:
       name: site
-      staticHosting: cloudflare-pages
+      staticHosting: pages
 `);
   });
 

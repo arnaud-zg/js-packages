@@ -19,8 +19,8 @@ const shipment = (
 const given = ({ interactive = true }: { interactive?: boolean } = {}) =>
   testContext({ units: [testUnit("api"), testUnit("web")], interactive });
 
-describe("Feature: choosing between GitHub Actions and this machine for each app", () => {
-  it("given no Actions minutes to show, when the person picks how apps ship, then each app is asked in order with GitHub Actions recommended", async () => {
+describe("Feature: choosing between Fake CI and this machine for each app", () => {
+  it("given no Fake CI minutes to show, when the person picks how apps ship, then each app is asked in order with Fake CI recommended", async () => {
     const { context, prompter, output } = given();
     prompter.answer("ci", "local");
 
@@ -35,13 +35,13 @@ describe("Feature: choosing between GitHub Actions and this machine for each app
     expect(prompter.choices["How should api@1.0.0 ship to production?"]).toEqual([
       {
         value: "ci",
-        label: "GitHub Actions",
-        hint: "its workflow runs on GitHub Actions, from its tag",
+        label: "Fake CI",
+        hint: "its workflow runs on Fake CI, from its tag",
       },
       {
         value: "local",
         label: "this machine",
-        hint: "the same commands, run here: no Actions minutes",
+        hint: "the same commands, run here: no Fake CI minutes",
       },
     ]);
     expect(output.lines).toEqual([]);
@@ -62,12 +62,10 @@ describe("Feature: choosing between GitHub Actions and this machine for each app
     ]);
 
     expect(output.lines[0]).toBe("");
-    expect(output.lines[1]).toBe(
-      "  GitHub Actions minutes · October 2026   ● enough minutes this month",
-    );
+    expect(output.lines[1]).toBe("  Fake CI minutes · October 2026   ● enough minutes this month");
     expect(output.lines[2]).toMatch(/^ {2}[█▒░]{30} {2}1,500 of 2,000 left · 25% used$/);
     expect(output.lines[3]).toBe(
-      "  This release: about 12 min on GitHub Actions, about 1,488 left after it",
+      "  This release: about 12 min on Fake CI, about 1,488 left after it",
     );
     expect(output.lines[4]).toBe(
       "    api ~3 (its last runs) · web ~4 (typical, no run yet) · docs ~5 (typical, no run yet)",
@@ -78,30 +76,30 @@ describe("Feature: choosing between GitHub Actions and this machine for each app
     expect(output.lines[6]).toBe("");
     expect(output.lines).toHaveLength(7);
     expect(prompter.choices["How should api@1.0.0 ship to preview?"]?.[0]?.hint).toBe(
-      "runs on GitHub Actions from its tag, about 3 of 1,500 minutes left",
+      "runs on Fake CI from its tag, about 3 of 1,500 minutes left",
     );
     expect(prompter.choices["How should web@1.0.0 ship to preview?"]?.[0]?.hint).toBe(
-      "runs on GitHub Actions from its tag, about 4 of 1,500 minutes left",
+      "runs on Fake CI from its tag, about 4 of 1,500 minutes left",
     );
   });
 
-  const BLOCKED = { reason: "gh lacks the scope.", url: "https://github.com/settings/billing" };
+  const BLOCKED = { reason: "the token lacks the scope.", url: "https://ci.test/billing" };
   const WARNING = [
     "",
-    "  ⚠ GitHub Actions minutes not shown: gh lacks the scope. You can continue.",
-    "    See them: https://github.com/settings/billing",
+    "  ⚠ Fake CI minutes not shown: the token lacks the scope. You can continue.",
+    "    See them: https://ci.test/billing",
   ];
 
   it("given minutes a command would unlock, when the person picks how apps ship, then they are warned, told where to look and what to run, and still asked", async () => {
     const { context, prompter, output, ci } = given();
-    ci.seed({ minutes: { ...BLOCKED, fix: "gh auth refresh -s user" } });
+    ci.seed({ minutes: { ...BLOCKED, fix: "codehost auth refresh -s user" } });
     prompter.answer("ci");
 
     expect(await askPaths(context, "preview", [shipment("api")])).toEqual(["ci"]);
 
     expect(output.lines).toEqual([
       ...WARNING,
-      "    Show them here next time: gh auth refresh -s user",
+      "    Show them here next time: codehost auth refresh -s user",
       "",
     ]);
   });
@@ -116,7 +114,7 @@ describe("Feature: choosing between GitHub Actions and this machine for each app
     expect(output.lines).toEqual([...WARNING, ""]);
   });
 
-  it("given a release that spends nothing on GitHub Actions, when the person sees the minutes, then no spend is shown", async () => {
+  it("given a release that spends nothing on Fake CI, when the person sees the minutes, then no spend is shown", async () => {
     const { context, output, ci } = given();
     ci.seed({ minutes: { used: 0, included: 2000, left: 2000 } });
 
@@ -136,7 +134,7 @@ describe("Feature: choosing between GitHub Actions and this machine for each app
     expect(prompter.initials["How should api@1.0.0 ship to production?"]).toBe("local");
   });
 
-  it("given minutes running short but not out, when the person picks how an app ships, then GitHub Actions stays recommended", async () => {
+  it("given minutes running short but not out, when the person picks how an app ships, then Fake CI stays recommended", async () => {
     const { context, prompter, ci } = given();
     ci.seed({ minutes: { used: 1500, included: 2000, left: 500 } });
     prompter.answer("ci");

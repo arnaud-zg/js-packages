@@ -32,7 +32,7 @@ class PlatformEnvFake implements PlatformEnvPort {
     this.reads += 1;
     if (this.failures > 0) {
       this.failures -= 1;
-      return Promise.reject(new Error("fly: not signed in"));
+      return Promise.reject(new Error("host: not signed in"));
     }
     const now = new Set(this.held[environment] ?? []);
     if (this.later) this.held = this.later;
@@ -46,7 +46,7 @@ class PlatformEnvFake implements PlatformEnvPort {
     names: readonly EnvVarName[];
     options: Record<string, unknown>;
   }) =>
-    `fly secrets set --stage -a ${String(options.service)} ${unset.map((name) => `${name}=...`).join(" ")}`;
+    `hostctl secrets set --stage -a ${String(options.service)} ${unset.map((name) => `${name}=...`).join(" ")}`;
 }
 
 const setUp = ({
@@ -115,7 +115,7 @@ describe("checking the env before a deploy", () => {
     expect(output.text).toContain("api on preview: 2 unset env vars, the deploy waits");
     expect(output.text).toContain("You set these values; shiplane never does.");
     expect(output.text).toContain(
-      "fly secrets set --stage -a acme-api SENTRY_DSN=... WAITLIST_CONFIRM_URL=...",
+      "hostctl secrets set --stage -a acme-api SENTRY_DSN=... WAITLIST_CONFIRM_URL=...",
     );
     expect(prompter.asked).toEqual([SET_THEM]);
     expect(platform.reads).toBe(2);
@@ -135,7 +135,9 @@ describe("checking the env before a deploy", () => {
 
     expect(await run("preview")).toBe(false);
     expect(output.text).toContain("Nothing was written. Set them, then run again:");
-    expect(output.text).toContain("fly secrets set --stage -a acme-api WAITLIST_CONFIRM_URL=...");
+    expect(output.text).toContain(
+      "hostctl secrets set --stage -a acme-api WAITLIST_CONFIRM_URL=...",
+    );
     expect(prompter.asked).toEqual([]);
   });
 
@@ -171,7 +173,7 @@ describe("checking the env before a deploy", () => {
     const { run, output } = setUp({ platform, interactive: false });
 
     expect(await run("preview")).toBe(false);
-    expect(output.text).toContain("fly: not signed in");
+    expect(output.text).toContain("host: not signed in");
   });
 
   it("given a platform that cannot be read in a terminal, when the person retries, then it reads again", async () => {

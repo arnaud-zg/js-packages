@@ -8,10 +8,10 @@ import { SCHEMA_FILE } from "../setupFiles";
 
 // Setup run on a repository it already set up, in memory: nothing on this machine is touched.
 
-const fly = () =>
-  detecting(serverHostingFake(), "fly", "fly.toml", (folder) => ({ service: folder.name }));
+const cloud = () =>
+  detecting(serverHostingFake(), "cloud", "cloud.toml", (folder) => ({ service: folder.name }));
 const pages = () =>
-  detecting(staticHostingFake(), "pages", "wrangler.toml", (folder) => ({ site: folder.name }));
+  detecting(staticHostingFake(), "pages", "pages.toml", (folder) => ({ site: folder.name }));
 
 const manifest = (name: string, scripts: Record<string, string> = { build: "tsc" }) =>
   JSON.stringify({ name, version: "0.1.0", scripts });
@@ -23,7 +23,7 @@ const PROVEN = {
   ".github/workflows/ci.yml": "on: push\n",
   ".changeset/config.json": "{}\n",
   "apps/api/package.json": manifest("@acme/api"),
-  "apps/api/fly.toml": 'app = "acme-api"\n',
+  "apps/api/cloud.toml": 'app = "acme-api"\n',
 };
 
 /** The files without these ones. */
@@ -32,7 +32,7 @@ const without = (files: Record<string, string>, ...dropped: string[]) =>
 
 /** A repository set up once, with only the API. */
 const setUpOnce = async (files: Record<string, string> = PROVEN) => {
-  const repo = memoryRepository(files, [fly(), pages()]);
+  const repo = memoryRepository(files, [cloud(), pages()]);
   repo.shell.seed("git remote get-url origin", { stdout: "git@github.com:acme/mono.git\n" });
   repo.prompter.answer(true, true);
   await setup(repo.context, { yes: false });
@@ -73,7 +73,7 @@ describe("Feature: running setup again", () => {
     const config = files.read("shiplane.config.ts") ?? "";
     expect(config).toContain(
       [
-        "    backendService({ serverHosting: flyServerHosting() }),",
+        "    backendService({ serverHosting: cloudServerHosting() }),",
         '    backendService({ name: "bot-delivery", serverHosting: botDelivery() }),',
       ].join("\n"),
     );
@@ -87,7 +87,7 @@ describe("Feature: running setup again", () => {
     const { context, prompter, output, files } = await setUpOnce();
     const config = files.read("shiplane.config.ts");
     files.write("apps/worker/package.json", manifest("@acme/worker"));
-    files.write("apps/worker/fly.toml", "");
+    files.write("apps/worker/cloud.toml", "");
     const before = files.changes.length;
     prompter.answer(true);
 
@@ -135,7 +135,7 @@ describe("Feature: running setup again", () => {
       };
     };
     files.write("apps/worker/package.json", manifest("@acme/worker"));
-    files.write("apps/worker/fly.toml", "");
+    files.write("apps/worker/cloud.toml", "");
     prompter.answer(true);
 
     expect(await setup(context, { yes: false })).toBe(true);
@@ -169,7 +169,7 @@ describe("Feature: running setup again", () => {
   it("given a failing build on a new app, when setup runs again, then it puts the files back and says to fix it", async () => {
     const { context, prompter, output, files, shell } = await setUpOnce();
     files.write("apps/web/package.json", manifest("@acme/web"));
-    files.write("apps/web/wrangler.toml", "");
+    files.write("apps/web/pages.toml", "");
     const config = files.read("shiplane.config.ts");
     shell.seed("npm run build", { status: 1, stderr: "boom" });
     const asked = prompter.asked.length;
@@ -185,7 +185,7 @@ describe("Feature: running setup again", () => {
   it("given a passing rehearsal, when the person says no, then it only says nothing was written", async () => {
     const { context, prompter, output } = await setUpOnce();
     context.files.write("apps/web/package.json", manifest("@acme/web"));
-    context.files.write("apps/web/wrangler.toml", "");
+    context.files.write("apps/web/pages.toml", "");
     prompter.answer(false);
 
     expect(await setup(context, { yes: false })).toBe(false);
@@ -194,7 +194,7 @@ describe("Feature: running setup again", () => {
   });
 
   it("given every app skipped as an internal tool, when setup runs, then no editor schema is written", async () => {
-    const unclear = without(PROVEN, "apps/api/fly.toml");
+    const unclear = without(PROVEN, "apps/api/cloud.toml");
     const repo = memoryRepository(unclear, []);
     repo.shell.seed("git remote get-url origin", { stdout: "git@github.com:acme/mono.git\n" });
     repo.prompter.answer(true, "skip", true);

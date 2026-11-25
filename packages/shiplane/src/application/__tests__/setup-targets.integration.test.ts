@@ -51,7 +51,7 @@ const world = (units = [API, WEB, TOOL]) => {
 
 const job = (overrides: Partial<Job> = {}): Job => ({
   label: "deploy",
-  local: [{ command: "flyctl", args: ["deploy"] }],
+  local: [{ command: "hostctl", args: ["deploy"] }],
   ...overrides,
 });
 
@@ -62,17 +62,17 @@ describe("Feature: seeing the exact command a release runs", () => {
   it("given a command with variables and a secret, when the release shows it, then variables come first and the secret by name only, never its value", () => {
     expect(
       commandLine({
-        command: "eas",
+        command: "storectl",
         args: ["update"],
         env: { EXPO_ENV: "preview", CI: "1" },
         secrets: [{ flag: "--env", name: "SENTRY_TOKEN" }],
       }),
-    ).toBe("EXPO_ENV=preview CI=1 eas update --env SENTRY_TOKEN=$SENTRY_TOKEN");
+    ).toBe("EXPO_ENV=preview CI=1 storectl update --env SENTRY_TOKEN=$SENTRY_TOKEN");
   });
 
   it("given a bare deploy command, when the release shows it, then it is just the command and its arguments", () => {
-    expect(commandLine({ command: "flyctl", args: ["deploy", "-a", "api"] })).toBe(
-      "flyctl deploy -a api",
+    expect(commandLine({ command: "hostctl", args: ["deploy", "-a", "api"] })).toBe(
+      "hostctl deploy -a api",
     );
   });
 });
@@ -86,7 +86,7 @@ describe("Feature: shipping an app from this machine", () => {
       job({
         local: [
           { command: "pnpm", args: ["build"], cwd: "apps/api", env: { NODE_ENV: "production" } },
-          { command: "flyctl", args: ["deploy"] },
+          { command: "hostctl", args: ["deploy"] },
         ],
         record: true,
       }),
@@ -95,7 +95,7 @@ describe("Feature: shipping an app from this machine", () => {
 
     expect(shell.calls).toEqual([
       { command: "pnpm", args: ["build"], cwd: "/repo/apps/api", env: { NODE_ENV: "production" } },
-      { command: "flyctl", args: ["deploy"], cwd: "/repo", env: undefined },
+      { command: "hostctl", args: ["deploy"], cwd: "/repo", env: undefined },
     ]);
     expect(host.received).toContainEqual({
       type: "record",
@@ -119,7 +119,9 @@ describe("Feature: shipping an app from this machine", () => {
     await runHere(
       context,
       job({
-        local: [{ command: "eas", args: ["build"], secrets: [{ flag: "--env", name: "TOKEN" }] }],
+        local: [
+          { command: "storectl", args: ["build"], secrets: [{ flag: "--env", name: "TOKEN" }] },
+        ],
       }),
       { tag: "app@1.0.0", environment: "production" },
     );
@@ -134,7 +136,9 @@ describe("Feature: shipping an app from this machine", () => {
     await runHere(
       context,
       job({
-        local: [{ command: "eas", args: ["build"], secrets: [{ flag: "--env", name: "TOKEN" }] }],
+        local: [
+          { command: "storectl", args: ["build"], secrets: [{ flag: "--env", name: "TOKEN" }] },
+        ],
       }),
       { tag: "app@1.0.0", environment: "production" },
     );
@@ -145,24 +149,24 @@ describe("Feature: shipping an app from this machine", () => {
 
   it("given a command that fails, when the job runs, then it stops there, says the exit status, and still cleans up", async () => {
     const { context, shell, host } = world();
-    shell.seed("flyctl deploy", { status: 3 });
+    shell.seed("hostctl deploy", { status: 3 });
 
     await expect(
       runHere(
         context,
         job({
           local: [
-            { command: "flyctl", args: ["deploy"] },
-            { command: "flyctl", args: ["scale"] },
+            { command: "hostctl", args: ["deploy"] },
+            { command: "hostctl", args: ["scale"] },
           ],
           cleanup: [{ command: "git", args: ["checkout", "app.json"] }],
           record: true,
         }),
         { tag: "api@0.1.0", environment: "preview" },
       ),
-    ).rejects.toThrow("flyctl exited with 3");
+    ).rejects.toThrow("hostctl exited with 3");
 
-    expect(lines(shell)).toEqual(["flyctl deploy", "git checkout app.json"]);
+    expect(lines(shell)).toEqual(["hostctl deploy", "git checkout app.json"]);
     expect(host.received).toEqual([]);
   });
 });
@@ -177,7 +181,10 @@ describe("Feature: shipping exactly what a tag holds", () => {
 
     await runHere(
       context,
-      job({ from: "api@0.1.0", local: [{ command: "flyctl", args: ["deploy"], cwd: "apps/api" }] }),
+      job({
+        from: "api@0.1.0",
+        local: [{ command: "hostctl", args: ["deploy"], cwd: "apps/api" }],
+      }),
       { tag: "api@0.1.0", environment: "preview" },
     );
 
@@ -199,7 +206,7 @@ describe("Feature: shipping exactly what a tag holds", () => {
         env: undefined,
       },
       { command: "pnpm", args: ["install", "--frozen-lockfile"], cwd: dir, env: undefined },
-      { command: "flyctl", args: ["deploy"], cwd: path.join(dir, "apps/api"), env: undefined },
+      { command: "hostctl", args: ["deploy"], cwd: path.join(dir, "apps/api"), env: undefined },
     ]);
   });
 

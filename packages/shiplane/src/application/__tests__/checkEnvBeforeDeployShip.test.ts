@@ -25,13 +25,13 @@ const platformHolding = (held: EnvVarName[], reads = { count: 0 }) => ({
     return Promise.resolve(new Set(held));
   },
   setCommand: ({ names: unset }: { names: readonly EnvVarName[] }) =>
-    `fly secrets set --stage -a acme-api ${unset.map((name) => `${name}=...`).join(" ")}`,
+    `hostctl secrets set --stage -a acme-api ${unset.map((name) => `${name}=...`).join(" ")}`,
 });
 
-const FLY_SIGN_IN = {
-  label: "flyctl",
-  check: { command: "flyctl", args: ["auth", "whoami"] },
-  fix: { command: "flyctl", args: ["auth", "login"] },
+const CLOUD_SIGN_IN = {
+  label: "hostctl",
+  check: { command: "hostctl", args: ["auth", "whoami"] },
+  fix: { command: "hostctl", args: ["auth", "login"] },
 };
 
 const setUp = (
@@ -53,7 +53,7 @@ const setUp = (
         serverHosting: {
           ...hosting,
           env: () => platformHolding(held, reads),
-          ...(signIn ? { requirements: () => [FLY_SIGN_IN] } : {}),
+          ...(signIn ? { requirements: () => [CLOUD_SIGN_IN] } : {}),
         },
       }),
     ],
@@ -80,15 +80,15 @@ describe("a deploy with env to check", () => {
     expect(shell.calls.map(({ args }) => args)).toContainEqual(["deploy", "acme-api", "api@0.1.0"]);
   });
 
-  it("given flyctl signed out, when api ships to preview from CI with --yes, then it stops at the sign-in and never reads the platform", async () => {
+  it("given hostctl signed out, when api ships to preview from CI with --yes, then it stops at the sign-in and never reads the platform", async () => {
     const { context, shell, output, reads } = setUp(names("SENTRY_DSN"), {
       yes: true,
       signIn: true,
     });
-    shell.seed("flyctl auth whoami", { status: 1 });
+    shell.seed("hostctl auth whoami", { status: 1 });
 
     expect(await shipTo(context, "preview", { via: "local" })).toBe(false);
-    expect(output.text).toContain("Not signed in: flyctl");
+    expect(output.text).toContain("Not signed in: hostctl");
     expect(reads.count).toBe(0);
     expect(shell.calls.map(({ args }) => args)).not.toContainEqual([
       "deploy",

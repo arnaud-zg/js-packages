@@ -43,16 +43,14 @@ describe("the env a deploy checks on the platform", () => {
 });
 
 describe("the env vars a platform is missing", () => {
-  const expected = new Set(
-    names("SENTRY_DSN", "WAITLIST_CONFIRM_URL", "CLOUDFLARE_R2_BUCKET_NAME"),
-  );
+  const expected = new Set(names("SENTRY_DSN", "WAITLIST_CONFIRM_URL", "PAGES_R2_BUCKET_NAME"));
 
   it("given a platform that holds every name, when compared, then nothing is unset", () => {
     expect(findUnset({ expected, setOnPlatform: expected }).isEmpty()).toBe(true);
   });
 
   it("given a platform missing two names, when compared, then those two are unset, in the listed order", () => {
-    const setOnPlatform = new Set<EnvVarName>(names("CLOUDFLARE_R2_BUCKET_NAME", "OLD_KEY"));
+    const setOnPlatform = new Set<EnvVarName>(names("PAGES_R2_BUCKET_NAME", "OLD_KEY"));
 
     expect(findUnset({ expected, setOnPlatform }).names()).toEqual([
       "SENTRY_DSN",

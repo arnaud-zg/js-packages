@@ -8,18 +8,18 @@ import { retrying } from "../retrying";
 
 describe("what a plugin builds its adapters on", () => {
   it("given a command that fails, when it must succeed, then it throws its first error line and keeps all it printed", async () => {
-    const shell = new RecordingShell().seed("flyctl deploy", {
+    const shell = new RecordingShell().seed("hostctl deploy", {
       status: 1,
       stdout: "building\n",
-      stderr: "\n  Error: no access token  \nrun flyctl auth login\n",
+      stderr: "\n  Error: no access token  \nrun hostctl auth login\n",
     });
 
     await expect(
-      mustCapture({ shell, command: "flyctl", args: ["deploy", "--remote-only"] }),
+      mustCapture({ shell, command: "hostctl", args: ["deploy", "--remote-only"] }),
     ).rejects.toMatchObject({
       name: "CommandFailed",
-      message: "flyctl deploy exited with 1: Error: no access token",
-      output: "Error: no access token  \nrun flyctl auth login\nbuilding",
+      message: "hostctl deploy exited with 1: Error: no access token",
+      output: "Error: no access token  \nrun hostctl auth login\nbuilding",
     });
   });
 

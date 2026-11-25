@@ -47,11 +47,13 @@ const given = ({
   interactive = true,
   secrets = ["EXPO_TOKEN"],
 }: { files?: Record<string, string>; interactive?: boolean; secrets?: string[] } = {}) => {
-  const eas = { ...serverHostingFake(), name: "eas" };
-  eas.fake.seed({
-    requirements: [{ label: "eas", check: { command: "eas", args: ["whoami"] }, secrets }],
+  const storectl = { ...serverHostingFake(), name: "storectl" };
+  storectl.fake.seed({
+    requirements: [
+      { label: "storectl", check: { command: "storectl", args: ["whoami"] }, secrets },
+    ],
   });
-  const repo = memoryRepository({ ...REPO, ...files }, [eas], { interactive });
+  const repo = memoryRepository({ ...REPO, ...files }, [storectl], { interactive });
   const context = runningShiplane(repo.context, "0.6.0", callingPipeline(["0.6.0"]));
   return { ...repo, context };
 };
@@ -75,7 +77,7 @@ describe("Feature: doctor checks ship.yml passes the secrets the adapters need",
     expect(await doctor(context)).toBe(true);
 
     expect(output.lines).toContain(
-      "│  ✗ ship.yml passes no EXPO_TOKEN, and apps/expo ships with eas; passes SENTRY_TOKEN, which no adapter needs",
+      "│  ✗ ship.yml passes no EXPO_TOKEN, and apps/expo ships with storectl; passes SENTRY_TOKEN, which no adapter needs",
     );
     const [asked = ""] = prompter.asked;
     expect(asked).toBe(
@@ -126,7 +128,7 @@ describe("Feature: doctor checks ship.yml passes the secrets the adapters need",
     expect(await doctor(context, { yes: true })).toBe(true);
 
     expect(output.lines).toContain(
-      "│  ✗ ship.yml passes no EXPO_TOKEN, and apps/expo ships with eas",
+      "│  ✗ ship.yml passes no EXPO_TOKEN, and apps/expo ships with storectl",
     );
     expect(files.read(SHIP_YML)).toBe(FIXED);
   });
@@ -179,7 +181,7 @@ describe("Feature: doctor checks ship.yml passes the secrets the adapters need",
     expect(await doctor(context, { yes: true })).toBe(true);
 
     expect(output.lines).toContain(
-      "│  ✗ ship.yml passes no EXPO_TOKEN, and apps/expo ships with eas",
+      "│  ✗ ship.yml passes no EXPO_TOKEN, and apps/expo ships with storectl",
     );
     expect(files.read(SHIP_YML)).toBe(
       callerFor("0.6.0", { ...app, secrets: ["EXPO_TOKEN", ...app.secrets] }),

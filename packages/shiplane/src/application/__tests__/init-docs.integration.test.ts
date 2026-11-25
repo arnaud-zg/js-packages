@@ -69,14 +69,14 @@ describe("Feature: reading which keys a module or adapter takes", () => {
     const { context, output } = given([
       {
         ...serverHostingFake(),
-        name: "fly",
+        name: "cloud",
         settings: z.object({ "machine-size-name": z.string() }),
       },
     ]);
 
-    expect(await docsFor(context, "fly")).toBe(true);
+    expect(await docsFor(context, "cloud")).toBe(true);
 
-    expect(output.lines[1]).toBe("  fly  adapter");
+    expect(output.lines[1]).toBe("  cloud  adapter");
     expect(output.lines[3]).toBe(`  ${"machine-size-name".padEnd(19)}`);
   });
 

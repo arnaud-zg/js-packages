@@ -13,7 +13,7 @@ const CONFIG = {
     },
     versioning: { use: "changesets", with: { version: ["pnpm", "-s", "changeset:version"] } },
   },
-  modules: [{ use: "web-app", with: { staticHosting: "cloudflare-pages" } }],
+  modules: [{ use: "web-app", with: { staticHosting: "pages" } }],
 };
 
 describe("shiplane.yml as shiplane writes it", () => {
