@@ -53,6 +53,26 @@ In the package's `shiplane.unit.yml`, next to `module: published-package`.
 
 Source: `NpmOptions` in `src/npm-package-registry.adapter.ts`.
 
+## 🛡️ Staged publishing (recommended)
+
+```ts
+publishedPackage({ packageRegistry: npmPackageRegistry({ staged: true }) });
+```
+
+Off by default. A release is uploaded with
+[`npm stage publish`](https://docs.npmjs.com/staged-publishing) and is not installable until a
+maintainer approves it with 2FA: on npmjs.com (Staged Packages), or `npm stage approve <stage-id>`
+(npm 11.15 or later). Shipping again while it waits uploads nothing. Test releases still publish at
+once.
+
+It needs Node 22.14, pnpm 10 (`pnpm pack --out`), and 2FA on your npm account; shiplane fetches a
+recent npm with `npx`. A package npm never saw gets a public `0.0.0-stage` placeholder. The git tag
+and the GitHub Release do not wait for the approval.
+
+To close the direct route too, in each package's npm settings: require 2FA and disallow tokens. To
+stage from GitHub Actions, trust your `ship.yml` for `npm stage publish` only; `shiplane doctor`
+adds the `id-token: write` permission it needs.
+
 ## 🧪 Example
 
 From [`examples/packages/toolkit/shiplane.unit.yml`](./examples/packages/toolkit/shiplane.unit.yml):
