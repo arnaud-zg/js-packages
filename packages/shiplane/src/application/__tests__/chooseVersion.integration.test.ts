@@ -8,7 +8,7 @@ import { changesetText, testContext, testUnit } from "../../testing/releaseConte
 import { openReleasePr } from "../openReleasePr";
 import { prepareRelease } from "../prepareRelease";
 
-const VERSION = "Release these to preview as (Esc cancels)";
+const VERSION = "Release these to staging as (Esc cancels)";
 const WHY_MAJOR = "Why 1.0.0? Tell users what changed, in one line.";
 const WHY_PATCH = "Why 0.4.1? Tell users what changed, in one line.";
 
@@ -253,8 +253,8 @@ describe("when no version is asked", () => {
 
     await release(world, ["api", "site"]);
 
-    expect(world.prompter.asked).toEqual(["Release these to preview?"]);
-    expect(world.prompter.initials["Release these to preview?"]).toBe(true);
+    expect(world.prompter.asked).toEqual(["Release these to staging?"]);
+    expect(world.prompter.initials["Release these to staging?"]).toBe(true);
     expect(world.versioning.applied[0]?.ceiling).toBeUndefined();
   });
 

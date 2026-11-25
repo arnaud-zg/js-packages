@@ -32,7 +32,7 @@ permissions:
 jobs:
   ship:
     name: Ship to ${{ inputs.environment }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # A dry run names none: naming one records a deployment.
     environment: ${{ !inputs.dry-run && inputs.environment || '' }}
     concurrency:

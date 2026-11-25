@@ -65,29 +65,29 @@ const setUp = (
 };
 
 describe("a deploy with env to check", () => {
-  it("given SENTRY_DSN unset on the platform, when api ships to preview from CI with --yes, then nothing runs", async () => {
+  it("given SENTRY_DSN unset on the platform, when api ships to staging from CI with --yes, then nothing runs", async () => {
     const { context, shell, output } = setUp([], { yes: true });
 
-    expect(await shipTo(context, "preview", { via: "local" })).toBe(false);
+    expect(await shipTo(context, "staging", { via: "local" })).toBe(false);
     expect(shell.calls).toEqual([]);
     expect(output.text).toContain("SENTRY_DSN");
   });
 
-  it("given SENTRY_DSN set on the platform, when api ships to preview from CI with --yes, then it deploys as before", async () => {
+  it("given SENTRY_DSN set on the platform, when api ships to staging from CI with --yes, then it deploys as before", async () => {
     const { context, shell } = setUp(names("SENTRY_DSN"), { yes: true });
 
-    expect(await shipTo(context, "preview", { via: "local" })).toBe(true);
+    expect(await shipTo(context, "staging", { via: "local" })).toBe(true);
     expect(shell.calls.map(({ args }) => args)).toContainEqual(["deploy", "acme-api", "api@0.1.0"]);
   });
 
-  it("given hostctl signed out, when api ships to preview from CI with --yes, then it stops at the sign-in and never reads the platform", async () => {
+  it("given hostctl signed out, when api ships to staging from CI with --yes, then it stops at the sign-in and never reads the platform", async () => {
     const { context, shell, output, reads } = setUp(names("SENTRY_DSN"), {
       yes: true,
       signIn: true,
     });
     shell.seed("hostctl auth whoami", { status: 1 });
 
-    expect(await shipTo(context, "preview", { via: "local" })).toBe(false);
+    expect(await shipTo(context, "staging", { via: "local" })).toBe(false);
     expect(output.text).toContain("Not signed in: hostctl");
     expect(reads.count).toBe(0);
     expect(shell.calls.map(({ args }) => args)).not.toContainEqual([
@@ -97,7 +97,7 @@ describe("a deploy with env to check", () => {
     ]);
   });
 
-  it("given SENTRY_DSN unset and a changeset to release, when releasing to preview, then it stops before the release PR is opened", async () => {
+  it("given SENTRY_DSN unset and a changeset to release, when releasing to staging, then it stops before the release PR is opened", async () => {
     const world = setUp([]);
     world.versioning.seed({
       pending: [{ id: SENTRY.id, text: changesetText({ "@acme/api": "patch" }, SENTRY.summary) }],
@@ -105,7 +105,7 @@ describe("a deploy with env to check", () => {
     });
 
     expect(await releaseToEntry(world.context)).toBe(false);
-    expect(world.output.text).toContain("api on preview: 1 unset env vars");
+    expect(world.output.text).toContain("api on staging: 1 unset env vars");
     expect(world.host.received).toEqual([]);
   });
 });

@@ -23,8 +23,8 @@ modules: [backendService({ name: "custom", serverHosting: shellServerHosting() }
 ```yaml
 module: custom
 deploy:
-  preview: [npx, my-host, deploy, --env, preview]
-  production: [npx, my-host, deploy, --env, production]
+  staging: [npx, my-host, deploy, --env, staging]
+  prod: [npx, my-host, deploy, --env, prod]
 ```
 
 ## Swap a provider

@@ -322,8 +322,8 @@ describe("rehearsing a ship through CI held in memory", () => {
     expect(fake.received).toEqual([
       { type: "dispatch", workflow: "ship.yml", ref: "v1", inputs: { app: "api" } },
     ]);
-    expect(fake.dispatchLine("ship.yml", "v1", { app: "api", env: "preview" })).toBe(
-      "fake-ci run ship.yml --ref v1 -f app=api -f env=preview",
+    expect(fake.dispatchLine("ship.yml", "v1", { app: "api", env: "staging" })).toBe(
+      "fake-ci run ship.yml --ref v1 -f app=api -f env=staging",
     );
     expect(fake.workflowFile("ship.yml")).toBe("ci/ship.yml");
     expect([fake.label, fake.shipWorkflow, new CiPipelineFake("deploy.yml").shipWorkflow]).toEqual([
@@ -334,7 +334,7 @@ describe("rehearsing a ship through CI held in memory", () => {
   });
 
   it("given past runs and their minutes, when a release estimates its time, then only that workflow's runs count", async () => {
-    const run = { title: "Deploy v1 to preview", state: "done" as const };
+    const run = { title: "Deploy v1 to staging", state: "done" as const };
     const fake = new CiPipelineFake().seed({
       workflowRuns: { "ship.yml": [run] },
       measured: { "ship.yml": [3, 4] },

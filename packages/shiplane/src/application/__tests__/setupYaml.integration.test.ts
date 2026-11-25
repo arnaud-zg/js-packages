@@ -56,8 +56,8 @@ flow:
   versioning: changesets
 deployApps:
   promote:
-    - from: preview
-      to: production
+    - from: staging
+      to: prod
 # What gets released, in this order. The first app is the repository's Latest release.
 modules:
   - use: backend-service

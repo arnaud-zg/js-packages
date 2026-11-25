@@ -34,7 +34,7 @@ const input = (extra: object = {}): AppInput & { bump: undefined } => ({
   flow: TEST_FLOW,
   unit: PLUGIN,
   tag: "reviewer@0.1.0",
-  environment: "preview",
+  environment: "staging",
   options: {},
   commit: "c1",
   defaultBranch: "main",

@@ -58,7 +58,7 @@ const TRANSLATIONS: StatusPlan = {
   ],
 };
 
-describe("apps a preview release takes along without being picked", () => {
+describe("apps a staging release takes along without being picked", () => {
   it("given only expo picked and its changes move assets, when the release is planned, then api and admin go too, each with the package that drags it", () => {
     expect(draggedUnits(TRANSLATIONS, DEPENDENCIES, SAMPLE_UNITS, new Set(["expo"]))).toEqual([
       {
@@ -85,7 +85,7 @@ describe("apps a preview release takes along without being picked", () => {
 
 const notes = (...lines: string[]) => `### Patch Changes\n\n${lines.join("\n")}`;
 
-describe("apps preview ran together, offered when promoting to production", () => {
+describe("apps staging ran together, offered when promoting to prod", () => {
   const expo = {
     app: "expo",
     version: "0.3.0",
@@ -106,12 +106,12 @@ describe("apps preview ran together, offered when promoting to production", () =
       ),
     };
 
-    expect(releasedTogether([expo], [api], "preview")).toEqual([
+    expect(releasedTogether([expo], [api], "staging")).toEqual([
       {
         app: "api",
         version: "0.0.8",
         with: ["expo"],
-        why: "went to preview with expo 0.3.0 for: An identification you left running is pushed to your phone when it ends, even…",
+        why: "went to staging with expo 0.3.0 for: An identification you left running is pushed to your phone when it ends, even…",
       },
     ]);
   });
@@ -123,12 +123,12 @@ describe("apps preview ran together, offered when promoting to production", () =
       notes: notes("- Updated dependencies [9f1e2d3]", "  - @acme/assets@0.1.1"),
     };
 
-    expect(releasedTogether([expo], [admin], "preview")).toEqual([
+    expect(releasedTogether([expo], [admin], "staging")).toEqual([
       {
         app: "admin",
         version: "0.1.5",
         with: ["expo"],
-        why: "went to preview with expo 0.3.0 for: the mascot's inbox says when a result is new.",
+        why: "went to staging with expo 0.3.0 for: the mascot's inbox says when a result is new.",
       },
     ]);
   });
@@ -149,12 +149,12 @@ describe("apps preview ran together, offered when promoting to production", () =
       ),
     };
 
-    expect(releasedTogether([expoMoved], [admin], "preview")).toEqual([
+    expect(releasedTogether([expoMoved], [admin], "staging")).toEqual([
       {
         app: "admin",
         version: "0.1.4",
         with: ["expo"],
-        why: "went to preview with expo 0.2.0: both use @acme/es-core, which moved",
+        why: "went to staging with expo 0.2.0: both use @acme/es-core, which moved",
       },
     ]);
   });
@@ -166,6 +166,6 @@ describe("apps preview ran together, offered when promoting to production", () =
       notes: notes("- 5b6c7d8: Search results show the store links."),
     };
 
-    expect(releasedTogether([expo], [landing], "preview")).toEqual([]);
+    expect(releasedTogether([expo], [landing], "staging")).toEqual([]);
   });
 });

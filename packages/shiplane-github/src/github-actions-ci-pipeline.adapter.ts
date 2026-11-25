@@ -54,7 +54,7 @@ const checkedOut = (apps: readonly string[]) =>
 /** The job: its own environment and permissions, and one step that ships, given secrets by name. */
 const shipJob = (pin: string, needs: CallerNeeds) => [
   "    name: Ship to ${{ inputs.environment }}",
-  "    runs-on: ubuntu-latest",
+  "    runs-on: ubuntu-26.04",
   "    # A dry run names none: naming one records a deployment.",
   "    environment: ${{ !inputs.dry-run && inputs.environment || '' }}",
   "    concurrency:",

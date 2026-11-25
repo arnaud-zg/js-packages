@@ -141,7 +141,7 @@ describe("the mobile release", () => {
     expect(mobileRelease("update", undefined, "0.1.114")).toEqual({ ships: "nothing" });
   });
 
-  it("given a preview build still running, when planned, then the release waits for it rather than guess the native layer", () => {
+  it("given a staging build still running, when planned, then the release waits for it rather than guess the native layer", () => {
     expect(mobileRelease("wait", expo, "0.1.114")).toEqual({
       ships: "blocked",
       why: "build-running",
@@ -154,7 +154,7 @@ describe("the mobile release", () => {
 });
 
 describe("the changesets the release adds", () => {
-  it("given a preview build of a version no changeset names, when planned, then expo gets a patch naming the native change", () => {
+  it("given a staging build of a version no changeset names, when planned, then expo gets a patch naming the native change", () => {
     const added = releaseChangesets(
       { ships: "build", version: "0.1.115", nativeChangeset: true },
       ["~ packages/react-native-subject-finder"],
@@ -167,7 +167,7 @@ describe("the changesets the release adds", () => {
     });
   });
 
-  it("given a preview build with an expo changeset, when planned, then the release adds nothing", () => {
+  it("given a staging build with an expo changeset, when planned, then the release adds nothing", () => {
     expect(
       releaseChangesets(
         { ships: "build", version: "0.2.0", nativeChangeset: false },
@@ -182,10 +182,10 @@ describe("the changesets the release adds", () => {
   });
 });
 
-describe("shipping mobile to preview", () => {
+describe("shipping mobile to staging", () => {
   const released = { tagged: true, codeSinceTag: false, codeShipped: false };
 
-  it("given the release moved the preview version, when shipping, then it builds", () => {
+  it("given the release moved the staging version, when shipping, then it builds", () => {
     expect(mobileShip("build", released)).toBe("build");
   });
 
@@ -216,25 +216,25 @@ describe("shipping mobile to preview", () => {
   });
 });
 
-describe("production", () => {
-  it("given --yes, when releasing to production, then it is refused: production always asks", () => {
-    expect(yesAllowed("production", true, TEST_FLOW)).toBe(false);
+describe("prod", () => {
+  it("given --yes, when releasing to prod, then it is refused: prod always asks", () => {
+    expect(yesAllowed("prod", true, TEST_FLOW)).toBe(false);
   });
 
-  it("given --yes, when releasing to preview, then every step is accepted", () => {
-    expect(yesAllowed("preview", true, TEST_FLOW)).toBe(true);
+  it("given --yes, when releasing to staging, then every step is accepted", () => {
+    expect(yesAllowed("staging", true, TEST_FLOW)).toBe(true);
   });
 
-  it("given only version files changed since the tag, when checked, then main still ships what preview validated", () => {
+  it("given only version files changed since the tag, when checked, then main still ships what staging validated", () => {
     expect(
       onlyVersionFiles(
-        ["apps/expo/app-version.json", "apps/api/public/app-version.production.json"],
+        ["apps/expo/app-version.json", "apps/api/public/app-version.prod.json"],
         SAMPLE_VERSION_FILES,
       ),
     ).toBe(true);
   });
 
-  it("given code changed since the tag, when checked, then main holds code preview never ran", () => {
+  it("given code changed since the tag, when checked, then main holds code staging never ran", () => {
     expect(
       onlyVersionFiles(
         ["apps/expo/app-version.json", "packages/app/src/home.tsx"],
@@ -253,19 +253,19 @@ describe("production", () => {
     partialRollout: false,
   };
 
-  it("given production's binary predates a native change, when promoted, then a promotion PR moves its version first", () => {
+  it("given prod's binary predates a native change, when promoted, then a promotion PR moves its version first", () => {
     expect(usersMobile("build", state)).toBe("promote");
   });
 
-  it("given the promotion PR merged, when shipping, then production builds that version", () => {
+  it("given the promotion PR merged, when shipping, then prod builds that version", () => {
     expect(usersMobile("build", { ...state, usersVersion: "0.2.1" })).toBe("build");
   });
 
-  it("given the same native layer as production's binary, when shipping, then the release goes over the air", () => {
+  it("given the same native layer as prod's binary, when shipping, then the release goes over the air", () => {
     expect(usersMobile("update", state)).toBe("update");
   });
 
-  it("given the build is done and live, when resumed, then production is shipped", () => {
+  it("given the build is done and live, when resumed, then prod is shipped", () => {
     expect(
       usersMobile("submit", {
         ...state,
@@ -276,17 +276,17 @@ describe("production", () => {
     ).toBe("shipped");
   });
 
-  it("given the update of this release reaches only part of production, when resumed, then the rollout is finished", () => {
+  it("given the update of this release reaches only part of prod, when resumed, then the rollout is finished", () => {
     expect(usersMobile("update", { ...state, codeShipped: true, partialRollout: true })).toBe(
       "finish-rollout",
     );
   });
 
-  it("given main holds code preview never ran, when shipping, then production refuses", () => {
+  it("given main holds code staging never ran, when shipping, then prod refuses", () => {
     expect(usersMobile("update", { ...state, sinceTagOnlyVersionFiles: false })).toBe("moved-past");
   });
 
-  it("given no expo release yet, when promoting, then production has nothing to take", () => {
+  it("given no expo release yet, when promoting, then prod has nothing to take", () => {
     expect(usersMobile("build", { ...state, tagged: false })).toBe("nothing");
   });
 });
@@ -377,10 +377,10 @@ describe("one platform's verdict", () => {
 });
 
 describe("the release plan", () => {
-  it("given every platform can take an update, when planned for preview, then it says to publish the update", () => {
+  it("given every platform can take an update, when planned for staging, then it says to publish the update", () => {
     const verdicts = [state({ platform: "ios" }), state()].map(platformVerdict);
 
-    expect(releasePlan({ channel: "preview", flow: TEST_FLOW }, verdicts, "expo")).toEqual({
+    expect(releasePlan({ channel: "staging", flow: TEST_FLOW }, verdicts, "expo")).toEqual({
       action: "update",
       commands: ["pnpm shiplane ship expo"],
     });
@@ -392,7 +392,7 @@ describe("the release plan", () => {
       state({ local: local({ fingerprint: "9fec49ed" }) }),
     ].map(platformVerdict);
 
-    expect(releasePlan({ channel: "preview", flow: TEST_FLOW }, verdicts, "expo")).toEqual({
+    expect(releasePlan({ channel: "staging", flow: TEST_FLOW }, verdicts, "expo")).toEqual({
       action: "build",
       commands: ["pnpm shiplane ship expo"],
     });
@@ -404,7 +404,7 @@ describe("the release plan", () => {
       state({ local: local({ version: "0.1.112" }) }),
     ].map(platformVerdict);
 
-    expect(releasePlan({ channel: "preview", flow: TEST_FLOW }, verdicts, "expo")).toEqual({
+    expect(releasePlan({ channel: "staging", flow: TEST_FLOW }, verdicts, "expo")).toEqual({
       action: "pull",
       commands: ["git fetch origin", "git merge origin/main", "pnpm shiplane"],
     });
@@ -416,16 +416,16 @@ describe("the release plan", () => {
       state({ local: local({ fingerprint: "9fec49ed" }) }),
     ].map(platformVerdict);
 
-    expect(releasePlan({ channel: "preview", flow: TEST_FLOW }, verdicts, "expo").action).toBe(
+    expect(releasePlan({ channel: "staging", flow: TEST_FLOW }, verdicts, "expo").action).toBe(
       "pull",
     );
   });
 
-  it("given production can take an update, when planned, then every command names the channel", () => {
+  it("given prod can take an update, when planned, then every command names the channel", () => {
     expect(
-      releasePlan({ channel: "production", flow: TEST_FLOW }, [platformVerdict(state())], "expo")
+      releasePlan({ channel: "prod", flow: TEST_FLOW }, [platformVerdict(state())], "expo")
         .commands,
-    ).toEqual(["pnpm shiplane ship expo --channel production"]);
+    ).toEqual(["pnpm shiplane ship expo --channel prod"]);
   });
 });
 
@@ -443,7 +443,7 @@ describe("the version a build carries", () => {
   });
 });
 
-describe("an update's health on preview", () => {
+describe("an update's health on staging", () => {
   it("given launches on both platforms and no crash, when judged, then it looks well", () => {
     expect(
       updateHealth(
@@ -451,7 +451,7 @@ describe("an update's health on preview", () => {
           { platform: "ios", installs: 3, failedInstalls: 0 },
           { platform: "android", installs: 12, failedInstalls: 0 },
         ],
-        "preview",
+        "staging",
       ),
     ).toEqual({ ok: true, summary: "iOS 3 launches, 0 crashes · Android 12 launches, 0 crashes" });
   });
@@ -463,25 +463,25 @@ describe("an update's health on preview", () => {
           { platform: "ios", installs: 1, failedInstalls: 0 },
           { platform: "android", installs: 12, failedInstalls: 1 },
         ],
-        "preview",
+        "staging",
       ),
-    ).toMatchObject({ ok: false, why: "1 crash on preview" });
+    ).toMatchObject({ ok: false, why: "1 crash on staging" });
   });
 
-  it("given nobody launched it yet, when judged, then it looks unwell: preview never ran it", () => {
+  it("given nobody launched it yet, when judged, then it looks unwell: staging never ran it", () => {
     expect(
       updateHealth(
         [
           { platform: "ios", installs: 0, failedInstalls: 0 },
           { platform: "android", installs: 0, failedInstalls: 0 },
         ],
-        "preview",
+        "staging",
       ),
-    ).toMatchObject({ ok: false, why: "nobody has launched it on preview yet" });
+    ).toMatchObject({ ok: false, why: "nobody has launched it on staging yet" });
   });
 });
 
-describe("the next step of a production rollout", () => {
+describe("the next step of a prod rollout", () => {
   const healthy = { percentage: 10, launches: 460, crashes: 0, hoursOut: 48 };
 
   it("given 10% healthy for two days, when advised, then it widens to the next step, 25%", () => {

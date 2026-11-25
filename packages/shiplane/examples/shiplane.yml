@@ -7,7 +7,7 @@ flow:
 # How apps go to their users: the names are this repository's own.
 deployApps:
   promote:
-    - { from: preview, to: production }
+    - { from: staging, to: prod }
 # What gets released, in this order. The first app is the repository's Latest release.
 modules:
   - use: backend-service

@@ -27,7 +27,7 @@ export const callerFor = (version: string, needs = NOTHING, sha = `sha-${version
     "    steps:",
     `      - uses: acme/shiplane/.github/actions/ship@${sha} # shiplane@${version}`,
     "        with:",
-    "          environment: preview",
+    "          environment: staging",
     ...needs.secrets.map((name) => `          ${name}: \${{ secrets.${name} }}`),
     "",
   ].join("\n");

@@ -12,7 +12,7 @@ import {
   versioningFake,
 } from "shiplane/testing";
 
-export default defineRelease({ deployApps: { promote: [{ from: "preview", to: "production" }] },
+export default defineRelease({ deployApps: { promote: [{ from: "staging", to: "prod" }] },
   flow: releaseFlow({
     sourceControl: sourceControlFake(),
     codeHost: codeHostFake(),
@@ -96,16 +96,16 @@ describe("the built shiplane CLI, installed in a repository", () => {
     expect(output).toContain("api@1.0.0 → ./deploy.sh --fast  (not tagged yet: release first)");
     expect(output).toContain("      ./deploy.sh --fast");
     expect(output).toContain(
-      "fake-ci run ship.yml --ref api@1.0.0 -f units=api -f environment=preview",
+      "fake-ci run ship.yml --ref api@1.0.0 -f units=api -f environment=staging",
     );
   });
 
-  it("given promote --dry-run, when it runs, then it prints what production would run and runs nothing", () => {
+  it("given promote --dry-run, when it runs, then it prints what prod would run and runs nothing", () => {
     const { status, output } = install().shiplane(["promote", "--dry-run"]);
 
     expect(status).toBe(0);
     expect(output).toContain(
-      "fake-ci run ship.yml --ref api@1.0.0 -f units=api -f environment=production",
+      "fake-ci run ship.yml --ref api@1.0.0 -f units=api -f environment=prod",
     );
   });
 

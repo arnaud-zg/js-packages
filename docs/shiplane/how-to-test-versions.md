@@ -105,10 +105,10 @@ export default defineRelease({
 ### Deploy a branch
 
 ```ts
-deployApps: { onBranch: "preview" },
+deployApps: { onBranch: "staging" },
 ```
 
-A snapshot test release on a branch then also deploys its pending apps to `preview`, from this
+A snapshot test release on a branch then also deploys its pending apps to `staging`, from this
 machine and asked first. It replaces what runs there until the next release. It is not recorded as a
 deploy: nothing is promoted from it. Mobile apps on EAS are left out, as are runs on CI, and it is
 never where users are.

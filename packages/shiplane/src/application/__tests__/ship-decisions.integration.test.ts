@@ -26,59 +26,59 @@ const rollout = (overrides: Partial<Extract<Decision, { action: "choose" }>> = {
 });
 
 describe("Feature: skipping apps the deploy records say need nothing", () => {
-  it("given api's deploy done on preview, when shipping to preview, then api is already there and nothing ships", async () => {
+  it("given api's deploy done on staging, when shipping to staging, then api is already there and nothing ships", async () => {
     // given
     const { context, host, ci, output, progress } = shipWorld(["api"], { yes: true });
-    host.seed({ deployments: [{ title: "Deploy api@0.1.0 to preview", state: "done" }] });
+    host.seed({ deployments: [{ title: "Deploy api@0.1.0 to staging", state: "done" }] });
 
     // when
-    const ok = await shipTo(context, "preview", { via: "ci" });
+    const ok = await shipTo(context, "staging", { via: "ci" });
 
     // then
     expect(ok).toBe(true);
     expect(output.lines).toContain("  · api@0.1.0  already there");
-    expect(output.lines).toContain("Nothing to ship to preview.");
+    expect(output.lines).toContain("Nothing to ship to staging.");
     expect(progress.events).toContainEqual({
       kind: "say",
       mood: "resting",
-      text: "Nothing to ship to preview.",
+      text: "Nothing to ship to staging.",
     });
     expect(ci.received).toEqual([]);
   });
 
-  it("given api's deploy running on preview, when shipping to preview, then api is shown deploying already", async () => {
+  it("given api's deploy running on staging, when shipping to staging, then api is shown deploying already", async () => {
     // given
     const { context, host, output } = shipWorld(["api"], { yes: true });
-    host.seed({ deployments: [{ title: "Deploy api@0.1.0 to preview", state: "running" }] });
+    host.seed({ deployments: [{ title: "Deploy api@0.1.0 to staging", state: "running" }] });
 
     // when
-    await shipTo(context, "preview", { via: "ci" });
+    await shipTo(context, "staging", { via: "ci" });
 
     // then
     expect(output.lines).toContain("  · api@0.1.0  deploying already");
   });
 
-  it("given api never on preview, when shipping to production, then it says to ship it to preview first and nothing ships", async () => {
+  it("given api never on staging, when shipping to prod, then it says to ship it to staging first and nothing ships", async () => {
     // given
     const { context, prompter, output } = shipWorld(["api"]);
-    prompter.answer("production");
+    prompter.answer("prod");
 
     // when
-    const ok = await shipTo(context, "production", { via: "ci" });
+    const ok = await shipTo(context, "prod", { via: "ci" });
 
     // then
     expect(ok).toBe(true);
-    expect(output.lines).toContain("  · api@0.1.0  not on preview yet: ship it there first");
-    expect(output.lines).toContain("Nothing to ship to production.");
+    expect(output.lines).toContain("  · api@0.1.0  not on staging yet: ship it there first");
+    expect(output.lines).toContain("Nothing to ship to prod.");
   });
 
-  it("given the deploy records cannot be read, when shipping to preview, then api ships as if never deployed", async () => {
+  it("given the deploy records cannot be read, when shipping to staging, then api ships as if never deployed", async () => {
     // given
     const { context, host, ci } = shipWorld(["api"], { yes: true });
     host.deployments = () => Promise.reject(new Error("offline"));
 
     // when
-    const ok = await shipTo(context, "preview", { via: "ci" });
+    const ok = await shipTo(context, "staging", { via: "ci" });
 
     // then
     expect(ok).toBe(true);
@@ -91,13 +91,13 @@ describe("Feature: skipping apps the deploy records say need nothing", () => {
     source.seed({ tags: { "api@0.1.0": "c-api" } });
 
     // when
-    await shipTo(context, "preview", { via: "ci" });
+    await shipTo(context, "staging", { via: "ci" });
 
     // then
     expect(progress.events).toContainEqual({
       kind: "during",
       mood: "thinking",
-      text: "Checking what api@0.1.0 needs on preview",
+      text: "Checking what api@0.1.0 needs on staging",
     });
   });
 
@@ -106,24 +106,24 @@ describe("Feature: skipping apps the deploy records say need nothing", () => {
     const { context, ci, output } = shipWorld(["api", "web"], { yes: true });
 
     // when
-    await shipTo(context, "preview", { via: "ci", scope: new Set(["web"]) });
+    await shipTo(context, "staging", { via: "ci", scope: new Set(["web"]) });
 
     // then
     expect(ci.received.map(({ inputs }) => inputs.units)).toEqual(["web"]);
     expect(output.text).not.toContain("api@0.1.0");
   });
 
-  it("given nothing tagged, when shipping web alone, then there is nothing to ship to preview", async () => {
+  it("given nothing tagged, when shipping web alone, then there is nothing to ship to staging", async () => {
     // given
     const { context, source, output } = shipWorld(["api", "web"], { yes: true });
     source.seed({ tags: {} });
 
     // when
-    const ok = await shipTo(context, "preview", { scope: new Set(["web"]) });
+    const ok = await shipTo(context, "staging", { scope: new Set(["web"]) });
 
     // then
     expect(ok).toBe(true);
-    expect(output.lines).toContain("Nothing to ship to preview.");
+    expect(output.lines).toContain("Nothing to ship to staging.");
   });
 });
 
@@ -136,7 +136,7 @@ describe("Feature: seeing what is checked while a ship decides", () => {
     const { context, progress } = shipWorld(["api"], { yes: true, deciding, decided: ["pkg"] });
 
     // when
-    await shipTo(context, "preview", { via: "ci" });
+    await shipTo(context, "staging", { via: "ci" });
 
     // then
     expect(progress.events).toContainEqual({
@@ -155,7 +155,7 @@ describe("Feature: seeing what is checked while a ship decides", () => {
     const { context, progress, output } = shipWorld([], { yes: true, deciding, decided: ["pkg"] });
 
     // when
-    await shipTo(context, "preview", {});
+    await shipTo(context, "staging", {});
 
     // then
     expect(progress.events.map(({ text }) => text)).toContain(
@@ -173,7 +173,7 @@ describe("Feature: seeing what is checked while a ship decides", () => {
     const { context, progress } = shipWorld([], { yes: true, deciding, decided: ["tool"] });
 
     // when
-    await shipTo(context, "preview", {});
+    await shipTo(context, "staging", {});
 
     // then
     expect(progress.events.map(({ text }) => text)).toContain("Checking what tool@0.1.0 needs");
@@ -188,7 +188,7 @@ describe("Feature: seeing what is checked while a ship decides", () => {
     const { context, output, shell } = shipWorld([], { yes: true, deciding, decided: ["pkg"] });
 
     // when
-    const ok = await shipTo(context, "preview", {});
+    const ok = await shipTo(context, "staging", {});
 
     // then
     expect(ok).toBe(true);
@@ -206,7 +206,7 @@ describe("Feature: choosing how far a rollout or build goes", () => {
     prompter.answer("half");
 
     // when
-    const ok = await shipTo(context, "preview", {});
+    const ok = await shipTo(context, "staging", {});
 
     // then
     expect(ok).toBe(true);
@@ -230,7 +230,7 @@ describe("Feature: choosing how far a rollout or build goes", () => {
     prompter.answer("hold");
 
     // when
-    const ok = await shipTo(context, "preview", {});
+    const ok = await shipTo(context, "staging", {});
 
     // then
     expect(ok).toBe(true);
@@ -246,13 +246,13 @@ describe("Feature: choosing how far a rollout or build goes", () => {
     prompter.answer("half", "ci", true);
 
     // when
-    await shipTo(context, "preview", {});
+    await shipTo(context, "staging", {});
 
     // then
     expect(prompter.asked).toEqual([
       "How far does a@0.1.0 go?",
-      "How should a@0.1.0 ship to preview?",
-      "Ship a@0.1.0 to preview through Fake CI?",
+      "How should a@0.1.0 ship to staging?",
+      "Ship a@0.1.0 to staging through Fake CI?",
     ]);
   });
 
@@ -274,7 +274,7 @@ describe("Feature: choosing how far a rollout or build goes", () => {
     });
 
     // when
-    const ok = await shipTo(context, "preview", {});
+    const ok = await shipTo(context, "staging", {});
 
     // then
     expect(ok).toBe(false);
@@ -294,7 +294,7 @@ describe("Feature: choosing how far a rollout or build goes", () => {
     context.options.ci = true;
 
     // when
-    const ok = await shipTo(context, "preview", {});
+    const ok = await shipTo(context, "staging", {});
 
     // then
     expect(ok).toBe(false);
@@ -307,7 +307,7 @@ describe("Feature: choosing how far a rollout or build goes", () => {
     const { context, output } = shipWorld([], { interactive: false, deciding, decided: ["a"] });
 
     // when
-    const ok = await shipTo(context, "preview", {});
+    const ok = await shipTo(context, "staging", {});
 
     // then
     expect(ok).toBe(true);
@@ -326,97 +326,95 @@ describe("Feature: choosing how far a rollout or build goes", () => {
     prompter.answer("go", true);
 
     // when
-    const ok = await shipTo(context, "preview", {});
+    const ok = await shipTo(context, "staging", {});
 
     // then
     expect(ok).toBe(true);
-    expect(prompter.asked).toEqual(["How far does a@0.1.0 go?", "Ship a@0.1.0 to preview?"]);
+    expect(prompter.asked).toEqual(["How far does a@0.1.0 go?", "Ship a@0.1.0 to staging?"]);
     expect(shell.calls.map(({ args }) => args)).toEqual([["build a"]]);
   });
 });
 
-describe("Feature: shipping to production only with a person's say-so", () => {
-  it("given --yes, when shipping to production, then it refuses and says to run it in a terminal", async () => {
+describe("Feature: shipping to prod only with a person's say-so", () => {
+  it("given --yes, when shipping to prod, then it refuses and says to run it in a terminal", async () => {
     // given
     const { context, output, ci } = shipWorld(["api"], { yes: true });
 
     // when
-    const ok = await shipTo(context, "production", { via: "ci" });
+    const ok = await shipTo(context, "prod", { via: "ci" });
 
     // then
     expect(ok).toBe(false);
-    expect(output.lines).toContain(
-      "✗ No --yes on production: every production step asks a person.",
-    );
-    expect(output.lines).toContain("    shiplane ship --channel production");
+    expect(output.lines).toContain("✗ No --yes on prod: every prod step asks a person.");
+    expect(output.lines).toContain("    shiplane ship --channel prod");
     expect(ci.received).toEqual([]);
   });
 
-  it("given --yes on a CI runner, when shipping to production, then it deploys without asking, the dispatch being the say-so", async () => {
+  it("given --yes on a CI runner, when shipping to prod, then it deploys without asking, the dispatch being the say-so", async () => {
     // given
     const { context, host, shell } = shipWorld(["api"], { yes: true });
     context.options.ci = true;
-    host.seed({ deployments: [{ title: "Deploy api@0.1.0 to preview", state: "done" }] });
+    host.seed({ deployments: [{ title: "Deploy api@0.1.0 to staging", state: "done" }] });
 
     // when
-    const ok = await shipTo(context, "production", {});
+    const ok = await shipTo(context, "prod", {});
 
     // then
     expect(ok).toBe(true);
     expect(shell.calls).toHaveLength(1);
   });
 
-  it("given the person types something other than production, when shipping to production, then nothing runs", async () => {
+  it("given the person types something other than prod, when shipping to prod, then nothing runs", async () => {
     // given
     const { context, prompter, output } = shipWorld(["api"]);
-    prompter.answer("prod");
+    prompter.answer("yes");
 
     // when
-    const ok = await shipTo(context, "production", { via: "ci" });
+    const ok = await shipTo(context, "prod", { via: "ci" });
 
     // then
     expect(ok).toBe(false);
-    expect(prompter.asked).toEqual(['Type "production" to start:']);
+    expect(prompter.asked).toEqual(['Type "prod" to start:']);
     expect(output.lines).toContain("Nothing ran.");
   });
 
-  it("given api on preview and production typed, when shipping to production, then the confirmation defaults to no and it ships", async () => {
+  it("given api on staging and prod typed, when shipping to prod, then the confirmation defaults to no and it ships", async () => {
     // given
     const { context, prompter, host, ci } = shipWorld(["api"]);
-    host.seed({ deployments: [{ title: "Deploy api@0.1.0 to preview", state: "done" }] });
-    prompter.answer("production", true);
-    const question = "Ship api@0.1.0 to production through Fake CI?";
+    host.seed({ deployments: [{ title: "Deploy api@0.1.0 to staging", state: "done" }] });
+    prompter.answer("prod", true);
+    const question = "Ship api@0.1.0 to prod through Fake CI?";
 
     // when
-    const ok = await shipTo(context, "production", { via: "ci" });
+    const ok = await shipTo(context, "prod", { via: "ci" });
 
     // then
     expect(ok).toBe(true);
     expect(prompter.initials[question]).toBe(false);
-    expect(ci.received.map(({ inputs }) => inputs.environment)).toEqual(["production"]);
+    expect(ci.received.map(({ inputs }) => inputs.environment)).toEqual(["prod"]);
   });
 });
 
 describe("Feature: declining a ship", () => {
-  it("given the person declines preview, when they also decline production, then nothing ships and the run ends fine", async () => {
+  it("given the person declines staging, when they also decline prod, then nothing ships and the run ends fine", async () => {
     // given
     const { context, prompter, output, ci } = shipWorld(["api"]);
     prompter.answer(false, false);
 
     // when
-    const ok = await shipTo(context, "preview", { via: "ci" });
+    const ok = await shipTo(context, "staging", { via: "ci" });
 
     // then
     expect(ok).toBe(true);
     expect(prompter.asked).toEqual([
-      "Ship api@0.1.0 to preview through Fake CI?",
-      "Ship to production instead?",
+      "Ship api@0.1.0 to staging through Fake CI?",
+      "Ship to prod instead?",
     ]);
     expect(output.lines).toContain("Nothing shipped.");
     expect(ci.received).toEqual([]);
   });
 
-  it("given the person declines preview, when they take production instead, then production asks for its name and ships there", async () => {
+  it("given the person declines staging, when they take prod instead, then prod asks for its name and ships there", async () => {
     // given
     const deciding = decidingModule((tag) => ({
       action: "ship",
@@ -424,30 +422,30 @@ describe("Feature: declining a ship", () => {
       jobs: [jobOn(`deploy ${tag}`, tag)],
     }));
     const { context, prompter, ci } = shipWorld([], { deciding, decided: ["api"] });
-    prompter.answer(false, true, "production", true);
+    prompter.answer(false, true, "prod", true);
 
     // when
-    const ok = await shipTo(context, "preview", { via: "ci" });
+    const ok = await shipTo(context, "staging", { via: "ci" });
 
     // then
     expect(ok).toBe(true);
     expect(prompter.asked).toEqual([
-      "Ship api@0.1.0 to preview through Fake CI?",
-      "Ship to production instead?",
-      'Type "production" to start:',
-      "Ship api@0.1.0 to production through Fake CI?",
+      "Ship api@0.1.0 to staging through Fake CI?",
+      "Ship to prod instead?",
+      'Type "prod" to start:',
+      "Ship api@0.1.0 to prod through Fake CI?",
     ]);
-    expect(ci.received.map(({ inputs }) => inputs.environment)).toEqual(["production"]);
+    expect(ci.received.map(({ inputs }) => inputs.environment)).toEqual(["prod"]);
   });
 
-  it("given the person declines production, when shipping to production, then preview is never offered instead", async () => {
+  it("given the person declines prod, when shipping to prod, then staging is never offered instead", async () => {
     // given
     const { context, prompter, host } = shipWorld(["api"]);
-    host.seed({ deployments: [{ title: "Deploy api@0.1.0 to preview", state: "done" }] });
-    prompter.answer("production", false);
+    host.seed({ deployments: [{ title: "Deploy api@0.1.0 to staging", state: "done" }] });
+    prompter.answer("prod", false);
 
     // when
-    const ok = await shipTo(context, "production", { via: "ci" });
+    const ok = await shipTo(context, "prod", { via: "ci" });
 
     // then
     expect(ok).toBe(true);
@@ -459,7 +457,7 @@ describe("Feature: declining a ship", () => {
     const { context, output, ci } = shipWorld(["api"], { interactive: false });
 
     // when
-    const ok = await shipTo(context, "preview", { via: "ci" });
+    const ok = await shipTo(context, "staging", { via: "ci" });
 
     // then
     expect(ok).toBe(true);
@@ -486,10 +484,10 @@ describe("Feature: running follow-ups once a ship is triggered", () => {
     ];
 
     // when
-    await shipTo(context, "preview", { via: "ci" });
+    await shipTo(context, "staging", { via: "ci" });
 
     // then
-    expect(told).toEqual([["api", "api@0.1.0", "preview"]]);
+    expect(told).toEqual([["api", "api@0.1.0", "staging"]]);
     expect(output.lines).toContain("  ✓ comment on #12");
   });
 });

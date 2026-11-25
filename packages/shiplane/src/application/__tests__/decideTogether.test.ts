@@ -69,12 +69,12 @@ const lineOf = (lines: readonly string[], tag: string) =>
   lines.findIndex((line) => line.includes(`${tag}  `));
 
 describe("checking what every unit needs at once", () => {
-  it("given six units, when shipping to preview, then four checks run together and never more", async () => {
+  it("given six units, when shipping to staging, then four checks run together and never more", async () => {
     const checks: Check[] = [];
     const running = { now: 0, peak: 0 };
     const { context } = setUp(NAMES, waitingModule(checks, running));
 
-    const shipped = shipTo(context, "preview", {});
+    const shipped = shipTo(context, "staging", {});
     await settle();
 
     expect(checks.map(({ tag }) => tag)).toEqual(["a@0.1.0", "b@0.1.0", "c@0.1.0", "d@0.1.0"]);
@@ -96,7 +96,7 @@ describe("checking what every unit needs at once", () => {
     const checks: Check[] = [];
     const { context, output } = setUp(NAMES, waitingModule(checks));
 
-    const shipped = shipTo(context, "preview", {});
+    const shipped = shipTo(context, "staging", {});
     for (let round = 0; round < 3; round += 1) {
       await settle();
       [...checks]
@@ -110,16 +110,16 @@ describe("checking what every unit needs at once", () => {
     expect([...order].sort((left, right) => left - right)).toEqual(order);
   });
 
-  it("given three units, when shipping to preview, then one line checks them all instead of one line each", async () => {
+  it("given three units, when shipping to staging, then one line checks them all instead of one line each", async () => {
     const { context, progress } = setUp(
       ["a", "b", "c"],
       answeringModule(() => ({ action: "none", status: "already there" })),
     );
 
-    await shipTo(context, "preview", {});
+    await shipTo(context, "staging", {});
 
     const checking = progress.events.filter(({ text }) => text.startsWith("Checking what"));
-    expect(checking.map(({ text }) => text)).toEqual(["Checking what 3 units need on preview"]);
+    expect(checking.map(({ text }) => text)).toEqual(["Checking what 3 units need on staging"]);
   });
 
   it("given every unit asks the person a question, when checks finish in reverse, then the questions come in unit order", async () => {
@@ -135,7 +135,7 @@ describe("checking what every unit needs at once", () => {
       held: "held",
     });
 
-    const shipped = shipTo(context, "preview", {});
+    const shipped = shipTo(context, "staging", {});
     await settle();
     [...checks].reverse().forEach(({ tag, answer }) => answer(choose(tag)));
 
@@ -162,7 +162,7 @@ describe("checking what every unit needs at once", () => {
       ),
     );
 
-    expect(await shipTo(context, "preview", {})).toBe(false);
+    expect(await shipTo(context, "staging", {})).toBe(false);
     expect(output.text).toContain("a@0.1.0  already there");
     expect(output.text).toContain("b cannot ship");
     expect(output.text).not.toContain("c@0.1.0");
@@ -195,7 +195,7 @@ describe("checking what every unit needs at once", () => {
     );
     host.seed({ prStates: { 1800: ["MERGED"] } });
 
-    expect(await shipTo(context, "preview", {})).toBe(true);
+    expect(await shipTo(context, "staging", {})).toBe(true);
     expect(output.text).toContain("b@0.1.0  after the move");
   });
 });

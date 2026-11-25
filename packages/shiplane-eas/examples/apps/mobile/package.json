@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "eas:update:preview": "eas update --channel preview --auto",
-    "eas:update:production": "eas update --channel production --auto"
+    "eas:update:prod": "eas update --channel prod --auto",
+    "eas:update:staging": "eas update --channel staging --auto"
   }
 }

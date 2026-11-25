@@ -70,11 +70,11 @@ describe("the comment a shipped PR or issue reads", () => {
       releaseComment({
         about: { repository: REPO, number: 1 },
         releases: [{ unit: "api", version: "1.0.0", tag: "api@1.0.0" }],
-        environment: "production",
+        environment: "prod",
         mention: { kind: "pr", refs: [{ repository: "other/lib", number: 9 }] },
       }),
     ).toBe(
-      "🚀 Released to **production** in version **1.0.0** (api, PR other/lib#9).\n\n<!-- shiplane-release: api@1.0.0 production -->",
+      "🚀 Released to **prod** in version **1.0.0** (api, PR other/lib#9).\n\n<!-- shiplane-release: api@1.0.0 prod -->",
     );
   });
 
@@ -87,11 +87,11 @@ describe("the comment a shipped PR or issue reads", () => {
           { unit: "web", version: "2.0.0", tag: "web@2.0.0" },
           { unit: "expo", version: "3.0.0", tag: "expo@3.0.0" },
         ],
-        environment: "preview",
+        environment: "staging",
         mention: { kind: "issue", refs: [] },
       }).split("\n")[0],
     ).toBe(
-      "🚀 Released to **preview** in versions **1.0.0** (api), **2.0.0** (web) and **3.0.0** (expo).",
+      "🚀 Released to **staging** in versions **1.0.0** (api), **2.0.0** (web) and **3.0.0** (expo).",
     );
   });
 });

@@ -8,9 +8,9 @@ const API = testUnit("api", {
   version: "0.0.3",
   module: "backend-service",
   options: {
-    app: { preview: "acme-api-preview", production: "acme-api-production" },
-    config: { preview: "fly-preview.toml", production: "fly-production.toml" },
-    url: { preview: "https://api-preview.acme.dev", production: "https://api.acme.dev" },
+    app: { staging: "acme-api-staging", prod: "acme-api-prod" },
+    config: { staging: "fly-staging.toml", prod: "fly-prod.toml" },
+    url: { staging: "https://api-staging.acme.dev", prod: "https://api.acme.dev" },
   },
 });
 
@@ -44,8 +44,8 @@ const setUp = () => {
   return world;
 };
 
-const HOW_API = "How should api@0.0.3 ship to preview?";
-const HOW_ADMIN = "How should admin@0.1.3 ship to preview?";
+const HOW_API = "How should api@0.0.3 ship to staging?";
+const HOW_ADMIN = "How should admin@0.1.3 ship to staging?";
 
 describe("shipping to an environment, fire and forget", () => {
   it("given a release whose tag is the tip of main, when shipped through Fake CI, then it is dispatched on its tag", async () => {
@@ -53,14 +53,14 @@ describe("shipping to an environment, fire and forget", () => {
     source.seed({ tags: { "api@0.0.3": "c0ffee1" } });
     prompter.answer("ci", true);
 
-    expect(await shipTo(context, "preview", { scope: new Set(["api"]) })).toBe(true);
+    expect(await shipTo(context, "staging", { scope: new Set(["api"]) })).toBe(true);
 
     expect(ci.received).toEqual([
       {
         type: "dispatch",
         workflow: "ship.yml",
         ref: "api@0.0.3",
-        inputs: { units: "api", environment: "preview" },
+        inputs: { units: "api", environment: "staging" },
       },
     ]);
     expect(progress.events.map(({ text }) => text)).toContain("ship api from api@0.0.3 (ship.yml)");
@@ -71,14 +71,14 @@ describe("shipping to an environment, fire and forget", () => {
     source.seed({ tags: { "api@0.0.3": "c0ffee1", "admin@0.1.3": "c0ffee1" } });
     prompter.answer("ci", "ci", true);
 
-    expect(await shipTo(context, "preview", {})).toBe(true);
+    expect(await shipTo(context, "staging", {})).toBe(true);
 
     expect(ci.received).toEqual([
       {
         type: "dispatch",
         workflow: "ship.yml",
         ref: "api@0.0.3",
-        inputs: { units: "api admin", environment: "preview" },
+        inputs: { units: "api admin", environment: "staging" },
       },
     ]);
   });
@@ -88,25 +88,25 @@ describe("shipping to an environment, fire and forget", () => {
     source.seed({ files: {} });
     prompter.answer(true);
 
-    expect(await shipTo(context, "preview", {})).toBe(true);
+    expect(await shipTo(context, "staging", {})).toBe(true);
 
     expect(prompter.asked).not.toContain(HOW_API);
     expect(ci.received).toEqual([]);
     expect(output.text).toContain("api@0.0.3  no ship.yml: ships from this machine");
   });
 
-  it("given a runner dispatched for production, when it ships, then it goes without asking for production's name again", async () => {
+  it("given a runner dispatched for prod, when it ships, then it goes without asking for prod's name again", async () => {
     const { context, host, prompter } = setUp();
     context.options.ci = true;
     context.options.yes = true;
     host.seed({
       deployments: [
-        { title: "Deploy api@0.0.3 to preview", state: "done" },
-        { title: "Deploy admin@0.1.3 to preview", state: "done" },
+        { title: "Deploy api@0.0.3 to staging", state: "done" },
+        { title: "Deploy admin@0.1.3 to staging", state: "done" },
       ],
     });
 
-    expect(await shipTo(context, "production", {})).toBe(true);
+    expect(await shipTo(context, "prod", {})).toBe(true);
 
     expect(prompter.asked).toEqual([]);
     expect(host.received.map(({ type }) => type)).toEqual(["record", "record"]);
@@ -120,7 +120,7 @@ describe("shipping to an environment, fire and forget", () => {
     });
     prompter.answer(true);
 
-    expect(await shipTo(context, "preview", {})).toBe(false);
+    expect(await shipTo(context, "staging", {})).toBe(false);
 
     expect(shell.calls.map(({ command }) => command)).toEqual(["flyctl"]);
     expect(output.text).toContain("admin@0.1.3  predates ship.yml, and main moved past it");
@@ -136,41 +136,41 @@ describe("shipping to an environment, fire and forget", () => {
     });
     prompter.answer(true);
 
-    expect(await shipTo(context, "preview", {})).toBe(false);
+    expect(await shipTo(context, "staging", {})).toBe(false);
 
     expect(shell.calls.map(({ command }) => command)).toEqual(["flyctl"]);
     expect(output.text).toContain("admin@0.1.3  predates ship.yml, and master moved past it");
   });
 
-  it("given api and admin tagged but not on preview, when shipped through Fake CI, then each workflow is dispatched on its tag, api first, and nothing waits for them", async () => {
+  it("given api and admin tagged but not on staging, when shipped through Fake CI, then each workflow is dispatched on its tag, api first, and nothing waits for them", async () => {
     const { context, ci, shell, prompter, output } = setUp();
     prompter.answer("ci", "ci", true);
 
-    expect(await shipTo(context, "preview", {})).toBe(true);
+    expect(await shipTo(context, "staging", {})).toBe(true);
 
     expect(ci.received).toEqual([
       {
         type: "dispatch",
         workflow: "ship.yml",
         ref: "api@0.0.3",
-        inputs: { units: "api", environment: "preview" },
+        inputs: { units: "api", environment: "staging" },
       },
       {
         type: "dispatch",
         workflow: "ship.yml",
         ref: "admin@0.1.3",
-        inputs: { units: "admin", environment: "preview" },
+        inputs: { units: "admin", environment: "staging" },
       },
     ]);
     expect(shell.calls).toEqual([]);
     expect(output.text).toContain("fake-ci runs");
   });
 
-  it("given the same release shipped from this machine, when it runs, then Fly deploys from the root and waits for its rollout, admin builds against preview's API and both deploys are recorded", async () => {
+  it("given the same release shipped from this machine, when it runs, then Fly deploys from the root and waits for its rollout, admin builds against staging's API and both deploys are recorded", async () => {
     const { context, host, shell, prompter } = setUp();
     prompter.answer("local", "local", true);
 
-    expect(await shipTo(context, "preview", {})).toBe(true);
+    expect(await shipTo(context, "staging", {})).toBe(true);
 
     expect(shell.calls).toEqual([
       {
@@ -179,7 +179,7 @@ describe("shipping to an environment, fire and forget", () => {
           "deploy",
           "--remote-only",
           "--config",
-          "apps/api/fly-preview.toml",
+          "apps/api/fly-staging.toml",
           "--dockerfile",
           "apps/api/Dockerfile",
         ],
@@ -190,7 +190,7 @@ describe("shipping to an environment, fire and forget", () => {
         command: "pnpm",
         args: ["turbo", "run", "build", "--filter=@acme/admin"],
         cwd: "/repo",
-        env: { VITE_API_URL: "https://api-preview.acme.dev" },
+        env: { VITE_API_URL: "https://api-staging.acme.dev" },
       },
       {
         command: "npx",
@@ -201,7 +201,7 @@ describe("shipping to an environment, fire and forget", () => {
           "deploy",
           "apps/admin/dist",
           "--project-name=acme-admin",
-          "--branch=preview",
+          "--branch=staging",
           "--commit-hash=c0ffee1",
           "--commit-message=admin@0.1.3",
         ],
@@ -210,8 +210,8 @@ describe("shipping to an environment, fire and forget", () => {
       },
     ]);
     expect(host.received).toEqual([
-      { type: "record", ref: "api@0.0.3", environment: "preview" },
-      { type: "record", ref: "admin@0.1.3", environment: "preview" },
+      { type: "record", ref: "api@0.0.3", environment: "staging" },
+      { type: "record", ref: "admin@0.1.3", environment: "staging" },
     ]);
   });
 
@@ -220,7 +220,7 @@ describe("shipping to an environment, fire and forget", () => {
     shell.seed("flyctl deploy", { status: 1 });
     prompter.answer("local", "local", true);
 
-    expect(await shipTo(context, "preview", {})).toBe(false);
+    expect(await shipTo(context, "staging", {})).toBe(false);
 
     expect(shell.calls.map(({ command }) => command)).toEqual(["flyctl"]);
     expect(host.received).toEqual([]);
@@ -240,7 +240,7 @@ describe("shipping to an environment, fire and forget", () => {
       },
     });
 
-    expect(await shipTo(world.context, "preview", {})).toBe(false);
+    expect(await shipTo(world.context, "staging", {})).toBe(false);
     expect(world.output.text).toContain("shiplane ship --via ci");
     expect(world.host.received).toEqual([]);
   });
@@ -250,7 +250,7 @@ describe("shipping to an environment, fire and forget", () => {
     context.options.ci = true;
     prompter.answer(true);
 
-    await shipTo(context, "preview", {});
+    await shipTo(context, "staging", {});
 
     expect(prompter.asked).not.toContain(HOW_API);
     expect(shell.calls.map(({ command }) => command)).toEqual(["flyctl", "pnpm", "npx"]);
@@ -266,8 +266,8 @@ describe("shipping to an environment, fire and forget", () => {
     shell.seedEnv({ SENTRY_AUTH_TOKEN: "sntrys_secret" });
     prompter.answer("local", "local", true);
 
-    await shipTo(context, "preview", {});
-    await planShips(context, "preview");
+    await shipTo(context, "staging", {});
+    await planShips(context, "staging");
 
     expect(shell.calls[0]?.args.slice(-2)).toEqual([
       "--build-secret",
@@ -285,7 +285,7 @@ describe("shipping to an environment, fire and forget", () => {
     };
     prompter.answer("local", "local", true);
 
-    await shipTo(context, "preview", {});
+    await shipTo(context, "staging", {});
 
     expect(shell.calls[0]?.args).not.toContain("--build-secret");
     expect(output.text).toContain("SENTRY_AUTH_TOKEN is not set");
@@ -295,7 +295,7 @@ describe("shipping to an environment, fire and forget", () => {
     const { context, prompter } = setUp();
     prompter.answer(true);
 
-    await shipTo(context, "preview", { via: "local" });
+    await shipTo(context, "staging", { via: "local" });
 
     expect(prompter.asked).not.toContain(HOW_API);
     expect(prompter.asked).not.toContain(HOW_ADMIN);
@@ -306,7 +306,7 @@ describe("shipping to an environment, fire and forget", () => {
     context.release.via = "local";
     prompter.answer(true);
 
-    await shipTo(context, "preview", {});
+    await shipTo(context, "staging", {});
 
     expect(prompter.asked).not.toContain(HOW_API);
     expect(prompter.asked).not.toContain(HOW_ADMIN);
@@ -325,16 +325,16 @@ describe("shipping to an environment, fire and forget", () => {
     world.context.release.via = "ci";
     world.context.options.yes = true;
 
-    expect(await shipTo(world.context, "preview", {})).toBe(true);
+    expect(await shipTo(world.context, "staging", {})).toBe(true);
     expect(world.ci.received.map(({ type }) => type)).toContain("dispatch");
   });
 
-  it("given api already on preview, when shipped, then only admin goes", async () => {
+  it("given api already on staging, when shipped, then only admin goes", async () => {
     const { context, host, ci, prompter } = setUp();
-    host.seed({ deployments: [{ title: "Deploy api@0.0.3 to preview", state: "done" }] });
+    host.seed({ deployments: [{ title: "Deploy api@0.0.3 to staging", state: "done" }] });
     prompter.answer("ci", true);
 
-    await shipTo(context, "preview", {});
+    await shipTo(context, "staging", {});
 
     expect(prompter.asked).not.toContain(HOW_API);
     expect(ci.received.map(({ ref }) => ref)).toEqual(["admin@0.1.3"]);
@@ -344,7 +344,7 @@ describe("shipping to an environment, fire and forget", () => {
     const { context, host, ci, shell, prompter, output } = setUp();
     prompter.answer("ci", "local", true);
 
-    await shipTo(context, "preview", {});
+    await shipTo(context, "staging", {});
 
     expect(prompter.asked).toEqual(expect.arrayContaining([HOW_API, HOW_ADMIN]));
     expect(ci.received).toEqual([
@@ -352,13 +352,13 @@ describe("shipping to an environment, fire and forget", () => {
         type: "dispatch",
         workflow: "ship.yml",
         ref: "api@0.0.3",
-        inputs: { units: "api", environment: "preview" },
+        inputs: { units: "api", environment: "staging" },
       },
     ]);
-    expect(host.received).toEqual([{ type: "record", ref: "admin@0.1.3", environment: "preview" }]);
+    expect(host.received).toEqual([{ type: "record", ref: "admin@0.1.3", environment: "staging" }]);
     expect(shell.calls.map(({ command }) => command)).toEqual(["pnpm", "npx"]);
     expect(prompter.asked).toContain(
-      "Ship api@0.0.3 (Fake CI), admin@0.1.3 (this machine) to preview?",
+      "Ship api@0.0.3 (Fake CI), admin@0.1.3 (this machine) to staging?",
     );
     expect(output.text).toContain("fake-ci runs");
   });
@@ -367,7 +367,7 @@ describe("shipping to an environment, fire and forget", () => {
     const { context, host, ci, shell, prompter } = setUp();
     prompter.answer("ci", null);
 
-    expect(await shipTo(context, "preview", {})).toBe(true);
+    expect(await shipTo(context, "staging", {})).toBe(true);
 
     expect(host.received).toEqual([]);
     expect(ci.received).toEqual([]);
@@ -384,7 +384,7 @@ describe("shipping to an environment, fire and forget", () => {
     });
     prompter.answer("ci", true);
 
-    await shipTo(context, "preview", {});
+    await shipTo(context, "staging", {});
 
     expect(prompter.asked).not.toContain(HOW_ADMIN);
     expect(ci.received).toEqual([
@@ -392,10 +392,10 @@ describe("shipping to an environment, fire and forget", () => {
         type: "dispatch",
         workflow: "ship.yml",
         ref: "api@0.0.3",
-        inputs: { units: "api", environment: "preview" },
+        inputs: { units: "api", environment: "staging" },
       },
     ]);
-    expect(host.received).toEqual([{ type: "record", ref: "admin@0.1.3", environment: "preview" }]);
+    expect(host.received).toEqual([{ type: "record", ref: "admin@0.1.3", environment: "staging" }]);
     expect(output.text).toContain("admin@0.1.3  predates ship.yml: ships from this machine");
   });
 
@@ -409,7 +409,7 @@ describe("shipping to an environment, fire and forget", () => {
     });
     prompter.answer(true);
 
-    await shipTo(context, "preview", { via: "ci" });
+    await shipTo(context, "staging", { via: "ci" });
 
     expect(ci.received.map(({ ref }) => ref)).toEqual(["api@0.0.3"]);
     expect(output.text).toContain("admin@0.1.3  predates ship.yml: ship it from this machine");
@@ -420,7 +420,7 @@ describe("shipping to an environment, fire and forget", () => {
     source.seed({ diffs: { "admin@0.1.3..HEAD": ["apps/admin/src/main.tsx"] } });
     prompter.answer("local", true);
 
-    await shipTo(context, "preview", {});
+    await shipTo(context, "staging", {});
 
     expect(prompter.asked).not.toContain(HOW_ADMIN);
     expect(shell.calls.map(({ command }) => command)).toEqual(["flyctl"]);
@@ -434,7 +434,7 @@ describe("shipping to an environment, fire and forget", () => {
     source.seed({ diffs: { "admin@0.1.3..HEAD": ["apps/admin/src/main.tsx"] } });
     prompter.answer(true);
 
-    await shipTo(context, "preview", { via: "local" });
+    await shipTo(context, "staging", { via: "local" });
 
     expect(shell.calls.map(({ command }) => command)).toEqual(["flyctl"]);
     expect(output.text).toContain("admin@0.1.3  main moved past it");
@@ -445,66 +445,66 @@ describe("shipping to an environment, fire and forget", () => {
     ci.seed({ minutes: { used: 1920, included: 2000, left: 80 } });
     prompter.answer("local", "local", true);
 
-    await shipTo(context, "preview", {});
+    await shipTo(context, "staging", {});
 
     expect(prompter.initials[HOW_API]).toBe("local");
     expect(prompter.initials[HOW_ADMIN]).toBe("local");
     expect(output.text).toContain("about to run out");
   });
 
-  it("given a ship to preview through Fake CI, when it asks to go ahead, then Yes is preselected", async () => {
+  it("given a ship to staging through Fake CI, when it asks to go ahead, then Yes is preselected", async () => {
     const { context, prompter } = setUp();
     prompter.answer("ci", "ci", false, false);
 
-    await shipTo(context, "preview", {});
+    await shipTo(context, "staging", {});
 
     const question = prompter.asked.find((asked) => asked.startsWith("Ship "));
-    expect(question).toContain("to preview through Fake CI");
+    expect(question).toContain("to staging through Fake CI");
     expect(question && prompter.initials[question]).toBe(true);
   });
 
-  it("given a ship to production, when it asks to go ahead, then No stays preselected", async () => {
+  it("given a ship to prod, when it asks to go ahead, then No stays preselected", async () => {
     const { context, host, prompter } = setUp();
     host.seed({
       deployments: [
-        { title: "Deploy api@0.0.3 to preview", state: "done" },
-        { title: "Deploy admin@0.1.3 to preview", state: "done" },
+        { title: "Deploy api@0.0.3 to staging", state: "done" },
+        { title: "Deploy admin@0.1.3 to staging", state: "done" },
       ],
     });
-    prompter.answer("production", "local", "local", false);
+    prompter.answer("prod", "local", "local", false);
 
-    await shipTo(context, "production", {});
+    await shipTo(context, "prod", {});
 
     const question = prompter.asked.find((asked) => asked.startsWith("Ship "));
     expect(question && prompter.initials[question]).toBe(false);
   });
 
-  it("given production, when the person does not type its name, then nothing ships", async () => {
+  it("given prod, when the person does not type its name, then nothing ships", async () => {
     const { context, host, shell, prompter } = setUp();
     host.seed({
       deployments: [
-        { title: "Deploy api@0.0.3 to preview", state: "done" },
-        { title: "Deploy admin@0.1.3 to preview", state: "done" },
+        { title: "Deploy api@0.0.3 to staging", state: "done" },
+        { title: "Deploy admin@0.1.3 to staging", state: "done" },
       ],
     });
-    prompter.answer("prod");
+    prompter.answer("yes");
 
-    expect(await shipTo(context, "production", {})).toBe(false);
+    expect(await shipTo(context, "prod", {})).toBe(false);
     expect(host.received).toEqual([]);
     expect(shell.calls).toEqual([]);
   });
 
-  it("given production and its name typed, when shipped, then admin builds against the production API on Pages' production branch", async () => {
+  it("given prod and its name typed, when shipped, then admin builds against the prod API on Pages' prod branch", async () => {
     const { context, host, shell, prompter } = setUp();
     host.seed({
       deployments: [
-        { title: "Deploy api@0.0.3 to preview", state: "done" },
-        { title: "Deploy admin@0.1.3 to preview", state: "done" },
+        { title: "Deploy api@0.0.3 to staging", state: "done" },
+        { title: "Deploy admin@0.1.3 to staging", state: "done" },
       ],
     });
-    prompter.answer("production", "local", "local", true);
+    prompter.answer("prod", "local", "local", true);
 
-    await shipTo(context, "production", {});
+    await shipTo(context, "prod", {});
 
     expect(shell.calls[1]?.env).toEqual({ VITE_API_URL: "https://api.acme.dev" });
     expect(shell.calls[2]?.args).toContain("--branch=main");
@@ -512,14 +512,14 @@ describe("shipping to an environment, fire and forget", () => {
   });
 });
 
-describe("declining preview", () => {
-  const INSTEAD = "Ship to production instead?";
+describe("declining staging", () => {
+  const INSTEAD = "Ship to prod instead?";
 
-  it("given preview declined, when asked what next, then production is offered with No preselected and nothing ships on a No", async () => {
+  it("given staging declined, when asked what next, then prod is offered with No preselected and nothing ships on a No", async () => {
     const { context, host, ci, shell, prompter } = setUp();
     prompter.answer("ci", "ci", false, false);
 
-    expect(await shipTo(context, "preview", {})).toBe(true);
+    expect(await shipTo(context, "staging", {})).toBe(true);
 
     expect(prompter.asked).toContain(INSTEAD);
     expect(prompter.initials[INSTEAD]).toBe(false);
@@ -528,24 +528,22 @@ describe("declining preview", () => {
     expect(shell.calls).toEqual([]);
   });
 
-  it("given preview declined and production picked instead, when production's name is typed, then what preview validated ships to production", async () => {
+  it("given staging declined and prod picked instead, when prod's name is typed, then what staging validated ships to prod", async () => {
     const { context, host, prompter } = setUp();
-    host.seed({ deployments: [{ title: "Deploy api@0.0.3 to preview", state: "done" }] });
-    prompter.answer("local", false, true, "production", "local", true);
+    host.seed({ deployments: [{ title: "Deploy api@0.0.3 to staging", state: "done" }] });
+    prompter.answer("local", false, true, "prod", "local", true);
 
-    expect(await shipTo(context, "preview", {})).toBe(true);
+    expect(await shipTo(context, "staging", {})).toBe(true);
 
-    expect(prompter.asked).toContain('Type "production" to start:');
-    expect(host.received).toEqual([
-      { type: "record", ref: "api@0.0.3", environment: "production" },
-    ]);
+    expect(prompter.asked).toContain('Type "prod" to start:');
+    expect(host.received).toEqual([{ type: "record", ref: "api@0.0.3", environment: "prod" }]);
   });
 
-  it("given --yes, when shipping to preview, then production is never offered", async () => {
+  it("given --yes, when shipping to staging, then prod is never offered", async () => {
     const { context, prompter } = setUp();
     prompter.answer("ci", "ci");
 
-    await shipTo({ ...context, options: { ...context.options, yes: true } }, "preview", {});
+    await shipTo({ ...context, options: { ...context.options, yes: true } }, "staging", {});
 
     expect(prompter.asked).not.toContain(INSTEAD);
   });
@@ -555,14 +553,14 @@ describe("a dry run", () => {
   it("given api and admin, when planned, then every command is printed and nothing runs or is asked", async () => {
     const { context, host, shell, prompter, output } = setUp();
 
-    await planShips(context, "preview");
+    await planShips(context, "staging");
 
-    expect(output.text).toContain("flyctl deploy --remote-only --config apps/api/fly-preview.toml");
+    expect(output.text).toContain("flyctl deploy --remote-only --config apps/api/fly-staging.toml");
     expect(output.text).toContain(
-      "fake-ci run ship.yml --ref api@0.0.3 -f units=api -f environment=preview",
+      "fake-ci run ship.yml --ref api@0.0.3 -f units=api -f environment=staging",
     );
     expect(output.text).toContain(
-      "VITE_API_URL=https://api-preview.acme.dev pnpm turbo run build --filter=@acme/admin",
+      "VITE_API_URL=https://api-staging.acme.dev pnpm turbo run build --filter=@acme/admin",
     );
     expect(shell.calls).toEqual([]);
     expect(host.received).toEqual([]);

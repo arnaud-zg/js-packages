@@ -52,7 +52,7 @@ const server = defineServerHosting({
 });
 
 export default defineRelease({
-  deployApps: { promote: [{ from: "preview", to: "production" }] },
+  deployApps: { promote: [{ from: "staging", to: "prod" }] },
   flow,
   modules: [backendService({ serverHosting: server }), webApp({ staticHosting: pages })],
 });
@@ -70,11 +70,11 @@ export const withModules = (modules: string, features?: string) =>
 
 export const SERVER_UNIT = `module: backend-service
 app:
-  preview: api-preview
-  production: api-production
+  staging: api-staging
+  prod: api-prod
 url:
-  preview: https://api-preview.example.com
-  production: https://api.example.com
+  staging: https://api-staging.example.com
+  prod: https://api.example.com
 `;
 
 export const ADMIN_UNIT = `module: web-app
@@ -138,7 +138,7 @@ modules:
     with:
       staticHosting: ./shiplane/adapters/fakes.ts
 deployApps:
-  promote: [{ from: preview, to: production }]
+  promote: [{ from: staging, to: prod }]
 `;
 
 /** MODULE_CONFIG's release, its adapters imported from FAKES_CATALOG's file: what migrate converts. */
@@ -149,7 +149,7 @@ import { ciPipelineFake, codeHostFake, sourceControlFake, versioningFake } from 
 import { pages, server } from "./shiplane/adapters/fakes";
 
 export default defineRelease({
-  deployApps: { promote: [{ from: "preview", to: "production" }] },
+  deployApps: { promote: [{ from: "staging", to: "prod" }] },
   flow: releaseFlow({
     sourceControl: sourceControlFake(),
     codeHost: codeHostFake(),

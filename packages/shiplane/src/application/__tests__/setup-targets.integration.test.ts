@@ -31,7 +31,7 @@ import {
 const API = testUnit("api", {
   module: "backend-service",
   packageName: "@acme/api",
-  options: { service: "api", url: { preview: "https://api.preview", production: "https://api" } },
+  options: { service: "api", url: { staging: "https://api.staging", prod: "https://api" } },
 });
 const WEB = testUnit("web", { module: "web-app", options: { site: "web" } });
 const TOOL = testUnit("cli", { module: "internal-tool" });
@@ -65,10 +65,10 @@ describe("Feature: seeing the exact command a release runs", () => {
       commandLine({
         command: "storectl",
         args: ["update"],
-        env: { EXPO_ENV: "preview", CI: "1" },
+        env: { EXPO_ENV: "staging", CI: "1" },
         secrets: [{ flag: "--env", name: "SENTRY_TOKEN" }],
       }),
-    ).toBe("EXPO_ENV=preview CI=1 storectl update --env SENTRY_TOKEN=$SENTRY_TOKEN");
+    ).toBe("EXPO_ENV=staging CI=1 storectl update --env SENTRY_TOKEN=$SENTRY_TOKEN");
   });
 
   it("given a bare deploy command, when the release shows it, then it is just the command and its arguments", () => {
@@ -86,29 +86,29 @@ describe("Feature: shipping an app from this machine", () => {
       context,
       job({
         local: [
-          { command: "pnpm", args: ["build"], cwd: "apps/api", env: { NODE_ENV: "production" } },
+          { command: "pnpm", args: ["build"], cwd: "apps/api", env: { NODE_ENV: "prod" } },
           { command: "hostctl", args: ["deploy"] },
         ],
         record: true,
       }),
-      { tag: "api@0.1.0", environment: "preview" },
+      { tag: "api@0.1.0", environment: "staging" },
     );
 
     expect(shell.calls).toEqual([
-      { command: "pnpm", args: ["build"], cwd: "/repo/apps/api", env: { NODE_ENV: "production" } },
+      { command: "pnpm", args: ["build"], cwd: "/repo/apps/api", env: { NODE_ENV: "prod" } },
       { command: "hostctl", args: ["deploy"], cwd: "/repo", env: undefined },
     ]);
     expect(host.received).toContainEqual({
       type: "record",
       ref: "api@0.1.0",
-      environment: "preview",
+      environment: "staging",
     });
   });
 
   it("given a job not asking to be recorded, when it runs here, then no deploy is recorded", async () => {
     const { context, host } = world();
 
-    await runHere(context, job(), { tag: "api@0.1.0", environment: "preview" });
+    await runHere(context, job(), { tag: "api@0.1.0", environment: "staging" });
 
     expect(host.received).toEqual([]);
   });
@@ -124,7 +124,7 @@ describe("Feature: shipping an app from this machine", () => {
           { command: "storectl", args: ["build"], secrets: [{ flag: "--env", name: "TOKEN" }] },
         ],
       }),
-      { tag: "app@1.0.0", environment: "production" },
+      { tag: "app@1.0.0", environment: "prod" },
     );
 
     expect(shell.calls[0]?.args).toEqual(["build", "--env", "TOKEN=s3cret"]);
@@ -141,7 +141,7 @@ describe("Feature: shipping an app from this machine", () => {
           { command: "storectl", args: ["build"], secrets: [{ flag: "--env", name: "TOKEN" }] },
         ],
       }),
-      { tag: "app@1.0.0", environment: "production" },
+      { tag: "app@1.0.0", environment: "prod" },
     );
 
     expect(shell.calls[0]?.args).toEqual(["build"]);
@@ -163,7 +163,7 @@ describe("Feature: shipping an app from this machine", () => {
           cleanup: [{ command: "git", args: ["checkout", "app.json"] }],
           record: true,
         }),
-        { tag: "api@0.1.0", environment: "preview" },
+        { tag: "api@0.1.0", environment: "staging" },
       ),
     ).rejects.toThrow("hostctl exited with 3");
 
@@ -186,7 +186,7 @@ describe("Feature: shipping exactly what a tag holds", () => {
         from: "api@0.1.0",
         local: [{ command: "hostctl", args: ["deploy"], cwd: "apps/api" }],
       }),
-      { tag: "api@0.1.0", environment: "preview" },
+      { tag: "api@0.1.0", environment: "staging" },
     );
 
     expect(source.received).toEqual([
@@ -224,7 +224,7 @@ describe("Feature: shipping exactly what a tag holds", () => {
 
     await runHere(context, job({ from: "api@0.1.0" }), {
       tag: "api@0.1.0",
-      environment: "preview",
+      environment: "staging",
     });
 
     expect(during.slice(0, 2)).toEqual([
@@ -241,7 +241,7 @@ describe("Feature: shipping exactly what a tag holds", () => {
     shell.seed("cp", { status: 1, stderr: "permission denied\n" });
 
     await expect(
-      runHere(context, job({ from: "api@0.1.0" }), { tag: "api@0.1.0", environment: "preview" }),
+      runHere(context, job({ from: "api@0.1.0" }), { tag: "api@0.1.0", environment: "staging" }),
     ).rejects.toThrow("copying .env failed: permission denied");
 
     expect(lines(shell)).not.toContain("pnpm install --frozen-lockfile");
@@ -253,7 +253,7 @@ describe("Feature: shipping exactly what a tag holds", () => {
     shell.seed("pnpm install", { status: 1 });
 
     await expect(
-      runHere(context, job({ from: "api@0.1.0" }), { tag: "api@0.1.0", environment: "preview" }),
+      runHere(context, job({ from: "api@0.1.0" }), { tag: "api@0.1.0", environment: "staging" }),
     ).rejects.toThrow("pnpm install exited with 1");
 
     expect(lines(shell)).toEqual(["pnpm install --frozen-lockfile"]);
@@ -265,7 +265,7 @@ describe("Feature: shipping exactly what a tag holds", () => {
 
     await runHere(context, job({ from: "api@0.1.0" }), {
       tag: "api@0.1.0",
-      environment: "preview",
+      environment: "staging",
     });
 
     expect(output.lines).toEqual([
@@ -291,7 +291,7 @@ describe("Feature: aiming an app at an environment", () => {
 
     const target = unitTarget(context, {
       unit: { ...API, version: "1.2.0" },
-      environment: "production",
+      environment: "prod",
       commit: "c1",
       defaultBranch: "main",
     });
@@ -301,7 +301,7 @@ describe("Feature: aiming an app at an environment", () => {
     expect(target?.input).toEqual({
       unit: { ...API, version: "1.2.0" },
       tag: "api@1.2.0",
-      environment: "production",
+      environment: "prod",
       commit: "c1",
       defaultBranch: "main",
       flow: TEST_FLOW,
@@ -315,18 +315,18 @@ describe("Feature: aiming an app at an environment", () => {
     expect(
       unitTarget(context, {
         unit: testUnit("ghost", { module: "nowhere" }),
-        environment: "preview",
+        environment: "staging",
         commit: "c",
         defaultBranch: "main",
       }),
     ).toBeNull();
   });
 
-  it("given an app aimed at preview, when its module plans the ship, then the job deploys its service at that tag", () => {
+  it("given an app aimed at staging, when its module plans the ship, then the job deploys its service at that tag", () => {
     const { context } = world();
     const target = unitTarget(context, {
       unit: API,
-      environment: "preview",
+      environment: "staging",
       commit: "c",
       defaultBranch: "main",
     });
@@ -348,14 +348,14 @@ describe("Feature: aiming an app at an environment", () => {
   it("given apps to ship through CI, when the release dispatches them on a ref, then the ship workflow runs once with every app and the environment", async () => {
     const { context, ci } = world();
 
-    await dispatchShip(context, { ref: "main", units: ["api", "web"] }, "production");
+    await dispatchShip(context, { ref: "main", units: ["api", "web"] }, "prod");
 
     expect(ci.received).toEqual([
       {
         type: "dispatch",
         workflow: "ship.yml",
         ref: "main",
-        inputs: { units: "api web", environment: "production" },
+        inputs: { units: "api web", environment: "prod" },
       },
     ]);
   });
@@ -427,36 +427,36 @@ describe("Feature: shipping an app only when its code changed", () => {
 });
 
 describe("Feature: reading where a release goes", () => {
-  it("given only internal tools, when a preview release is announced, then it reads live", () => {
+  it("given only internal tools, when a staging release is announced, then it reads live", () => {
     const { context } = world();
 
-    expect(environmentLabel(context, ["cli"], "preview")).toBe("live");
-    expect(destination(context, ["cli"], "preview")).toBe("live");
+    expect(environmentLabel(context, ["cli"], "staging")).toBe("live");
+    expect(destination(context, ["cli"], "staging")).toBe("live");
   });
 
-  it("given an app that deploys, when a preview release is announced, then it reads preview", () => {
+  it("given an app that deploys, when a staging release is announced, then it reads staging", () => {
     const { context } = world();
 
-    expect(environmentLabel(context, ["cli", "api"], "preview")).toBe("preview");
-    expect(destination(context, ["api"], "preview")).toBe("to preview");
+    expect(environmentLabel(context, ["cli", "api"], "staging")).toBe("staging");
+    expect(destination(context, ["api"], "staging")).toBe("to staging");
   });
 
-  it("given a production release, when it is announced, then it reads production whatever the apps", () => {
+  it("given a prod release, when it is announced, then it reads prod whatever the apps", () => {
     const { context } = world();
 
-    expect(environmentLabel(context, ["cli"], "production")).toBe("production");
-    expect(destination(context, ["cli"], "production")).toBe("to production");
+    expect(environmentLabel(context, ["cli"], "prod")).toBe("prod");
+    expect(destination(context, ["cli"], "prod")).toBe("to prod");
   });
 
-  it("given no app picked, when a preview release is announced, then the whole repository decides how it reads", () => {
-    expect(environmentLabel(world([TOOL]).context, [], "preview")).toBe("live");
-    expect(environmentLabel(world([TOOL, WEB]).context, [], "preview")).toBe("preview");
-    expect(environmentLabel(world([]).context, [], "preview")).toBe("preview");
+  it("given no app picked, when a staging release is announced, then the whole repository decides how it reads", () => {
+    expect(environmentLabel(world([TOOL]).context, [], "staging")).toBe("live");
+    expect(environmentLabel(world([TOOL, WEB]).context, [], "staging")).toBe("staging");
+    expect(environmentLabel(world([]).context, [], "staging")).toBe("staging");
   });
 
-  it("given an app no module knows, when a preview release is announced, then it reads preview", () => {
+  it("given an app no module knows, when a staging release is announced, then it reads staging", () => {
     const { context } = world();
 
-    expect(environmentLabel(context, ["ghost"], "preview")).toBe("preview");
+    expect(environmentLabel(context, ["ghost"], "staging")).toBe("staging");
   });
 });

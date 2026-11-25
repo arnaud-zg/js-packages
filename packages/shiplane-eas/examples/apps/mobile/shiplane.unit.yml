@@ -1,4 +1,4 @@
 module: mobile-app
 update:
-  preview: eas:update:preview
-  production: eas:update:production
+  staging: eas:update:staging
+  prod: eas:update:prod

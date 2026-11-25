@@ -19,7 +19,7 @@ export default defineRelease({
     ciPipeline: ciPipelineFake(),
     versioning: changesetsVersioning(),
   }),
-  deployApps: { promote: [{ from: "preview", to: "production" }] },
+  deployApps: { promote: [{ from: "staging", to: "prod" }] },
   modules: [backendService({ serverHosting: flyServerHosting() })],
   display: { verbose: false, mascot: false },
 });

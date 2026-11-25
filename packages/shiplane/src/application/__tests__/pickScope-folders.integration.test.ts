@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { changesetText, testContext, testUnit } from "../../testing/releaseContext";
 import { pickScope } from "../pickScope";
 
-const QUESTION = "What do you want to release to preview? Greyed units have nothing to release.";
+const QUESTION = "What do you want to release to staging? Greyed units have nothing to release.";
 
 /** shop with a changeset, blog with nothing new, then packages at their first release. */
 const world = (packages: number, options: { yes?: boolean; interactive?: boolean } = {}) => {
@@ -32,7 +32,7 @@ describe("Feature: a long list of units is asked by folder", () => {
     const { context, prompter } = world(13);
     prompter.answer(["shop"]);
 
-    const picked = await pickScope(context, "preview");
+    const picked = await pickScope(context, "staging");
 
     expect(prompter.choices[QUESTION]).toHaveLength(15);
     expect(picked && [...picked.scope]).toEqual(["shop"]);
@@ -42,7 +42,7 @@ describe("Feature: a long list of units is asked by folder", () => {
     const { context, prompter } = world(14);
     prompter.answer(["shop"]);
 
-    const picked = await pickScope(context, "preview");
+    const picked = await pickScope(context, "staging");
 
     const groups = prompter.groups[QUESTION] ?? [];
     expect(groups.map(({ label, open, choices }) => [label, open, choices.length])).toEqual([
@@ -74,7 +74,7 @@ describe("Feature: a long list of units is asked by folder", () => {
     const { context, prompter } = world(14);
     prompter.answer(null);
 
-    expect(await pickScope(context, "preview")).toBeNull();
+    expect(await pickScope(context, "staging")).toBeNull();
   });
 
   it.each([{ yes: true }, { interactive: false }])(
@@ -82,7 +82,7 @@ describe("Feature: a long list of units is asked by folder", () => {
     async (options) => {
       const { context, prompter } = world(14, options);
 
-      expect((await pickScope(context, "preview"))?.scope.size).toBe(15);
+      expect((await pickScope(context, "staging"))?.scope.size).toBe(15);
       expect(prompter.asked).toEqual([]);
     },
   );

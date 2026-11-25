@@ -121,8 +121,8 @@ describe("a plugin for coding agents, released from the repository agents instal
   it("given reviewer--v0.7.0 tagged, when shipped and read, then nothing runs and it says agents install it from the repository", async () => {
     const { context, shell, output } = setUp();
 
-    expect(await shipTo(context, "preview", {})).toBe(true);
-    const status = await readStatus(context, "preview");
+    expect(await shipTo(context, "staging", {})).toBe(true);
+    const status = await readStatus(context, "staging");
 
     expect(shell.calls).toEqual([]);
     expect(output.text).toContain(
@@ -157,7 +157,7 @@ describe("a plugin has no environment, like a package on npm", () => {
     return world;
   };
 
-  it("given a minor changeset, when the whole release runs, then it asks to release it live and nothing said names preview", async () => {
+  it("given a minor changeset, when the whole release runs, then it asks to release it live and nothing said names staging", async () => {
     const world = released();
     world.prompter.answer(["reviewer"], "minor", true);
 
@@ -171,7 +171,7 @@ describe("a plugin has no environment, like a package on npm", () => {
     expect(world.source.received).toContainEqual(
       expect.objectContaining({ type: "tag", name: "reviewer--v0.8.0", sha: "r2" }),
     );
-    expect(everythingSaid(world)).not.toMatch(/preview/i);
+    expect(everythingSaid(world)).not.toMatch(/staging/i);
   });
 
   it("given a merged release left untagged, when the run picks it up, then what is left to do names no environment", async () => {
@@ -186,7 +186,7 @@ describe("a plugin has no environment, like a package on npm", () => {
     await releaseToEntry(world.context);
 
     expect(world.output.text).toContain("Left to do: tag 1 version → ship live");
-    expect(everythingSaid(world)).not.toMatch(/preview/i);
+    expect(everythingSaid(world)).not.toMatch(/staging/i);
   });
 
   it("given nothing queued, when the release runs, then it says nothing to release and names no environment", async () => {
@@ -200,7 +200,7 @@ describe("a plugin has no environment, like a package on npm", () => {
 
     expect(world.output.text).toContain("Nothing to release live.");
     expect(world.output.text).toContain("pnpm changeset");
-    expect(everythingSaid(world)).not.toMatch(/preview/i);
+    expect(everythingSaid(world)).not.toMatch(/staging/i);
   });
 
   it("given versioning that needs no changeset, when nothing is queued, then it says what that versioning asks for", async () => {
@@ -217,7 +217,7 @@ describe("a plugin has no environment, like a package on npm", () => {
     expect(world.output.text).not.toContain("pnpm changeset");
   });
 
-  it("given nothing queued, when promoted, then it points to a changeset, never to a preview to release first", async () => {
+  it("given nothing queued, when promoted, then it points to a changeset, never to a staging to release first", async () => {
     const world = setUp();
     world.versioning.seed({
       pending: [],
@@ -227,19 +227,19 @@ describe("a plugin has no environment, like a package on npm", () => {
     await promote(world.context, undefined);
 
     expect(world.output.text).toContain("pnpm changeset");
-    expect(everythingSaid(world)).not.toMatch(/preview/i);
+    expect(everythingSaid(world)).not.toMatch(/staging/i);
   });
 
   it("given reviewer--v0.7.0 tagged, when the plan is read, then it names no environment", async () => {
     const world = setUp();
 
-    await planShips(world.context, "preview");
+    await planShips(world.context, "staging");
 
     expect(world.output.text).toContain("Plan  ·  live");
-    expect(everythingSaid(world)).not.toMatch(/preview/i);
+    expect(everythingSaid(world)).not.toMatch(/staging/i);
   });
 
-  it("given a plugin next to an app that deploys, when both release, then the release still reads preview", async () => {
+  it("given a plugin next to an app that deploys, when both release, then the release still reads staging", async () => {
     const world = testContext({
       units: [PLUGIN, testUnit("site", { version: "0.1.0" })],
       modules: [agentPlugin()],
@@ -262,6 +262,6 @@ describe("a plugin has no environment, like a package on npm", () => {
       await prepareRelease(world.context, new Set(["reviewer", "site"])),
     );
 
-    expect(world.prompter.asked).toEqual(["Release these to preview?"]);
+    expect(world.prompter.asked).toEqual(["Release these to staging?"]);
   });
 });

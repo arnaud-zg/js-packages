@@ -27,21 +27,21 @@ describe("checkEnvBeforeDeploy in a unit file", () => {
 
     const [api] = release.units;
     expect(release.problems).toEqual([]);
-    expect([...(api?.checkEnvBeforeDeploy?.for("production") ?? [])]).toEqual([
+    expect([...(api?.checkEnvBeforeDeploy?.for("prod") ?? [])]).toEqual([
       "SENTRY_DSN",
       "DATABASE_URL",
     ]);
     expect(api?.options).not.toHaveProperty("checkEnvBeforeDeploy");
   });
 
-  it("given all plus a production list, when the release loads, then preview checks all and production adds its own", async () => {
+  it("given all plus a prod list, when the release loads, then staging checks all and prod adds its own", async () => {
     const release = await loadApi(
-      `${SERVER_UNIT}checkEnvBeforeDeploy:\n  all:\n    - SENTRY_DSN\n  production:\n    - REVENUECAT_PROJECT_ID\n`,
+      `${SERVER_UNIT}checkEnvBeforeDeploy:\n  all:\n    - SENTRY_DSN\n  prod:\n    - REVENUECAT_PROJECT_ID\n`,
     );
 
     const [api] = release.units;
-    expect([...(api?.checkEnvBeforeDeploy?.for("preview") ?? [])]).toEqual(["SENTRY_DSN"]);
-    expect([...(api?.checkEnvBeforeDeploy?.for("production") ?? [])]).toEqual([
+    expect([...(api?.checkEnvBeforeDeploy?.for("staging") ?? [])]).toEqual(["SENTRY_DSN"]);
+    expect([...(api?.checkEnvBeforeDeploy?.for("prod") ?? [])]).toEqual([
       "SENTRY_DSN",
       "REVENUECAT_PROJECT_ID",
     ]);
@@ -60,11 +60,13 @@ describe("checkEnvBeforeDeploy in a unit file", () => {
 
   it("given an environment shiplane does not know, when the release loads, then it is an unknown key", async () => {
     const release = await loadApi(
-      `${SERVER_UNIT}checkEnvBeforeDeploy:\n  all:\n    - SENTRY_DSN\n  staging:\n    - DEBUG\n`,
+      `${SERVER_UNIT}checkEnvBeforeDeploy:\n  all:\n    - SENTRY_DSN\n  elsewhere:\n    - DEBUG\n`,
     );
 
     expect(release.problems).toEqual([
-      expect.objectContaining({ message: expect.stringContaining("checkEnvBeforeDeploy.staging") }),
+      expect.objectContaining({
+        message: expect.stringContaining("checkEnvBeforeDeploy.elsewhere"),
+      }),
     ]);
   });
 

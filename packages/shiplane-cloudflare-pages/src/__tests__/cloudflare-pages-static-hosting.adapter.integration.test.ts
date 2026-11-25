@@ -128,8 +128,8 @@ describe("choosing the branch an upload goes to", () => {
   const THREE = { path: ["dev", "staging", "prod"], users: "prod" } as const;
 
   it.each([
-    ["preview", TEST_FLOW, "preview"],
-    ["production", TEST_FLOW, "main"],
+    ["staging", TEST_FLOW, "staging"],
+    ["prod", TEST_FLOW, "main"],
     ["staging", THREE, "staging"],
     ["prod", THREE, "main"],
   ])(
@@ -158,21 +158,21 @@ describe("building and uploading to Cloudflare Pages", () => {
       flow: TEST_FLOW,
       unit,
       tag: "site@1.0.0",
-      environment: "preview",
+      environment: "staging",
       commit: "abc1234",
       defaultBranch: "main",
       options: {
         project: "acme-site",
         dist: "dist",
         build,
-        branch: "preview",
+        branch: "staging",
         wrangler: "wrangler@4.141.0",
       },
     })[0];
 
-  it("given a site with no build command of its own, when it ships to preview, then turbo builds it and wrangler uploads its dist to the project's preview branch, named by the tag", () => {
+  it("given a site with no build command of its own, when it ships to staging, then turbo builds it and wrangler uploads its dist to the project's staging branch, named by the tag", () => {
     expect(jobFor({})).toEqual({
-      label: "build site@1.0.0 and upload it to acme-site (preview)",
+      label: "build site@1.0.0 and upload it to acme-site (staging)",
       local: [
         { command: "pnpm", args: ["turbo", "run", "build", "--filter=@acme/site"] },
         {
@@ -184,7 +184,7 @@ describe("building and uploading to Cloudflare Pages", () => {
             "deploy",
             "apps/site/dist",
             "--project-name=acme-site",
-            "--branch=preview",
+            "--branch=staging",
             "--commit-hash=abc1234",
             "--commit-message=site@1.0.0",
           ],
@@ -203,9 +203,9 @@ describe("building and uploading to Cloudflare Pages", () => {
   });
 
   it("given variables the build reads, when the job is built, then the build gets them and the upload names the commit and tag", () => {
-    const job = jobFor({ env: { PUBLIC_API_URL: "https://api-preview.acme.dev" } });
+    const job = jobFor({ env: { PUBLIC_API_URL: "https://api-staging.acme.dev" } });
 
-    expect(job?.local[0]?.env).toEqual({ PUBLIC_API_URL: "https://api-preview.acme.dev" });
+    expect(job?.local[0]?.env).toEqual({ PUBLIC_API_URL: "https://api-staging.acme.dev" });
     expect(job?.local[1]?.args).toEqual(
       expect.arrayContaining(["--commit-hash=abc1234", "--commit-message=site@1.0.0"]),
     );

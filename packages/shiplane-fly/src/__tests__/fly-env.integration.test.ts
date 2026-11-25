@@ -8,13 +8,13 @@ import { afterEach, describe, expect, it } from "vitest";
 import { flyServerHosting } from "../fly-server-hosting.adapter";
 
 const unit = testUnit("api", { module: "backend-service", dir: "apps/api" });
-const options = { app: "acme-api-preview", config: "fly-preview.toml" };
+const options = { app: "acme-api-staging", config: "fly-staging.toml" };
 const names = (...list: string[]) => list.filter(isEnvVarName);
 
 let root: string | undefined;
 afterEach(() => root && fs.rmSync(root, { recursive: true, force: true }));
 
-const repository = (toml?: string, file = "fly-preview.toml") => {
+const repository = (toml?: string, file = "fly-staging.toml") => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), "fly-env-"));
   if (toml !== undefined) {
     fs.mkdirSync(path.join(root, "apps/api"), { recursive: true });
@@ -24,7 +24,7 @@ const repository = (toml?: string, file = "fly-preview.toml") => {
 };
 
 const noSecrets = () =>
-  new RecordingShell().seed("flyctl secrets list -a acme-api-preview --json", { stdout: "[]" });
+  new RecordingShell().seed("flyctl secrets list -a acme-api-staging --json", { stdout: "[]" });
 
 const envOf = (shell: RecordingShell, at: string) => {
   const env = flyServerHosting().env;
@@ -34,17 +34,17 @@ const envOf = (shell: RecordingShell, at: string) => {
 
 describe("the env Fly holds for an app", () => {
   it("given two secrets on the app and a toml [env] block, when listed, then both secrets and the toml keys are names", async () => {
-    const shell = new RecordingShell().seed("flyctl secrets list -a acme-api-preview --json", {
+    const shell = new RecordingShell().seed("flyctl secrets list -a acme-api-staging --json", {
       stdout: JSON.stringify([{ name: "SENTRY_DSN" }, { Name: "CLOUDFLARE_R2_BUCKET_NAME" }]),
     });
     const at = repository(
-      'app = "acme-api-preview"\n\n[env]\n  NODE_ENV = "production"\n\n[http_service]\n  internal_port = 3000\n',
+      'app = "acme-api-staging"\n\n[env]\n  NODE_ENV = "prod"\n\n[http_service]\n  internal_port = 3000\n',
     );
 
     const listed = await envOf(shell, at).listNames({
       flow: TEST_FLOW,
       unit,
-      environment: "preview",
+      environment: "staging",
       options,
     });
 
@@ -52,14 +52,14 @@ describe("the env Fly holds for an app", () => {
   });
 
   it("given flyctl prints a notice before its JSON, when listed, then the secrets still come back as names", async () => {
-    const shell = new RecordingShell().seed("flyctl secrets list -a acme-api-preview --json", {
+    const shell = new RecordingShell().seed("flyctl secrets list -a acme-api-staging --json", {
       stdout: `A new release of flyctl is available: v0.3.1 -> v0.3.2\n${JSON.stringify([{ name: "SENTRY_DSN" }])}\n`,
     });
 
     const listed = await envOf(shell, repository()).listNames({
       flow: TEST_FLOW,
       unit,
-      environment: "preview",
+      environment: "staging",
       options,
     });
 
@@ -75,10 +75,10 @@ describe("the env Fly holds for an app", () => {
       envOf(shell, repository()).listNames({
         flow: TEST_FLOW,
         unit,
-        environment: "preview",
+        environment: "staging",
         options,
       }),
-    ).rejects.toThrow("flyctl secrets list -a acme-api-preview: no secrets list in its output");
+    ).rejects.toThrow("flyctl secrets list -a acme-api-staging: no secrets list in its output");
   });
 
   it("given flyctl is not signed in, when listed, then it fails naming the command and Fly's reason", async () => {
@@ -91,18 +91,18 @@ describe("the env Fly holds for an app", () => {
       envOf(shell, repository()).listNames({
         flow: TEST_FLOW,
         unit,
-        environment: "preview",
+        environment: "staging",
         options,
       }),
-    ).rejects.toThrow("flyctl secrets list -a acme-api-preview: Error: no access token available");
+    ).rejects.toThrow("flyctl secrets list -a acme-api-staging: Error: no access token available");
   });
 
   it("given an [env] block between other sections, when shiplane checks the app's env, then it finds only that block's keys, skipping comments and keeping bracketed values", async () => {
     const at = repository(
       [
-        'app = "acme-api-preview"',
+        'app = "acme-api-staging"',
         "[env]",
-        '  NODE_ENV = "production"',
+        '  NODE_ENV = "prod"',
         '  PORT="3000"',
         '  # LEGACY_FLAG = "1"',
         '  LOG_FORMAT = "[json]"',
@@ -118,7 +118,7 @@ describe("the env Fly holds for an app", () => {
     const listed = await envOf(noSecrets(), at).listNames({
       flow: TEST_FLOW,
       unit,
-      environment: "preview",
+      environment: "staging",
       options,
     });
 
@@ -127,13 +127,13 @@ describe("the env Fly holds for an app", () => {
 
   it("given the [env] block ends the toml, when shiplane checks the app's env, then it finds its last key too", async () => {
     const at = repository(
-      'app = "acme-api-preview"\n\n[env]  \n  NODE_ENV = "production"\n  REGION = "fra"',
+      'app = "acme-api-staging"\n\n[env]  \n  NODE_ENV = "prod"\n  REGION = "fra"',
     );
 
     const listed = await envOf(noSecrets(), at).listNames({
       flow: TEST_FLOW,
       unit,
-      environment: "preview",
+      environment: "staging",
       options,
     });
 
@@ -141,30 +141,27 @@ describe("the env Fly holds for an app", () => {
   });
 
   it("given a unit with no config set, when shiplane checks the app's env, then it reads [env] from the unit's fly.toml", async () => {
-    const at = repository(
-      'app = "acme-api-preview"\n[env]\n  NODE_ENV = "production"\n',
-      "fly.toml",
-    );
+    const at = repository('app = "acme-api-staging"\n[env]\n  NODE_ENV = "prod"\n', "fly.toml");
 
     const listed = await envOf(noSecrets(), at).listNames({
       flow: TEST_FLOW,
       unit,
-      environment: "preview",
-      options: { app: "acme-api-preview" },
+      environment: "staging",
+      options: { app: "acme-api-staging" },
     });
 
     expect([...listed]).toEqual(["NODE_ENV"]);
   });
 
   it("given a Fly secret whose name is no variable name, when shiplane checks the app's env, then that secret is left out", async () => {
-    const shell = new RecordingShell().seed("flyctl secrets list -a acme-api-preview --json", {
+    const shell = new RecordingShell().seed("flyctl secrets list -a acme-api-staging --json", {
       stdout: JSON.stringify([{ name: "SENTRY_DSN" }, { name: "legacy-token" }]),
     });
 
     const listed = await envOf(shell, repository()).listNames({
       flow: TEST_FLOW,
       unit,
-      environment: "preview",
+      environment: "staging",
       options,
     });
 
@@ -172,14 +169,14 @@ describe("the env Fly holds for an app", () => {
   });
 
   it("given flyctl wraps its answer in notices that hold brackets, when shiplane checks the app's env, then it still finds the secrets", async () => {
-    const shell = new RecordingShell().seed("flyctl secrets list -a acme-api-preview --json", {
+    const shell = new RecordingShell().seed("flyctl secrets list -a acme-api-staging --json", {
       stdout: `Notice [beta]: secrets are now staged\n${JSON.stringify([{ name: "SENTRY_DSN" }])}\nDone in 1s\n`,
     });
 
     const listed = await envOf(shell, repository()).listNames({
       flow: TEST_FLOW,
       unit,
-      environment: "preview",
+      environment: "staging",
       options,
     });
 
@@ -190,13 +187,13 @@ describe("the env Fly holds for an app", () => {
     const command = envOf(new RecordingShell(), "/repo").setCommand({
       flow: TEST_FLOW,
       unit,
-      environment: "preview",
+      environment: "staging",
       options,
       names: names("SENTRY_DSN", "WAITLIST_CONFIRM_URL"),
     });
 
     expect(command).toBe(
-      "flyctl secrets set --stage -a acme-api-preview SENTRY_DSN=... WAITLIST_CONFIRM_URL=...",
+      "flyctl secrets set --stage -a acme-api-staging SENTRY_DSN=... WAITLIST_CONFIRM_URL=...",
     );
   });
 });

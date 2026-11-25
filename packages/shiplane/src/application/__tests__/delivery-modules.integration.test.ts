@@ -30,7 +30,7 @@ const inputFor = (unit: ReleaseUnit, options: Record<string, unknown>): AppInput
   flow: TEST_FLOW,
   unit,
   tag: `${unit.name}@${unit.version}`,
-  environment: "preview",
+  environment: "staging",
   options,
   commit: "c1",
   defaultBranch: "main",
@@ -131,10 +131,10 @@ describe("Feature: composing an app's module from the provider it ships with", (
 });
 
 describe("Feature: knowing whether a mobile build is live on its store", () => {
-  it("given a build already on preview with healthy launches, when shiplane checks the app, then it skips the ship, calls it live and reports its health and version", async () => {
+  it("given a build already on staging with healthy launches, when shiplane checks the app, then it skips the ship, calls it live and reports its health and version", async () => {
     const adapter = mobileDistributionFake();
     adapter.fake.seed({
-      live: { preview: "2.0.0" },
+      live: { staging: "2.0.0" },
       health: { "phone@2.0.0": { ok: true, summary: "3 launches" } },
     });
     const module = mobileApp({ mobileDistribution: adapter });
@@ -143,16 +143,16 @@ describe("Feature: knowing whether a mobile build is live on its store", () => {
 
     expect(await module.decide?.(context, input)).toEqual({
       action: "none",
-      status: "phone 2.0.0 is on preview",
+      status: "phone 2.0.0 is on staging",
     });
     expect(await module.live?.(context, input)).toBe(true);
     expect(await module.health?.(context, input)).toEqual({ ok: true, summary: "3 launches" });
     expect(await module.inspect?.(context, input)).toEqual({ live: "2.0.0" });
   });
 
-  it("given an older build on preview, when shiplane checks the app, then the new version is not live yet", async () => {
+  it("given an older build on staging, when shiplane checks the app, then the new version is not live yet", async () => {
     const adapter = mobileDistributionFake();
-    adapter.fake.seed({ live: { preview: "1.0.0" } });
+    adapter.fake.seed({ live: { staging: "1.0.0" } });
     const module = mobileApp({ mobileDistribution: adapter });
 
     expect(await module.live?.(contextFor([MOBILE]), inputFor(MOBILE, { app: "phone" }))).toBe(

@@ -11,10 +11,6 @@ import { REPOSITORY_ROOT } from "../examples";
 
 const NAME = /preview|production/i;
 
-/** What Cloudflare's own command line calls its two: the one constant that says so. */
-const CLOUDFLARES_OWN =
-  /^const WRANGLER_ENV = \{ users: "production", others: "preview" \} as const;$/;
-
 const TESTS = /__tests__|__fakes__|\.contract\.ts$|\/testing\//;
 
 const naming = (files: readonly string[]) =>
@@ -22,9 +18,7 @@ const naming = (files: readonly string[]) =>
     readFileSync(file, "utf8")
       .split("\n")
       .flatMap((line, index) =>
-        NAME.test(line) && !CLOUDFLARES_OWN.test(line)
-          ? [`${relative(REPOSITORY_ROOT, file)}:${index + 1}: ${line.trim()}`]
-          : [],
+        NAME.test(line) ? [`${relative(REPOSITORY_ROOT, file)}:${index + 1}: ${line.trim()}`] : [],
       ),
   );
 
@@ -49,7 +43,7 @@ describe("what shiplane ships names no environment", () => {
     expect(naming(files)).toEqual([]);
   });
 
-  it("given a repository's own names, when ship.yml is made for it, then it holds those and no other", async () => {
+  it("given a repository's own names, when ship.yml is made for it, then it holds those and no other, on a runner of a fixed version", async () => {
     const shell = new RecordingShell();
     shell.seed("gh api repos/arnaud-zg/js-packages/git/ref/tags/shiplane@0.6.0", {
       stdout: JSON.stringify({ object: { sha: "c0ffee", type: "commit" } }),
@@ -66,5 +60,7 @@ describe("what shiplane ships names no environment", () => {
     const content = made && "content" in made ? made.content : "";
     expect(content).toContain("options: [dev, prod]");
     expect(content).not.toMatch(NAME);
+    // The runner's image is named too: a newer one is taken on purpose, never by itself.
+    expect(content).toMatch(/runs-on: ubuntu-\d+\.\d+/);
   });
 });

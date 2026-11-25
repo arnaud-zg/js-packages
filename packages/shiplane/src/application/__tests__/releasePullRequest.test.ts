@@ -245,13 +245,13 @@ describe("opening the release pull request", () => {
     expect(source.received).toEqual([]);
   });
 
-  it("given changesets to release, when it asks to release them to preview, then the computed version is preselected", async () => {
+  it("given changesets to release, when it asks to release them to staging, then the computed version is preselected", async () => {
     const { context, prompter } = setUp();
     prompter.answer(null);
 
     await openReleasePr(context, await prepareRelease(context, new Set(["api"])));
 
-    expect(prompter.initials["Release these to preview as (Esc cancels)"]).toBe("patch");
+    expect(prompter.initials["Release these to staging as (Esc cancels)"]).toBe("patch");
   });
 });
 

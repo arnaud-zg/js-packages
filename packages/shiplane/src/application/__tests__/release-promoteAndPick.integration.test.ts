@@ -9,13 +9,13 @@ import { pickScope } from "../pickScope";
 import { promote } from "../promote";
 import { pullRequestFirst } from "../pullRequestFirst";
 
-/** A web app whose host says how preview runs it. */
+/** A web app whose host says how staging runs it. */
 const withHealth = (health: () => Promise<Health | null>): ReleaseModule => ({
   ...webApp({ staticHosting: staticHostingFake() }),
   health: () => health(),
 });
 
-/** api and admin on preview, not yet on production; each module reads health as given. */
+/** api and admin on staging, not yet on prod; each module reads health as given. */
 const onPrevious = ({
   health,
   yes = false,
@@ -37,15 +37,15 @@ const onPrevious = ({
   world.source.seed({ tags: { "api@0.0.8": "a8", "admin@0.1.3": "d3" } });
   world.host.seed({
     deployments: ["api@0.0.8", "admin@0.1.3"].map((tag) => ({
-      title: `Deploy ${tag} to preview`,
+      title: `Deploy ${tag} to staging`,
       state: "done" as const,
     })),
   });
   return world;
 };
 
-describe("promoting to production what preview runs", () => {
-  it("given preview says api runs unwell, when the person promotes api, then its health is shown and they must confirm, No by default, before it ships", async () => {
+describe("promoting to prod what staging runs", () => {
+  it("given staging says api runs unwell, when the person promotes api, then its health is shown and they must confirm, No by default, before it ships", async () => {
     const { context, output, prompter } = onPrevious({
       health: () =>
         Promise.resolve({ ok: false, summary: "12 errors in 5 min", why: "error rate 4%" }),
@@ -79,7 +79,7 @@ describe("promoting to production what preview runs", () => {
     );
   });
 
-  it("given preview says api runs well, when the person promotes api, then it shows healthy and goes on to ship to production without asking", async () => {
+  it("given staging says api runs well, when the person promotes api, then it shows healthy and goes on to ship to prod without asking", async () => {
     const { context, output, prompter, progress } = onPrevious({
       health: () => Promise.resolve({ ok: true, summary: "no errors" }),
     });
@@ -87,7 +87,7 @@ describe("promoting to production what preview runs", () => {
 
     await promote(context, "local");
 
-    expect(prompter.asked.slice(1)).toEqual(['Type "production" to start:']);
+    expect(prompter.asked.slice(1)).toEqual(['Type "prod" to start:']);
     expect(output.lines.slice(0, 3)).toEqual(["", "  ✓ api@0.0.8         no errors", ""]);
     expect(progress.events.filter(({ kind }) => kind === "stage").map(({ text }) => text)).toEqual([
       "What to promote",
@@ -103,7 +103,7 @@ describe("promoting to production what preview runs", () => {
 
     await promote(context, "local");
 
-    expect(prompter.asked.slice(1)).toEqual(['Type "production" to start:']);
+    expect(prompter.asked.slice(1)).toEqual(['Type "prod" to start:']);
     expect(output.text).not.toMatch(/[✓!] api@0\.0\.8/);
     expect(progress.events.filter(({ kind }) => kind === "stage")).toHaveLength(2);
   });
@@ -123,27 +123,27 @@ describe("promoting to production what preview runs", () => {
 });
 
 describe("picking which apps to release", () => {
-  it("given nothing new on any app, when the person releases to preview, then each app says why and they are told to queue a change first", async () => {
+  it("given nothing new on any app, when the person releases to staging, then each app says why and they are told to queue a change first", async () => {
     const world = testContext({
       units: [testUnit("api", { version: "0.0.8" }), testUnit("admin", { version: "0.1.3" })],
     });
     world.source.seed({ tags: { "api@0.0.8": "a8", "admin@0.1.3": "d3" } });
     world.host.seed({
       deployments: ["api@0.0.8", "admin@0.1.3"].map((tag) => ({
-        title: `Deploy ${tag} to preview`,
+        title: `Deploy ${tag} to staging`,
         state: "done" as const,
       })),
     });
 
-    const picked = await pickScope(world.context, "preview");
+    const picked = await pickScope(world.context, "staging");
 
     expect(picked).toBeNull();
     expect(world.output.lines).toEqual([
       "",
-      "  api            0.0.8 is on preview, nothing new",
-      "  admin          0.1.3 is on preview, nothing new",
+      "  api            0.0.8 is on staging, nothing new",
+      "  admin          0.1.3 is on staging, nothing new",
       "",
-      "Nothing to release to preview. Queue a change first:",
+      "Nothing to release to staging. Queue a change first:",
       "    pnpm changeset",
       "",
     ]);
@@ -156,18 +156,18 @@ describe("picking which apps to release", () => {
       {
         kind: "say",
         mood: "resting",
-        text: "Nothing to release to preview. Queue a change first:",
+        text: "Nothing to release to staging. Queue a change first:",
       },
     ]);
   });
 
-  it("given nothing on preview to promote, when the person releases to production, then they are told to release to preview first", async () => {
+  it("given nothing on staging to promote, when the person releases to prod, then they are told to release to staging first", async () => {
     const world = testContext({ units: [testUnit("api", { version: "0.0.8" })] });
 
-    await pickScope(world.context, "production");
+    await pickScope(world.context, "prod");
 
     expect(world.output.lines.slice(-3)).toEqual([
-      "Nothing to release to production. Release to preview first:",
+      "Nothing to release to prod. Release to staging first:",
       "    shiplane",
       "",
     ]);
@@ -183,10 +183,10 @@ describe("picking which apps to release", () => {
     });
     world.source.seed({ tags: { "admin@0.1.3": "d3" } });
     world.host.seed({
-      deployments: [{ title: "Deploy admin@0.1.3 to preview", state: "done" }],
+      deployments: [{ title: "Deploy admin@0.1.3 to staging", state: "done" }],
     });
 
-    const picked = await pickScope(world.context, "preview");
+    const picked = await pickScope(world.context, "staging");
 
     expect(picked && [...picked.scope]).toEqual(["api"]);
     expect(world.prompter.asked).toEqual([]);
@@ -201,11 +201,11 @@ describe("picking which apps to release", () => {
     });
     world.source.seed({ tags: { "admin@0.1.3": "d3" } });
     world.host.seed({
-      deployments: [{ title: "Deploy admin@0.1.3 to preview", state: "done" }],
+      deployments: [{ title: "Deploy admin@0.1.3 to staging", state: "done" }],
     });
     world.prompter.answer(["api"]);
 
-    await pickScope(world.context, "preview");
+    await pickScope(world.context, "staging");
 
     const [question = ""] = world.prompter.asked;
     expect(world.prompter.initials[question]).toEqual(["api"]);
@@ -215,10 +215,10 @@ describe("picking which apps to release", () => {
 describe("merging a required pull request before shipping", () => {
   const REQUEST = {
     action: "pull-request" as const,
-    question: "Move production to 1.2.0 first?",
-    branch: "shiplane/move-production",
-    title: "chore(api): move production to 1.2.0",
-    body: "Production moves before it ships.",
+    question: "Move prod to 1.2.0 first?",
+    branch: "shiplane/move-prod",
+    title: "chore(api): move prod to 1.2.0",
+    body: "Prod moves before it ships.",
     changesets: [],
     write: () => Promise.resolve([]),
   };

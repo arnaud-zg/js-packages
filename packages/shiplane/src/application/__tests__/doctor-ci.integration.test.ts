@@ -60,13 +60,13 @@ describe("Feature: checking a runner can ship before it does", () => {
     const { context, output } = runner();
 
     // when
-    const ok = await doctorCi(context, { units: [], channel: "preview" });
+    const ok = await doctorCi(context, { units: [], channel: "staging" });
 
     // then
     expect(ok).toBe(true);
     expect(output.lines).toEqual([
       "✓ units  api, web",
-      "✓ environment  preview",
+      "✓ environment  staging",
       "✓ hostctl  installed",
       "✓ secrets  CLOUD_API_TOKEN",
     ]);
@@ -77,7 +77,7 @@ describe("Feature: checking a runner can ship before it does", () => {
     const { context, output } = runner();
 
     // when
-    const ok = await doctorCi(context, { units: ["api", "x"], channel: "preview" });
+    const ok = await doctorCi(context, { units: ["api", "x"], channel: "staging" });
 
     // then
     expect(ok).toBe(false);
@@ -97,7 +97,7 @@ describe("Feature: checking a runner can ship before it does", () => {
     // then
     expect(ok).toBe(false);
     expect(stoppedWith(output)).toEqual([
-      '✗ unknown environment "qa": preview, production',
+      '✗ unknown environment "qa": staging, prod',
       `  ${WORKFLOW_DOCS}`,
     ]);
   });
@@ -108,12 +108,12 @@ describe("Feature: checking a runner can ship before it does", () => {
     shell.seedEnv({ CLOUD_API_TOKEN: "" });
 
     // when
-    const ok = await doctorCi(context, { units: ["api"], channel: "preview" });
+    const ok = await doctorCi(context, { units: ["api"], channel: "staging" });
 
     // then
     expect(ok).toBe(false);
     expect(stoppedWith(output)).toEqual([
-      '✗ api ships with cloud: CLOUD_API_TOKEN missing in "preview"',
+      '✗ api ships with cloud: CLOUD_API_TOKEN missing in "staging"',
       `  ${WORKFLOW_DOCS}`,
     ]);
   });
@@ -131,12 +131,12 @@ describe("Feature: checking a runner can ship before it does", () => {
     };
 
     // when
-    const ok = await doctorCi(context, { units: ["web"], channel: "production" });
+    const ok = await doctorCi(context, { units: ["web"], channel: "prod" });
 
     // then
     expect(ok).toBe(false);
     expect(stoppedWith(output)).toEqual([
-      '✗ shiplane needs codehost: HOST_TOKEN missing in "production"',
+      '✗ shiplane needs codehost: HOST_TOKEN missing in "prod"',
       `  ${WORKFLOW_DOCS}`,
     ]);
   });
@@ -147,7 +147,7 @@ describe("Feature: checking a runner can ship before it does", () => {
     release.problems = [{ file: "shiplane.config.ts", line: 3, message: "it did not load" }];
 
     // when
-    const ok = await doctorCi(context, { units: [], channel: "preview" });
+    const ok = await doctorCi(context, { units: [], channel: "staging" });
 
     // then
     expect(ok).toBe(false);
@@ -165,7 +165,7 @@ describe("Feature: installing a missing tool on a runner", () => {
     shell.seedOnce("hostctl auth whoami", { status: 127 });
 
     // when
-    const ok = await doctorCi(context, { units: ["api"], channel: "preview" });
+    const ok = await doctorCi(context, { units: ["api"], channel: "staging" });
 
     // then
     expect(ok).toBe(true);
@@ -185,7 +185,7 @@ describe("Feature: installing a missing tool on a runner", () => {
     shell.seed("hostctl auth whoami", { status: 127 });
 
     // when
-    const ok = await doctorCi(context, { units: [], channel: "preview" });
+    const ok = await doctorCi(context, { units: [], channel: "staging" });
 
     // then
     expect(ok).toBe(false);
@@ -201,7 +201,7 @@ describe("Feature: installing a missing tool on a runner", () => {
     shell.seed("hostctl auth whoami", { status: 127 }).seed("sh -c curl", { status: 6 });
 
     // when
-    const ok = await doctorCi(context, { units: [], channel: "preview" });
+    const ok = await doctorCi(context, { units: [], channel: "staging" });
 
     // then
     expect(ok).toBe(false);
@@ -219,7 +219,7 @@ describe("Feature: installing a missing tool on a runner", () => {
     shell.seed("hostctl auth whoami", { status: 127 });
 
     // when
-    const ok = await doctorCi(context, { units: [], channel: "preview" });
+    const ok = await doctorCi(context, { units: [], channel: "staging" });
 
     // then
     expect(ok).toBe(false);
@@ -237,7 +237,7 @@ describe("Feature: installing a missing tool on a runner", () => {
     shell.seedEnv({ GITHUB_PATH: "" }).seedOnce("hostctl auth whoami", { status: 127 });
 
     // when
-    const ok = await doctorCi(context, { units: [], channel: "preview" });
+    const ok = await doctorCi(context, { units: [], channel: "staging" });
 
     // then
     expect(ok).toBe(true);

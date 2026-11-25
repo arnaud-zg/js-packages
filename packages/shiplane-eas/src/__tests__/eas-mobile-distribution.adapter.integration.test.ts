@@ -20,11 +20,11 @@ import { easMobileDistribution } from "../eas-mobile-distribution.adapter";
 
 const EXPO_OPTIONS = {
   versionFile: "app-version.json",
-  update: { preview: "eas:update:preview", production: "eas:update:production:gated" },
+  update: { staging: "eas:update:staging", prod: "eas:update:prod:gated" },
 };
 
 const API_OPTIONS = {
-  app: "acme-api-preview",
+  app: "acme-api-staging",
 };
 
 interface Build {
@@ -77,32 +77,32 @@ const setUp = ({
   local = "fp-shipped",
   expoOptions = EXPO_OPTIONS,
   builds = {},
-  versions = { preview: "0.1.115", production: "0.1.114" },
+  versions = { staging: "0.1.115", prod: "0.1.114" },
   updates = {},
   platformBuilds = {},
   submissions = {},
 }: {
   local?: string;
-  /** One platform's preview builds, newest first, in place of `builds.preview`. */
+  /** One platform's staging builds, newest first, in place of `builds.staging`. */
   platformBuilds?: Partial<Record<"ios" | "android", Build[]>>;
   /** Each platform's submissions, newest first, as `eas submit:list` prints them. */
   submissions?: Partial<Record<"ios" | "android", Submission[]>>;
   expoOptions?: Record<string, unknown>;
-  builds?: Partial<Record<"preview" | "production", Build[]>>;
-  versions?: { preview: string; production: string };
+  builds?: Partial<Record<"staging" | "prod", Build[]>>;
+  versions?: { staging: string; prod: string };
   /** Each channel's update groups, newest first. */
-  updates?: Partial<Record<"preview" | "production", Update[]>>;
+  updates?: Partial<Record<"staging" | "prod", Update[]>>;
 } = {}) => {
   workspace = createWorkspace({
     "apps/expo/app-version.json": JSON.stringify({
-      preview: { version: versions.preview },
-      production: { version: versions.production },
+      staging: { version: versions.staging },
+      prod: { version: versions.prod },
     }),
-    "apps/api/public/app-version.preview.json": JSON.stringify({
+    "apps/api/public/app-version.staging.json": JSON.stringify({
       latest_version: "0.1.115",
       min_supported_version: "0.1.54",
     }),
-    "apps/api/public/app-version.production.json": JSON.stringify({
+    "apps/api/public/app-version.prod.json": JSON.stringify({
       latest_version: "0.1.114",
       min_supported_version: "0.1.54",
     }),
@@ -124,8 +124,8 @@ const setUp = ({
     });
     world.shell.seed(`pnpm exec eas build:list --platform ${platform}`, {
       stdout: JSON.stringify([
-        ...(platformBuilds[platform] ?? builds.preview ?? [build(platform, "preview")]),
-        ...(builds.production ?? [build(platform, "production", { appVersion: "0.1.114" })]),
+        ...(platformBuilds[platform] ?? builds.staging ?? [build(platform, "staging")]),
+        ...(builds.prod ?? [build(platform, "prod", { appVersion: "0.1.114" })]),
       ]),
     });
   });
@@ -196,10 +196,10 @@ describe("what a release PR versions for the mobile app", () => {
     expect(host.received[0]?.type === "pr" && host.received[0].body).toContain(
       "Over-the-air update",
     );
-    expect(JSON.parse(ws.read("apps/expo/app-version.json")).preview.version).toBe("0.1.115");
+    expect(JSON.parse(ws.read("apps/expo/app-version.json")).staging.version).toBe("0.1.115");
   });
 
-  it("given native code changed and no expo changeset, when the release PR is prepared, then it adds a native changeset, moves the preview version and leaves api alone", async () => {
+  it("given native code changed and no expo changeset, when the release PR is prepared, then it adds a native changeset, moves the staging version and leaves api alone", async () => {
     const { context, versioning, prompter, workspace: ws } = setUp({ local: "fp-new" });
     versioning.seed({
       pending: [],
@@ -219,8 +219,8 @@ describe("what a release PR versions for the mobile app", () => {
       },
     ]);
     expect(versioning.written).toEqual([]);
-    expect(JSON.parse(ws.read("apps/expo/app-version.json")).preview.version).toBe("0.1.116");
-    expect(JSON.parse(ws.read("apps/api/public/app-version.preview.json")).latest_version).toBe(
+    expect(JSON.parse(ws.read("apps/expo/app-version.json")).staging.version).toBe("0.1.116");
+    expect(JSON.parse(ws.read("apps/api/public/app-version.staging.json")).latest_version).toBe(
       "0.1.115",
     );
   });
@@ -237,8 +237,8 @@ describe("what a release PR versions for the mobile app", () => {
 
     await prepareRelease(context, new Set(["expo"]));
 
-    expect(prompter.initials["What should expo ship to preview?"]).toBe("update");
-    expect(prompter.choices["What should expo ship to preview?"]).toEqual([
+    expect(prompter.initials["What should expo ship to staging?"]).toBe("update");
+    expect(prompter.choices["What should expo ship to staging?"]).toEqual([
       {
         value: "update",
         label: "Over-the-air update (suggested)",
@@ -264,7 +264,7 @@ describe("what a release PR versions for the mobile app", () => {
 
     await openReleasePr(context, await prepareRelease(context, new Set(["expo"])));
 
-    expect(JSON.parse(ws.read("apps/expo/app-version.json")).preview.version).toBe("0.2.0");
+    expect(JSON.parse(ws.read("apps/expo/app-version.json")).staging.version).toBe("0.2.0");
     expect(host.received[0]?.type === "pr" && host.received[0].body).toContain(
       "Build iOS and Android, submitted when done",
     );
@@ -282,7 +282,7 @@ describe("what a release PR versions for the mobile app", () => {
 
     await openReleasePr(context, await prepareRelease(context, new Set(["expo"])));
 
-    expect(JSON.parse(ws.read("apps/expo/app-version.json")).preview.version).toBe("1.0.0");
+    expect(JSON.parse(ws.read("apps/expo/app-version.json")).staging.version).toBe("1.0.0");
     expect(host.received[0]?.type === "pr" && host.received[0].title).toContain("1.0.0");
   });
 
@@ -296,8 +296,8 @@ describe("what a release PR versions for the mobile app", () => {
 
     await prepareRelease(context, new Set(["expo"]));
 
-    expect(prompter.initials["What should expo ship to preview?"]).toBe("build");
-    expect(prompter.choices["What should expo ship to preview?"]).toEqual([
+    expect(prompter.initials["What should expo ship to staging?"]).toBe("build");
+    expect(prompter.choices["What should expo ship to staging?"]).toEqual([
       {
         value: "build",
         label: "New build, iOS and Android (suggested)",
@@ -312,17 +312,17 @@ describe("what a release PR versions for the mobile app", () => {
     ]);
   });
 
-  it("given a preview build of this version still running, when the release PR is prepared, then nothing is written and it says to wait", async () => {
+  it("given a staging build of this version still running, when the release PR is prepared, then nothing is written and it says to wait", async () => {
     const running = (platform: string) => [
-      build(platform, "preview", {
+      build(platform, "staging", {
         status: "IN_PROGRESS",
         appVersion: "0.1.115",
         id: `${platform}-run`,
       }),
-      build(platform, "preview"),
+      build(platform, "staging"),
     ];
     const { context, versioning, output } = setUp({
-      builds: { preview: [...running("ios")] },
+      builds: { staging: [...running("ios")] },
     });
     versioning.seed({
       pending: [
@@ -335,11 +335,11 @@ describe("what a release PR versions for the mobile app", () => {
       await openReleasePr(context, await prepareRelease(context, new Set(["expo"]))),
     ).toBeNull();
     expect(versioning.applied).toEqual([]);
-    expect(output.text).toContain("a preview build is still running");
+    expect(output.text).toContain("a staging build is still running");
   });
 });
 
-describe("shipping the mobile app to preview", () => {
+describe("shipping the mobile app to staging", () => {
   it("given the tagged version moved past the last build, when shipped, then EAS builds and submits it in the cloud without asking how", async () => {
     const {
       context,
@@ -348,12 +348,12 @@ describe("shipping the mobile app to preview", () => {
       prompter,
       workspace: ws,
     } = setUp({
-      builds: { preview: [build("ios", "preview", { appVersion: "0.1.114" })] },
+      builds: { staging: [build("ios", "staging", { appVersion: "0.1.114" })] },
     });
     source.seed({ tags: { "expo@0.1.115": "head-1" } });
     prompter.answer(true);
 
-    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
+    expect(await shipTo(context, "staging", { scope: new Set(["expo"]) })).toBe(true);
 
     expect(easCalls(shell, "build")).toEqual([
       {
@@ -363,17 +363,17 @@ describe("shipping the mobile app to preview", () => {
           "eas",
           "build",
           "--profile",
-          "preview",
+          "staging",
           "--platform",
           "all",
           "--auto-submit",
           "--no-wait",
         ],
         cwd: `${ws.root}/apps/expo`,
-        env: { EXPO_ATLAS: "false", APP_VARIANT: "preview" },
+        env: { EXPO_ATLAS: "false", APP_VARIANT: "staging" },
       },
     ]);
-    expect(prompter.asked).not.toContain("How should expo@0.1.115 ship to preview?");
+    expect(prompter.asked).not.toContain("How should expo@0.1.115 ship to staging?");
   });
 
   it("given the same native layer and its tag on main, when shipped through Fake CI, then the ship workflow publishes the update from its tag", async () => {
@@ -384,14 +384,14 @@ describe("shipping the mobile app to preview", () => {
     });
     prompter.answer("ci", true);
 
-    await shipTo(context, "preview", { scope: new Set(["expo"]) });
+    await shipTo(context, "staging", { scope: new Set(["expo"]) });
 
     expect(ci.received).toEqual([
       {
         type: "dispatch",
         workflow: "ship.yml",
         ref: "expo@0.1.115",
-        inputs: { units: "expo", environment: "preview" },
+        inputs: { units: "expo", environment: "staging" },
       },
     ]);
   });
@@ -401,7 +401,7 @@ describe("shipping the mobile app to preview", () => {
       updates: Update[] = [],
       expoOptions: Record<string, unknown> = EXPO_OPTIONS,
     ) => {
-      const world = setUp({ updates: { preview: updates }, expoOptions });
+      const world = setUp({ updates: { staging: updates }, expoOptions });
       world.versioning.seed({
         dependencies: { "@acme/expo": ["@acme/app"], "@acme/app": [], "@acme/landing": [] },
         folders: {
@@ -425,28 +425,28 @@ describe("shipping the mobile app to preview", () => {
       const { context, ci, prompter } = releasedOnTop();
       prompter.answer("ci", true);
 
-      expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
+      expect(await shipTo(context, "staging", { scope: new Set(["expo"]) })).toBe(true);
 
       expect(ci.received).toEqual([
         {
           type: "dispatch",
           workflow: "ship.yml",
           ref: "expo@0.1.115",
-          inputs: { units: "expo", environment: "preview" },
+          inputs: { units: "expo", environment: "staging" },
         },
       ]);
     });
 
-    it("given the update went out from a later commit that only touched another app, when resumed, then mobile is on preview", async () => {
+    it("given the update went out from a later commit that only touched another app, when resumed, then mobile is on staging", async () => {
       const { context, host, ci, output } = releasedOnTop([
         { group: "group-pre", gitCommitHash: "pushed-later" },
       ]);
 
-      await shipTo(context, "preview", { scope: new Set(["expo"]) });
+      await shipTo(context, "staging", { scope: new Set(["expo"]) });
 
       expect(host.received).toEqual([]);
       expect(ci.received).toEqual([]);
-      expect(output.text).toContain("expo 0.1.115 is on preview");
+      expect(output.text).toContain("expo 0.1.115 is on staging");
     });
 
     const appMovedOn = (world: ReturnType<typeof releasedOnTop>) =>
@@ -463,9 +463,9 @@ describe("shipping the mobile app to preview", () => {
       const { context, ci, prompter, output } = world;
       prompter.answer(true);
 
-      expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
+      expect(await shipTo(context, "staging", { scope: new Set(["expo"]) })).toBe(true);
 
-      expect(prompter.asked).not.toContain("How should expo@0.1.115 ship to preview?");
+      expect(prompter.asked).not.toContain("How should expo@0.1.115 ship to staging?");
       expect(output.text).toContain(
         "main moved past it (packages/app/src/home.tsx changed since): ships through Fake CI",
       );
@@ -474,7 +474,7 @@ describe("shipping the mobile app to preview", () => {
           type: "dispatch",
           workflow: "ship.yml",
           ref: "expo@0.1.115",
-          inputs: { units: "expo", environment: "preview" },
+          inputs: { units: "expo", environment: "staging" },
         },
       ]);
     });
@@ -485,7 +485,7 @@ describe("shipping the mobile app to preview", () => {
       appMovedOn(world);
       const { context, host, ci, output } = world;
 
-      expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(false);
+      expect(await shipTo(context, "staging", { scope: new Set(["expo"]) })).toBe(false);
 
       expect(host.received).toEqual([]);
       expect(ci.received).toEqual([]);
@@ -497,23 +497,23 @@ describe("shipping the mobile app to preview", () => {
   it("given a build of this version still running, when shipped, then nothing more starts", async () => {
     const { context, shell, source, output } = setUp({
       builds: {
-        preview: [
-          build("ios", "preview", { status: "IN_QUEUE", id: "ios-run" }),
-          build("ios", "preview"),
+        staging: [
+          build("ios", "staging", { status: "IN_QUEUE", id: "ios-run" }),
+          build("ios", "staging"),
         ],
       },
     });
     source.seed({ tags: { "expo@0.1.115": "head-1" } });
 
-    await shipTo(context, "preview", { scope: new Set(["expo"]) });
+    await shipTo(context, "staging", { scope: new Set(["expo"]) });
 
     expect(easCalls(shell, "build")).toEqual([]);
     expect(output.text).toContain("building on EAS, submitted when done");
   });
 });
 
-describe("promoting the mobile app to production", () => {
-  it("given preview validated a new native layer, when production ships, then a PR moves production's version first and the build follows its merge", async () => {
+describe("promoting the mobile app to prod", () => {
+  it("given staging validated a new native layer, when prod ships, then a PR moves prod's version first and the build follows its merge", async () => {
     const {
       context,
       host,
@@ -524,39 +524,35 @@ describe("promoting the mobile app to production", () => {
     } = setUp({
       local: "fp-new",
       builds: {
-        production: [
-          build("ios", "production", { appVersion: "0.1.114", fingerprint: { hash: "fp-old" } }),
-        ],
+        prod: [build("ios", "prod", { appVersion: "0.1.114", fingerprint: { hash: "fp-old" } })],
       },
     });
     source.seed({ tags: { "expo@0.1.115": "tag-expo" }, diffs: { "tag-expo..head-1": [] } });
     host.seed({ prStates: { 1800: ["MERGED"] } });
-    prompter.answer("production", true, true);
+    prompter.answer("prod", true, true);
 
-    await shipTo(context, "production", { scope: new Set(["expo"]) });
+    await shipTo(context, "prod", { scope: new Set(["expo"]) });
 
     expect(host.received[0]).toMatchObject({
       type: "pr",
       head: "chore/promote-expo-0.1.115",
-      title: "chore(release): production builds expo 0.1.115",
+      title: "chore(release): prod builds expo 0.1.115",
     });
-    expect(JSON.parse(ws.read("apps/expo/app-version.json")).production.version).toBe("0.1.115");
-    expect(easCalls(shell, "build")[0]?.args).toContain("production");
+    expect(JSON.parse(ws.read("apps/expo/app-version.json")).prod.version).toBe("0.1.115");
+    expect(easCalls(shell, "build")[0]?.args).toContain("prod");
   });
 
-  it("given production runs the version in both stores, when production ships, then it is shipped and nothing touches api", async () => {
+  it("given prod runs the version in both stores, when prod ships, then it is shipped and nothing touches api", async () => {
     const { context, host, ci, source, versioning, prompter, output } = setUp({
-      versions: { preview: "0.1.115", production: "0.1.115" },
+      versions: { staging: "0.1.115", prod: "0.1.115" },
       builds: {
-        production: [
-          build("ios", "production", { appVersion: "0.1.115", gitCommitHash: "tag-expo" }),
-        ],
+        prod: [build("ios", "prod", { appVersion: "0.1.115", gitCommitHash: "tag-expo" })],
       },
     });
     source.seed({ tags: { "expo@0.1.115": "tag-expo" } });
-    prompter.answer("production");
+    prompter.answer("prod");
 
-    await shipTo(context, "production", { scope: new Set(["expo"]) });
+    await shipTo(context, "prod", { scope: new Set(["expo"]) });
 
     expect(host.received).toEqual([]);
     expect(ci.received).toEqual([]);
@@ -568,8 +564,8 @@ describe("promoting the mobile app to production", () => {
 describe("promoting the mobile app after main moved on", () => {
   const promotable = () => {
     const world = setUp({
-      versions: { preview: "0.1.115", production: "0.1.115" },
-      builds: { production: [build("ios", "production", { appVersion: "0.1.115" })] },
+      versions: { staging: "0.1.115", prod: "0.1.115" },
+      builds: { prod: [build("ios", "prod", { appVersion: "0.1.115" })] },
     });
     world.versioning.seed({
       dependencies: { "@acme/expo": ["@acme/app"], "@acme/app": [], "@acme/api": [] },
@@ -582,7 +578,7 @@ describe("promoting the mobile app after main moved on", () => {
     return world;
   };
 
-  it("given only the API changed since the mobile release, when production ships, then the update preview validated goes out", async () => {
+  it("given only the API changed since the mobile release, when prod ships, then the update staging validated goes out", async () => {
     const { context, ci, source, prompter } = promotable();
     source.seed({
       tags: { "expo@0.1.115": "tag-expo" },
@@ -591,41 +587,41 @@ describe("promoting the mobile app after main moved on", () => {
         "tag-expo..built-from": ["packages/app/src/home.tsx"],
       },
     });
-    prompter.answer("production", "ci", true);
+    prompter.answer("prod", "ci", true);
 
-    expect(await shipTo(context, "production", { scope: new Set(["expo"]) })).toBe(true);
+    expect(await shipTo(context, "prod", { scope: new Set(["expo"]) })).toBe(true);
 
     expect(ci.received).toEqual([
       {
         type: "dispatch",
         workflow: "ship.yml",
         ref: "main",
-        inputs: { units: "expo", environment: "production" },
+        inputs: { units: "expo", environment: "prod" },
       },
     ]);
   });
 
-  it("given a unit that ships main and its tag is the tip of main, when production ships through Fake CI, then it is still dispatched on main", async () => {
+  it("given a unit that ships main and its tag is the tip of main, when prod ships through Fake CI, then it is still dispatched on main", async () => {
     const { context, ci, source, prompter } = promotable();
     source.seed({
       tags: { "expo@0.1.115": "head-1" },
       diffs: { "head-1..built-from": ["packages/app/src/home.tsx"] },
     });
-    prompter.answer("production", "ci", true);
+    prompter.answer("prod", "ci", true);
 
-    expect(await shipTo(context, "production", { scope: new Set(["expo"]) })).toBe(true);
+    expect(await shipTo(context, "prod", { scope: new Set(["expo"]) })).toBe(true);
 
     expect(ci.received).toEqual([
       {
         type: "dispatch",
         workflow: "ship.yml",
         ref: "main",
-        inputs: { units: "expo", environment: "production" },
+        inputs: { units: "expo", environment: "prod" },
       },
     ]);
   });
 
-  it("given the app's own code changed since its release, when production ships, then it refuses and names what preview never ran", async () => {
+  it("given the app's own code changed since its release, when prod ships, then it refuses and names what staging never ran", async () => {
     const { context, host, ci, source, prompter, output } = promotable();
     source.seed({
       tags: { "expo@0.1.115": "tag-expo" },
@@ -634,9 +630,9 @@ describe("promoting the mobile app after main moved on", () => {
         "tag-expo..built-from": ["packages/app/src/home.tsx"],
       },
     });
-    prompter.answer("production");
+    prompter.answer("prod");
 
-    expect(await shipTo(context, "production", { scope: new Set(["expo"]) })).toBe(false);
+    expect(await shipTo(context, "prod", { scope: new Set(["expo"]) })).toBe(false);
 
     expect(host.received).toEqual([]);
     expect(ci.received).toEqual([]);
@@ -645,14 +641,14 @@ describe("promoting the mobile app after main moved on", () => {
   });
 });
 
-describe("promoting with preview's health", () => {
+describe("promoting with staging's health", () => {
   const launches = { installs: 0, failedInstalls: 0, uniqueUsers: 0, crashRatePercent: 0 };
-  const previewRan = (
+  const entryRan = (
     totals: Record<"ios" | "android", Partial<typeof launches>>,
     updatedFrom = "tag-expo",
   ) => {
     const world = setUp({
-      updates: { preview: [{ group: "group-pre", gitCommitHash: updatedFrom }] },
+      updates: { staging: [{ group: "group-pre", gitCommitHash: updatedFrom }] },
     });
     world.shell.seed("pnpm exec eas update:insights group-pre", {
       stdout: JSON.stringify({
@@ -667,8 +663,8 @@ describe("promoting with preview's health", () => {
     return world;
   };
 
-  it("given the preview update crashed once, when promoting, then it shows preview's launches, asks before going on and stops when refused", async () => {
-    const { context, prompter, output } = previewRan({
+  it("given the staging update crashed once, when promoting, then it shows staging's launches, asks before going on and stops when refused", async () => {
+    const { context, prompter, output } = entryRan({
       ios: { installs: 3 },
       android: { installs: 12, failedInstalls: 1 },
     });
@@ -678,11 +674,11 @@ describe("promoting with preview's health", () => {
 
     expect(output.text).toContain("Android 12 launches, 1 crash");
     expect(prompter.asked.at(-1)).toContain("Promote anyway?");
-    expect(prompter.asked).not.toContain('Type "production" to start:');
+    expect(prompter.asked).not.toContain('Type "prod" to start:');
   });
 
-  it("given the preview update ran with no crash, when promoting, then it shows its launches and goes on to production", async () => {
-    const { context, prompter, output } = previewRan({
+  it("given the staging update ran with no crash, when promoting, then it shows its launches and goes on to prod", async () => {
+    const { context, prompter, output } = entryRan({
       ios: { installs: 3 },
       android: { installs: 12 },
     });
@@ -691,12 +687,12 @@ describe("promoting with preview's health", () => {
     await promote(context, undefined);
 
     expect(output.text).toContain("iOS 3 launches, 0 crashes");
-    expect(prompter.asked).toContain('Type "production" to start:');
+    expect(prompter.asked).toContain('Type "prod" to start:');
     expect(prompter.asked.some((question) => question.includes("Promote anyway?"))).toBe(false);
   });
 
-  it("given preview got this release as a build, not an update, when promoting, then no health is shown and it goes on", async () => {
-    const { context, source, prompter, output } = previewRan({ ios: {}, android: {} }, "older");
+  it("given staging got this release as a build, not an update, when promoting, then no health is shown and it goes on", async () => {
+    const { context, source, prompter, output } = entryRan({ ios: {}, android: {} }, "older");
     source.seed({
       tags: { "expo@0.1.115": "tag-expo" },
       diffs: { "tag-expo..older": ["apps/expo/src/older.ts"] },
@@ -706,13 +702,13 @@ describe("promoting with preview's health", () => {
     await promote(context, undefined);
 
     expect(output.text).not.toContain("launches");
-    expect(prompter.asked).toContain('Type "production" to start:');
+    expect(prompter.asked).toContain('Type "prod" to start:');
   });
 });
 
-describe("guiding a production rollout", () => {
-  const ROLLOUT = "How far should expo@0.1.115 go on production?";
-  const onProduction = ({
+describe("guiding a prod rollout", () => {
+  const ROLLOUT = "How far should expo@0.1.115 go on prod?";
+  const onProd = ({
     rolloutPercentage,
     createdAt,
     launches = { ios: [120, 0], android: [340, 0] },
@@ -722,12 +718,10 @@ describe("guiding a production rollout", () => {
     launches?: Record<"ios" | "android", [number, number]>;
   } = {}) => {
     const world = setUp({
-      versions: { preview: "0.1.115", production: "0.1.115" },
-      builds: { production: [build("ios", "production", { appVersion: "0.1.115" })] },
+      versions: { staging: "0.1.115", prod: "0.1.115" },
+      builds: { prod: [build("ios", "prod", { appVersion: "0.1.115" })] },
       updates: {
-        production: [
-          { group: "group-115", gitCommitHash: "tag-expo", rolloutPercentage, createdAt },
-        ],
+        prod: [{ group: "group-115", gitCommitHash: "tag-expo", rolloutPercentage, createdAt }],
       },
     });
     world.shell.seed("pnpm exec eas update:insights group-115", {
@@ -742,11 +736,11 @@ describe("guiding a production rollout", () => {
     return world;
   };
 
-  it("given 10% of people ran it for two days without a crash, when production ships, then it shows where the rollout stands and suggests widening it to 25%", async () => {
-    const { context, shell, prompter, output } = onProduction({ rolloutPercentage: 10 });
-    prompter.answer("production", "25", true);
+  it("given 10% of people ran it for two days without a crash, when prod ships, then it shows where the rollout stands and suggests widening it to 25%", async () => {
+    const { context, shell, prompter, output } = onProd({ rolloutPercentage: 10 });
+    prompter.answer("prod", "25", true);
 
-    expect(await shipTo(context, "production", { scope: new Set(["expo"]) })).toBe(true);
+    expect(await shipTo(context, "prod", { scope: new Set(["expo"]) })).toBe(true);
 
     expect(output.text).toContain("10% of people · out for 2 days");
     expect(output.text).toContain("iOS 120 launches, 0 crashes · Android 340 launches, 0 crashes");
@@ -771,24 +765,24 @@ describe("guiding a production rollout", () => {
     ]);
   });
 
-  it("given the person picks everyone, when the rollout moves, then the update reaches all of production", async () => {
-    const { context, shell, prompter } = onProduction({ rolloutPercentage: 50 });
-    prompter.answer("production", "100", true);
+  it("given the person picks everyone, when the rollout moves, then the update reaches all of prod", async () => {
+    const { context, shell, prompter } = onProd({ rolloutPercentage: 50 });
+    prompter.answer("prod", "100", true);
 
-    await shipTo(context, "production", { scope: new Set(["expo"]) });
+    await shipTo(context, "prod", { scope: new Set(["expo"]) });
 
     expect(prompter.initials[ROLLOUT]).toBe("100");
     expect(easCalls(shell, "update:edit")[0]?.args).toContain("100");
   });
 
-  it("given a crash at 10%, when production ships, then it suggests staying and offers rolling back", async () => {
-    const { context, shell, prompter } = onProduction({
+  it("given a crash at 10%, when prod ships, then it suggests staying and offers rolling back", async () => {
+    const { context, shell, prompter } = onProd({
       rolloutPercentage: 10,
       launches: { ios: [120, 0], android: [340, 2] },
     });
-    prompter.answer("production", "roll-back", true);
+    prompter.answer("prod", "roll-back", true);
 
-    await shipTo(context, "production", { scope: new Set(["expo"]) });
+    await shipTo(context, "prod", { scope: new Set(["expo"]) });
 
     expect(prompter.initials[ROLLOUT]).toBe("stay");
     expect(prompter.choices[ROLLOUT]?.find(({ value }) => value === "stay")?.hint).toBe(
@@ -800,48 +794,48 @@ describe("guiding a production rollout", () => {
   });
 
   it("given an update out for three hours, when the person stays, then nothing runs and it says where the rollout rests", async () => {
-    const { context, shell, prompter, output } = onProduction({
+    const { context, shell, prompter, output } = onProd({
       rolloutPercentage: 10,
       createdAt: "2026-10-12T06:00:00.000Z",
     });
-    prompter.answer("production", "stay");
+    prompter.answer("prod", "stay");
 
-    expect(await shipTo(context, "production", { scope: new Set(["expo"]) })).toBe(true);
+    expect(await shipTo(context, "prod", { scope: new Set(["expo"]) })).toBe(true);
 
     expect(prompter.initials[ROLLOUT]).toBe("stay");
     expect(easCalls(shell, "update:edit")).toEqual([]);
     expect(output.text).toContain("stays at 10% of people");
   });
 
-  it("given --ci from a terminal, when production ships a partial rollout, then it still asks how far it goes", async () => {
-    const { context, shell, prompter } = onProduction({ rolloutPercentage: 10 });
+  it("given --ci from a terminal, when prod ships a partial rollout, then it still asks how far it goes", async () => {
+    const { context, shell, prompter } = onProd({ rolloutPercentage: 10 });
     context.options.ci = true;
     prompter.answer("25", true);
 
-    await shipTo(context, "production", { scope: new Set(["expo"]) });
+    await shipTo(context, "prod", { scope: new Set(["expo"]) });
 
     expect(prompter.initials[ROLLOUT]).toBe("25");
     expect(easCalls(shell, "update:edit")[0]?.args).toContain("25");
   });
 
-  it("given production's update of this release reaches everyone, when production ships, then it is live and nothing is asked", async () => {
-    const { context, shell, prompter, output } = onProduction();
-    prompter.answer("production");
+  it("given prod's update of this release reaches everyone, when prod ships, then it is live and nothing is asked", async () => {
+    const { context, shell, prompter, output } = onProd();
+    prompter.answer("prod");
 
-    await shipTo(context, "production", { scope: new Set(["expo"]) });
+    await shipTo(context, "prod", { scope: new Set(["expo"]) });
 
     expect(easCalls(shell, "update:edit")).toEqual([]);
     expect(prompter.asked).not.toContain(ROLLOUT);
     expect(output.text).toContain("expo 0.1.115 is live");
   });
 
-  it("given a production update held at 10%, when the status is read as JSON, then it says how far the rollout went", async () => {
-    const { context } = onProduction({ rolloutPercentage: 10 });
+  it("given a prod update held at 10%, when the status is read as JSON, then it says how far the rollout went", async () => {
+    const { context } = onProd({ rolloutPercentage: 10 });
 
-    const status = await readStatus(context, "production");
+    const status = await readStatus(context, "prod");
 
     expect(status.units.find(({ unit }) => unit === "expo")?.live).toMatchObject({
-      channel: "production",
+      channel: "prod",
       rolloutPercentage: 10,
     });
   });
@@ -851,10 +845,10 @@ describe("the mobile app's status", () => {
   it("given the last build carries this native layer, when the status is read as JSON, then each platform says an update ships", async () => {
     const { context } = setUp();
 
-    const status = await readStatus(context, "preview");
+    const status = await readStatus(context, "staging");
 
     expect(status.units.find(({ unit }) => unit === "expo")?.live).toMatchObject({
-      channel: "preview",
+      channel: "staging",
       version: "0.1.115",
       action: "update",
       platforms: [
@@ -866,40 +860,40 @@ describe("the mobile app's status", () => {
 
   const expoChoice = async (world: ReturnType<typeof setUp>) => {
     world.source.seed({ tags: { "expo@0.1.115": "head-1" } });
-    const status = await readStatus(world.context, "preview");
+    const status = await readStatus(world.context, "staging");
     return status.units.find(({ unit }) => unit === "expo");
   };
 
-  it("given expo@0.1.115 tagged and its only preview build of 0.1.115 errored, when the status is read, then expo is not live and offered as a retry", async () => {
+  it("given expo@0.1.115 tagged and its only staging build of 0.1.115 errored, when the status is read, then expo is not live and offered as a retry", async () => {
     const world = setUp({
       builds: {
-        preview: [
-          build("ios", "preview", { status: "ERRORED", id: "ios-errored" }),
-          build("ios", "preview", { appVersion: "0.1.114" }),
+        staging: [
+          build("ios", "staging", { status: "ERRORED", id: "ios-errored" }),
+          build("ios", "staging", { appVersion: "0.1.114" }),
         ],
       },
     });
 
     expect(await expoChoice(world)).toMatchObject({
       pending: true,
-      hint: "0.1.115 tagged, never reached preview: retry",
+      hint: "0.1.115 tagged, never reached staging: retry",
     });
   });
 
-  it("given a finished preview build of 0.1.115 made from its tag, when the status is read, then expo is live and greyed out", async () => {
+  it("given a finished staging build of 0.1.115 made from its tag, when the status is read, then expo is live and greyed out", async () => {
     const world = setUp({
-      builds: { preview: [build("ios", "preview", { gitCommitHash: "head-1" })] },
+      builds: { staging: [build("ios", "staging", { gitCommitHash: "head-1" })] },
     });
 
     expect(await expoChoice(world)).toMatchObject({ pending: false });
   });
 
-  it("given a preview build of 0.1.115 still running, when the status is read, then no retry is offered", async () => {
+  it("given a staging build of 0.1.115 still running, when the status is read, then no retry is offered", async () => {
     const world = setUp({
       builds: {
-        preview: [
-          build("ios", "preview", { status: "IN_PROGRESS", id: "ios-run" }),
-          build("ios", "preview", { appVersion: "0.1.114" }),
+        staging: [
+          build("ios", "staging", { status: "IN_PROGRESS", id: "ios-run" }),
+          build("ios", "staging", { appVersion: "0.1.114" }),
         ],
       },
     });
@@ -908,20 +902,20 @@ describe("the mobile app's status", () => {
   });
 });
 
-describe("retrying a mobile release that never reached preview", () => {
+describe("retrying a mobile release that never reached staging", () => {
   const TAG = "expo@0.1.115";
   const RETRY = "What should ship?";
   const NO_TRACE = "Did the last attempt to ship 0.1.115 fail before it got this far?";
-  const HOW = "How should expo@0.1.115 ship to preview?";
+  const HOW = "How should expo@0.1.115 ship to staging?";
   const OLDER = (platform: string) =>
-    build(platform, "preview", { appVersion: "0.1.114", id: `${platform}-114` });
-  const IOS_FAILED = build("ios", "preview", {
+    build(platform, "staging", { appVersion: "0.1.114", id: `${platform}-114` });
+  const IOS_FAILED = build("ios", "staging", {
     status: "ERRORED",
     id: "ios-failed",
     gitCommitHash: "tag-expo",
     createdAt: "2026-10-12T07:00:00.000Z",
   });
-  const ANDROID_BUILT = build("android", "preview", {
+  const ANDROID_BUILT = build("android", "staging", {
     id: "android-42",
     appBuildVersion: "42",
     gitCommitHash: "tag-expo",
@@ -967,10 +961,10 @@ describe("retrying a mobile release that never reached preview", () => {
     const { context, ci, shell, prompter, output } = iosFailed();
     prompter.answer("retry", "ci");
 
-    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
+    expect(await shipTo(context, "staging", { scope: new Set(["expo"]) })).toBe(true);
 
     expect(output.text).toContain(
-      "expo 0.1.115 didn't reach preview: the iOS build failed 2h ago.",
+      "expo 0.1.115 didn't reach staging: the iOS build failed 2h ago.",
     );
     expect(output.text).toContain("main has 3 commits since its tag (packages/app/src/home.tsx).");
     expect(prompter.initials[RETRY]).toBe("retry");
@@ -989,7 +983,7 @@ describe("retrying a mobile release that never reached preview", () => {
         type: "dispatch",
         workflow: "ship.yml",
         ref: TAG,
-        inputs: { units: "expo", environment: "preview" },
+        inputs: { units: "expo", environment: "staging" },
       },
     ]);
   });
@@ -999,7 +993,7 @@ describe("retrying a mobile release that never reached preview", () => {
     source.seed({ ignored: [".env", "apps/expo/.env.local"] });
     prompter.answer("retry", "local");
 
-    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
+    expect(await shipTo(context, "staging", { scope: new Set(["expo"]) })).toBe(true);
 
     const added = source.received.find((event) => event.type === "worktree-add");
     expect(added).toMatchObject({ type: "worktree-add", ref: TAG });
@@ -1022,14 +1016,14 @@ describe("retrying a mobile release that never reached preview", () => {
           "eas",
           "build",
           "--profile",
-          "preview",
+          "staging",
           "--platform",
           "ios",
           "--auto-submit",
           "--no-wait",
         ],
         cwd: `${dir}/apps/expo`,
-        env: { EXPO_ATLAS: "false", APP_VARIANT: "preview" },
+        env: { EXPO_ATLAS: "false", APP_VARIANT: "staging" },
       },
     ]);
     expect(source.received.at(-1)).toEqual({ type: "worktree-remove", dir });
@@ -1040,7 +1034,7 @@ describe("retrying a mobile release that never reached preview", () => {
     shell.seedOnce("pnpm exec eas build --profile", { status: 1 });
     prompter.answer("retry", "local");
 
-    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(false);
+    expect(await shipTo(context, "staging", { scope: new Set(["expo"]) })).toBe(false);
 
     const added = source.received.find((event) => event.type === "worktree-add");
     expect(added).toBeDefined();
@@ -1054,7 +1048,7 @@ describe("retrying a mobile release that never reached preview", () => {
     const { context, host, source, shell, prompter } = iosFailed();
     prompter.answer("retry", "local");
 
-    await shipTo(context, "preview", { scope: new Set(["expo"]) });
+    await shipTo(context, "staging", { scope: new Set(["expo"]) });
 
     expect(easCalls(shell, "build")).toHaveLength(1);
     expect(easCalls(shell, "submit")).toEqual([]);
@@ -1070,9 +1064,9 @@ describe("retrying a mobile release that never reached preview", () => {
     });
     prompter.answer("retry", "ci");
 
-    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
+    expect(await shipTo(context, "staging", { scope: new Set(["expo"]) })).toBe(true);
 
-    expect(output.text).toContain("expo 0.1.115 is tagged, but nothing for it reached preview.");
+    expect(output.text).toContain("expo 0.1.115 is tagged, but nothing for it reached staging.");
     expect(prompter.initials[NO_TRACE]).toBe("retry");
     expect(prompter.choices[NO_TRACE]?.map(({ label }) => label)).toEqual([
       "Yes, retry 0.1.115 exactly as released",
@@ -1085,7 +1079,7 @@ describe("retrying a mobile release that never reached preview", () => {
         type: "dispatch",
         workflow: "ship.yml",
         ref: TAG,
-        inputs: { units: "expo", environment: "preview" },
+        inputs: { units: "expo", environment: "staging" },
       },
     ]);
   });
@@ -1096,7 +1090,7 @@ describe("retrying a mobile release that never reached preview", () => {
     });
     prompter.answer("new-code");
 
-    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
+    expect(await shipTo(context, "staging", { scope: new Set(["expo"]) })).toBe(true);
 
     expect(ci.received).toEqual([]);
     expect(easCalls(shell, "build")).toEqual([]);
@@ -1107,7 +1101,7 @@ describe("retrying a mobile release that never reached preview", () => {
   it("given the build finished but its submission failed, when retried, then only the submit runs, for that build", async () => {
     const { context, shell, prompter, output } = movedOn({
       platformBuilds: {
-        ios: [build("ios", "preview", { id: "ios-7", gitCommitHash: "tag-expo" })],
+        ios: [build("ios", "staging", { id: "ios-7", gitCommitHash: "tag-expo" })],
         android: [ANDROID_BUILT],
       },
       submissions: {
@@ -1117,7 +1111,7 @@ describe("retrying a mobile release that never reached preview", () => {
     });
     prompter.answer("retry", "local");
 
-    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
+    expect(await shipTo(context, "staging", { scope: new Set(["expo"]) })).toBe(true);
 
     expect(output.text).toContain("the iOS submission failed 1h ago.");
     expect(easCalls(shell, "build")).toEqual([]);
@@ -1131,7 +1125,7 @@ describe("retrying a mobile release that never reached preview", () => {
         "--id",
         "ios-7",
         "--profile",
-        "preview",
+        "staging",
         "--non-interactive",
       ],
     ]);
@@ -1147,14 +1141,14 @@ describe("retrying a mobile release that never reached preview", () => {
     });
     prompter.answer("retry", "ci");
 
-    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
+    expect(await shipTo(context, "staging", { scope: new Set(["expo"]) })).toBe(true);
 
     expect(ci.received).toEqual([
       {
         type: "dispatch",
         workflow: "ship.yml",
         ref: TAG,
-        inputs: { units: "expo", environment: "preview" },
+        inputs: { units: "expo", environment: "staging" },
       },
     ]);
   });
@@ -1163,7 +1157,7 @@ describe("retrying a mobile release that never reached preview", () => {
     const { context, shell, prompter, output } = movedOn({
       local: "fp-shipped",
       platformBuilds: {
-        ios: [build("ios", "preview", { id: "ios-7", gitCommitHash: "tag-expo" })],
+        ios: [build("ios", "staging", { id: "ios-7", gitCommitHash: "tag-expo" })],
         android: [ANDROID_BUILT],
       },
       submissions: {
@@ -1173,38 +1167,38 @@ describe("retrying a mobile release that never reached preview", () => {
     });
     prompter.answer("retry", "local");
 
-    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
+    expect(await shipTo(context, "staging", { scope: new Set(["expo"]) })).toBe(true);
 
-    expect(output.text).toContain("expo 0.1.115 didn't reach preview: the iOS submission failed");
-    expect(output.text).not.toContain("expo 0.1.115 is on preview");
+    expect(output.text).toContain("expo 0.1.115 didn't reach staging: the iOS submission failed");
+    expect(output.text).not.toContain("expo 0.1.115 is on staging");
     expect(easCalls(shell, "build")).toEqual([]);
     expect(easCalls(shell, "submit").map(({ args }) => args.slice(3, 7))).toEqual([
       ["--platform", "ios", "--id", "ios-7"],
     ]);
   });
 
-  it("given the tag released an update that went out from it, and main then changed native code, when shipped, then it is on preview and nothing is offered or republished", async () => {
+  it("given the tag released an update that went out from it, and main then changed native code, when shipped, then it is on staging and nothing is offered or republished", async () => {
     const { context, shell, source, prompter, output } = movedOn({
-      versions: { preview: "0.1.114", production: "0.1.114" },
+      versions: { staging: "0.1.114", prod: "0.1.114" },
       platformBuilds: { ios: [OLDER("ios")], android: [OLDER("android")] },
-      updates: { preview: [{ group: "group-115", gitCommitHash: "tag-expo" }] },
+      updates: { staging: [{ group: "group-115", gitCommitHash: "tag-expo" }] },
     });
     source.seed({
       files: {
         "expo@0.1.115:ci/ship.yml": "on: workflow_dispatch",
         "main:ci/ship.yml": "on: workflow_dispatch",
         "expo@0.1.115:apps/expo/app-version.json": JSON.stringify({
-          preview: { version: "0.1.114" },
-          production: { version: "0.1.114" },
+          staging: { version: "0.1.114" },
+          prod: { version: "0.1.114" },
         }),
       },
     });
 
-    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
+    expect(await shipTo(context, "staging", { scope: new Set(["expo"]) })).toBe(true);
 
     expect(prompter.asked).toEqual([]);
-    expect(output.text).toContain("expo 0.1.115 is on preview");
-    expect(shell.calls.filter(({ args }) => args.includes("eas:update:preview"))).toEqual([]);
+    expect(output.text).toContain("expo 0.1.115 is on staging");
+    expect(shell.calls.filter(({ args }) => args.includes("eas:update:staging"))).toEqual([]);
   });
 
   it("given the worktree cannot be made, when retried from this machine, then what was made of it is removed and the run fails", async () => {
@@ -1212,7 +1206,7 @@ describe("retrying a mobile release that never reached preview", () => {
     source.failAt("worktree-add", 1, new Error("no space left"));
     prompter.answer("retry", "local");
 
-    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(false);
+    expect(await shipTo(context, "staging", { scope: new Set(["expo"]) })).toBe(false);
 
     expect(source.received.at(-1)?.type).toBe("worktree-remove");
   });
@@ -1223,7 +1217,7 @@ describe("retrying a mobile release that never reached preview", () => {
     source.failAt("worktree-remove", 1, new Error("worktree locked"));
     prompter.answer("retry", "local");
 
-    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(false);
+    expect(await shipTo(context, "staging", { scope: new Set(["expo"]) })).toBe(false);
 
     expect(output.text).toContain("pnpm exited with 1, nothing after it ran");
     expect(output.text).toContain("could not remove the worktree");
@@ -1235,7 +1229,7 @@ describe("retrying a mobile release that never reached preview", () => {
     const { context, ci, shell, output } = world;
     Object.defineProperty(world.prompter, "interactive", { value: false });
 
-    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(false);
+    expect(await shipTo(context, "staging", { scope: new Set(["expo"]) })).toBe(false);
 
     expect(output.text).toContain(
       "The last iOS build of 0.1.115 failed 2h ago: run it from a terminal to retry 0.1.115 as released.",
@@ -1250,21 +1244,21 @@ describe("retrying a mobile release that never reached preview", () => {
     context.options.ci = true;
     context.options.yes = true;
 
-    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(false);
+    expect(await shipTo(context, "staging", { scope: new Set(["expo"]) })).toBe(false);
 
     expect(prompter.asked).toEqual([]);
     expect(output.text).toContain("run it from a terminal to retry 0.1.115 as released");
   });
 
-  it("given a newer version built on preview, when shipped, then main is behind and no retry is offered", async () => {
+  it("given a newer version built on staging, when shipped, then main is behind and no retry is offered", async () => {
     const { context, prompter, output } = movedOn({
       platformBuilds: {
-        ios: [build("ios", "preview", { appVersion: "0.1.116" })],
-        android: [build("android", "preview", { appVersion: "0.1.116" })],
+        ios: [build("ios", "staging", { appVersion: "0.1.116" })],
+        android: [build("android", "staging", { appVersion: "0.1.116" })],
       },
     });
 
-    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(false);
+    expect(await shipTo(context, "staging", { scope: new Set(["expo"]) })).toBe(false);
 
     expect(prompter.asked).toEqual([]);
     expect(output.text).toContain("main is behind");
@@ -1282,7 +1276,7 @@ describe("retrying a mobile release that never reached preview", () => {
     context.options.ci = true;
     context.options.yes = true;
 
-    expect(await shipTo(context, "preview", { scope: new Set(["expo"]) })).toBe(true);
+    expect(await shipTo(context, "staging", { scope: new Set(["expo"]) })).toBe(true);
 
     expect(easCalls(shell, "build").map(({ args }) => args.slice(5, 7))).toEqual([
       ["--platform", "ios"],

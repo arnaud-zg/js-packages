@@ -17,7 +17,7 @@ describe("what the release covers, asked before anything runs", () => {
   ) =>
     scopeChoices(
       [{ ...base, ...info, ...(info.app === "expo" ? { decidedBy: STORE_DECIDES } : {}) }],
-      "preview",
+      "staging",
       TEST_FLOW,
     )[0];
 
@@ -30,36 +30,36 @@ describe("what the release covers, asked before anything runs", () => {
     });
   });
 
-  it("given landing 0.1.1 released but not on preview, when asked, then it is offered to deploy", () => {
+  it("given landing 0.1.1 released but not on staging, when asked, then it is offered to deploy", () => {
     expect(choose({ app: "landing", version: "0.1.1", tagged: true })).toEqual({
       app: "landing",
       pending: true,
       kind: "to retry",
-      hint: "0.1.1 released, not on preview yet",
+      hint: "0.1.1 released, not on staging yet",
     });
   });
 
-  it("given landing 0.1.1 already on preview and nothing new, when asked, then it is greyed out", () => {
+  it("given landing 0.1.1 already on staging and nothing new, when asked, then it is greyed out", () => {
     expect(choose({ app: "landing", version: "0.1.1", tagged: true, onChannel: true })).toEqual({
       app: "landing",
       pending: false,
       kind: "with nothing to release",
-      hint: "0.1.1 is on preview, nothing new",
+      hint: "0.1.1 is on staging, nothing new",
     });
   });
 
-  it("given a package with no environment, when asked, then it reads live or not, never preview", () => {
+  it("given a package with no environment, when asked, then it reads live or not, never staging", () => {
     const package_ = { ...base, app: "cli", version: "1.0.0", tagged: true, noEnvironment: true };
 
-    expect(scopeChoices([{ ...package_, onChannel: true }], "preview", TEST_FLOW)[0]?.hint).toBe(
+    expect(scopeChoices([{ ...package_, onChannel: true }], "staging", TEST_FLOW)[0]?.hint).toBe(
       "1.0.0 is live, nothing new",
     );
-    expect(scopeChoices([package_], "preview", TEST_FLOW)[0]?.hint).toBe(
+    expect(scopeChoices([package_], "staging", TEST_FLOW)[0]?.hint).toBe(
       "1.0.0 released, not live yet",
     );
   });
 
-  it("given expo released and on preview with nothing new, when asked, then it is greyed out and points to its build check", () => {
+  it("given expo released and on staging with nothing new, when asked, then it is greyed out and points to its build check", () => {
     expect(choose({ app: "expo", version: "0.1.115", tagged: true, onChannel: true })).toEqual({
       app: "expo",
       pending: false,
@@ -68,12 +68,12 @@ describe("what the release covers, asked before anything runs", () => {
     });
   });
 
-  it("given expo 0.6.0 tagged but its build never reached preview, when asked, then it is offered again to retry", () => {
+  it("given expo 0.6.0 tagged but its build never reached staging, when asked, then it is offered again to retry", () => {
     expect(choose({ app: "expo", version: "0.6.0", tagged: true })).toEqual({
       app: "expo",
       pending: true,
       kind: "to retry",
-      hint: "0.6.0 tagged, never reached preview: retry",
+      hint: "0.6.0 tagged, never reached staging: retry",
     });
   });
 
@@ -86,37 +86,37 @@ describe("what the release covers, asked before anything runs", () => {
     });
   });
 
-  it("given admin 0.1.1 on preview only, when promoting to production, then it is offered", () => {
+  it("given admin 0.1.1 on staging only, when promoting to prod, then it is offered", () => {
     expect(
       scopeChoices(
         [{ ...base, app: "admin", version: "0.1.1", tagged: true, onPrevious: true }],
-        "production",
+        "prod",
         TEST_FLOW,
       )[0],
     ).toEqual({
       app: "admin",
       pending: true,
       kind: "to promote",
-      hint: "0.1.1 is on preview, promotes it",
+      hint: "0.1.1 is on staging, promotes it",
     });
   });
 
-  it("given admin 0.1.1 not on preview yet, when promoting to production, then it is greyed out", () => {
+  it("given admin 0.1.1 not on staging yet, when promoting to prod, then it is greyed out", () => {
     expect(
       scopeChoices(
         [{ ...base, app: "admin", version: "0.1.1", tagged: true }],
-        "production",
+        "prod",
         TEST_FLOW,
       )[0],
     ).toEqual({
       app: "admin",
       pending: false,
       kind: "with nothing to release",
-      hint: "0.1.1 is not on preview yet: release it there first",
+      hint: "0.1.1 is not on staging yet: release it there first",
     });
   });
 
-  it("given admin 0.1.1 already on production, when promoting, then it is greyed out", () => {
+  it("given admin 0.1.1 already on prod, when promoting, then it is greyed out", () => {
     expect(
       scopeChoices(
         [
@@ -129,22 +129,22 @@ describe("what the release covers, asked before anything runs", () => {
             onChannel: true,
           },
         ],
-        "production",
+        "prod",
         TEST_FLOW,
       )[0],
     ).toEqual({
       app: "admin",
       pending: false,
       kind: "with nothing to release",
-      hint: "0.1.1 is on production, nothing new",
+      hint: "0.1.1 is on prod, nothing new",
     });
   });
 
-  it("given the release CLI 0.3.0 released with nothing new, when asked for preview, then it is greyed out since nothing deploys it", () => {
+  it("given the release CLI 0.3.0 released with nothing new, when asked for staging, then it is greyed out since nothing deploys it", () => {
     expect(
       scopeChoices(
         [{ ...base, app: "release", version: "0.3.0", tagged: true, releaseOnly: true }],
-        "preview",
+        "staging",
         TEST_FLOW,
       )[0],
     ).toEqual({
@@ -155,11 +155,11 @@ describe("what the release covers, asked before anything runs", () => {
     });
   });
 
-  it("given the release CLI 0.3.0 released, when promoting to production, then it is greyed out since nothing deploys it", () => {
+  it("given the release CLI 0.3.0 released, when promoting to prod, then it is greyed out since nothing deploys it", () => {
     expect(
       scopeChoices(
         [{ ...base, app: "release", version: "0.3.0", tagged: true, releaseOnly: true }],
-        "production",
+        "prod",
         TEST_FLOW,
       )[0],
     ).toEqual({

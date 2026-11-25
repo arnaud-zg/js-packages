@@ -28,7 +28,7 @@ const OWN_PINNED = [
   "  ship:",
   "    steps:",
   "      - uses: acme/shiplane/.github/actions/ship@sha-0.5.2 # shiplane@0.5.2",
-  "        with: { environment: preview }",
+  "        with: { environment: staging }",
   "",
 ].join("\n");
 
@@ -267,7 +267,7 @@ describe("Feature: doctor on a release that publishes packages", () => {
         "      - uses: acme/shiplane/.github/actions/ship@sha-0.6.0 # shiplane@0.6.0",
         "",
       ].join("\n");
-    const repo = memoryRepository({ ...REPO, ...LIB, [SHIP_YML]: shipYml || made("preview") }, [], {
+    const repo = memoryRepository({ ...REPO, ...LIB, [SHIP_YML]: shipYml || made("staging") }, [], {
       interactive: true,
     });
     const pipeline: ServiceAdapter<CiPipelinePort> = {

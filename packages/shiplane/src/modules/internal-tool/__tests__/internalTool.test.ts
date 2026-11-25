@@ -53,10 +53,10 @@ describe("an app released but never deployed, like the release CLI", () => {
     ]);
   });
 
-  it("given release@0.3.0 tagged, when shipped to preview, then nothing runs, nothing is asked, and it says nothing deploys it", async () => {
+  it("given release@0.3.0 tagged, when shipped to staging, then nothing runs, nothing is asked, and it says nothing deploys it", async () => {
     const { context, host, shell, prompter, output } = setUp();
 
-    expect(await shipTo(context, "preview", {})).toBe(true);
+    expect(await shipTo(context, "staging", {})).toBe(true);
 
     expect(prompter.asked).toEqual([]);
     expect(shell.calls).toEqual([]);
@@ -75,16 +75,16 @@ describe("an app released but never deployed, like the release CLI", () => {
     await openReleasePr(context, await prepareRelease(context, new Set(["release"])));
 
     expect(prompter.asked).toEqual(["Release these live as (Esc cancels)"]);
-    expect(output.text).not.toContain("preview");
+    expect(output.text).not.toContain("staging");
   });
 
-  it("given release@0.3.0 tagged with nothing new, when the status is read, then nothing is pending on preview or production", async () => {
+  it("given release@0.3.0 tagged with nothing new, when the status is read, then nothing is pending on staging or prod", async () => {
     const { context } = setUp();
 
-    const preview = await readStatus(context, "preview");
-    const production = await readStatus(context, "production");
+    const staging = await readStatus(context, "staging");
+    const prod = await readStatus(context, "prod");
 
-    expect([...preview.units, ...production.units]).toEqual([
+    expect([...staging.units, ...prod.units]).toEqual([
       expect.objectContaining({
         unit: "release",
         target: "release-only",

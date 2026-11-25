@@ -18,7 +18,7 @@ import { rehearsal } from "shiplane/rehearsal";
 
 const fakes = rehearsal();
 
-export default defineRelease({ deployApps: { promote: [{ from: "preview", to: "production" }] },
+export default defineRelease({ deployApps: { promote: [{ from: "staging", to: "prod" }] },
   flow: releaseFlow({
     sourceControl: fakes.sourceControl,
     codeHost: fakes.codeHost,
@@ -146,7 +146,7 @@ describe("Feature: finding the right command from the help", () => {
       "shiplane status                 where every unit stands, and what to run next",
     );
     expect(stdout()).toContain("shiplane help all");
-    expect(stdout()).not.toContain("--channel preview|production");
+    expect(stdout()).not.toContain("--channel staging|prod");
   });
 
   it("given a person looking for a rarer command, when they run shiplane help all, then every command and flag is listed", async () => {
@@ -169,7 +169,7 @@ describe("Feature: finding the right command from the help", () => {
 });
 
 describe("Feature: choosing how and where a command ships with flags", () => {
-  it("given a script still passing --via github, when a ship is previewed, then the person is told the flag is now --via ci", async () => {
+  it("given a script still passing --via github, when a ship is dry-run, then the person is told the flag is now --via ci", async () => {
     const { run } = given();
 
     expect(await run("ship", "--dry-run", "--via", "github")).toBe(0);
@@ -188,12 +188,12 @@ describe("Feature: choosing how and where a command ships with flags", () => {
   it("given a channel shiplane does not know, when status is asked for it, then shiplane refuses rather than guess", async () => {
     const { run } = given();
 
-    expect(await run("status", "--channel", "staging")).toBe(1);
+    expect(await run("status", "--channel", "elsewhere")).toBe(1);
 
-    expect(stdout()).toContain('unknown environment "staging": preview, production');
+    expect(stdout()).toContain('unknown environment "elsewhere": staging, prod');
   });
 
-  it("given a ship through this machine, when it is previewed, then no renamed-flag notice is shown", async () => {
+  it("given a ship through this machine, when it is dry-run, then no renamed-flag notice is shown", async () => {
     const { run } = given();
 
     expect(await run("ship", "--dry-run", "--via", "local")).toBe(0);
@@ -215,7 +215,7 @@ describe("Feature: checking a runner before it ships", () => {
     expect(await run("doctor", "--ci", "api", "--channel", "qa")).toBe(1);
 
     expect(stdout()).toContain("✓ units  api");
-    expect(stdout()).toContain('✗ unknown environment "qa": preview, production');
+    expect(stdout()).toContain('✗ unknown environment "qa": staging, prod');
     expect(stdout()).toContain("reference.md#github-actions-workflow");
   });
 
@@ -240,11 +240,11 @@ describe("Feature: seeing where every unit stands and what to run next", () => {
 
     expect(stdout().split("\n")).toEqual([
       "",
-      "  Release status  ·  preview",
+      "  Release status  ·  staging",
       "",
       "  Unit      Version     Target            Where it stands",
       "  api       1.1.0       fake              · nothing new",
-      "  site      1.0.0       fake              ↑ 1.0.0 released, not on preview yet",
+      "  site      1.0.0       fake              ↑ 1.0.0 released, not on staging yet",
       "",
       "  Release PR  https://x/pr/7",
       "",
@@ -282,13 +282,13 @@ describe("Feature: seeing where every unit stands and what to run next", () => {
     expect(stdout()).toContain(`  ${"Unit".padEnd(16)}${"Version".padEnd(12)}`);
   });
 
-  it("given a script reading production, when it runs status --json, then it gets every unit's production status as JSON", async () => {
+  it("given a script reading prod, when it runs status --json, then it gets every unit's prod status as JSON", async () => {
     const { run } = given();
 
-    expect(await run("status", "--json", "--channel", "production")).toBe(0);
+    expect(await run("status", "--json", "--channel", "prod")).toBe(0);
 
     const status = JSON.parse(stdout()) as { environment: string; units: { unit: string }[] };
-    expect(status.environment).toBe("production");
+    expect(status.environment).toBe("prod");
     expect(status.units.map(({ unit }) => unit)).toEqual(["api", "site"]);
   });
 });
@@ -348,27 +348,27 @@ describe("Feature: seeing which providers and modules the release is wired to", 
   });
 });
 
-describe("Feature: previewing a ship before anything runs", () => {
-  it("given tagged apps, when the person previews a ship, then they see the preview dispatch and nothing is dispatched", async () => {
+describe("Feature: dry-running a ship before anything runs", () => {
+  it("given tagged apps, when the person dry-runs a ship, then they see the staging dispatch and nothing is dispatched", async () => {
     const { run, output, fakes } = given();
 
     expect(await run("ship", "--dry-run")).toBe(0);
 
-    expect(output.text).toContain("-f environment=preview");
-    expect(output.text).not.toContain("-f environment=production");
+    expect(output.text).toContain("-f environment=staging");
+    expect(output.text).not.toContain("-f environment=prod");
     expect(fakes.ciPipeline.fake.received).toEqual([]);
   });
 
-  it("given tagged apps, when the person previews a promote, then they see the production dispatch and nothing is dispatched", async () => {
+  it("given tagged apps, when the person dry-runs a promote, then they see the prod dispatch and nothing is dispatched", async () => {
     const { run, output, fakes } = given();
 
     expect(await run("promote", "--dry-run")).toBe(0);
 
-    expect(output.text).toContain("-f environment=production");
+    expect(output.text).toContain("-f environment=prod");
     expect(fakes.ciPipeline.fake.received).toEqual([]);
   });
 
-  it("given a person still typing shiplane plan, when it runs, then they are told it is now --dry-run and still see the preview", async () => {
+  it("given a person still typing shiplane plan, when it runs, then they are told it is now --dry-run and still see the staging", async () => {
     const { run, output } = given();
 
     expect(await run("plan")).toBe(0);
@@ -376,10 +376,10 @@ describe("Feature: previewing a ship before anything runs", () => {
     expect(stdout()).toContain(
       "plan is now --dry-run: shiplane ship --dry-run, shiplane promote --dry-run",
     );
-    expect(output.text).toContain("-f environment=preview");
+    expect(output.text).toContain("-f environment=staging");
   });
 
-  it("given a person passing --dry-run to status, when it runs, then status reads as usual since only ships have a preview", async () => {
+  it("given a person passing --dry-run to status, when it runs, then status reads as usual since only ships have a staging", async () => {
     const { run, output } = given();
 
     expect(await run("status", "--dry-run")).toBe(0);
@@ -388,13 +388,13 @@ describe("Feature: previewing a ship before anything runs", () => {
     expect(output.text).not.toContain("fake-ci run");
   });
 
-  it("given a person who types shiplane --dry-run, when it runs, then they see the preview plan without being asked anything", async () => {
+  it("given a person who types shiplane --dry-run, when it runs, then they see the staging plan without being asked anything", async () => {
     const { run, output, prompter } = given();
 
     expect(await run("--dry-run")).toBe(0);
 
     expect(prompter.asked).toEqual([]);
-    expect(output.text).toContain("Plan  ·  preview  · nothing runs");
+    expect(output.text).toContain("Plan  ·  staging  · nothing runs");
   });
 });
 
@@ -459,26 +459,26 @@ describe("Feature: being told what is wrong with the config before anything runs
   });
 });
 
-describe("Feature: releasing to preview and production step by step", () => {
-  it("given the preview channel, when the person types shiplane, then they are asked what to release to preview", async () => {
+describe("Feature: releasing to staging and prod step by step", () => {
+  it("given the staging channel, when the person types shiplane, then they are asked what to release to staging", async () => {
     const { run, prompter, output } = given();
     prompter.answer([]);
 
     expect(await run()).toBe(0);
 
     expect(prompter.asked).toEqual([
-      "What do you want to release to preview? Greyed units have nothing to release.",
+      "What do you want to release to staging? Greyed units have nothing to release.",
     ]);
     expect(output.text).toContain("Nothing ran.");
   });
 
-  it("given nothing on preview yet, when the person types shiplane on production, then they are told to release to preview first", async () => {
+  it("given nothing on staging yet, when the person types shiplane on prod, then they are told to release to staging first", async () => {
     const { run, prompter, output } = given();
 
-    expect(await run("--channel", "production")).toBe(0);
+    expect(await run("--channel", "prod")).toBe(0);
 
     expect(prompter.asked).toEqual([]);
-    expect(output.text).toContain("Nothing to release to production. Release to preview first:");
+    expect(output.text).toContain("Nothing to release to prod. Release to staging first:");
   });
 
   it.each(["test-release", "branch"])(
@@ -516,7 +516,7 @@ describe("Feature: releasing to preview and production step by step", () => {
 
     expect(await run("version")).toBe(0);
 
-    expect(prompter.asked).toContain("Release these to preview?");
+    expect(prompter.asked).toContain("Release these to staging?");
     expect(output.text).toContain("1. Open the release PR");
   });
 

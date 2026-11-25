@@ -24,15 +24,15 @@ describe("Feature: choosing between Fake CI and this machine for each app", () =
     const { context, prompter, output } = given();
     prompter.answer("ci", "local");
 
-    const paths = await askPaths(context, "production", [shipment("api"), shipment("web")]);
+    const paths = await askPaths(context, "prod", [shipment("api"), shipment("web")]);
 
     expect(paths).toEqual(["ci", "local"]);
     expect(prompter.asked).toEqual([
-      "How should api@1.0.0 ship to production?",
-      "How should web@1.0.0 ship to production?",
+      "How should api@1.0.0 ship to prod?",
+      "How should web@1.0.0 ship to prod?",
     ]);
-    expect(prompter.initials["How should api@1.0.0 ship to production?"]).toBe("ci");
-    expect(prompter.choices["How should api@1.0.0 ship to production?"]).toEqual([
+    expect(prompter.initials["How should api@1.0.0 ship to prod?"]).toBe("ci");
+    expect(prompter.choices["How should api@1.0.0 ship to prod?"]).toEqual([
       {
         value: "ci",
         label: "Fake CI",
@@ -55,7 +55,7 @@ describe("Feature: choosing between Fake CI and this machine for each app", () =
     });
     prompter.answer("ci", "ci", "ci");
 
-    await askPaths(context, "preview", [
+    await askPaths(context, "staging", [
       shipment("api", { workflows: ["api-a.yml", "api-b.yml"], typicalMinutes: 9 }),
       shipment("web", { typicalMinutes: 4 }),
       shipment("docs"),
@@ -75,10 +75,10 @@ describe("Feature: choosing between Fake CI and this machine for each app", () =
     );
     expect(output.lines[6]).toBe("");
     expect(output.lines).toHaveLength(7);
-    expect(prompter.choices["How should api@1.0.0 ship to preview?"]?.[0]?.hint).toBe(
+    expect(prompter.choices["How should api@1.0.0 ship to staging?"]?.[0]?.hint).toBe(
       "runs on Fake CI from its tag, about 3 of 1,500 minutes left",
     );
-    expect(prompter.choices["How should web@1.0.0 ship to preview?"]?.[0]?.hint).toBe(
+    expect(prompter.choices["How should web@1.0.0 ship to staging?"]?.[0]?.hint).toBe(
       "runs on Fake CI from its tag, about 4 of 1,500 minutes left",
     );
   });
@@ -95,7 +95,7 @@ describe("Feature: choosing between Fake CI and this machine for each app", () =
     ci.seed({ minutes: { ...BLOCKED, fix: "codehost auth refresh -s user" } });
     prompter.answer("ci");
 
-    expect(await askPaths(context, "preview", [shipment("api")])).toEqual(["ci"]);
+    expect(await askPaths(context, "staging", [shipment("api")])).toEqual(["ci"]);
 
     expect(output.lines).toEqual([
       ...WARNING,
@@ -109,7 +109,7 @@ describe("Feature: choosing between Fake CI and this machine for each app", () =
     ci.seed({ minutes: BLOCKED });
     prompter.answer("ci");
 
-    await askPaths(context, "preview", [shipment("api")]);
+    await askPaths(context, "staging", [shipment("api")]);
 
     expect(output.lines).toEqual([...WARNING, ""]);
   });
@@ -118,7 +118,7 @@ describe("Feature: choosing between Fake CI and this machine for each app", () =
     const { context, output, ci } = given();
     ci.seed({ minutes: { used: 0, included: 2000, left: 2000 } });
 
-    await askPaths(context, "preview", []);
+    await askPaths(context, "staging", []);
 
     expect(output.lines).toHaveLength(5);
     expect(output.text).not.toContain("This release");
@@ -129,9 +129,9 @@ describe("Feature: choosing between Fake CI and this machine for each app", () =
     ci.seed({ minutes: { used: 1960, included: 2000, left: 40 } });
     prompter.answer("local");
 
-    expect(await askPaths(context, "production", [shipment("api")])).toEqual(["local"]);
+    expect(await askPaths(context, "prod", [shipment("api")])).toEqual(["local"]);
 
-    expect(prompter.initials["How should api@1.0.0 ship to production?"]).toBe("local");
+    expect(prompter.initials["How should api@1.0.0 ship to prod?"]).toBe("local");
   });
 
   it("given minutes running short but not out, when the person picks how an app ships, then Fake CI stays recommended", async () => {
@@ -139,15 +139,15 @@ describe("Feature: choosing between Fake CI and this machine for each app", () =
     ci.seed({ minutes: { used: 1500, included: 2000, left: 500 } });
     prompter.answer("ci");
 
-    await askPaths(context, "production", [shipment("api")]);
+    await askPaths(context, "prod", [shipment("api")]);
 
-    expect(prompter.initials["How should api@1.0.0 ship to production?"]).toBe("ci");
+    expect(prompter.initials["How should api@1.0.0 ship to prod?"]).toBe("ci");
   });
 
   it("given no terminal, when a ship needs to know how apps ship, then it shows the --via flags and asks nothing", async () => {
     const { context, prompter, output } = given({ interactive: false });
 
-    expect(await askPaths(context, "production", [shipment("api")])).toBeNull();
+    expect(await askPaths(context, "prod", [shipment("api")])).toBeNull();
 
     expect(prompter.asked).toEqual([]);
     expect(output.lines).toEqual([
@@ -161,7 +161,7 @@ describe("Feature: choosing between Fake CI and this machine for each app", () =
     const { context, prompter } = given();
     prompter.answer(null);
 
-    expect(await askPaths(context, "production", [shipment("api"), shipment("web")])).toBeNull();
+    expect(await askPaths(context, "prod", [shipment("api"), shipment("web")])).toBeNull();
 
     expect(prompter.asked).toHaveLength(1);
   });

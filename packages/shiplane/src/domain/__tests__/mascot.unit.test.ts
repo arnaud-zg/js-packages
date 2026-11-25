@@ -36,10 +36,10 @@ describe("Feature: bring your own mascot", () => {
 
   it("given a function, when a moment is drawn, then it reacts to the mood and what runs", () => {
     const rocket = drawingOf(({ mood, label }) =>
-      mood === "worried" ? "x_x" : label.includes("production") ? "🚀✨" : "🛰",
+      mood === "worried" ? "x_x" : label.includes("prod") ? "🚀✨" : "🛰",
     );
 
-    expect(rocket.draw({ mood: "working", tick: 0, label: "deploy api to production" })).toContain(
+    expect(rocket.draw({ mood: "working", tick: 0, label: "deploy api to prod" })).toContain(
       "🚀✨",
     );
     expect(rocket.draw({ mood: "worried", tick: 0, label: "" })).toContain("x_x");

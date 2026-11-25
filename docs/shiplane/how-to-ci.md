@@ -58,8 +58,8 @@ on:
       environment:
         description: "Where to ship the ref this runs on"
         type: choice
-        options: [preview, production]
-        default: preview
+        options: [staging, prod]
+        default: staging
 
 permissions:
   contents: read
@@ -68,7 +68,7 @@ permissions:
 
 jobs:
   ship:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     environment: ${{ !inputs.dry-run && inputs.environment || '' }}
     steps:
       - uses: actions/checkout@v5 # at the tag, with its history
@@ -106,9 +106,9 @@ jobs:
 
 With no adapter that reads a secret, it passes none.
 
-1. **Create one GitHub Environment per choice** (Settings › Environments): `preview`, `production`;
-   for npm packages, `snapshot`, `nightly`, `alpha`, `beta`, `rc` and `live` too. On npmjs.com,
-   trust `ship.yml` for each package (Settings › Trusted publishing): no npm secret.
+1. **Create one GitHub Environment per choice** (Settings › Environments): `staging`, `prod`; for
+   npm packages, `snapshot`, `nightly`, `alpha`, `beta`, `rc` and `live` too. On npmjs.com, trust
+   `ship.yml` for each package (Settings › Trusted publishing): no npm secret.
 2. **Add each adapter's secret to it**, by the name in
    [the sign-ins table](./how-to-hosts.md#set-up-the-sign-ins): `FLY_API_TOKEN`,
    `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, `EXPO_TOKEN`. Setup passes the ones your

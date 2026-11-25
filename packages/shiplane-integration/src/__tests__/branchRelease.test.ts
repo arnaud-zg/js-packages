@@ -25,8 +25,8 @@ const API = testUnit("api", {
   version: "0.0.3",
   module: "backend-service",
   options: {
-    app: { preview: "acme-api-preview", production: "acme-api-production" },
-    config: { preview: "fly-preview.toml", production: "fly-production.toml" },
+    app: { staging: "acme-api-staging", prod: "acme-api-prod" },
+    config: { staging: "fly-staging.toml", prod: "fly-prod.toml" },
   },
 });
 
@@ -383,7 +383,7 @@ describe("Feature: a branch release for testers", () => {
       flow: TEST_FLOW,
       unit: KIT,
       tag: "kit@0.5.2",
-      environment: "preview",
+      environment: "staging",
       commit: HEAD,
       defaultBranch: "main",
       options: { access: "public", tag: "latest" },

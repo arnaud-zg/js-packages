@@ -39,7 +39,7 @@ export default defineRelease({
     ciPipeline: gitHubActionsCiPipeline(),
     versioning: changesetsVersioning(),
   }),
-  deployApps: { promote: [{ from: "preview", to: "production" }] },
+  deployApps: { promote: [{ from: "staging", to: "prod" }] },
   modules: [mobileApp({ mobileDistribution: easMobileDistribution() })],
 });
 ```
@@ -62,33 +62,33 @@ From [`examples/apps/mobile/shiplane.unit.yml`](./examples/apps/mobile/shiplane.
 ```yaml
 module: mobile-app
 update:
-  preview: eas:update:preview
-  production: eas:update:production
+  staging: eas:update:staging
+  prod: eas:update:prod
 ```
 
-`pnpm shiplane ship --dry-run` in that repository prints both ways a ship to preview could go:
+`pnpm shiplane ship --dry-run` in that repository prints both ways a ship to staging could go:
 
 ```text
-  Plan  ·  preview  · nothing runs
+  Plan  ·  staging  · nothing runs
   Order  1 mobile · Latest
 
-  mobile@1.0.0 → EAS preview, iOS and Android  (not tagged yet: release first)
+  mobile@1.0.0 → EAS staging, iOS and Android  (not tagged yet: release first)
     this machine
-      EXPO_ATLAS=false APP_VARIANT=preview pnpm exec eas build --profile preview --platform all --auto-submit --no-wait
+      EXPO_ATLAS=false APP_VARIANT=staging pnpm exec eas build --profile staging --platform all --auto-submit --no-wait
     this machine
-      APP_VARIANT=preview pnpm run eas:update:preview
+      APP_VARIANT=staging pnpm run eas:update:staging
     GitHub Actions
-      gh workflow run ship.yml --ref mobile@1.0.0 -f units=mobile -f environment=preview
+      gh workflow run ship.yml --ref mobile@1.0.0 -f units=mobile -f environment=staging
 ```
 
 At release time EAS decides: a build when the fingerprint moved, an update when it did not. Builds
 run from this machine and return at once (`--no-wait`). An update script with `--rollout-percentage`
 starts a staged rollout that `shiplane promote` widens. Off a terminal, such as on a runner,
 `eas update` needs a message: shiplane passes the tag
-(`pnpm run eas:update:preview --message mobile@1.0.0`) unless the script already has `--message`,
+(`pnpm run eas:update:staging --message mobile@1.0.0`) unless the script already has `--message`,
 `-m` or `--auto`. `setup` offers this adapter for a folder with an `eas.json`.
 
-A preview build that failed after main moved on is offered again as released: each platform builds
+A staging build that failed after main moved on is offered again as released: each platform builds
 or submits only what EAS shows missing, from the tag's commit
 ([Retry a failed release](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/how-to-release.md#a-mobile-build-failed-and-main-moved-on)).
 

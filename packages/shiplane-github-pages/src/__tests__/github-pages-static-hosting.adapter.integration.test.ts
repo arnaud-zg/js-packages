@@ -15,7 +15,7 @@ const folder = (files: string[]): Folder => ({
   read: () => null,
 });
 
-const jobFor = (environment: "preview" | "production", settings: Record<string, unknown> = {}) =>
+const jobFor = (environment: "staging" | "prod", settings: Record<string, unknown> = {}) =>
   pages.create({ root: "/repo", shell: new RecordingShell() }).jobs({
     flow: TEST_FLOW,
     unit: testUnit("site", { module: "web-app" }),
@@ -100,36 +100,34 @@ describe("what a runner needs to publish", () => {
 });
 
 describe("building and publishing to GitHub Pages", () => {
-  it("given a ship to preview, when its job is built, then the site is built for the preview folder and this machine or CI can ship it", () => {
-    const job = jobFor("preview");
+  it("given a ship to staging, when its job is built, then the site is built for the staging folder and this machine or CI can ship it", () => {
+    const job = jobFor("staging");
 
     expect(job?.label).toBe(
-      "build site@1.0.0 and publish it to https://acme.github.io/site/preview/",
+      "build site@1.0.0 and publish it to https://acme.github.io/site/staging/",
     );
     expect(job?.local[0]).toEqual({
       command: "pnpm",
       args: ["--filter=@acme/site", "run", "build"],
-      env: { BASE_PATH: "/site/preview/" },
+      env: { BASE_PATH: "/site/staging/" },
     });
-    expect(job?.local[2]?.args).toContain("--dest=preview");
+    expect(job?.local[2]?.args).toContain("--dest=staging");
     expect(job?.ci).toEqual({ ref: "site@1.0.0" });
   });
 
-  it("given a ship to production, when its job is built, then the site is built for its root", () => {
-    expect(jobFor("production")?.local[0]?.env).toEqual({ BASE_PATH: "/site/" });
+  it("given a ship to prod, when its job is built, then the site is built for its root", () => {
+    expect(jobFor("prod")?.local[0]?.env).toEqual({ BASE_PATH: "/site/" });
   });
 
   it("given variables of its own, when the site ships, then the build gets them beside BASE_PATH", () => {
-    expect(jobFor("production", { env: { ANALYTICS: "off" } })?.local[0]?.env).toEqual({
+    expect(jobFor("prod", { env: { ANALYTICS: "off" } })?.local[0]?.env).toEqual({
       BASE_PATH: "/site/",
       ANALYTICS: "off",
     });
   });
 
   it("given the branch the source is on, when the site ships, then it refuses before anything runs", () => {
-    expect(() => jobFor("production", { branch: "main" })).toThrow(
-      'branch "main" holds the source',
-    );
+    expect(() => jobFor("prod", { branch: "main" })).toThrow('branch "main" holds the source');
   });
 });
 

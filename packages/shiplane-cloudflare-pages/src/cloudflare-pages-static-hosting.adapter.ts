@@ -37,17 +37,19 @@ const PagesOptions = z.object({
   branch: perEnv(z.string())
     .optional()
     .describe("The Pages branch; by default main where users are, else the environment's name"),
+  secretsIn: perEnv(z.string())
+    .optional()
+    .describe("The Cloudflare environment holding its secrets, to check them before a deploy"),
   wrangler: z.string().default(WRANGLER).describe("The wrangler npx runs, pinned"),
 });
 
 const SECRET_LINE = /^\s*-\s+([A-Za-z_][A-Za-z0-9_]*):/;
 
-/** Cloudflare's own two words, for `wrangler pages secret --env`: not environments of this repository. */
-const WRANGLER_ENV = { users: "production", others: "preview" } as const;
-
-/** Pages knows two environments of its own, whatever the repository calls its own. */
-const pagesEnvironment = (environment: string, flow: DeployFlow) =>
-  reachesUsers(flow, environment) ? WRANGLER_ENV.users : WRANGLER_ENV.others;
+/** Where Cloudflare keeps the environment's secrets, as the unit file says; its names are not ours. */
+const secretsIn = (options: z.output<typeof PagesOptions>) => {
+  if (typeof options.secretsIn === "string") return options.secretsIn;
+  throw new Error("set secretsIn in the unit file: the Cloudflare environment holding its secrets");
+};
 
 /** The branch the upload goes to: the project's own branch is where users are. */
 const branchOf = ({
@@ -62,8 +64,10 @@ const branchOf = ({
 
 /** Pages secrets of the environment, plus the variables the unit file gives its build. */
 const pagesEnv = ({ shell }: AdapterContext): PlatformEnvPort => ({
-  listNames: async ({ environment, flow, options }) => {
-    const { project, wrangler, build } = PagesOptions.parse(options);
+  listNames: async ({ options }) => {
+    const parsed = PagesOptions.parse(options);
+    const { project, wrangler, build } = parsed;
+    const held = secretsIn(parsed);
     const result = await shell.capture("npx", [
       "--yes",
       wrangler,
@@ -73,11 +77,11 @@ const pagesEnv = ({ shell }: AdapterContext): PlatformEnvPort => ({
       "--project-name",
       project,
       "--env",
-      pagesEnvironment(environment, flow),
+      held,
     ]);
     if (result.status !== 0) {
       const reason = firstLine(result.stderr) ?? `exit ${result.status}`;
-      throw new Error(`wrangler pages secret list --env ${environment}: ${reason}`);
+      throw new Error(`wrangler pages secret list --env ${held}: ${reason}`);
     }
     const secrets = result.stdout.split("\n").flatMap((line) => {
       const name = SECRET_LINE.exec(line)?.[1];
@@ -85,12 +89,13 @@ const pagesEnv = ({ shell }: AdapterContext): PlatformEnvPort => ({
     });
     return new Set([...secrets, ...Object.keys(build.env ?? {})].filter(isEnvVarName));
   },
-  setCommand: ({ environment, flow, options, names }) => {
-    const { project, wrangler } = PagesOptions.parse(options);
+  setCommand: ({ options, names }) => {
+    const parsed = PagesOptions.parse(options);
+    const { project, wrangler } = parsed;
     return names
       .map(
         (name) =>
-          `npx --yes ${wrangler} pages secret put ${name} --project-name ${project} --env ${pagesEnvironment(environment, flow)}`,
+          `npx --yes ${wrangler} pages secret put ${name} --project-name ${project} --env ${secretsIn(parsed)}`,
       )
       .join(" && ");
   },

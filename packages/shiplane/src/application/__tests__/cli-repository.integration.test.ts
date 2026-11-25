@@ -201,7 +201,7 @@ describe("Feature: every command acting on the repository through its shell", ()
       "shiplane.config.ts": `import { backendService, defineRelease, releaseFlow } from "shiplane";
 import { ciPipelineFake, codeHostFake, serverHostingFake, sourceControlFake, versioningFake } from "shiplane/testing";
 
-export default defineRelease({ deployApps: { promote: [{ from: "preview", to: "production" }] },
+export default defineRelease({ deployApps: { promote: [{ from: "staging", to: "prod" }] },
   flow: releaseFlow({
     sourceControl: sourceControlFake(),
     codeHost: codeHostFake(),

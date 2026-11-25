@@ -79,7 +79,7 @@ describe("Feature: choosing where a test release publishes from", () => {
   );
 
   it.each([
-    ["the workflow lacks the channel", { offers: "preview" }, "ship.yml does not offer beta"],
+    ["the workflow lacks the channel", { offers: "staging" }, "ship.yml does not offer beta"],
     ["the branch is not pushed", { pushed: "older" }, "is not pushed as it is here"],
   ])("given %s, when it runs, then it says so and publishes here", async (_, options, said) => {
     const { context, output, distTags } = world(options);
@@ -91,7 +91,7 @@ describe("Feature: choosing where a test release publishes from", () => {
   });
 
   it("given --via ci and CI cannot, when it runs, then nothing publishes", async () => {
-    const { context, distTags } = world({ offers: "preview" });
+    const { context, distTags } = world({ offers: "staging" });
 
     expect(await branchRelease(context, { ...beta, via: "ci" })).toBe(false);
 
@@ -157,7 +157,7 @@ describe("Feature: publishing released packages", () => {
     const { context, prompter, ci, shell } = released();
     prompter.answer("ci", true);
 
-    expect(await shipTo(context, "preview", { scope: new Set(["lib"]) })).toBe(true);
+    expect(await shipTo(context, "staging", { scope: new Set(["lib"]) })).toBe(true);
 
     expect(ci.received).toMatchObject([
       { ref: "main", inputs: { units: "lib", environment: "live" } },

@@ -17,8 +17,8 @@ flowchart LR
 
 ```sh
 pnpm shiplane setup      # find what ships, rehearse, write the config
-pnpm shiplane            # release PR, merge, tags, ship to preview
-pnpm shiplane promote    # what preview validated, to production
+pnpm shiplane            # release PR, merge, tags, ship to staging
+pnpm shiplane promote    # what staging validated, to prod
 ```
 
 ## 🔌 Ports
@@ -83,7 +83,7 @@ export default defineRelease({
     ciPipeline: gitHubActionsCiPipeline(),
     versioning: commitsVersioning(),
   }),
-  deployApps: { promote: [{ from: "preview", to: "production" }] },
+  deployApps: { promote: [{ from: "staging", to: "prod" }] },
   modules: [
     backendService({ serverHosting: flyServerHosting() }),
     webApp({ staticHosting: cloudflarePagesStaticHosting() }),
@@ -121,7 +121,7 @@ Modules, in release order
 
   backend-service    fly  app, config, dockerfile, url, buildSecrets
                      used by api
-  web-app            cloudflare-pages  project, dist, build, branch, wrangler
+  web-app            cloudflare-pages  project, dist, build, branch, secretsIn, wrangler
                      used by site
   mobile-app         eas  versionFile, update
                      used by mobile

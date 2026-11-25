@@ -41,7 +41,7 @@ describe("the first release of a new package", () => {
   it("given a package added at 0.1.0 with no changeset and never tagged, when the status is read, then its first release is pending", async () => {
     const { context } = setUp();
 
-    const status = await readStatus(context, "preview");
+    const status = await readStatus(context, "staging");
 
     expect(status.units).toEqual([
       expect.objectContaining({
@@ -70,7 +70,7 @@ describe("the first release of a new package", () => {
   it("given an earlier version was tagged, when a version moved by hand is read, then it is not taken for a first release", async () => {
     const { context } = setUp({ "vite-workspace-resolver@0.0.9": "old" });
 
-    const status = await readStatus(context, "preview");
+    const status = await readStatus(context, "staging");
 
     expect(status.units).toEqual([
       expect.objectContaining({ unit: "vite-workspace-resolver", pending: false }),
@@ -92,7 +92,7 @@ describe("the first release of a new package", () => {
       },
     });
 
-    const status = await readStatus(world.context, "preview");
+    const status = await readStatus(world.context, "staging");
 
     expect(status.units).toEqual([
       expect.objectContaining({ unit: "vite-workspace-resolver", pending: false }),
@@ -107,7 +107,7 @@ describe("the first release of a new package", () => {
       ],
     });
 
-    const status = await readStatus(context, "preview");
+    const status = await readStatus(context, "staging");
 
     expect(status.untagged).toEqual([]);
     expect(status.next).toEqual({ step: "release-pr" });

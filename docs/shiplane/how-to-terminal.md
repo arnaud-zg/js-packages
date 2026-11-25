@@ -37,7 +37,7 @@ right now:
 import type { Mascot } from "shiplane";
 
 const rocket: Mascot = ({ mood, tick, label }) =>
-  mood === "worried" ? "💥" : label.includes("production") ? "🚀✨" : ["🛰", "🛸"][tick % 2];
+  mood === "worried" ? "💥" : label.includes("prod") ? "🚀✨" : ["🛰", "🛸"][tick % 2];
 
 export default defineRelease({ display: { mascot: rocket } /* flow, modules… */ });
 ```

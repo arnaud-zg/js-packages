@@ -121,8 +121,8 @@ platformEnvContract([
   {
     adapter: renderServerHosting(),
     settings: { service: "acme-api" },
-    environment: "preview",
-    flow: { path: ["preview", "production"], users: "production" },
+    environment: "staging",
+    flow: { path: ["staging", "prod"], users: "prod" },
     listing: {
       shell: new RecordingShell().seed("render env list", { stdout: "API_KEY\n" }),
       names: ["API_KEY"],

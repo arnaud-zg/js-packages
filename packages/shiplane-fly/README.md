@@ -37,7 +37,7 @@ export default defineRelease({
     ciPipeline: gitHubActionsCiPipeline(),
     versioning: changesetsVersioning(),
   }),
-  deployApps: { promote: [{ from: "preview", to: "production" }] },
+  deployApps: { promote: [{ from: "staging", to: "prod" }] },
   modules: [backendService({ serverHosting: flyServerHosting() })],
 });
 ```
@@ -64,28 +64,28 @@ From [`examples/apps/api/shiplane.unit.yml`](./examples/apps/api/shiplane.unit.y
 ```yaml
 module: backend-service
 app:
-  preview: acme-api-preview
-  production: acme-api
+  staging: acme-api-staging
+  prod: acme-api
 config:
-  preview: fly-preview.toml
-  production: fly-production.toml
+  staging: fly-staging.toml
+  prod: fly-prod.toml
 url:
-  preview: https://api-preview.acme.dev
-  production: https://api.acme.dev
+  staging: https://api-staging.acme.dev
+  prod: https://api.acme.dev
 ```
 
-`pnpm shiplane ship --dry-run` in that repository prints what a ship to preview would run:
+`pnpm shiplane ship --dry-run` in that repository prints what a ship to staging would run:
 
 ```text
-  Plan  ·  preview  · nothing runs
+  Plan  ·  staging  · nothing runs
   Order  1 api · Latest
 
-  api@1.0.0 → acme-api-preview (Fly)  (not tagged yet: release first)
+  api@1.0.0 → acme-api-staging (Fly)  (not tagged yet: release first)
     this machine
-      flyctl deploy --remote-only --config apps/api/fly-preview.toml --dockerfile apps/api/Dockerfile
-      then record api@1.0.0 on preview, on GitHub
+      flyctl deploy --remote-only --config apps/api/fly-staging.toml --dockerfile apps/api/Dockerfile
+      then record api@1.0.0 on staging, on GitHub
     GitHub Actions
-      gh workflow run ship.yml --ref api@1.0.0 -f units=api -f environment=preview
+      gh workflow run ship.yml --ref api@1.0.0 -f units=api -f environment=staging
 ```
 
 The deploy waits until Fly rolled it out, then records it. `setup` offers this adapter for a folder

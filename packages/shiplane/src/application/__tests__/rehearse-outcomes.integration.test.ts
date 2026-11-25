@@ -139,7 +139,7 @@ describe("Feature: rehearsing a release before anything is pushed", () => {
         modules: release.modules.map((module) => ({
           ...module,
           ship: () => {
-            throw new Error("service is not set for preview");
+            throw new Error("service is not set for staging");
           },
         })),
       }).context;
@@ -150,7 +150,7 @@ describe("Feature: rehearsing a release before anything is pushed", () => {
     // then
     expect(ok).toBe(false);
     expect(output.lines).toContain("  ✗ plan  1 apps, nothing runs");
-    expect(output.lines).toContain("     service is not set for preview");
+    expect(output.lines).toContain("     service is not set for staging");
   });
 
   it("given a missing sign-in, when the release is rehearsed under a spinner, then the spinner reports it once and the fix command is shown", async () => {

@@ -301,7 +301,7 @@ describe("publishing GitHub Releases for shipped tags", () => {
 });
 
 describe("knowing what GitHub Deployments already shipped", () => {
-  it("given deployments of every kind, when they are read, then only finished preview and production ones become deploys", async () => {
+  it("given deployments of every kind, when they are read, then only finished staging and prod ones become deploys", async () => {
     const gh = fakeGh().seed(
       "api graphql",
       JSON.stringify({
@@ -309,12 +309,12 @@ describe("knowing what GitHub Deployments already shipped", () => {
           repository: {
             deployments: {
               nodes: [
-                { environment: "preview", state: "SUCCESS", ref: { name: "api@1.0.0" } },
-                { environment: "production", state: "IN_PROGRESS", ref: { name: "api@1.0.0" } },
                 { environment: "staging", state: "SUCCESS", ref: { name: "api@1.0.0" } },
-                { environment: "preview", state: null, ref: { name: "web@1.0.0" } },
-                { environment: "preview", state: "SUCCESS", ref: null },
-                { environment: "production", state: "FAILURE", ref: { name: "web@1.0.0" } },
+                { environment: "prod", state: "IN_PROGRESS", ref: { name: "api@1.0.0" } },
+                { environment: "elsewhere", state: "SUCCESS", ref: { name: "api@1.0.0" } },
+                { environment: "staging", state: null, ref: { name: "web@1.0.0" } },
+                { environment: "staging", state: "SUCCESS", ref: null },
+                { environment: "prod", state: "FAILURE", ref: { name: "web@1.0.0" } },
               ],
             },
           },
@@ -322,10 +322,10 @@ describe("knowing what GitHub Deployments already shipped", () => {
       }),
     );
 
-    await expect(hostOn(gh).deployments(["preview", "production"])).resolves.toEqual([
-      { title: "Deploy api@1.0.0 to preview", state: "done" },
-      { title: "Deploy api@1.0.0 to production", state: "running" },
-      { title: "Deploy web@1.0.0 to production", state: "none" },
+    await expect(hostOn(gh).deployments(["staging", "prod"])).resolves.toEqual([
+      { title: "Deploy api@1.0.0 to staging", state: "done" },
+      { title: "Deploy api@1.0.0 to prod", state: "running" },
+      { title: "Deploy web@1.0.0 to prod", state: "none" },
     ]);
     const [args = []] = gh.args;
     expect(args.slice(0, 7)).toEqual([
@@ -337,20 +337,20 @@ describe("knowing what GitHub Deployments already shipped", () => {
       "name={repo}",
       "-f",
     ]);
-    expect(graphqlQuery(args)).toContain('deployments(environments: ["preview", "production"]');
+    expect(graphqlQuery(args)).toContain('deployments(environments: ["staging", "prod"]');
   });
 
   it("given a shipped ref, when its deployment is recorded, then a deployment is created and marked successful", async () => {
     const gh = fakeGh().seed("api repos/{owner}/{repo}/deployments --method", '{"id":77}');
 
-    await hostOn(gh).recordDeployment("api@1.0.0", "production");
+    await hostOn(gh).recordDeployment("api@1.0.0", "prod");
 
     expect(gh.calls.map(({ args, input }) => ({ args, input }))).toEqual([
       {
         args: ["api", "repos/{owner}/{repo}/deployments", "--method", "POST", "--input", "-"],
         input: JSON.stringify({
           ref: "api@1.0.0",
-          environment: "production",
+          environment: "prod",
           auto_merge: false,
           required_contexts: [],
         }),

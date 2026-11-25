@@ -1,8 +1,8 @@
 {
-  "preview": {
+  "staging": {
     "version": "1.0.0"
   },
-  "production": {
+  "prod": {
     "version": "1.0.0"
   }
 }

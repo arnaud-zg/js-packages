@@ -22,8 +22,8 @@ describe("shipping through a GitHub Actions workflow", () => {
 
   it("given a dispatch, when a dry run prints it, then it is the gh command a person would type", () => {
     expect(
-      pipeline().dispatchLine?.("ship.yml", "api@1.0.0", { units: "api", environment: "preview" }),
-    ).toBe("gh workflow run ship.yml --ref api@1.0.0 -f units=api -f environment=preview");
+      pipeline().dispatchLine?.("ship.yml", "api@1.0.0", { units: "api", environment: "staging" }),
+    ).toBe("gh workflow run ship.yml --ref api@1.0.0 -f units=api -f environment=staging");
   });
 
   it("given no ship workflow named, when a project ships through GitHub Actions, then it uses ship.yml and doctor asks for gh to be signed in", () => {
@@ -58,18 +58,18 @@ describe("knowing which versions a workflow already deployed", () => {
     const gh = fakeGh().seed(
       "run list",
       JSON.stringify([
-        { displayTitle: "Deploy api@1.0.0 to preview", status: "completed", conclusion: "success" },
-        { displayTitle: "Deploy api@1.0.1 to preview", status: "completed", conclusion: "failure" },
-        { displayTitle: "Deploy api@1.0.2 to preview", status: "in_progress", conclusion: null },
-        { displayTitle: "Deploy api@1.0.3 to preview", status: "queued", conclusion: "success" },
+        { displayTitle: "Deploy api@1.0.0 to staging", status: "completed", conclusion: "success" },
+        { displayTitle: "Deploy api@1.0.1 to staging", status: "completed", conclusion: "failure" },
+        { displayTitle: "Deploy api@1.0.2 to staging", status: "in_progress", conclusion: null },
+        { displayTitle: "Deploy api@1.0.3 to staging", status: "queued", conclusion: "success" },
       ]),
     );
 
     await expect(pipelineOn(gh).workflowRuns("ship.yml")).resolves.toEqual([
-      { title: "Deploy api@1.0.0 to preview", state: "done" },
-      { title: "Deploy api@1.0.1 to preview", state: "none" },
-      { title: "Deploy api@1.0.2 to preview", state: "running" },
-      { title: "Deploy api@1.0.3 to preview", state: "running" },
+      { title: "Deploy api@1.0.0 to staging", state: "done" },
+      { title: "Deploy api@1.0.1 to staging", state: "none" },
+      { title: "Deploy api@1.0.2 to staging", state: "running" },
+      { title: "Deploy api@1.0.3 to staging", state: "running" },
     ]);
     expect(gh.calls).toEqual([
       {
@@ -120,7 +120,7 @@ describe("dispatching a workflow", () => {
 
     await pipelineOn(gh).dispatch("ship.yml", "api@1.0.0", {
       units: "api",
-      environment: "preview",
+      environment: "staging",
     });
 
     expect(runs(gh)).toEqual([
@@ -133,7 +133,7 @@ describe("dispatching a workflow", () => {
         "-f",
         "units=api",
         "-f",
-        "environment=preview",
+        "environment=staging",
         "-f",
         "ref=api@1.0.0",
       ],
@@ -147,7 +147,7 @@ describe("dispatching a workflow", () => {
 
     await pipelineOn(gh).dispatch("ship.yml", "api@1.0.0", {
       units: "api",
-      environment: "preview",
+      environment: "staging",
     });
 
     expect(runs(gh)).toEqual([
@@ -160,7 +160,7 @@ describe("dispatching a workflow", () => {
         "-f",
         "units=api",
         "-f",
-        "environment=preview",
+        "environment=staging",
       ],
     ]);
   });
@@ -366,8 +366,8 @@ on:
       environment:
         description: "Where to ship the ref this runs on"
         type: choice
-        options: [preview, production]
-        default: preview
+        options: [staging, prod]
+        default: staging
       ref:
         description: "The tag to ship; shiplane sets it (empty: the ref this runs on)"
         type: string
@@ -387,7 +387,7 @@ permissions:
 jobs:
   ship:
     name: Ship to \${{ inputs.environment }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     # A dry run names none: naming one records a deployment.
     environment: \${{ !inputs.dry-run && inputs.environment || '' }}
     concurrency:
@@ -396,7 +396,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          ref: \${{ contains(fromJSON('["preview", "production"]'), inputs.environment) && inputs.ref || '' }}
+          ref: \${{ contains(fromJSON('["staging", "prod"]'), inputs.environment) && inputs.ref || '' }}
           fetch-depth: 0
       - uses: arnaud-zg/js-packages/.github/actions/ship@${COMMIT} # shiplane@0.6.0
         with:
@@ -409,8 +409,8 @@ jobs:
 
 /** A release shipping to Cloudflare Pages, commenting on what it ships. */
 const NEEDS = {
-  apps: ["preview", "production"],
-  environments: ["preview", "production"],
+  apps: ["staging", "prod"],
+  environments: ["staging", "prod"],
   secrets: ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN"],
   features: ["release-comments"],
 };
@@ -531,7 +531,7 @@ describe("what a caller workflow offers", () => {
   it.each([
     ["inline", "options: [snapshot, live]", true],
     ["one per line", "options:\n  - snapshot\n  - live\n", true],
-    ["only in a comment", "# live\noptions: [preview]", false],
+    ["only in a comment", "# live\noptions: [staging]", false],
   ])("given live %s, when read, then it is offered: %s", (_, content, offered) => {
     expect(pipeline().offers?.(content, "live")).toBe(offered);
   });

@@ -56,14 +56,13 @@ whole group up.
 
 An environment is a place an app runs, under a name of its repository. A package goes straight to
 its registry, and a plugin ships when its release PR merges, so neither stops anywhere on the way to
-its users. A run says `live` for them, and `preview` only when something released with them does
+its users. A run says `live` for them, and `staging` only when something released with them does
 deploy there.
 
 ## What runs where is read from the platform
 
-GitHub Deployments records each deploy under its tag, so every machine knows what preview and
-production run without a local file. npm and EAS know their own state, so their plugins read it
-there instead.
+GitHub Deployments records each deploy under its tag, so every machine knows what staging and prod
+run without a local file. npm and EAS know their own state, so their plugins read it there instead.
 
 ## A mobile app takes an update unless its native layer changed
 
@@ -79,7 +78,7 @@ flowchart TD
 ```
 
 One update reaches both platforms, so the stricter verdict wins. A new binary needs a new version,
-which is why production first opens a PR moving its version to the one preview validated.
+which is why prod first opens a PR moving its version to the one staging validated.
 
 ## CI and your laptop run the same jobs
 
@@ -90,7 +89,7 @@ Each run goes on a release tag, never on `main`, even when the tag is main's las
 checks out its ref when the job starts, not when it is dispatched: a run queued behind another one
 on `main` would ship whatever was merged in between. Units tagged on the same commit still share one
 run, on the first one's tag, and the Actions run and its GitHub deployment show that tag. Only a job
-that ships `main` on purpose, like an Expo production update, runs on `main`.
+that ships `main` on purpose, like an Expo prod update, runs on `main`.
 
 That workflow is yours, but its steps are not: `shiplane setup` writes a `ship.yml` that only calls
 `.github/actions/ship`, an action published from shiplane's repository. Every repository then runs

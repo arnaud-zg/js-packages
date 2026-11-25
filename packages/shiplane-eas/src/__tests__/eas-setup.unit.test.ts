@@ -23,53 +23,53 @@ describe("setting up an Expo app to ship with EAS", () => {
     expect(eas.detect?.(folder({ "package.json": "{}" }))).toBeNull();
   });
 
-  it("given eas.json and the usual update scripts, when shiplane init scans the app, then EAS is offered with the plain production script picked over the gated one", () => {
+  it("given eas.json and the usual update scripts, when shiplane init scans the app, then EAS is offered with the plain prod script picked over the gated one", () => {
     const found = eas.detect?.(
       withScripts({
-        "eas:update:preview": "eas update --channel preview",
-        "eas:update:production:gated": "node gate.js && eas update --channel production",
-        "eas:update:production": "eas update --channel production",
+        "eas:update:staging": "eas update --channel staging",
+        "eas:update:prod:gated": "node gate.js && eas update --channel prod",
+        "eas:update:prod": "eas update --channel prod",
       }),
     );
 
     expect(found).toEqual({
       certainty: "found",
       reason: "eas.json",
-      environments: ["preview", "production"],
-      options: { update: { preview: "eas:update:preview", production: "eas:update:production" } },
+      environments: ["staging", "prod"],
+      options: { update: { staging: "eas:update:staging", prod: "eas:update:prod" } },
     });
   });
 
-  it("given only a gated production update script, when shiplane init scans the app, then the gated script publishes production updates", () => {
+  it("given only a gated prod update script, when shiplane init scans the app, then the gated script publishes prod updates", () => {
     const found = eas.detect?.(
       withScripts({
-        "eas:update:preview": "eas update",
-        "eas:update:production:gated": "eas update",
+        "eas:update:staging": "eas update",
+        "eas:update:prod:gated": "eas update",
       }),
     );
 
     expect(found?.options).toEqual({
-      update: { preview: "eas:update:preview", production: "eas:update:production:gated" },
+      update: { staging: "eas:update:staging", prod: "eas:update:prod:gated" },
     });
   });
 
   it("given update scripts under custom names, when shiplane init scans the app, then the scripts naming update and the environment publish the updates", () => {
     const found = eas.detect?.(
       withScripts({
-        "build:preview": "eas build",
-        "ota-update-preview": "eas update",
-        "release-production": "eas build",
-        "update-production": "eas update",
+        "build:staging": "eas build",
+        "ota-update-staging": "eas update",
+        "release-prod": "eas build",
+        "update-prod": "eas update",
       }),
     );
 
     expect(found?.options).toEqual({
-      update: { preview: "ota-update-preview", production: "update-production" },
+      update: { staging: "ota-update-staging", prod: "update-prod" },
     });
   });
 
-  it("given an update script for preview only, when shiplane init scans the app, then it asks which script publishes an update", () => {
-    const scanned = withScripts({ "eas:update:preview": "eas update" });
+  it("given an update script for staging only, when shiplane init scans the app, then it asks which script publishes an update", () => {
+    const scanned = withScripts({ "eas:update:staging": "eas update" });
     const found = eas.detect?.(scanned);
 
     expect(found?.options).toEqual({});
@@ -87,7 +87,7 @@ describe("setting up an Expo app to ship with EAS", () => {
   });
 
   it("given both update scripts were found, when shiplane init sets the app up, then it asks nothing more", () => {
-    const scanned = withScripts({ "eas:update:preview": "x", "eas:update:production": "y" });
+    const scanned = withScripts({ "eas:update:staging": "x", "eas:update:prod": "y" });
 
     expect(eas.questions?.(scanned, eas.detect?.(scanned)?.options ?? {}, "acme/app")).toEqual([]);
   });

@@ -19,24 +19,24 @@ const notes = (told: string[]): Feature => ({
   },
 });
 
-describe("Feature: previewing with --dry-run every command a ship would run", () => {
-  it("given api tagged, when a ship is previewed, then it shows where api lands and the commands of both ways, the deploy record included, and runs nothing", async () => {
+describe("Feature: dry-running with --dry-run every command a ship would run", () => {
+  it("given api tagged, when a ship is dry-run, then it shows where api lands and the commands of both ways, the deploy record included, and runs nothing", async () => {
     // given
     const { context, output, shell, ci } = shipWorld(["api"]);
 
     // when
-    await planShips(context, "preview");
+    await planShips(context, "staging");
 
     // then
     expect(output.lines).toEqual(
       expect.arrayContaining([
-        "  Plan  ·  preview  · nothing runs",
+        "  Plan  ·  staging  · nothing runs",
         "  api@0.1.0 → acme-api (fake)",
         "    this machine",
         "      echo deploy acme-api api@0.1.0",
-        "      then record api@0.1.0 on preview, on Fake Host",
+        "      then record api@0.1.0 on staging, on Fake Host",
         "    Fake CI",
-        "      fake-ci run ship.yml --ref api@0.1.0 -f units=api -f environment=preview",
+        "      fake-ci run ship.yml --ref api@0.1.0 -f units=api -f environment=staging",
       ]),
     );
     expect(output.lines.at(-1)).toBe("");
@@ -44,12 +44,12 @@ describe("Feature: previewing with --dry-run every command a ship would run", ()
     expect(ci.received).toEqual([]);
   });
 
-  it("given a prepare in the config, when a ship is previewed, then this machine's commands start with it, filled in for the unit", async () => {
+  it("given a prepare in the config, when a ship is dry-run, then this machine's commands start with it, filled in for the unit", async () => {
     // given
     const { context, output, shell } = shipWorld(["api"], { prepare: "make {unit} -C {dir}" });
 
     // when
-    await planShips(context, "preview");
+    await planShips(context, "staging");
 
     // then
     const at = output.lines.indexOf("    this machine");
@@ -61,37 +61,37 @@ describe("Feature: previewing with --dry-run every command a ship would run", ()
     expect(shell.calls).toEqual([]);
   });
 
-  it("given web not tagged yet, when a ship to production is previewed, then web says to release it first", async () => {
+  it("given web not tagged yet, when a ship to prod is dry-run, then web says to release it first", async () => {
     // given
     const { context, output, source } = shipWorld(["api", "web"]);
     source.seed({ tags: { "api@0.1.0": "c-api" } });
 
     // when
-    await planShips(context, "production");
+    await planShips(context, "prod");
 
     // then
     expect(output.lines).toContain(
       "  web@0.1.0 → acme-web (fake)  (not tagged yet: release first)",
     );
     expect(output.lines).toContain("  api@0.1.0 → acme-api (fake)");
-    expect(output.lines).toContain("  Plan  ·  production  · nothing runs");
+    expect(output.lines).toContain("  Plan  ·  prod  · nothing runs");
   });
 
-  it("given a CI pipeline with no command line for its dispatch, when a ship is previewed, then it says in words what it would dispatch", async () => {
+  it("given a CI pipeline with no command line for its dispatch, when a ship is dry-run, then it says in words what it would dispatch", async () => {
     // given
     const { context, output, ci } = shipWorld(["api"]);
     ci.dispatchLine = undefined as unknown as typeof ci.dispatchLine;
 
     // when
-    await planShips(context, "preview");
+    await planShips(context, "staging");
 
     // then
     expect(output.lines).toContain(
-      "      dispatch ship.yml on api@0.1.0 with units=api, environment=preview",
+      "      dispatch ship.yml on api@0.1.0 with units=api, environment=staging",
     );
   });
 
-  it("given a store upload that only runs on this machine and records nothing, when a ship is previewed, then only the upload command is shown", async () => {
+  it("given a store upload that only runs on this machine and records nothing, when a ship is dry-run, then only the upload command is shown", async () => {
     // given
     const deciding = decidingModule(() => ({ action: "none", status: "" }), {
       ship: () => ({
@@ -102,7 +102,7 @@ describe("Feature: previewing with --dry-run every command a ship would run", ()
     const { context, output } = shipWorld([], { deciding, decided: ["a"] });
 
     // when
-    await planShips(context, "preview");
+    await planShips(context, "staging");
 
     // then
     expect(output.lines).toContain("  a@0.1.0 → the store");
@@ -111,7 +111,7 @@ describe("Feature: previewing with --dry-run every command a ship would run", ()
     expect(output.text).not.toContain("Fake CI");
   });
 
-  it("given a feature that follows up on ships, when a ship is previewed, then it lists the follow-ups of the tagged apps only", async () => {
+  it("given a feature that follows up on ships, when a ship is dry-run, then it lists the follow-ups of the tagged apps only", async () => {
     // given
     const told: string[] = [];
     const tool = decidingModule(() => ({ action: "none", status: "" }), {
@@ -126,15 +126,15 @@ describe("Feature: previewing with --dry-run every command a ship would run", ()
     source.seed({ tags: { "api@0.1.0": "c-api", "cli@0.1.0": "c-cli" } });
 
     // when
-    await planShips(context, "preview");
+    await planShips(context, "staging");
 
     // then
-    expect(told).toEqual(["api@0.1.0 on preview"]);
+    expect(told).toEqual(["api@0.1.0 on staging"]);
     expect(output.lines).toContain("  Then  once shipped");
     expect(output.lines).toContain("    comment on api@0.1.0");
   });
 
-  it("given a feature with nothing to follow up, when a ship is previewed, then no follow-up section is shown", async () => {
+  it("given a feature with nothing to follow up, when a ship is dry-run, then no follow-up section is shown", async () => {
     // given
     const { context, output } = shipWorld(["api"]);
     context.release.features = [
@@ -142,7 +142,7 @@ describe("Feature: previewing with --dry-run every command a ship would run", ()
     ];
 
     // when
-    await planShips(context, "preview");
+    await planShips(context, "staging");
 
     // then
     expect(output.text).not.toContain("Then");

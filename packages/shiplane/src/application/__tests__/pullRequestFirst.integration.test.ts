@@ -9,10 +9,10 @@ const PR = 1800;
 
 const REQUEST = {
   action: "pull-request" as const,
-  question: "Move production to 1.2.0 first?",
-  branch: "shiplane/move-production",
-  title: "chore(api): move production to 1.2.0",
-  body: "Production moves before it ships.",
+  question: "Move prod to 1.2.0 first?",
+  branch: "shiplane/move-prod",
+  title: "chore(api): move prod to 1.2.0",
+  body: "Prod moves before it ships.",
   changesets: [],
   write: () => Promise.resolve([]),
 };
