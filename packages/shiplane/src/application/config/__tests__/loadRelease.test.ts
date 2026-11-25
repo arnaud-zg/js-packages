@@ -486,3 +486,48 @@ describe("preparing each unit before it ships", () => {
     );
   });
 });
+
+describe("saying how apps deploy and packages publish", () => {
+  const configured = (line: string) => {
+    workspace = setUp({
+      "apps/api/shiplane.unit.yml": SERVER_UNIT,
+      "shiplane.config.ts": MODULE_CONFIG.replace("defineRelease({", `defineRelease({\n  ${line},`),
+    });
+    return load(workspace.root);
+  };
+
+  it.each([
+    [
+      'deployApps: { promote: ["preview", "production"] }',
+      { environments: ["preview", "production"] },
+    ],
+    ['deployApps: { promote: ["production"] }', { environments: ["production"] }],
+    ['publishPackages: { channels: ["nightly", "live"] }', { channels: ["nightly", "live"] }],
+  ])("given %s, when the release loads, then it keeps them in order", async (line, kept) => {
+    const release = await configured(line);
+
+    expect(release.problems).toEqual([]);
+    expect(release).toMatchObject(kept);
+  });
+
+  it("given neither, when the release loads, then nothing is set", async () => {
+    const release = await configured('tag: "package"');
+
+    expect(release).not.toHaveProperty("environments");
+    expect(release).not.toHaveProperty("channels");
+  });
+
+  it.each([
+    ['deployApps: { promote: ["production", "preview"] }', "left to right, preview to production"],
+    ['deployApps: { promote: ["staging"] }', "not staging"],
+    ["deployApps: { promote: [] }", "deployApps takes promote, a list of names"],
+    ['deployApps: { channels: ["live"] }', "deployApps takes promote, a list of names"],
+    ['publishPackages: { channels: ["preview"] }', "preview is an environment apps deploy to"],
+    ['publishPackages: { channels: ["latest"] }', "publishPackages.channels: latest"],
+    ['publishPackages: { promote: ["live"] }', "publishPackages takes channels, a list of names"],
+  ])("given %s, when the release loads, then it says what is wrong", async (line, said) => {
+    const release = await configured(line);
+
+    expect(release.problems.map(({ message }) => message).join()).toContain(said);
+  });
+});

@@ -179,8 +179,10 @@ export const yamlFromDeclaration = (
     ...(declared.features === undefined ? {} : { features: listOf("features") }),
     ...(declared.tag === undefined ? {} : { tag: declared.tag }),
     ...(declared.via === undefined ? {} : { via: declared.via }),
-    ...(declared.environments === undefined ? {} : { environments: declared.environments }),
-    ...(declared.channels === undefined ? {} : { channels: declared.channels }),
+    ...(declared.deployApps === undefined ? {} : { deployApps: declared.deployApps }),
+    ...(declared.publishPackages === undefined
+      ? {}
+      : { publishPackages: declared.publishPackages }),
     ...(display === undefined ? {} : { display }),
     ...(declared.testComment === undefined
       ? {}

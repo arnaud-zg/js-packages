@@ -48,9 +48,9 @@ export interface Release {
   problems: ConfigProblem[];
   /** How a tag names a version, such as `{name}@{version}`. */
   tagFormat: string;
-  /** Where apps ship; preview then production when unset. */
+  /** The environments apps are promoted through (`deployApps.promote`); both when unset. */
   environments?: readonly Environment[];
-  /** The channels packages publish on; any when unset. */
+  /** The channels packages publish on (`publishPackages.channels`); any when unset. */
   channels?: readonly string[];
   /** How a unit ships when both ways can, as the config asks; unset, each ship asks. */
   via?: DeployPath;
@@ -208,40 +208,49 @@ const checkConfig = (loaded: unknown): Composed => {
     ...testCommentOf(loaded.testComment),
     ...testReleaseOf(loaded.testRelease),
     via: viaOf(loaded.via),
-    ...environmentsOf(loaded.environments),
-    ...channelsOf(loaded.channels),
+    ...deployAppsOf(loaded.deployApps),
+    ...publishPackagesOf(loaded.publishPackages),
     ...prepareOf(loaded.prepare),
   };
 };
 
-const listOfNames = (value: unknown) =>
-  Array.isArray(value) && value.length > 0 && value.every((name) => typeof name === "string")
-    ? [...new Set<string>(value)]
-    : null;
-
-/** The config's `environments`: one or both, in promotion order. */
-const environmentsOf = (value: unknown): { environments?: Environment[] } => {
-  if (value === undefined) return {};
-  const names = listOfNames(value);
-  const unknown = names?.find((name) => !ENVIRONMENTS.some((known) => known === name));
-  if (!names || unknown !== undefined) {
-    throw new Error(`environments lists ${ENVIRONMENTS.join(", ")}, or one of them`);
+/** The list of names `key` holds in a config object that holds nothing else. */
+const namesIn = (value: unknown, owner: string, key: string) => {
+  const names = isRecord(value) && Object.keys(value).join() === key ? value[key] : null;
+  if (
+    !Array.isArray(names) ||
+    names.length === 0 ||
+    !names.every((name) => typeof name === "string")
+  ) {
+    throw new Error(`${owner} takes ${key}, a list of names`);
   }
-  return { environments: ENVIRONMENTS.filter((name) => names.includes(name)) };
+  return [...new Set<string>(names)];
 };
 
-/** The config's `channels`: live, and names npm takes as a test release's. */
-const channelsOf = (value: unknown): { channels?: string[] } => {
+/** `deployApps`: the environments apps are promoted through, left to right. */
+const deployAppsOf = (value: unknown): { environments?: Environment[] } => {
   if (value === undefined) return {};
-  const names = listOfNames(value);
-  if (!names) throw new Error('channels lists names, such as ["nightly", "live"]');
+  const names = namesIn(value, "deployApps", "promote");
+  const environments = ENVIRONMENTS.filter((name) => names.includes(name));
+  if (environments.join() !== names.join()) {
+    throw new Error(
+      `deployApps.promote goes left to right, ${ENVIRONMENTS.join(" to ")}, or names one of them: not ${names.join(", ")}`,
+    );
+  }
+  return { environments };
+};
+
+/** `publishPackages`: live, and names the registry takes as a test release's. */
+const publishPackagesOf = (value: unknown): { channels?: string[] } => {
+  if (value === undefined) return {};
+  const names = namesIn(value, "publishPackages", "channels");
   for (const name of names) {
     const problem = ENVIRONMENTS.some((known) => known === name)
-      ? `${name} is an environment`
+      ? `${name} is an environment apps deploy to`
       : name === LIVE
         ? null
         : channelProblem(name);
-    if (problem) throw new Error(`channels: ${problem}`);
+    if (problem) throw new Error(`publishPackages.channels: ${problem}`);
   }
   return { channels: names };
 };
@@ -467,7 +476,7 @@ export const loadRelease = async (root: string, ports: LoadPorts): Promise<Relea
       problems.push({
         file: path.basename(configFile),
         message: `${unit.name} needs preview: its platform builds production from what preview runs`,
-        hint: 'add "preview" to environments',
+        hint: 'add "preview" to deployApps.promote',
       }),
     );
   }

@@ -94,7 +94,7 @@ describe("Feature: choosing the channels packages publish on", () => {
 
     expect(await branchRelease(context, { onDefault: "publish", channel: "beta" })).toBe(false);
 
-    expect(output.text).toContain("channels is nightly, live");
+    expect(output.text).toContain("publishPackages.channels is nightly, live");
   });
 });
 

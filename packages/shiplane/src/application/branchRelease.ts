@@ -253,7 +253,11 @@ export const branchRelease = async (
   const channel = picked ?? channelFor(here.branch, context.release.testRelease);
   const { channels } = context.release;
   if (channels && !channels.includes(channel)) {
-    fail(context, `${channel} is not a channel here`, `channels is ${channels.join(", ")}`);
+    fail(
+      context,
+      `${channel} is not a channel here`,
+      `publishPackages.channels is ${channels.join(", ")}`,
+    );
     return false;
   }
   const pr = dryRun ? null : await context.services.codeHost.prForBranch(here.branch);
