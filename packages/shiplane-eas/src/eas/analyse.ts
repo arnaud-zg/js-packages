@@ -1,5 +1,11 @@
 import { styleText } from "node:util";
-import type { Environment, GitPosition, Health, SourceControlPort } from "shiplane/plugin";
+import type {
+  DeployFlow,
+  Environment,
+  GitPosition,
+  Health,
+  SourceControlPort,
+} from "shiplane/plugin";
 import { progressBar } from "shiplane/plugin";
 
 import type { EasClient } from "./client";
@@ -29,12 +35,14 @@ export const analyse = async ({
   client,
   source,
   environment,
+  flow,
   version,
   unit,
 }: {
   client: EasClient;
   source: SourceControlPort;
   environment: Environment;
+  flow: DeployFlow;
   version: string;
   unit: string;
 }): Promise<Analysis> => {
@@ -65,7 +73,7 @@ export const analyse = async ({
     git: position,
     checked,
     plan: releasePlan(
-      environment,
+      { channel: environment, flow },
       checked.map(({ verdict }) => verdict),
       unit,
     ),
@@ -133,6 +141,7 @@ export const analysisJson = ({ channel, version, commit, plan, checked }: Analys
 /** An update's health from its launches: unwell once it crashed, or while nobody has run it. */
 export const updateHealth = (
   launches: { platform: Platform; installs: number; failedInstalls: number }[],
+  environment: Environment,
 ): Health => {
   const summary = launches
     .map(
@@ -145,11 +154,11 @@ export const updateHealth = (
     return {
       ok: false,
       summary,
-      why: `${count({ total: crashes, one: "crash", many: "crashes" })} on preview`,
+      why: `${count({ total: crashes, one: "crash", many: "crashes" })} on ${environment}`,
     };
   }
   if (launches.every(({ installs }) => installs === 0)) {
-    return { ok: false, summary, why: "nobody has launched it on preview yet" };
+    return { ok: false, summary, why: `nobody has launched it on ${environment} yet` };
   }
   return { ok: true, summary };
 };

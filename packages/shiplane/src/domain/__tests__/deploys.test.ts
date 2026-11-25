@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { TEST_FLOW } from "../../testing/flow";
 import { deployRunTitle, deployState, deployVia, needsPath, shipsFrom, webShip } from "../deploys";
 
 describe("shipping the web apps", () => {
@@ -8,25 +9,33 @@ describe("shipping the web apps", () => {
   });
 
   it("given a tagged version never deployed, when shipping to preview, then it deploys", () => {
-    expect(webShip({ environment: "preview", run: "none", onPreview: false })).toBe("deploy");
+    expect(
+      webShip({ flow: TEST_FLOW, environment: "preview", run: "none", onPrevious: false }),
+    ).toBe("deploy");
   });
 
   it("given its deploy waiting on the approval gate, when resumed, then it is deploying, not deployed twice", () => {
-    expect(webShip({ environment: "preview", run: "running", onPreview: false })).toBe("deploying");
+    expect(
+      webShip({ flow: TEST_FLOW, environment: "preview", run: "running", onPrevious: false }),
+    ).toBe("deploying");
   });
 
   it("given its deploy finished, when resumed, then it is shipped", () => {
-    expect(webShip({ environment: "preview", run: "done", onPreview: true })).toBe("shipped");
+    expect(
+      webShip({ flow: TEST_FLOW, environment: "preview", run: "done", onPrevious: true }),
+    ).toBe("shipped");
   });
 
   it("given a version preview never got, when shipping to production, then it waits for preview first", () => {
-    expect(webShip({ environment: "production", run: "none", onPreview: false })).toBe(
-      "not-on-preview",
-    );
+    expect(
+      webShip({ flow: TEST_FLOW, environment: "production", run: "none", onPrevious: false }),
+    ).toBe("not-on-previous");
   });
 
   it("given a version preview has, when shipping to production, then it deploys", () => {
-    expect(webShip({ environment: "production", run: "none", onPreview: true })).toBe("deploy");
+    expect(
+      webShip({ flow: TEST_FLOW, environment: "production", run: "none", onPrevious: true }),
+    ).toBe("deploy");
   });
 
   it("given a deployment that succeeded, when read, then the version is deployed", () => {

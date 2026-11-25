@@ -37,6 +37,7 @@ export default defineRelease({
     ciPipeline: gitHubActionsCiPipeline(),
     versioning: changesetsVersioning(),
   }),
+  deployApps: { promote: [{ from: "preview", to: "production" }] },
   modules: [publishedPackage({ packageRegistry: npmPackageRegistry() })],
 });
 ```
@@ -45,11 +46,11 @@ export default defineRelease({
 
 In the package's `shiplane.unit.yml`, next to `module: published-package`.
 
-| Key         | Default  | Means                                                                                  |
-| ----------- | -------- | -------------------------------------------------------------------------------------- |
-| `tag`       | `latest` | The dist-tag each environment moves; `{ preview: next, production: latest }` stages it |
-| `access`    | `public` | Who can install it: `public` or `restricted`                                           |
-| `publishAs` |          | The name it publishes under, when its workspace name is not a valid npm name           |
+| Key         | Default  | Means                                                                                                          |
+| ----------- | -------- | -------------------------------------------------------------------------------------------------------------- |
+| `tag`       | `latest` | The dist-tag a release moves; one per environment of `deployApps.promote`, as below, publishes under the first |
+| `access`    | `public` | Who can install it: `public` or `restricted`                                                                   |
+| `publishAs` |          | The name it publishes under, when its workspace name is not a valid npm name                                   |
 
 Source: `NpmOptions` in `src/npm-package-registry.adapter.ts`.
 
@@ -99,8 +100,8 @@ tag:
 
 A ship asks npm first: a version not published yet is published, one already out only has its tag
 moved, so nothing publishes twice. It publishes this checkout, so it stops when main moved past the
-tag; production waits for a version preview published. `setup` offers this adapter for a public
-package with a `bin`, `exports` or `main`.
+tag; a later environment waits for a version the one before published. `setup` offers this adapter
+for a public package with a `bin`, `exports` or `main`.
 
 ## 🔑 Tools and sign-ins
 

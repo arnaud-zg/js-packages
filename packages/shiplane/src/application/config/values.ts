@@ -1,5 +1,4 @@
 import type { Environment } from "../../domain/environment";
-import { DEFAULT_FLOW } from "../../domain/environment";
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -7,7 +6,7 @@ export const isRecord = (value: unknown): value is Record<string, unknown> =>
 /** A map keyed by exactly the environments: one of its values is picked per environment. */
 export const isPerEnvValue = (
   value: unknown,
-  path: readonly Environment[] = DEFAULT_FLOW.path,
+  path: readonly Environment[],
 ): value is Record<Environment, unknown> =>
   isRecord(value) &&
   Object.keys(value).length === path.length &&

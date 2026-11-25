@@ -6,9 +6,8 @@ import type { Shell } from "../ports/shell.port";
 import type { Release } from "./config/loadRelease";
 import type { ReleaseContext } from "./context";
 import { findUnset } from "../domain/checkEnvBeforeDeploy";
-import { keysOf } from "../domain/environment";
 import { paint, reasonOf } from "./say";
-import { flowOf, resolvedOptions } from "./targets";
+import { resolvedOptions } from "./targets";
 import { unattended } from "./unattended";
 
 export const STEP = "Check env before deploy";
@@ -23,7 +22,7 @@ export const listing = (units: readonly ReleaseUnit[]): Checked[] =>
     unit.checkEnvBeforeDeploy ? [{ unit, toCheck: unit.checkEnvBeforeDeploy }] : [],
   );
 
-type WithoutOptions<Input> = Omit<Input, "options">;
+type WithoutOptions<Input> = Omit<Input, "options" | "flow">;
 
 /** A unit's platform env, its settings for each environment filled in. */
 export interface UnitPlatformEnv {
@@ -42,13 +41,11 @@ export const platformEnvOf = (
   if (!module?.env) return { cannotList: module?.provider ?? unit.module };
   const port = module.env({ root: release.root, shell });
   const options = (environment: Environment) =>
-    resolvedOptions(module, unit, environment, release.units, keysOf(flowOf({ release })));
-  const flow = release.appFlow ? { flow: release.appFlow } : {};
+    resolvedOptions(module, unit, environment, release.units, release.appFlow.path);
+  const flow = release.appFlow;
   return {
-    listNames: (input) =>
-      port.listNames({ ...input, ...flow, options: options(input.environment) }),
-    setCommand: (input) =>
-      port.setCommand({ ...input, ...flow, options: options(input.environment) }),
+    listNames: (input) => port.listNames({ ...input, flow, options: options(input.environment) }),
+    setCommand: (input) => port.setCommand({ ...input, flow, options: options(input.environment) }),
   };
 };
 

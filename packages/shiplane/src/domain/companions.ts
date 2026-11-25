@@ -1,6 +1,5 @@
 import type { StatusPlan, UnitRef } from "./changes";
 import type { Environment } from "./environment";
-import { DEFAULT_FLOW } from "./environment";
 
 /** A unit that goes out with the picked ones without being picked, and why. */
 export interface Companion {
@@ -40,7 +39,7 @@ const chainTo = (
 };
 
 /**
- * Preview: the units a release moves that the person did not pick. changesets moves a unit whenever
+ * The first environment: the units a release moves that the person did not pick. changesets moves a unit whenever
  * a workspace package it uses moves, so it cannot stay behind; this says through which package.
  */
 export const draggedUnits = (
@@ -83,7 +82,7 @@ export const draggedUnits = (
   });
 };
 
-/** A unit's version on preview with its release notes. */
+/** A unit's version on an environment with its release notes. */
 export interface Released {
   app: string;
   version: string;
@@ -139,13 +138,13 @@ const sharedReason = (partner: Released, other: Released, id: string) => {
 };
 
 /**
- * Production: the units preview runs with the picked ones that are not picked. Two versions went to
- * preview together when their notes share a change, their own or one a package they use moved for.
+ * A promote: the units the environment before runs with the picked ones, not picked. Two versions
+ * went there together when their notes share a change, their own or one a package they use moved for.
  */
 export const releasedTogether = (
   picked: Released[],
   others: Released[],
-  environment: Environment = DEFAULT_FLOW.path[0],
+  environment: Environment,
 ): Companion[] =>
   others.flatMap((other) => {
     const ids = changeIds(other.notes);

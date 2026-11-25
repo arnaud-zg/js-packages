@@ -8,7 +8,7 @@ import { waitForMerge } from "./waitForMerge";
 type PullRequest = Extract<Decision, { action: "pull-request" }>;
 
 /**
- * A small PR a plugin needs merged before it ships, such as production's version moving: branch,
+ * A small PR a plugin needs merged before it ships, such as a version moving: branch,
  * write, commit, push, open, back to main, wait for the merge, pull. `declined` when the person
  * said no, or the PR was left waiting for approval.
  */

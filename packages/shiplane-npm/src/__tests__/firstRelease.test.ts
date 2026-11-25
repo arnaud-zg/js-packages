@@ -1,5 +1,5 @@
 import { publishedPackage } from "shiplane/plugin";
-import { planFrom, readStatus, releaseToPreview, testContext, testUnit } from "shiplane/testing";
+import { planFrom, readStatus, releaseToEntry, testContext, testUnit } from "shiplane/testing";
 import { describe, expect, it } from "vitest";
 
 import { npmPackageRegistry } from "../npm-package-registry.adapter";
@@ -55,7 +55,7 @@ describe("the first release of a new package", () => {
   it("given a package added at 0.1.0 and never tagged, when a release runs, then it is tagged on the commit that added it and published, with no release PR", async () => {
     const { context, source, host, shell } = setUp();
 
-    expect(await releaseToPreview(context)).toBe(true);
+    expect(await releaseToEntry(context)).toBe(true);
 
     expect(host.received.filter(({ type }) => type === "pr")).toEqual([]);
     expect(source.received).toContainEqual(

@@ -7,7 +7,6 @@ import type {
   StaticHostingPort,
 } from "shiplane/plugin";
 import {
-  DEFAULT_FLOW,
   defineStaticHosting,
   firstLine,
   isEnvVarName,
@@ -43,19 +42,22 @@ const PagesOptions = z.object({
 
 const SECRET_LINE = /^\s*-\s+([A-Za-z_][A-Za-z0-9_]*):/;
 
-/** Pages knows two environments of its own: its production is where users are. */
-const pagesEnvironment = (environment: string, flow: DeployFlow = DEFAULT_FLOW) =>
-  reachesUsers(flow, environment) ? "production" : "preview";
+/** Cloudflare's own two words, for `wrangler pages secret --env`: not environments of this repository. */
+const WRANGLER_ENV = { users: "production", others: "preview" } as const;
 
-/** The branch the upload goes to: the project's production branch is where users are. */
+/** Pages knows two environments of its own, whatever the repository calls its own. */
+const pagesEnvironment = (environment: string, flow: DeployFlow) =>
+  reachesUsers(flow, environment) ? WRANGLER_ENV.users : WRANGLER_ENV.others;
+
+/** The branch the upload goes to: the project's own branch is where users are. */
 const branchOf = ({
   options,
   environment,
-  flow = DEFAULT_FLOW,
+  flow,
 }: {
   options: { branch?: string | undefined };
   environment: string;
-  flow?: DeployFlow | undefined;
+  flow: DeployFlow;
 }) => options.branch ?? (reachesUsers(flow, environment) ? "main" : environment);
 
 /** Pages secrets of the environment, plus the variables the unit file gives its build. */

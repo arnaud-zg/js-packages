@@ -6,7 +6,7 @@ import { mobileApp } from "../../modules/mobile-app/mobile-app.module";
 import { planFrom } from "../../testing/plans";
 import { changesetText, testContext, testUnit } from "../../testing/releaseContext";
 import { readStatus } from "../readStatus";
-import { releaseToPreview } from "../releaseToPreview";
+import { releaseToEntry } from "../releaseToEntry";
 import { shipTo } from "../ship";
 import { waitForMerge } from "../waitForMerge";
 
@@ -137,7 +137,7 @@ describe("a release to preview, from the top", () => {
     });
     prompter.answer(["api"], true);
 
-    await releaseToPreview(context);
+    await releaseToEntry(context);
 
     expect(source.received.map(({ type }) => type)).toEqual(["switch", "pull", "tag", "push-tags"]);
     expect(source.received[2]).toMatchObject({ name: "api@0.0.1", sha: "r2" });
@@ -158,7 +158,7 @@ describe("a release to preview, from the top", () => {
     });
     prompter.answer(["api"], true);
 
-    await releaseToPreview(context);
+    await releaseToEntry(context);
 
     expect(host.polled).toEqual([1790, 1790, 1791, 1791, 1791]);
     expect(source.received.map(({ type }) => type)).toEqual(["switch", "pull", "tag", "push-tags"]);
@@ -175,7 +175,7 @@ describe("a release to preview, from the top", () => {
     world.host.seed({ releasedTags: ["api@0.0.1"] });
     world.prompter.answer(["api"], true);
 
-    await releaseToPreview(world.context);
+    await releaseToEntry(world.context);
 
     expect(world.source.received).toContainEqual(
       expect.objectContaining({ type: "tag", name: "api@0.0.2", sha: "r2" }),
@@ -202,7 +202,7 @@ describe("a release to preview, from the top", () => {
       });
     prompter.answer(["api"], true);
 
-    await releaseToPreview(context);
+    await releaseToEntry(context);
 
     expect(source.received).toContainEqual(
       expect.objectContaining({ type: "tag", name: "api@0.0.2", sha: "r2" }),
@@ -230,7 +230,7 @@ describe("resuming a mobile release whose build never shipped", () => {
     const { context, prompter } = setUpExpo();
     prompter.answer(null);
 
-    await releaseToPreview(context);
+    await releaseToEntry(context);
 
     const [question = ""] = prompter.asked;
     expect(prompter.choices[question]).toEqual([

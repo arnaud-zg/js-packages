@@ -18,7 +18,7 @@ import { rehearsal } from "shiplane/rehearsal";
 
 const fakes = rehearsal();
 
-export default defineRelease({
+export default defineRelease({ deployApps: { promote: [{ from: "preview", to: "production" }] },
   flow: releaseFlow({
     sourceControl: fakes.sourceControl,
     codeHost: fakes.codeHost,
@@ -155,7 +155,7 @@ describe("Feature: finding the right command from the help", () => {
     expect(await run("help", "all")).toBe(0);
 
     expect(stdout()).toContain("shiplane remove <unit>          stop shipping a unit");
-    expect(stdout()).toContain("--channel <environment>         preview or production, or yours");
+    expect(stdout()).toContain("--channel <environment>         one deployApps.promote names");
   });
 
   it("given a mistyped command, when the person runs it, then shiplane names the word, lists every command and fails", async () => {

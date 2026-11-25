@@ -7,7 +7,7 @@ import { SHIP_YML } from "./shipWorld";
 
 export { SHIP_YML };
 
-const NOTHING: CallerNeeds = { secrets: [], features: [] };
+const NOTHING: CallerNeeds = { apps: [], environments: [], secrets: [], features: [] };
 
 /**
  * A caller workflow pinned to `version`'s commit, passing the secrets `needs` names, standing in

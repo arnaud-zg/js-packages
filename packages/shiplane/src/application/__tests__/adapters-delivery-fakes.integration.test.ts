@@ -8,6 +8,7 @@ import {
   serverHostingMemory,
   staticHostingMemory,
 } from "../../memory";
+import { TEST_FLOW } from "../../testing/flow";
 import { testUnit } from "../../testing/releaseContext";
 
 const CONTEXT = { root: "/repo", shell: new RecordingShell() };
@@ -22,6 +23,7 @@ const inputFor = (options: Record<string, unknown>, version = "1.0.0") => ({
   unit: testUnit("app", { version }),
   tag: `app@${version}`,
   environment: "preview" as const,
+  flow: TEST_FLOW,
   options,
   commit: "abc1234",
   defaultBranch: "main",

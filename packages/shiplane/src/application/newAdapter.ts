@@ -35,8 +35,8 @@ import { ${factory} } from "./${name}";
 
 // The contract every server host passes, run on this adapter and on the Fake tests use in its place.
 serverHostingContract([
-  { adapter: ${factory}(), settings: { service: "web-preview" } },
-  { adapter: serverHostingFake(), settings: { service: "web-preview" } },
+  { adapter: ${factory}(), settings: { service: "web-first" } },
+  { adapter: serverHostingFake(), settings: { service: "web-first" } },
 ]);
 `;
 

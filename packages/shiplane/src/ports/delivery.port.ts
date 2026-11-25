@@ -21,7 +21,7 @@ export interface Command {
 
 /** What shipping one tag to one environment takes. Built, never run, by an adapter. */
 export interface Job {
-  /** What a person reads: "deploy api@0.4.2 to acme-api-preview (Fly)". */
+  /** What a person reads: "deploy api@0.4.2 to acme-api (Fly)". */
   label: string;
   /** The commands this machine runs, in order. */
   local: Command[];
@@ -55,8 +55,8 @@ export interface JobInput<Options> {
   commit: string;
   /** The branch releases start from: main or master, as git reports it. */
   defaultBranch: string;
-  /** The way to users the environment is on; preview then production when absent. */
-  flow?: DeployFlow;
+  /** The way to users the environment is on. */
+  flow: DeployFlow;
   /**
    * A branch release for testers: a registry publishes under this dist-tag instead of the
    * environment's, and moves no other tag.
@@ -196,10 +196,12 @@ export interface Detection {
    * config. `possible`: a weak one, such as a Dockerfile. The strongest is suggested.
    */
   certainty: "found" | "likely" | "possible";
-  /** What was seen, as a person reads it: "fly-preview.toml". */
+  /** What was seen, as a person reads it: "fly.toml". */
   reason: string;
   /** Options read from what was seen; `questions` asks for the rest. */
   options: Record<string, unknown>;
+  /** The environments what was seen names, such as a file per environment; setup starts from them. */
+  environments?: string[];
 }
 
 /** An option `setup` asks for when nothing in the folder said it. */
@@ -229,14 +231,20 @@ export interface Requirement {
   variables?: string[];
 }
 
+declare const perEnvironment: unique symbol;
+
+/** A value per environment, keyed by the repository's own names. */
+export type PerEnvMap<Value> = Record<Environment, Value> & { readonly [perEnvironment]: true };
+
 /** A value per environment becomes the value itself, at any depth. */
-export type Resolved<Value> = Value extends { preview: infer Inner; production: infer Inner }
-  ? Resolved<Inner>
-  : Value extends readonly (infer Item)[]
-    ? Resolved<Item>[]
-    : Value extends object
-      ? { [Key in keyof Value]: Resolved<Value[Key]> }
-      : Value;
+export type Resolved<Value> =
+  Value extends PerEnvMap<infer Inner>
+    ? Resolved<Inner>
+    : Value extends readonly (infer Item)[]
+      ? Resolved<Item>[]
+      : Value extends object
+        ? { [Key in keyof Value]: Resolved<Value[Key]> }
+        : Value;
 
 /** What every delivery port does: say where a tag lands, and build the jobs that ship it. */
 export interface Delivery<Options = Record<string, unknown>> {

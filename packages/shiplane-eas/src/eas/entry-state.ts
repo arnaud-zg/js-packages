@@ -1,5 +1,5 @@
 import type { DecideContext } from "shiplane/plugin";
-import { tagName } from "shiplane/plugin";
+import { entryOf, tagName } from "shiplane/plugin";
 
 import type { EasInput } from "./options";
 import { analyse } from "./analyse";
@@ -7,21 +7,23 @@ import { clientFor } from "./client";
 import { mobileShip } from "./decide";
 import { binaryVersion } from "./version-file";
 
-/** What preview still needs for the tagged version, from its builds and last update. */
-export const previewState = async ({
+/** What the first environment still needs for the tagged version, from its builds and last update. */
+export const entryState = async ({
   context,
   input,
 }: {
   context: DecideContext;
   input: EasInput;
 }) => {
-  const { unit, options } = input;
+  const { unit, options, flow } = input;
+  const environment = entryOf(flow);
   const client = clientFor({ context, unit });
   const analysis = await analyse({
     client,
     source: context.sourceControl,
-    environment: "preview",
-    version: binaryVersion({ root: context.root, unit, options, environment: "preview" }),
+    environment,
+    flow,
+    version: binaryVersion({ root: context.root, unit, options, environment }),
     unit: unit.name,
   });
   const version = unit.version;
@@ -37,10 +39,10 @@ export const previewState = async ({
   // Once main moved on, whether the tag's update already went out decides a retry too.
   const lastUpdate =
     tag && (analysis.plan.action === "update" || !atTag)
-      ? await client.lastUpdate("preview")
+      ? await client.lastUpdate(environment)
       : null;
   const lastUpdateCommit = lastUpdate
-    ? (await client.updateOrigin({ group: lastUpdate.group, environment: "preview" })).commit
+    ? (await client.updateOrigin({ group: lastUpdate.group, environment })).commit
     : null;
   const updatedFromTag = await sinceTag(lastUpdateCommit);
   const ship = mobileShip(analysis.plan.action, {
@@ -52,4 +54,4 @@ export const previewState = async ({
   return { analysis, client, codeSince, sinceTag, ship, tag, atTag, updatedFromTag };
 };
 
-export type PreviewState = Awaited<ReturnType<typeof previewState>>;
+export type EntryState = Awaited<ReturnType<typeof entryState>>;

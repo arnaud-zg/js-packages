@@ -40,8 +40,8 @@ import { statusCommand } from "./statusCommand";
 /** What `shiplane help` shows: the commands a person runs day to day, and where the rest are. */
 const SHORT_HELP = `${paint("bold", "shiplane")}: detect what changed, version it, trigger each app's deploy.
 
-  shiplane                        the next step to preview: release PR, merge, tags, ship
-  shiplane promote                production, from what preview runs
+  shiplane                        the next release step: release PR, merge, tags, ship
+  shiplane promote                the next environment, from what the one before runs
   shiplane test-release [channel] publish what the changesets release for testers: a snapshot, or beta, nightly…
   shiplane status                 where every unit stands, and what to run next
   shiplane setup                  set up releases, or add an app
@@ -53,14 +53,14 @@ const SHORT_HELP = `${paint("bold", "shiplane")}: detect what changed, version i
 
 const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, trigger each app's deploy.
 
-  shiplane                        the next step to preview: release PR, merge, tags, ship
+  shiplane                        the next release step: release PR, merge, tags, ship
                                   (on a branch: a test release, asked first)
   shiplane test-release [channel] [unit...]
                                   publish what the changesets release for testers, npm packages only:
                                   a snapshot (0.6.0-main.329aafb) or a numbered channel (0.6.0-beta.2)
   shiplane prune-snapshots        remove the npm tags of snapshots published 30 days ago or more:
                                   --older-than <days> (7 or more), --otp <code>, --dry-run, --yes
-  shiplane promote                production, from what preview runs (--channel production too)
+  shiplane promote                the next environment, from what the one before runs
   shiplane status [--json]        where every unit stands, and what to run next
   shiplane version                open the release PR for what is pending
   shiplane tag                    tag merged versions and publish their release notes
@@ -68,6 +68,7 @@ const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, tri
   shiplane plugins [--json]       the flow, the modules in release order and who uses each, the features
 
   shiplane setup [--yes]          set up, check, or add an app: asks only what it can't tell, rehearses, then writes
+                                  --environments a,b names what apps go through, in order, unasked
                                   --format yaml writes shiplane.yml instead of shiplane.config.ts
                                   (shiplane init and shiplane add are now setup; both still run for now)
   shiplane remove <unit>          stop shipping a unit; it stays versioned
@@ -79,10 +80,10 @@ const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, tri
   shiplane schema                 the editor schema of shiplane.yml, with the plugins installed and your own adapters
   shiplane help [all]             the main commands; all: this, every command and flag
 
-  --channel <environment>         preview or production, or yours (deployApps.promote); the first by default
+  --channel <environment>         one deployApps.promote names; the first by default
                                   ship also takes live, the released packages, or a test release channel
   --via ci|local                  ship through the CI pipeline (such as GitHub Actions) or this machine, without asking
-  --yes                           answer yes to every question (never on production)
+  --yes                           answer yes to every question (never where users are)
   --dry-run                       with shiplane, ship or promote: every command it would run, run nothing;
                                   with test-release: each package's version and npm tag, publish nothing
                                   (shiplane plan before)
@@ -91,7 +92,7 @@ const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, tri
                                   Both defaults live in shiplane.config.ts: display: { verbose, mascot }
 `;
 
-/** The commands `--dry-run` previews instead of running. */
+/** The commands `--dry-run` shows instead of running. */
 const DRY_RUNS = new Set(["next", "ship", "promote"]);
 
 /** --via ci|local; the older --via github still means the CI pipeline, said once. */
@@ -122,6 +123,7 @@ const parse = (argv: string[]) =>
       "older-than": { type: "string" },
       otp: { type: "string" },
       format: { type: "string" },
+      environments: { type: "string" },
     },
   });
 
@@ -187,13 +189,12 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
     tag: async (context) => tagRelease(context, await missingTags(context)),
     // Where it ships says what: an environment apps, live the released packages, a channel test ones.
     ship: (context) => {
+      if (values.channel === LIVE) return shipLive(context, units);
       if (flowOf(context).path.includes(environment)) {
         const scope = units.length > 0 ? { scope: new Set(units) } : {};
         return shipTo(context, environment, { via, ...scope });
       }
-      return environment === LIVE
-        ? shipLive(context, units)
-        : branchRelease(context, { ...testRelease, channel: environment, units });
+      return branchRelease(context, { ...testRelease, channel: environment, units });
     },
     // Deprecated: --dry-run does it. Kept working, left out of the help.
     plan: (context) => {
@@ -280,7 +281,10 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
   const setUp = setupCommands[firstRun ? "setup" : command];
   if (setUp) {
     const load = () => loadReleaseOnDisk(root, { aliases: io.aliases });
-    return (await setUp(await composeSetup(root, { load, ...io.setup }))) ? 0 : 1;
+    const named = values.environments
+      ? { environments: values.environments.split(",").map((name) => name.trim()) }
+      : {};
+    return (await setUp(await composeSetup(root, { load, ...named, ...io.setup }))) ? 0 : 1;
   }
   if (command === "help") {
     out(first === "all" ? HELP : SHORT_HELP);

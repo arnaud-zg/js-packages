@@ -9,6 +9,7 @@ import {
   defineStaticHosting,
   shellServerHosting,
 } from "../../index";
+import { TEST_FLOW } from "../../testing/flow";
 import { testUnit } from "../../testing/releaseContext";
 
 const CONTEXT = { root: "/repo", shell: new RecordingShell() };
@@ -17,6 +18,7 @@ const inputFor = (options: Record<string, unknown>) => ({
   unit: testUnit("api"),
   tag: "api@1.2.0",
   environment: "production" as const,
+  flow: TEST_FLOW,
   options,
   commit: "abc1234",
   defaultBranch: "main",

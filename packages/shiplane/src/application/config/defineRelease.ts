@@ -15,10 +15,9 @@ export interface PromoteStep {
 /** How apps are deployed. */
 export interface DeployApps {
   /**
-   * The steps in order, each starting where the one before ends:
-   * `[{ from: "preview", to: "production" }]` when unset. A lone `{ to: "production" }` deploys
-   * straight there; a lone `{ from: "preview" }` never promotes. A mobile app on EAS takes only
-   * preview and production.
+   * The steps in order, each starting where the one before ends, under names of your own. Required
+   * as soon as an app deploys. A lone `{ to }` deploys straight there; a lone `{ from }` never
+   * promotes. A mobile app on EAS takes one step, or a lone `from`.
    */
   promote?: readonly PromoteStep[];
   /**

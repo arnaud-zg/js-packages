@@ -1,16 +1,16 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { Job } from "shiplane/plugin";
-import { z } from "shiplane/plugin";
+import { entryOf, z } from "shiplane/plugin";
 
 import type { Platform, RetryStep } from "./decide";
 import type { EasInput } from "./options";
 import { easCommand } from "./command";
 import { PLATFORM_NAME } from "./wording";
 
-// A preview update ships what its tag named; production ships the default branch.
-const updateRef = ({ tag, environment, defaultBranch }: EasInput) =>
-  environment === "preview" ? tag : defaultBranch;
+// The first environment's update ships what its tag named; users get the default branch.
+const updateRef = ({ tag, environment, flow, defaultBranch }: EasInput) =>
+  environment === entryOf(flow) ? tag : defaultBranch;
 
 /** A build of the platforms on EAS, submitted to the stores when done. */
 const easBuild = ({

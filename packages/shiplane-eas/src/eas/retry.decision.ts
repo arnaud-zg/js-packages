@@ -3,22 +3,22 @@ import type { DecideContext, Decision, ReleaseUnit } from "shiplane/plugin";
 
 import type { EasClient } from "./client";
 import type { RetryStep } from "./decide";
+import type { EntryState } from "./entry-state";
 import type { EasInput } from "./options";
-import type { PreviewState } from "./preview-state";
 import { PLATFORMS } from "./analyse";
 import { buildRefusal, refuse } from "./build-refusal";
 import { retryStep } from "./decide";
 import { retryJobs, updateJob } from "./jobs";
-import { binaryVersion, previewVersionIn } from "./version-file";
+import { binaryVersion, versionIn } from "./version-file";
 import { fewFiles, retryFailure, retryLine } from "./wording";
 
 /**
- * What the release at the tag named: a build moves the preview binary version to the tagged
+ * What the release at the tag named: a build moves the first environment's binary version to the tagged
  * version, an update leaves it on the binary it targets. Read at the tag, not at HEAD.
  */
 const namedAtTag = async ({
   context,
-  input: { unit, options, tag },
+  input: { unit, options, tag, environment },
 }: {
   context: DecideContext;
   input: EasInput;
@@ -28,8 +28,8 @@ const namedAtTag = async ({
     path.posix.join(unit.dir, options.versionFile),
   );
   const binary =
-    previewVersionIn(text) ??
-    binaryVersion({ root: context.root, unit, options, environment: "preview" });
+    versionIn(text, environment) ??
+    binaryVersion({ root: context.root, unit, options, environment });
   return { ships: binary === unit.version ? "build" : "update", binary };
 };
 
@@ -38,22 +38,24 @@ const retrySteps = async ({
   client,
   sinceTag,
   binary,
+  environment,
 }: {
   client: EasClient;
-  sinceTag: PreviewState["sinceTag"];
+  sinceTag: EntryState["sinceTag"];
   binary: string;
+  environment: string;
 }): Promise<RetryStep[]> =>
   Promise.all(
     PLATFORMS.map(async (platform) => {
       const builds = await client.versionBuilds({
         platform,
-        environment: "preview",
+        environment,
         version: binary,
       });
       const finishedFromTag = await sinceTag(builds.finished?.gitCommit ?? null);
       const submissions =
         builds.finished && finishedFromTag && !builds.running
-          ? await client.submissions({ platform, environment: "preview" })
+          ? await client.submissions({ platform, environment })
           : [];
       return retryStep({ platform, ...builds, finishedFromTag, submissions });
     }),
@@ -63,12 +65,14 @@ const retrySteps = async ({
 const settled = ({
   unit,
   steps,
+  environment,
 }: {
   unit: ReleaseUnit;
+  environment: string;
   steps: readonly RetryStep[];
 }): Decision | null => {
   if (steps.every(({ action }) => action === "done")) {
-    return { action: "none", status: `${unit.name} ${unit.version} is on preview` };
+    return { action: "none", status: `${unit.name} ${unit.version} is on ${environment}` };
   }
   if (steps.every(({ action }) => action === "done" || action === "running")) {
     return {
@@ -82,7 +86,7 @@ const settled = ({
 const NEW_CODE = ["pnpm changeset", "pnpm shiplane"];
 
 /**
- * Main moved past a version that never reached preview: the person picks between retrying the
+ * Main moved past a version that never got there: the person picks between retrying the
  * tagged version as released and releasing the new code. With nobody to ask, it refuses and says
  * what a terminal run offers.
  */
@@ -94,21 +98,25 @@ export const retryChoice = async ({
 }: {
   context: DecideContext;
   input: EasInput;
-  state: PreviewState;
-  /** Preview already runs the tagged code: offer a retry only when a platform still misses it. */
+  state: EntryState;
+  /** It already runs the tagged code: offer a retry only when a platform still misses it. */
   seenShipped?: boolean;
 }): Promise<Decision | null> => {
-  const { unit, tag } = input;
+  const { unit, tag, environment } = input;
   const version = unit.version;
   const { client, codeSince, sinceTag, analysis } = state;
   const named = await namedAtTag({ context, input });
-  // An update the tag named is checked by preview's last update, which a retry would repeat.
+  // An update the tag named is checked by the last update, which a retry would repeat.
   if (named.ships === "update" && (seenShipped || state.updatedFromTag)) {
-    return seenShipped ? null : { action: "none", status: `${unit.name} ${version} is on preview` };
+    return seenShipped
+      ? null
+      : { action: "none", status: `${unit.name} ${version} is on ${environment}` };
   }
   const steps =
-    named.ships === "build" ? await retrySteps({ client, sinceTag, binary: named.binary }) : [];
-  const done = named.ships === "build" ? settled({ unit, steps }) : null;
+    named.ships === "build"
+      ? await retrySteps({ client, sinceTag, binary: named.binary, environment })
+      : [];
+  const done = named.ships === "build" ? settled({ unit, steps, environment }) : null;
   if (done) return seenShipped ? null : done;
   const [changed, commits, notes] = await Promise.all([
     codeSince(analysis.git.head),
@@ -128,15 +136,15 @@ export const retryChoice = async ({
   const line =
     named.ships === "build"
       ? retryLine({ steps, notes })
-      : `tag ✓${notes === null ? "" : `, release notes ${notes ? "✓" : "✗"}`} → publish the preview update from ${tag}`;
+      : `tag ✓${notes === null ? "" : `, release notes ${notes ? "✓" : "✗"}`} → publish the ${environment} update from ${tag}`;
   // With no failure to show, the question asks whether there was one: the options answer it.
   const [retry, newCode] = failure ? ["Retry", "Release"] : ["Yes, retry", "No, release"];
   return {
     action: "choose",
     lines: [
       failure
-        ? `${unit.name} ${version} didn't reach preview: ${failure.short}.`
-        : `${unit.name} ${version} is tagged, but nothing for it reached preview.`,
+        ? `${unit.name} ${version} didn't reach ${environment}: ${failure.short}.`
+        : `${unit.name} ${version} is tagged, but nothing for it reached ${environment}.`,
       moved,
     ],
     question: failure
@@ -170,7 +178,7 @@ export const retryChoice = async ({
       title: `main moved past ${tag}`,
       detail: failure
         ? `The last ${failure.platform} ${failure.what} of ${version} ${failure.verb} ${failure.when}: run it from a terminal to retry ${version} as released.`
-        : `nothing for ${version} reached preview, and ${files} changed since: run it from a terminal to retry ${version} as released.`,
+        : `nothing for ${version} reached ${environment}, and ${files} changed since: run it from a terminal to retry ${version} as released.`,
       commands: [`pnpm shiplane ship ${unit.name}`, "pnpm changeset"],
     },
   };
@@ -187,7 +195,7 @@ export const finishFromTag = async ({
 }: {
   context: DecideContext;
   input: EasInput;
-  state: PreviewState;
+  state: EntryState;
 }): Promise<Decision | null> => {
   const named = await namedAtTag({ context, input });
   if (named.ships !== "build") return null;
@@ -195,9 +203,10 @@ export const finishFromTag = async ({
     client: state.client,
     sinceTag: state.sinceTag,
     binary: named.binary,
+    environment: input.environment,
   });
   if (steps.every(({ action }) => action === "build")) return null;
-  const done = settled({ unit: input.unit, steps });
+  const done = settled({ unit: input.unit, steps, environment: input.environment });
   if (done) return done;
   const refusal = await buildRefusal({ context, analysis: state.analysis, input, retry: true });
   if (refusal) return refuse(refusal);

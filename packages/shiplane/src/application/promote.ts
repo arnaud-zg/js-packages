@@ -13,7 +13,7 @@ import { checkout, decideContext, entry, flowOf, unitTarget } from "./targets";
 
 const STAGES = ["What to promote", "Ship"] as const;
 
-/** Each unit's version on preview with its notes, read from its tag. */
+/** Each unit's version on the environment before, with its notes, read from its tag. */
 const releasedVersions = async (
   { release, services }: ReleaseContext,
   apps: readonly string[],
@@ -31,7 +31,7 @@ const releasedVersions = async (
   );
 
 /**
- * Which units production gets: the person's pick, plus what preview only ever ran with it when they
+ * Which units a promote takes: the person's pick, plus what the environment before only ever ran with it when they
  * accept. Offered ticked with why, never added silently. Null when cancelled.
  */
 export const pickPromotion = async (

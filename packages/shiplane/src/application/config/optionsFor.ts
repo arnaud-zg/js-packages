@@ -1,6 +1,5 @@
 import type { Environment } from "../../domain/environment";
 import type { ReleaseUnit } from "../../domain/unit";
-import { DEFAULT_FLOW } from "../../domain/environment";
 import { isPerEnvValue, isRecord, REFERENCE, valueAt } from "./values";
 
 const resolve = (
@@ -33,7 +32,7 @@ export const optionsFor = (
   unit: ReleaseUnit,
   env: Environment,
   units: readonly ReleaseUnit[],
-  path: readonly Environment[] = DEFAULT_FLOW.path,
+  path: readonly Environment[],
 ): Record<string, unknown> => {
   const resolved = resolve(unit.options, env, units, path);
   return isRecord(resolved) ? resolved : {};

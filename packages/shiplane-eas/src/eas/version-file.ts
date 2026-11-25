@@ -42,9 +42,9 @@ export const setBinaryVersion = ({
   return path.relative(file.root, written);
 };
 
-/** The preview binary version a version file's text names, or nothing when it names none. */
-export const previewVersionIn = (text: string | null): string | undefined => {
+/** The binary version of an environment a version file's text names, or nothing when it names none. */
+export const versionIn = (text: string | null, environment: Environment): string | undefined => {
   if (!text) return undefined;
   const parsed = parseJson({ text, schema: VersionsSchema });
-  return parsed.success ? parsed.data.preview?.version : undefined;
+  return parsed.success ? parsed.data[environment]?.version : undefined;
 };

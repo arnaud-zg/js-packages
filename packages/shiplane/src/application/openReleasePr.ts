@@ -118,6 +118,7 @@ export const mayVersion = async (context: ReleaseContext): Promise<boolean> => {
   const { services } = context;
   const defaultBranch = await services.sourceControl.defaultBranch();
   const source = releaseSource("build", entry(context), await services.sourceControl.position(), {
+    flow: context.release.appFlow,
     defaultBranch,
   });
   if (!source.allowed) {

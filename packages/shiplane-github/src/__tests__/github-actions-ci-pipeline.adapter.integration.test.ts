@@ -409,6 +409,8 @@ jobs:
 
 /** A release shipping to Cloudflare Pages, commenting on what it ships. */
 const NEEDS = {
+  apps: ["preview", "production"],
+  environments: ["preview", "production"],
   secrets: ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN"],
   features: ["release-comments"],
 };

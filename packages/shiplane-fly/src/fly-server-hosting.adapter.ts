@@ -95,25 +95,34 @@ export const flyServerHosting = (): FlyServerHostingAdapter =>
     typicalMinutes: 13,
     describe: ({ options }) => `${options.app} (Fly)`,
     detect: (folder) => {
-      const tomls = folder.files.filter((file) => /^fly(-[\w]+)?\.toml$/.test(file)).sort();
+      const tomls = folder.files.filter((file) => /^fly(-[\w-]+)?\.toml$/.test(file)).sort();
       if (tomls.length === 0) {
         return folder.has("Dockerfile")
           ? { certainty: "possible", reason: "Dockerfile", options: {} }
           : null;
       }
       const appOf = (file: string) => /^app\s*=\s*"([^"]+)"/m.exec(folder.read(file) ?? "")?.[1];
-      const perEnvironment = ["fly-preview.toml", "fly-production.toml"].every((file) =>
-        tomls.includes(file),
-      );
-      const options = perEnvironment
-        ? {
-            app: { preview: appOf("fly-preview.toml"), production: appOf("fly-production.toml") },
-            config: { preview: "fly-preview.toml", production: "fly-production.toml" },
-          }
-        : {
-            app: appOf(tomls[0] ?? "fly.toml"),
-            ...(tomls[0] === "fly.toml" ? {} : { config: tomls[0] }),
-          };
+      // One file per environment names them; a lone or unnamed one serves them all.
+      const named = tomls.flatMap((file) => {
+        const name = /^fly-([\w-]+)\.toml$/.exec(file)?.[1];
+        return name ? [{ name, file }] : [];
+      });
+      const environments = named.map(({ name }) => name);
+      if (named.length > 1) {
+        return {
+          certainty: "found",
+          reason: tomls.join(", "),
+          environments,
+          options: {
+            app: Object.fromEntries(named.map(({ name, file }) => [name, appOf(file)])),
+            config: Object.fromEntries(named.map(({ name, file }) => [name, file])),
+          },
+        };
+      }
+      const options = {
+        app: appOf(tomls[0] ?? "fly.toml"),
+        ...(tomls[0] === "fly.toml" ? {} : { config: tomls[0] }),
+      };
       return { certainty: "found", reason: tomls.join(", "), options };
     },
     questions: (folder, found, repository) =>

@@ -22,6 +22,7 @@ import { releaseFlow } from "../application/releaseFlow";
 import { CONFIG_FILE } from "../application/setupFiles";
 import { DEFAULT_TAG_FORMAT } from "../domain/tags";
 import { moduleFor, suggestedModule } from "../modules/suggest";
+import { TEST_FLOW } from "./flow";
 
 /** A flow of Fakes: nothing reaches git, a code host or CI. */
 export const fakeFlow = (): ReleaseFlow =>
@@ -52,7 +53,13 @@ export const detecting = <Adapter extends AnyDeliveryAdapter>(
 export const memoryLoad =
   (root: string, files: MemoryFiles, compose: () => { modules: ReleaseModule[] }) =>
   (): Promise<Release> => {
-    const empty = { root, flow: fakeFlow(), tagFormat: DEFAULT_TAG_FORMAT, features: [] };
+    const empty = {
+      root,
+      flow: fakeFlow(),
+      tagFormat: DEFAULT_TAG_FORMAT,
+      appFlow: TEST_FLOW,
+      features: [],
+    };
     // A shiplane.yml holds the config as well: what it composes comes from the same adapters.
     if (!files.exists(CONFIG_FILE) && !YAML_CONFIG_FILES.some((file) => files.exists(file))) {
       return Promise.resolve({
@@ -68,7 +75,7 @@ export const memoryLoad =
         files.exists(at),
       );
       if (!file) return [];
-      const result = readUnitFile(file, files.read(file) ?? "", modules);
+      const result = readUnitFile(file, files.read(file) ?? "", modules, [], TEST_FLOW.path);
       const manifest = readManifest({ files, dir });
       return [{ dir, file, result, manifest }];
     });
@@ -130,6 +137,7 @@ export const memoryRepository = (
     output,
     adapters,
     load: memoryLoad(root, memory, compose),
+    environments: TEST_FLOW.path,
   };
   return { context, files: memory, shell, prompter, output };
 };

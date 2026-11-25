@@ -13,11 +13,12 @@ import type { ConfigReader } from "../../ports/config.port";
 import type { ManifestReader } from "../../ports/manifest.port";
 import type { ConfigProblem } from "./problem";
 import type { UnitFile } from "./readUnitFile";
-import { DEFAULT_FLOW, keysOf, LIVE, reachesUsers } from "../../domain/environment";
+import { LIVE, NO_APPS, reachesUsers } from "../../domain/environment";
 import { PrepareSchema } from "../../domain/prepare";
 import { DEFAULT_TAG_FORMAT, TAG_FORMATS, tagFormatNamed } from "../../domain/tags";
 import { channelProblem, channels } from "../../domain/testChannel";
 import { ConfigError } from "../../ports/config.port";
+import { deploysApps } from "../chooseEnvironments";
 import { releaseFlow } from "../releaseFlow";
 import { reasonOf } from "../say";
 import { sortProblems } from "./problem";
@@ -49,8 +50,8 @@ export interface Release {
   problems: ConfigProblem[];
   /** How a tag names a version, such as `{name}@{version}`. */
   tagFormat: string;
-  /** The way apps go to their users (`deployApps.promote`); preview then production when unset. */
-  appFlow?: DeployFlow;
+  /** The way apps go to their users (`deployApps.promote`); live at once when none deploys. */
+  appFlow: DeployFlow;
   /** The channels packages publish on (`publishPackages.channels`); any when unset. */
   channels?: readonly string[];
   /** Where a branch may deploy apps (`deployApps.onBranch`). */
@@ -83,13 +84,14 @@ type Composed = Pick<
   | "testComment"
   | "testRelease"
   | "via"
-  | "appFlow"
   | "channels"
   | "onBranch"
   | "deployOnBranch"
   | "prepare"
 > & {
   units?: string[];
+  /** Unset while the config names no environment. */
+  appFlow?: DeployFlow;
 };
 
 export interface LoadOptions {
@@ -217,7 +219,7 @@ const checkConfig = (loaded: unknown): Composed => {
     ...testReleaseOf(loaded.testRelease),
     via: viaOf(loaded.via),
     ...deployApps,
-    ...publishPackagesOf(loaded.publishPackages, (deployApps.appFlow ?? DEFAULT_FLOW).path),
+    ...publishPackagesOf(loaded.publishPackages, deployApps.appFlow?.path ?? []),
     ...prepareOf(loaded.prepare),
   };
 };
@@ -251,7 +253,9 @@ const flowOfSteps = (steps: Steps): DeployFlow | string => {
     (name) => name === LIVE || Object.values<string>(channels).includes(name),
   );
   if (channel) return `${channel} is a channel packages publish on`;
-  return { path, users: steps.at(-1)?.to ?? null };
+  const [entry, ...others] = path;
+  if (entry === undefined) return "each step names from, to, or both";
+  return { path: [entry, ...others], users: steps.at(-1)?.to ?? null };
 };
 
 const PublishPackagesSchema = z.strictObject({
@@ -260,21 +264,21 @@ const PublishPackagesSchema = z.strictObject({
 });
 
 /** `deployApps`: the way apps go to their users, and what a branch may do. */
-const deployAppsOf = (value: unknown): Pick<Release, "appFlow" | "deployOnBranch"> => {
+const deployAppsOf = (value: unknown): Partial<Pick<Release, "appFlow" | "deployOnBranch">> => {
   if (value === undefined) return {};
   const parsed = DeployAppsSchema.safeParse(value);
   if (!parsed.success) {
     throw new Error(
-      'deployApps takes promote, steps such as [{ from: "preview", to: "production" }], and onBranch, an environment or false',
+      'deployApps takes promote, steps such as [{ from: "<first>", to: "<next>" }], and onBranch, an environment or false',
     );
   }
   const { promote, onBranch } = parsed.data;
   const appFlow = promote && flowOfSteps(promote);
   if (typeof appFlow === "string") throw new Error(`deployApps.promote: ${appFlow}`);
-  if (onBranch && !(appFlow ?? DEFAULT_FLOW).path.some((name) => name === onBranch)) {
+  if (onBranch && !appFlow?.path.includes(onBranch)) {
     throw new Error(`deployApps.onBranch is ${onBranch}, and promote does not name it`);
   }
-  if (onBranch && reachesUsers(appFlow ?? DEFAULT_FLOW, onBranch)) {
+  if (onBranch && appFlow && reachesUsers(appFlow, onBranch)) {
     throw new Error(
       `deployApps.onBranch is ${onBranch}, where users are: a branch never deploys there`,
     );
@@ -312,6 +316,12 @@ const publishPackagesOf = (
     ...(names ? { channels: [...new Set(names)] } : {}),
     ...(onBranch === undefined ? {} : { onBranch }),
   };
+};
+
+/** Whether a unit deploys: an app, neither a package nor something only released. */
+const deploys = (modules: readonly ReleaseModule[], unit: ReleaseUnit) => {
+  const module = modules.find(({ name }) => name === unit.module);
+  return module !== undefined && deploysApps(module);
 };
 
 /** The config's `prepare`, its placeholders known; the first problem is thrown. */
@@ -419,6 +429,7 @@ export const loadRelease = async (root: string, ports: LoadPorts): Promise<Relea
     root,
     flow: unsetFlow(),
     tagFormat: DEFAULT_TAG_FORMAT,
+    appFlow: NO_APPS,
     modules: [],
     features: [],
     units: [],
@@ -470,47 +481,64 @@ export const loadRelease = async (root: string, ports: LoadPorts): Promise<Relea
   const { manifests } = ports;
   const problems: ConfigProblem[] = [];
   const features = config.features.map(({ name }) => name);
-  const read: Read[] = expandPatterns(root, config.units ?? workspacePatterns(root)).flatMap(
-    (dir) => {
-      const relative = UNIT_FILES.map((name) => path.posix.join(dir, name)).find((file) =>
-        fs.existsSync(path.join(root, file)),
-      );
-      if (!relative) return [];
-      const result = readUnitFile(
-        relative,
-        fs.readFileSync(path.join(root, relative), "utf8"),
-        config.modules,
-        features,
-        keysOf(config.appFlow ?? DEFAULT_FLOW),
-      );
-      problems.push(...result.problems);
-      const manifest = manifests.read(root, dir);
-      if (!manifest) {
-        problems.push({
+  const readUnits = (environments: readonly Environment[] | undefined) => {
+    const found: ConfigProblem[] = [];
+    const read: Read[] = expandPatterns(root, config.units ?? workspacePatterns(root)).flatMap(
+      (dir) => {
+        const relative = UNIT_FILES.map((name) => path.posix.join(dir, name)).find((file) =>
+          fs.existsSync(path.join(root, file)),
+        );
+        if (!relative) return [];
+        const result = readUnitFile(
+          relative,
+          fs.readFileSync(path.join(root, relative), "utf8"),
+          config.modules,
+          features,
+          environments,
+        );
+        found.push(...result.problems);
+        const manifest = manifests.read(root, dir);
+        if (!manifest) {
+          found.push({
+            file: relative,
+            message: fs.existsSync(path.join(root, dir, "package.json"))
+              ? "the package.json next to it needs a name and a version"
+              : "no package.json next to it to read its name and version",
+          });
+        }
+        if (!result.unit || !manifest) return [];
+        const unit: ReleaseUnit = {
+          name: dir === "." ? manifest.name.replace(/^@[^/]+\//, "") : path.posix.basename(dir),
+          dir,
           file: relative,
-          message: fs.existsSync(path.join(root, dir, "package.json"))
-            ? "the package.json next to it needs a name and a version"
-            : "no package.json next to it to read its name and version",
-        });
-      }
-      if (!result.unit || !manifest) return [];
-      const unit: ReleaseUnit = {
-        name: dir === "." ? manifest.name.replace(/^@[^/]+\//, "") : path.posix.basename(dir),
-        dir,
-        file: relative,
-        packageName: manifest.name,
-        version: manifest.version,
-        module: result.unit.module,
-        ...(result.unit.buildCommand ? { buildCommand: result.unit.buildCommand } : {}),
-        ...(result.unit.checkEnvBeforeDeploy
-          ? { checkEnvBeforeDeploy: result.unit.checkEnvBeforeDeploy }
-          : {}),
-        options: result.unit.options,
-        after: [],
-      };
-      return [{ unit, file: result.unit }];
-    },
-  );
+          packageName: manifest.name,
+          version: manifest.version,
+          module: result.unit.module,
+          ...(result.unit.buildCommand ? { buildCommand: result.unit.buildCommand } : {}),
+          ...(result.unit.checkEnvBeforeDeploy
+            ? { checkEnvBeforeDeploy: result.unit.checkEnvBeforeDeploy }
+            : {}),
+          options: result.unit.options,
+          after: [],
+        };
+        return [{ unit, file: result.unit }];
+      },
+    );
+    return { read, found };
+  };
+  // With no environment named, whether one is needed is the units' to say: read them first.
+  const named = config.appFlow?.path;
+  const first = readUnits(named);
+  const apps = first.read.filter(({ unit }) => deploys(config.modules, unit));
+  const { read, found: unitProblems } = named || apps.length > 0 ? first : readUnits(NO_APPS.path);
+  problems.push(...unitProblems);
+  if (!named && apps.length > 0) {
+    problems.push({
+      file: path.basename(configFile),
+      message: `${apps.map(({ unit }) => unit.name).join(", ")} deploy${apps.length === 1 ? "s" : ""}, and nothing says where`,
+      hint: 'add deployApps: { promote: [{ from: "<first>", to: "<where users are>" }] }, with the names your unit files use',
+    });
+  }
 
   const ordered = inReleaseOrder(read, config.modules);
   ordered.forEach((entry, index) => {
@@ -528,18 +556,18 @@ export const loadRelease = async (root: string, ports: LoadPorts): Promise<Relea
     ].filter((name) => name !== entry.unit.name && ordered.some(({ unit }) => unit.name === name));
   });
 
-  // Such a platform builds what users get from what runs before it, under its own two names.
-  const names = (config.appFlow ?? DEFAULT_FLOW).path;
-  if (names.some((name, index) => name !== DEFAULT_FLOW.path[index])) {
-    ordered
+  // Such a platform builds what users get from what runs before it: one of each, or no users yet.
+  const { path: names = [], users = null } = config.appFlow ?? {};
+  if (named && names.length !== (users === null ? 1 : 2)) {
+    apps
       .filter(({ unit }) =>
         config.modules.some(({ name, decidedBy }) => name === unit.module && decidedBy),
       )
       .forEach(({ unit }) =>
         problems.push({
           file: path.basename(configFile),
-          message: `${unit.name} ships on a platform that knows ${DEFAULT_FLOW.path.join(" and ")} only`,
-          hint: "name them in deployApps.promote, from the first to the second",
+          message: `${unit.name} needs two environments, one before users and theirs: not ${names.join(", ") || "none"}`,
+          hint: "name one step with from and to in deployApps.promote",
         }),
       );
   }
@@ -558,7 +586,7 @@ export const loadRelease = async (root: string, ports: LoadPorts): Promise<Relea
     modules: config.modules,
     features: config.features,
     ...(config.via ? { via: config.via } : {}),
-    ...(config.appFlow ? { appFlow: config.appFlow } : {}),
+    appFlow: config.appFlow ?? NO_APPS,
     ...(config.channels ? { channels: config.channels } : {}),
     ...(config.deployOnBranch === undefined ? {} : { deployOnBranch: config.deployOnBranch }),
     ...(config.onBranch === undefined ? {} : { onBranch: config.onBranch }),

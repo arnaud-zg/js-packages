@@ -24,6 +24,7 @@ export const buildRefusal = async ({
   const tagCommit = await context.sourceControl.tagCommit(input.tag);
   const defaultBranch = await context.sourceControl.defaultBranch();
   const source = releaseSource("build", input.environment, analysis.git, {
+    flow: input.flow,
     tagCommit,
     defaultBranch,
   });

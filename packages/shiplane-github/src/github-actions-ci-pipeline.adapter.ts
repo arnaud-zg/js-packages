@@ -6,7 +6,7 @@ import type {
   ServiceAdapter,
   Shell,
 } from "shiplane/plugin";
-import { actionsMinutes, billedMinutes, DEFAULT_FLOW, z } from "shiplane/plugin";
+import { actionsMinutes, billedMinutes, z } from "shiplane/plugin";
 
 import { GH_REQUIREMENT, ghCli, GhError } from "./gh-cli";
 
@@ -66,7 +66,7 @@ const shipJob = (pin: string, needs: CallerNeeds) => [
   "    steps:",
   "      - uses: actions/checkout@v5",
   "        with:",
-  `          ref: ${checkedOut(needs.apps ?? DEFAULT_FLOW.path)}`,
+  `          ref: ${checkedOut(needs.apps)}`,
   "          fetch-depth: 0",
   `      - uses: ${SHIPLANE_REPO}/.github/actions/ship@${pin}`,
   "        with:",
@@ -78,7 +78,7 @@ const shipJob = (pin: string, needs: CallerNeeds) => [
 
 /** The workflow a repository ships from: a manual run using shiplane, pinned to a commit. */
 const callerContent = (sha: string, version: string, needs: CallerNeeds) => {
-  const { environments = DEFAULT_FLOW.path } = needs;
+  const { environments } = needs;
   const pin = `${sha} # shiplane@${version}`;
   return [
     "# Ships with shiplane: `pnpm shiplane ship --via ci`, or Run workflow here.",

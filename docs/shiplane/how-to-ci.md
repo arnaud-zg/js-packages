@@ -106,7 +106,7 @@ jobs:
 
 With no adapter that reads a secret, it passes none.
 
-1. **Create one GitHub Environment per channel** (Settings › Environments): `preview`, `production`;
+1. **Create one GitHub Environment per choice** (Settings › Environments): `preview`, `production`;
    for npm packages, `snapshot`, `nightly`, `alpha`, `beta`, `rc` and `live` too. On npmjs.com,
    trust `ship.yml` for each package (Settings › Trusted publishing): no npm secret.
 2. **Add each adapter's secret to it**, by the name in
@@ -171,7 +171,7 @@ and outputs: [Setup Node project action](./reference.md#setup-node-project-actio
 ## Ship with no laptop
 
 Run the **Ship** workflow from the Actions tab, on a tag or `main`, with the units and the
-environment. Production runs as soon as you start it.
+environment. Where users are runs as soon as you start it.
 
 ## Use it from a script
 
@@ -179,7 +179,7 @@ environment. Production runs as soon as you start it.
 pnpm -s shiplane status --json
 ```
 
-Without a terminal every question answers no: pass `--yes` (refused on production) and `--via`.
+Without a terminal every question answers no: pass `--yes` (refused where users are) and `--via`.
 
 ## Example
 

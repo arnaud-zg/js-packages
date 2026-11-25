@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import type { Workspace } from "../../../testing/workspace";
 import { loadReleaseOnDisk as loadRelease } from "../../../cli/compose";
+import { TEST_FLOW } from "../../../testing/flow";
 import { ADMIN_UNIT, MODULE_CONFIG, SERVER_UNIT } from "../../../testing/moduleConfig";
 import { createWorkspace, packageJson, SOURCE_ALIASES } from "../../../testing/workspace";
 import { optionsFor } from "../optionsFor";
@@ -182,8 +183,10 @@ describe("values that differ per environment", () => {
     const release = await load(root);
     const [api] = release.units;
 
-    expect(api && optionsFor(api, "preview", release.units)).toMatchObject({ app: "api-preview" });
-    expect(api && optionsFor(api, "production", release.units)).toMatchObject({
+    expect(api && optionsFor(api, "preview", release.units, TEST_FLOW.path)).toMatchObject({
+      app: "api-preview",
+    });
+    expect(api && optionsFor(api, "production", release.units, TEST_FLOW.path)).toMatchObject({
       app: "api-production",
     });
   });
@@ -198,7 +201,7 @@ describe("values that differ per environment", () => {
     const admin = release.units.find(({ name }) => name === "admin");
 
     expect(admin?.after).toEqual(["api"]);
-    expect(admin && optionsFor(admin, "production", release.units)).toEqual({
+    expect(admin && optionsFor(admin, "production", release.units, TEST_FLOW.path)).toEqual({
       project: "admin-site",
       build: { env: { API_URL: "https://api.example.com" } },
     });
@@ -491,7 +494,10 @@ describe("saying how apps deploy and packages publish", () => {
   const configured = (line: string) => {
     workspace = setUp({
       "apps/api/shiplane.unit.yml": SERVER_UNIT,
-      "shiplane.config.ts": MODULE_CONFIG.replace("defineRelease({", `defineRelease({\n  ${line},`),
+      "shiplane.config.ts": MODULE_CONFIG.replace(
+        / {2}deployApps: .*\n/,
+        (own) => (line.startsWith("deployApps") ? "" : own) + `  ${line},\n`,
+      ),
     });
     return load(workspace.root);
   };
@@ -514,24 +520,26 @@ describe("saying how apps deploy and packages publish", () => {
       { channels: ["nightly", "alpha", "beta", "rc", "live"], onBranch: "snapshot" },
     ],
     ["publishPackages: { onBranch: false }", { onBranch: false }],
-    ['deployApps: { onBranch: "preview" }', { deployOnBranch: "preview" }],
+    [
+      'deployApps: { promote: [{ from: "preview", to: "production" }], onBranch: "preview" }',
+      { deployOnBranch: "preview" },
+    ],
   ])("given %s, when the release loads, then it keeps them in order", async (line, kept) => {
     const release = await configured(line);
 
-    expect(release.problems).toEqual([]);
     expect(release).toMatchObject(kept);
   });
 
-  it.each(["deployApps: { onBranch: undefined }", "publishPackages: { onBranch: undefined }"])(
-    "given %s, when the release loads, then it is as if unset",
-    async (line) => {
-      const release = await configured(line);
+  it.each([
+    'deployApps: { promote: [{ from: "preview", to: "production" }], onBranch: undefined }',
+    "publishPackages: { onBranch: undefined }",
+  ])("given %s, when the release loads, then it is as if unset", async (line) => {
+    const release = await configured(line);
 
-      expect(release.problems).toEqual([]);
-      expect(release).not.toHaveProperty("onBranch");
-      expect(release).not.toHaveProperty("deployOnBranch");
-    },
-  );
+    expect(release.problems).toEqual([]);
+    expect(release).not.toHaveProperty("onBranch");
+    expect(release).not.toHaveProperty("deployOnBranch");
+  });
 
   it("given three environments, when the release loads, then it keeps their order, and a unit file written for others is refused", async () => {
     const release = await configured(
@@ -542,11 +550,76 @@ describe("saying how apps deploy and packages publish", () => {
     expect(release.problems.map(({ file }) => file)).toContain("apps/api/shiplane.unit.yml");
   });
 
-  it("given neither, when the release loads, then nothing is set", async () => {
-    const release = await configured('tag: "package"');
+  it("given an app and no environment named, when the release loads, then it says what to add", async () => {
+    workspace = setUp({
+      "apps/api/shiplane.unit.yml": SERVER_UNIT,
+      "shiplane.config.ts": MODULE_CONFIG.replace(/ {2}deployApps: .*\n/, ""),
+    });
 
-    expect(release).not.toHaveProperty("appFlow");
-    expect(release).not.toHaveProperty("channels");
+    const release = await load(workspace.root);
+
+    expect(release.problems).toEqual([
+      {
+        file: "shiplane.config.ts",
+        message: "api deploys, and nothing says where",
+        hint: expect.stringContaining("deployApps: { promote: [{ from:") as string,
+      },
+    ]);
+  });
+
+  it("given no app and no environment named, when the release loads, then a release is live at once", async () => {
+    workspace = setUp({
+      "shiplane.config.ts": MODULE_CONFIG.replace(/ {2}deployApps: .*\n/, ""),
+    });
+
+    const release = await load(workspace.root);
+
+    expect(release.problems).toEqual([]);
+    expect(release.appFlow).toEqual({ path: ["live"], users: null });
+  });
+
+  it.each([
+    ["two, users last", '{ from: "trial", to: "store" }', 0],
+    ["one, before any user", '{ from: "trial" }', 0],
+    ["users at once", '{ to: "store" }', 1],
+    ["three", '{ from: "trial", to: "staging" }, { from: "staging", to: "store" }', 1],
+  ])(
+    "given an app its own platform decides for and %s, when the release loads, then it is accepted or told",
+    async (_, steps, problems) => {
+      const decided = MODULE_CONFIG.replace(
+        / {2}deployApps: .*\n/,
+        `  deployApps: { promote: [${steps}] },\n`,
+      ).replace(
+        "backendService({ serverHosting: server })",
+        '{ ...backendService({ serverHosting: server }), decidedBy: { platform: "Store", choice: "a or b", check: "x" } }',
+      );
+      workspace = setUp({
+        "apps/api/shiplane.unit.yml": "module: backend-service\napp: api\nurl: https://api\n",
+        "shiplane.config.ts": decided,
+      });
+
+      const release = await load(workspace.root);
+
+      expect(release.problems.map(({ message }) => message)).toEqual(
+        problems === 0 ? [] : [expect.stringContaining("needs two environments")],
+      );
+    },
+  );
+
+  it("given a typo in an environment's name, when the release loads, then the closest one is suggested", async () => {
+    workspace = setUp({
+      "apps/api/shiplane.unit.yml": SERVER_UNIT.replace(
+        "  production: api-production",
+        "  production: api\n  producton: api",
+      ),
+    });
+
+    const release = await load(workspace.root);
+
+    expect(release.problems[0]).toMatchObject({
+      message: 'unknown key "app.producton" for backend-service',
+      hint: 'did you mean "production"?',
+    });
   });
 
   it.each([
@@ -567,7 +640,10 @@ describe("saying how apps deploy and packages publish", () => {
     ["deployApps: { promote: [{}] }", "each step names from, to, or both"],
     ["deployApps: { promote: [] }", "deployApps takes promote"],
     ['deployApps: { channels: ["live"] }', "deployApps takes promote"],
-    ['deployApps: { onBranch: "production" }', "a branch never deploys there"],
+    [
+      'deployApps: { promote: [{ from: "preview", to: "production" }], onBranch: "production" }',
+      "a branch never deploys there",
+    ],
     ['deployApps: { onBranch: "elsewhere" }', "promote does not name it"],
     [
       'deployApps: { promote: [{ to: "production" }], onBranch: "preview" }',

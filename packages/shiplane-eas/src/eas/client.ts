@@ -153,7 +153,7 @@ export const easClient = ({ shell, cwd }: { shell: Shell; cwd: string }) => {
         await eas({ args: ["fingerprint:generate", "--platform", platform], environment }),
       ).hash,
 
-    // The simulator profile shares the preview channel: only the channel's own store profile counts.
+    // The simulator profile shares a channel: only the channel's own store profile counts.
     channelBuilds: async (channel: OnChannel) => {
       const builds = await storeBuilds(channel);
       const finished = builds.find((build) => build.status === "FINISHED");

@@ -35,7 +35,7 @@ export interface MascotMoment {
   mood: Mood;
   /** Its animation frame, from 0; always 0 when motion is off. */
   tick: number;
-  /** What runs right now, such as "build 3 apps" or "deploy api@1.2.0 to production". */
+  /** What runs right now, such as "build 3 apps" or "deploy api@1.2.0 to staging". */
   label: string;
 }
 

@@ -38,7 +38,7 @@ export const readStatus = async (
   environment: Environment,
 ): Promise<ReleaseStatus> => {
   const info = await readScope(context, environment);
-  const choices = scopeChoices(info, environment);
+  const choices = scopeChoices(info, environment, context.release.appFlow);
   const [releasePrs, untagged] = await Promise.all([
     context.services.codeHost.openPrsFrom(RELEASE_BRANCH_PREFIX).catch(() => []),
     missingTags(context),

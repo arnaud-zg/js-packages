@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import type { Workspace } from "shiplane/testing";
-import { createWorkspace, testUnit } from "shiplane/testing";
+import { createWorkspace, TEST_FLOW, testUnit } from "shiplane/testing";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { EasInput } from "../options";
@@ -14,6 +14,7 @@ const input: EasInput = {
   unit: testUnit("expo", { dir: "apps/expo", module: "mobile-app" }),
   tag: "expo@0.7.1",
   environment: "preview",
+  flow: TEST_FLOW,
   options: { versionFile: "app-version.json", update: "eas:update:preview" },
   commit: "c0ffee",
   defaultBranch: "main",

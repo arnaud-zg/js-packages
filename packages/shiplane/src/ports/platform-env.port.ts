@@ -8,8 +8,8 @@ export interface PlatformEnvPort {
   listNames: (input: {
     unit: ReleaseUnit;
     environment: Environment;
-    /** The way to users it is on; preview then production when absent. */
-    flow?: DeployFlow;
+    /** The way to users it is on. */
+    flow: DeployFlow;
     /** The unit's settings for that environment, as its jobs receive them. */
     options: Record<string, unknown>;
   }) => Promise<ReadonlySet<EnvVarName>>;
@@ -17,8 +17,8 @@ export interface PlatformEnvPort {
   setCommand: (input: {
     unit: ReleaseUnit;
     environment: Environment;
-    /** The way to users it is on; preview then production when absent. */
-    flow?: DeployFlow;
+    /** The way to users it is on. */
+    flow: DeployFlow;
     options: Record<string, unknown>;
     names: readonly EnvVarName[];
   }) => string;

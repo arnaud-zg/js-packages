@@ -10,9 +10,10 @@ import { planShips } from "../../../application/planShips";
 import { prepareRelease } from "../../../application/prepareRelease";
 import { promote } from "../../../application/promote";
 import { readStatus } from "../../../application/readStatus";
-import { releaseToPreview } from "../../../application/releaseToPreview";
+import { releaseToEntry } from "../../../application/releaseToEntry";
 import { shipTo } from "../../../application/ship";
 import { TAG_FORMATS } from "../../../domain/tags";
+import { TEST_FLOW } from "../../../testing/flow";
 import { planFrom } from "../../../testing/plans";
 import { changesetText, testContext, testUnit } from "../../../testing/releaseContext";
 import { agentPlugin } from "../agent-plugin.module";
@@ -68,7 +69,13 @@ const read = (file: string) => fs.readFileSync(path.join(root, PLUGIN.dir, file)
 
 describe("a plugin for coding agents, released from the repository agents install it from", () => {
   it("given its unit file names only its module, when read, then it is an app with no problem", () => {
-    const { unit, problems } = readUnitFile(PLUGIN.file, "module: agent-plugin\n", [agentPlugin()]);
+    const { unit, problems } = readUnitFile(
+      PLUGIN.file,
+      "module: agent-plugin\n",
+      [agentPlugin()],
+      [],
+      TEST_FLOW.path,
+    );
 
     expect(problems).toEqual([]);
     expect(unit?.module).toBe("agent-plugin");
@@ -154,7 +161,7 @@ describe("a plugin has no environment, like a package on npm", () => {
     const world = released();
     world.prompter.answer(["reviewer"], "minor", true);
 
-    expect(await releaseToPreview(world.context)).toBe(true);
+    expect(await releaseToEntry(world.context)).toBe(true);
 
     expect(world.prompter.asked).toEqual([
       "What do you want to release live? Greyed units have nothing to release.",
@@ -176,7 +183,7 @@ describe("a plugin has no environment, like a package on npm", () => {
     world.context.release = { ...world.context.release, units: [merged] };
     world.prompter.answer(["reviewer"], true);
 
-    await releaseToPreview(world.context);
+    await releaseToEntry(world.context);
 
     expect(world.output.text).toContain("Left to do: tag 1 version → ship live");
     expect(everythingSaid(world)).not.toMatch(/preview/i);
@@ -189,7 +196,7 @@ describe("a plugin has no environment, like a package on npm", () => {
       plan: planFrom([], { "@acme/plugin-reviewer": "0.7.0" }),
     });
 
-    await releaseToPreview(world.context);
+    await releaseToEntry(world.context);
 
     expect(world.output.text).toContain("Nothing to release live.");
     expect(world.output.text).toContain("pnpm changeset");
@@ -204,7 +211,7 @@ describe("a plugin has no environment, like a package on npm", () => {
     });
     world.versioning.nextChange = "a feat or fix commit";
 
-    await releaseToPreview(world.context);
+    await releaseToEntry(world.context);
 
     expect(world.output.text).toContain("a feat or fix commit");
     expect(world.output.text).not.toContain("pnpm changeset");

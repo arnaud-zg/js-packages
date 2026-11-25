@@ -1,5 +1,5 @@
 import { isEnvVarName } from "shiplane/plugin";
-import { RecordingShell, testUnit } from "shiplane/testing";
+import { RecordingShell, TEST_FLOW, testUnit } from "shiplane/testing";
 import { describe, expect, it } from "vitest";
 
 import { cloudflarePagesStaticHosting } from "../cloudflare-pages-static-hosting.adapter";
@@ -25,7 +25,12 @@ describe("the env Cloudflare Pages holds for a site", () => {
         'The "preview" environment of your Pages project "acme-admin" has access to the following secrets:\n  - TURNSTILE_SECRET: Value Encrypted\n',
     });
 
-    const listed = await envOf(shell).listNames({ unit, environment: "preview", options });
+    const listed = await envOf(shell).listNames({
+      flow: TEST_FLOW,
+      unit,
+      environment: "preview",
+      options,
+    });
 
     expect([...listed]).toEqual(["TURNSTILE_SECRET", "VITE_API_URL"]);
     expect(shell.calls[0]?.args).toEqual([
@@ -48,7 +53,7 @@ describe("the env Cloudflare Pages holds for a site", () => {
     });
 
     await expect(
-      envOf(shell).listNames({ unit, environment: "production", options }),
+      envOf(shell).listNames({ flow: TEST_FLOW, unit, environment: "production", options }),
     ).rejects.toThrow(
       "wrangler pages secret list --env production: ✘ [ERROR] You are not logged in",
     );
@@ -56,6 +61,7 @@ describe("the env Cloudflare Pages holds for a site", () => {
 
   it("given an unset name, when the set command is printed, then wrangler puts it on that environment of the project", () => {
     const command = envOf(new RecordingShell()).setCommand({
+      flow: TEST_FLOW,
       unit,
       environment: "production",
       options,
@@ -69,6 +75,7 @@ describe("the env Cloudflare Pages holds for a site", () => {
 
   it("given two secrets not set yet, when shiplane prints how to set them, then one command puts each with wrangler in turn, stopping at the first that fails", () => {
     const command = envOf(new RecordingShell()).setCommand({
+      flow: TEST_FLOW,
       unit,
       environment: "preview",
       options,
@@ -86,6 +93,7 @@ describe("the env Cloudflare Pages holds for a site", () => {
     });
 
     const listed = await envOf(shell).listNames({
+      flow: TEST_FLOW,
       unit,
       environment: "preview",
       options: { project: "acme-admin" },
@@ -100,6 +108,7 @@ describe("the env Cloudflare Pages holds for a site", () => {
     });
 
     const listed = await envOf(shell).listNames({
+      flow: TEST_FLOW,
       unit,
       environment: "preview",
       options: { project: "acme-admin", build: { env: { "not-a-name": "x", API_URL: "y" } } },
@@ -114,8 +123,8 @@ describe("the env Cloudflare Pages holds for a site", () => {
       stderr: "",
     });
 
-    await expect(envOf(shell).listNames({ unit, environment: "preview", options })).rejects.toThrow(
-      "wrangler pages secret list --env preview: exit 2",
-    );
+    await expect(
+      envOf(shell).listNames({ flow: TEST_FLOW, unit, environment: "preview", options }),
+    ).rejects.toThrow("wrangler pages secret list --env preview: exit 2");
   });
 });

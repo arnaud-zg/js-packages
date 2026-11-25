@@ -1,5 +1,5 @@
 import type { CodeHostPort, ServiceAdapter, Shell } from "shiplane/plugin";
-import { DEFAULT_FLOW, deployRunTitle, deployState, z } from "shiplane/plugin";
+import { deployRunTitle, deployState, z } from "shiplane/plugin";
 
 import { GH_REQUIREMENT, ghCli, sleep } from "./gh-cli";
 
@@ -196,7 +196,7 @@ export const githubHost = (root: string, shell: Shell): CodeHostPort => {
         ...(latest ? [] : ["--latest=false"]),
       ]);
     },
-    deployments: async (environments = DEFAULT_FLOW.path) => {
+    deployments: async (environments) => {
       const { data } = DeploymentsSchema.parse(
         await json([
           "api",

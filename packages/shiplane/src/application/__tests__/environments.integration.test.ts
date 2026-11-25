@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
 
+import type { DeployFlow } from "../../domain/environment";
 import { ciPipelineFake } from "../../adapters/ci-pipeline/__fakes__/ci-pipeline.fake";
 import { MemoryFiles } from "../../adapters/files/__fakes__/memory-files.fake";
 import { packageRegistryFake } from "../../adapters/package-registry/__fakes__/package-registry.fake";
 import { serverHostingFake } from "../../adapters/server-hosting/__fakes__/server-hosting.fake";
-import { DEFAULT_FLOW } from "../../domain/environment";
 import { registryDecision } from "../../domain/registry";
 import { scopeChoices } from "../../domain/scope";
 import { backendService } from "../../modules/backend-service/backend-service.module";
 import { publishedPackage } from "../../modules/published-package/published-package.module";
+import { TEST_FLOW } from "../../testing/flow";
 import { testContext, testUnit } from "../../testing/releaseContext";
 import { branchRelease } from "../branchRelease";
 import { callerWrite } from "../callerWorkflow";
@@ -39,8 +40,12 @@ const given = (config: object, units = [API]) => {
   };
 };
 
-const STRAIGHT = { appFlow: { path: ["production"], users: "production" } };
-const THREE = { appFlow: { path: ["dev", "staging", "prod"], users: "prod" } };
+const STRAIGHT: { appFlow: DeployFlow } = {
+  appFlow: { path: ["production"], users: "production" },
+};
+const THREE: { appFlow: DeployFlow } = {
+  appFlow: { path: ["dev", "staging", "prod"], users: "prod" },
+};
 
 describe("Feature: choosing the environments apps go through", () => {
   it("given production only, when a release ships, then production gets it with no environment before, its name typed", async () => {
@@ -138,9 +143,9 @@ describe("Feature: choosing the environments apps go through", () => {
   });
 
   it.each([
-    ["production", DEFAULT_FLOW, "not-on-preview"],
+    ["production", TEST_FLOW, "not-on-previous"],
     ["production", STRAIGHT.appFlow, "publish"],
-    ["prod", THREE.appFlow, "not-on-preview"],
+    ["prod", THREE.appFlow, "not-on-previous"],
     ["dev", THREE.appFlow, "publish"],
   ])(
     "given a registry asked for %s, when it decides, then the environment before counts",

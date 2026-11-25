@@ -1,4 +1,4 @@
-import { RecordingShell, testUnit } from "shiplane/testing";
+import { RecordingShell, TEST_FLOW, testUnit } from "shiplane/testing";
 import { describe, expect, it } from "vitest";
 
 import { cloudflarePagesStaticHosting } from "../cloudflare-pages-static-hosting.adapter";
@@ -125,11 +125,11 @@ describe("relying on defaults in a Cloudflare Pages unit file", () => {
 });
 
 describe("choosing the branch an upload goes to", () => {
-  const THREE = { path: ["dev", "staging", "prod"], users: "prod" };
+  const THREE = { path: ["dev", "staging", "prod"], users: "prod" } as const;
 
   it.each([
-    ["preview", undefined, "preview"],
-    ["production", undefined, "main"],
+    ["preview", TEST_FLOW, "preview"],
+    ["production", TEST_FLOW, "main"],
     ["staging", THREE, "staging"],
     ["prod", THREE, "main"],
   ])(
@@ -139,7 +139,7 @@ describe("choosing the branch an upload goes to", () => {
         unit: testUnit("site", { module: "web-app" }),
         tag: "site@1.0.0",
         environment,
-        ...(flow ? { flow } : {}),
+        flow,
         commit: "abc1234",
         defaultBranch: "main",
         options: { project: "acme-site", dist: "dist", build: {}, wrangler: "wrangler@4.141.0" },
@@ -155,6 +155,7 @@ describe("building and uploading to Cloudflare Pages", () => {
   const unit = testUnit("site", { module: "web-app" });
   const jobFor = (build: { command?: string[]; env?: Record<string, string> }) =>
     port.jobs({
+      flow: TEST_FLOW,
       unit,
       tag: "site@1.0.0",
       environment: "preview",

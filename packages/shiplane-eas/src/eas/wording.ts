@@ -37,13 +37,15 @@ export const mobileChoice = ({
   action,
   why,
   app,
+  environment,
 }: {
   action: ReleaseAction;
   why: string;
   app: string;
+  environment: string;
 }): VersionChoice | undefined => {
   if (action === "wait" || action === "pull") return undefined;
-  const question = `What should ${app} ship to preview?`;
+  const question = `What should ${app} ship to ${environment}?`;
   if (action === "build") {
     return {
       question,

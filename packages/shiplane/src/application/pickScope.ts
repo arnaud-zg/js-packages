@@ -9,7 +9,7 @@ import { destination, flowOf } from "./targets";
 import { unattended } from "./unattended";
 
 /** Every unit with something to release here: what --yes and a run without a terminal cover. */
-export const defaultScope = (info: ScopeInfo[], environment: Environment, flow?: DeployFlow) =>
+export const defaultScope = (info: ScopeInfo[], environment: Environment, flow: DeployFlow) =>
   new Set(
     scopeChoices(info, environment, flow)
       .filter(({ pending }) => pending)

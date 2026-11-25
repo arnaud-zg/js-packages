@@ -54,9 +54,10 @@ whole group up.
 
 ## A package or a plugin has no environment
 
-Preview and production are places an app runs. A package goes straight to its registry, and a plugin
-ships when its release PR merges, so neither stops anywhere on the way to its users. A run says
-`live` for them, and `preview` only when something released with them does deploy there.
+An environment is a place an app runs, under a name of its repository. A package goes straight to
+its registry, and a plugin ships when its release PR merges, so neither stops anywhere on the way to
+its users. A run says `live` for them, and `preview` only when something released with them does
+deploy there.
 
 ## What runs where is read from the platform
 
@@ -100,7 +101,7 @@ what runs on your secrets until you re-pin, and `shiplane doctor` offers that af
 Your ship workflow needs no change for this: a `workflow_dispatch` workflow that checks out
 `github.ref` already accepts a tag.
 
-## Production makes you type its name
+## Where users are makes you type its name
 
 It reaches every user, so it cannot start by reflex or by `--yes`.
 

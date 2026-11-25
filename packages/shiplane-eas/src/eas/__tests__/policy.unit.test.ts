@@ -1,6 +1,6 @@
 import type { StatusPlan } from "shiplane/plugin";
 import { appBumps, onlyVersionFiles, yesAllowed } from "shiplane/plugin";
-import { SAMPLE_UNITS, SAMPLE_VERSION_FILES } from "shiplane/testing";
+import { SAMPLE_UNITS, SAMPLE_VERSION_FILES, TEST_FLOW } from "shiplane/testing";
 import { describe, expect, it } from "vitest";
 
 import type { PlatformState, ShippedBuild } from "../decide";
@@ -10,10 +10,10 @@ import {
   mobileShip,
   needsNewVersion,
   platformVerdict,
-  productionMobile,
   releaseChangesets,
   releasePlan,
   rolloutAdvice,
+  usersMobile,
 } from "../decide";
 
 // The four changesets that came with #1676, #1677, #1680 and #1681.
@@ -218,11 +218,11 @@ describe("shipping mobile to preview", () => {
 
 describe("production", () => {
   it("given --yes, when releasing to production, then it is refused: production always asks", () => {
-    expect(yesAllowed("production", true)).toBe(false);
+    expect(yesAllowed("production", true, TEST_FLOW)).toBe(false);
   });
 
   it("given --yes, when releasing to preview, then every step is accepted", () => {
-    expect(yesAllowed("preview", true)).toBe(true);
+    expect(yesAllowed("preview", true, TEST_FLOW)).toBe(true);
   });
 
   it("given only version files changed since the tag, when checked, then main still ships what preview validated", () => {
@@ -247,29 +247,29 @@ describe("production", () => {
     tagged: true,
     sinceTagOnlyVersionFiles: true,
     expoVersion: "0.2.1",
-    productionVersion: "0.1.28",
+    usersVersion: "0.1.28",
     codeShipped: false,
     builtVersion: "0.1.28",
     partialRollout: false,
   };
 
   it("given production's binary predates a native change, when promoted, then a promotion PR moves its version first", () => {
-    expect(productionMobile("build", state)).toBe("promote");
+    expect(usersMobile("build", state)).toBe("promote");
   });
 
   it("given the promotion PR merged, when shipping, then production builds that version", () => {
-    expect(productionMobile("build", { ...state, productionVersion: "0.2.1" })).toBe("build");
+    expect(usersMobile("build", { ...state, usersVersion: "0.2.1" })).toBe("build");
   });
 
   it("given the same native layer as production's binary, when shipping, then the release goes over the air", () => {
-    expect(productionMobile("update", state)).toBe("update");
+    expect(usersMobile("update", state)).toBe("update");
   });
 
   it("given the build is done and live, when resumed, then production is shipped", () => {
     expect(
-      productionMobile("submit", {
+      usersMobile("submit", {
         ...state,
-        productionVersion: "0.2.1",
+        usersVersion: "0.2.1",
         codeShipped: true,
         builtVersion: "0.2.1",
       }),
@@ -277,19 +277,17 @@ describe("production", () => {
   });
 
   it("given the update of this release reaches only part of production, when resumed, then the rollout is finished", () => {
-    expect(productionMobile("update", { ...state, codeShipped: true, partialRollout: true })).toBe(
+    expect(usersMobile("update", { ...state, codeShipped: true, partialRollout: true })).toBe(
       "finish-rollout",
     );
   });
 
   it("given main holds code preview never ran, when shipping, then production refuses", () => {
-    expect(productionMobile("update", { ...state, sinceTagOnlyVersionFiles: false })).toBe(
-      "moved-past",
-    );
+    expect(usersMobile("update", { ...state, sinceTagOnlyVersionFiles: false })).toBe("moved-past");
   });
 
   it("given no expo release yet, when promoting, then production has nothing to take", () => {
-    expect(productionMobile("build", { ...state, tagged: false })).toBe("nothing");
+    expect(usersMobile("build", { ...state, tagged: false })).toBe("nothing");
   });
 });
 
@@ -382,7 +380,7 @@ describe("the release plan", () => {
   it("given every platform can take an update, when planned for preview, then it says to publish the update", () => {
     const verdicts = [state({ platform: "ios" }), state()].map(platformVerdict);
 
-    expect(releasePlan("preview", verdicts, "expo")).toEqual({
+    expect(releasePlan({ channel: "preview", flow: TEST_FLOW }, verdicts, "expo")).toEqual({
       action: "update",
       commands: ["pnpm shiplane ship expo"],
     });
@@ -394,7 +392,7 @@ describe("the release plan", () => {
       state({ local: local({ fingerprint: "9fec49ed" }) }),
     ].map(platformVerdict);
 
-    expect(releasePlan("preview", verdicts, "expo")).toEqual({
+    expect(releasePlan({ channel: "preview", flow: TEST_FLOW }, verdicts, "expo")).toEqual({
       action: "build",
       commands: ["pnpm shiplane ship expo"],
     });
@@ -406,7 +404,7 @@ describe("the release plan", () => {
       state({ local: local({ version: "0.1.112" }) }),
     ].map(platformVerdict);
 
-    expect(releasePlan("preview", verdicts, "expo")).toEqual({
+    expect(releasePlan({ channel: "preview", flow: TEST_FLOW }, verdicts, "expo")).toEqual({
       action: "pull",
       commands: ["git fetch origin", "git merge origin/main", "pnpm shiplane"],
     });
@@ -418,13 +416,16 @@ describe("the release plan", () => {
       state({ local: local({ fingerprint: "9fec49ed" }) }),
     ].map(platformVerdict);
 
-    expect(releasePlan("preview", verdicts, "expo").action).toBe("pull");
+    expect(releasePlan({ channel: "preview", flow: TEST_FLOW }, verdicts, "expo").action).toBe(
+      "pull",
+    );
   });
 
   it("given production can take an update, when planned, then every command names the channel", () => {
-    expect(releasePlan("production", [platformVerdict(state())], "expo").commands).toEqual([
-      "pnpm shiplane ship expo --channel production",
-    ]);
+    expect(
+      releasePlan({ channel: "production", flow: TEST_FLOW }, [platformVerdict(state())], "expo")
+        .commands,
+    ).toEqual(["pnpm shiplane ship expo --channel production"]);
   });
 });
 
@@ -445,28 +446,37 @@ describe("the version a build carries", () => {
 describe("an update's health on preview", () => {
   it("given launches on both platforms and no crash, when judged, then it looks well", () => {
     expect(
-      updateHealth([
-        { platform: "ios", installs: 3, failedInstalls: 0 },
-        { platform: "android", installs: 12, failedInstalls: 0 },
-      ]),
+      updateHealth(
+        [
+          { platform: "ios", installs: 3, failedInstalls: 0 },
+          { platform: "android", installs: 12, failedInstalls: 0 },
+        ],
+        "preview",
+      ),
     ).toEqual({ ok: true, summary: "iOS 3 launches, 0 crashes · Android 12 launches, 0 crashes" });
   });
 
   it("given one crash, when judged, then it looks unwell and says how many", () => {
     expect(
-      updateHealth([
-        { platform: "ios", installs: 1, failedInstalls: 0 },
-        { platform: "android", installs: 12, failedInstalls: 1 },
-      ]),
+      updateHealth(
+        [
+          { platform: "ios", installs: 1, failedInstalls: 0 },
+          { platform: "android", installs: 12, failedInstalls: 1 },
+        ],
+        "preview",
+      ),
     ).toMatchObject({ ok: false, why: "1 crash on preview" });
   });
 
   it("given nobody launched it yet, when judged, then it looks unwell: preview never ran it", () => {
     expect(
-      updateHealth([
-        { platform: "ios", installs: 0, failedInstalls: 0 },
-        { platform: "android", installs: 0, failedInstalls: 0 },
-      ]),
+      updateHealth(
+        [
+          { platform: "ios", installs: 0, failedInstalls: 0 },
+          { platform: "android", installs: 0, failedInstalls: 0 },
+        ],
+        "preview",
+      ),
     ).toMatchObject({ ok: false, why: "nobody has launched it on preview yet" });
   });
 });

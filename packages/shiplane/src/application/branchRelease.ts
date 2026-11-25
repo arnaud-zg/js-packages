@@ -10,7 +10,7 @@ import { plural } from "../domain/words";
 import { planBranch, printPlan, publishBranch } from "./branchPublish";
 import { appsOnBranch, deployOnBranch } from "./deployOnBranch";
 import { publishRoute } from "./publishRoute";
-import { releaseToPreview } from "./releaseToPreview";
+import { releaseToEntry } from "./releaseToEntry";
 import { fail, paint, reasonOf } from "./say";
 import { runSteps } from "./steps";
 import { isRegistry } from "./targets";
@@ -107,7 +107,7 @@ const switchAndRelease = async (
     { label: `pull ${defaultBranch}`, run: () => sourceControl.pull() },
   ]);
   if (!pulled) return false;
-  return releaseToPreview({ ...context, release: await context.load() }, { via });
+  return releaseToEntry({ ...context, release: await context.load() }, { via });
 };
 
 /** What the test version publishes on the channel; null, said, when its registry cannot say. */
@@ -276,7 +276,7 @@ export const branchRelease = async (
     yes: context.options.yes,
     interactive: context.prompter.interactive,
   });
-  if (choice === "release") return releaseToPreview(context, { via });
+  if (choice === "release") return releaseToEntry(context, { via });
   const channel = picked ?? channelFor(here.branch, context.release.testRelease);
   const refused = channelRefused(context.release, channel);
   if (refused) {

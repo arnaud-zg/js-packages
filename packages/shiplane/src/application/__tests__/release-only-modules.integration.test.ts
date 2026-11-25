@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { AppInput } from "../../modules/module";
 import { agentPlugin } from "../../modules/agent-plugin/agent-plugin.module";
 import { internalTool } from "../../modules/internal-tool/internal-tool.module";
+import { TEST_FLOW } from "../../testing/flow";
 import { testContext, testUnit } from "../../testing/releaseContext";
 import { decideContext } from "../targets";
 
@@ -30,6 +31,7 @@ const repository = (files: Record<string, string>) => {
 };
 
 const input = (extra: object = {}): AppInput & { bump: undefined } => ({
+  flow: TEST_FLOW,
   unit: PLUGIN,
   tag: "reviewer@0.1.0",
   environment: "preview",

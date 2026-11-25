@@ -1,4 +1,4 @@
-import { RecordingShell, testUnit } from "shiplane/testing";
+import { RecordingShell, TEST_FLOW, testUnit } from "shiplane/testing";
 import { describe, expect, it } from "vitest";
 
 import { npmPackageRegistry } from "../npm-package-registry.adapter";
@@ -14,6 +14,7 @@ const input = (options: Record<string, unknown> = {}) => ({
   unit: KIT,
   tag: "kit@0.6.0",
   environment: "preview" as const,
+  flow: TEST_FLOW,
   commit: "ae08284",
   defaultBranch: "main",
   options: { access: "public", tag: "latest", ...options },

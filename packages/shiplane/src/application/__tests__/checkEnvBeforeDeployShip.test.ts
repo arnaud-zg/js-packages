@@ -7,7 +7,7 @@ import { EnvToCheck, isEnvVarName } from "../../domain/checkEnvBeforeDeploy";
 import { backendService } from "../../modules/backend-service/backend-service.module";
 import { planFrom } from "../../testing/plans";
 import { changesetText, testContext, testUnit } from "../../testing/releaseContext";
-import { releaseToPreview } from "../releaseToPreview";
+import { releaseToEntry } from "../releaseToEntry";
 import { shipTo } from "../ship";
 
 const names = (...list: string[]) => list.filter(isEnvVarName);
@@ -104,7 +104,7 @@ describe("a deploy with env to check", () => {
       plan: planFrom([SENTRY], { "@acme/api": "0.1.0" }),
     });
 
-    expect(await releaseToPreview(world.context)).toBe(false);
+    expect(await releaseToEntry(world.context)).toBe(false);
     expect(world.output.text).toContain("api on preview: 1 unset env vars");
     expect(world.host.received).toEqual([]);
   });

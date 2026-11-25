@@ -322,7 +322,7 @@ describe("knowing what GitHub Deployments already shipped", () => {
       }),
     );
 
-    await expect(hostOn(gh).deployments()).resolves.toEqual([
+    await expect(hostOn(gh).deployments(["preview", "production"])).resolves.toEqual([
       { title: "Deploy api@1.0.0 to preview", state: "done" },
       { title: "Deploy api@1.0.0 to production", state: "running" },
       { title: "Deploy web@1.0.0 to production", state: "none" },

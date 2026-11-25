@@ -1,4 +1,4 @@
-import { RecordingShell, testUnit } from "shiplane/testing";
+import { RecordingShell, TEST_FLOW, testUnit } from "shiplane/testing";
 import { describe, expect, it } from "vitest";
 
 import { githubPagesStaticHosting } from "../github-pages-static-hosting.adapter";
@@ -17,6 +17,7 @@ const folder = (files: string[]): Folder => ({
 
 const jobFor = (environment: "preview" | "production", settings: Record<string, unknown> = {}) =>
   pages.create({ root: "/repo", shell: new RecordingShell() }).jobs({
+    flow: TEST_FLOW,
     unit: testUnit("site", { module: "web-app" }),
     tag: "site@1.0.0",
     environment,
@@ -133,7 +134,7 @@ describe("building and publishing to GitHub Pages", () => {
 });
 
 describe("publishing to environments named otherwise", () => {
-  const flow = { path: ["dev", "staging", "prod"], users: "prod" };
+  const flow = { path: ["dev", "staging", "prod"], users: "prod" } as const;
   const argsOn = (environment: string) =>
     githubPagesStaticHosting()
       .create({ root: "/repo", shell: new RecordingShell() })

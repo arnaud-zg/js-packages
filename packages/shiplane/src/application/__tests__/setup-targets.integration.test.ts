@@ -10,6 +10,7 @@ import { staticHostingFake } from "../../adapters/static-hosting/__fakes__/stati
 import { backendService } from "../../modules/backend-service/backend-service.module";
 import { internalTool } from "../../modules/internal-tool/internal-tool.module";
 import { webApp } from "../../modules/web-app/web-app.module";
+import { TEST_FLOW } from "../../testing/flow";
 import { testContext, testUnit } from "../../testing/releaseContext";
 import {
   afterShipContext,
@@ -303,6 +304,7 @@ describe("Feature: aiming an app at an environment", () => {
       environment: "production",
       commit: "c1",
       defaultBranch: "main",
+      flow: TEST_FLOW,
       options: { service: "api", url: "https://api" },
     });
   });
