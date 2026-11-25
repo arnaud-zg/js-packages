@@ -21,10 +21,12 @@ pnpm shiplane ship --via ci         # or --via local
 ```
 
 `ci` is the flow's CI pipeline, GitHub Actions by default; `--via github` still works and means the
-same. Without `--via`, it asks per app and shows this month's CI minutes. To stop asking, set
-`via: "ci"` (your CI pipeline) or `via: "local"` in `shiplane.config.ts`; `--via` still wins for one
-run. An app only one way can ship is not asked, and it says why. Through GitHub Actions, each run
-goes on a release tag, so a merge to `main` while it waits cannot change what ships; see
+same. Without `--via`, it asks per app and shows this month's CI minutes. When gh may not read them,
+for a person or an organization, it warns, links to the numbers and shows the command that grants
+the right, if one does; you can ship anyway. To stop asking, set `via: "ci"` (your CI pipeline) or
+`via: "local"` in `shiplane.config.ts`; `--via` still wins for one run. An app only one way can ship
+is not asked, and it says why. Through GitHub Actions, each run goes on a release tag, so a merge to
+`main` while it waits cannot change what ships; see
 [Explanation](./explanation.md#ci-and-your-laptop-run-the-same-jobs).
 
 ## Ship from GitHub Actions

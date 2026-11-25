@@ -85,6 +85,37 @@ describe("Feature: choosing between GitHub Actions and this machine for each app
     );
   });
 
+  const BLOCKED = { reason: "gh lacks the scope.", url: "https://github.com/settings/billing" };
+  const WARNING = [
+    "",
+    "  ⚠ GitHub Actions minutes not shown: gh lacks the scope. You can continue.",
+    "    See them: https://github.com/settings/billing",
+  ];
+
+  it("given minutes a command would unlock, when the person picks how apps ship, then they are warned, told where to look and what to run, and still asked", async () => {
+    const { context, prompter, output, ci } = given();
+    ci.seed({ minutes: { ...BLOCKED, fix: "gh auth refresh -s user" } });
+    prompter.answer("ci");
+
+    expect(await askPaths(context, "preview", [shipment("api")])).toEqual(["ci"]);
+
+    expect(output.lines).toEqual([
+      ...WARNING,
+      "    Show them here next time: gh auth refresh -s user",
+      "",
+    ]);
+  });
+
+  it("given minutes only someone else can unlock, when the person picks how apps ship, then no command is offered", async () => {
+    const { context, prompter, output, ci } = given();
+    ci.seed({ minutes: BLOCKED });
+    prompter.answer("ci");
+
+    await askPaths(context, "preview", [shipment("api")]);
+
+    expect(output.lines).toEqual([...WARNING, ""]);
+  });
+
   it("given a release that spends nothing on GitHub Actions, when the person sees the minutes, then no spend is shown", async () => {
     const { context, output, ci } = given();
     ci.seed({ minutes: { used: 0, included: 2000, left: 2000 } });

@@ -14,6 +14,10 @@ describe("the GitHub Actions minutes a deploy spends", () => {
     expect(actionsMinutes("free", OCTOBER)).toEqual({ used: 216, included: 2000, left: 1784 });
   });
 
+  it("given a personal Pro plan, when read, then 3,000 are included", () => {
+    expect(actionsMinutes("pro", OCTOBER)?.included).toBe(3000);
+  });
+
   it("given macOS minutes too, when read, then each counts ten times, as GitHub bills them", () => {
     const usage = [...OCTOBER, { sku: "actions_macos", grossQuantity: 10, unitType: "minutes" }];
 

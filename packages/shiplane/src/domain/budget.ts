@@ -1,7 +1,12 @@
 import type { ShipItem } from "./deploys";
 
-// Minutes a private repository's plan includes each month, and how GitHub weighs each runner.
-const INCLUDED_MINUTES: Record<string, number> = { free: 2000, team: 3000, enterprise: 50000 };
+// Minutes a private repository's plan (`pro` is a personal one) includes each month, and how GitHub weighs each runner.
+const INCLUDED_MINUTES: Record<string, number> = {
+  free: 2000,
+  pro: 3000,
+  team: 3000,
+  enterprise: 50000,
+};
 const MINUTE_WEIGHT: Record<string, number> = { actions_windows: 2, actions_macos: 10 };
 
 export interface ActionsMinutes {

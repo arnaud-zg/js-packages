@@ -15,6 +15,16 @@ export const GH_REQUIREMENT: Requirement = {
   secrets: ["GH_TOKEN"],
 };
 
+/** A gh call that failed, with everything gh said: a missing scope is named after the first line. */
+export class GhError extends Error {
+  constructor(
+    message: string,
+    readonly stderr: string,
+  ) {
+    super(message);
+  }
+}
+
 export const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /**
@@ -39,8 +49,9 @@ export const ghCli = ({
     });
     if (result.status === 0) return result.stdout;
     const reason = firstLine(result.stderr);
-    throw new Error(
+    throw new GhError(
       `gh ${args.slice(0, 2).join(" ")} exited with ${result.status}${reason ? `: ${reason}` : ""}`,
+      result.stderr,
     );
   };
   const json = async (args: string[]): Promise<unknown> => JSON.parse(await must(args));

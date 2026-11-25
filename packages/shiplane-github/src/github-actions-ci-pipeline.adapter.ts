@@ -1,7 +1,14 @@
-import type { CallerNeeds, CiPipelinePort, Deploy, ServiceAdapter, Shell } from "shiplane/plugin";
+import type {
+  CallerNeeds,
+  CiPipelinePort,
+  Deploy,
+  MinutesBlocked,
+  ServiceAdapter,
+  Shell,
+} from "shiplane/plugin";
 import { actionsMinutes, billedMinutes, z } from "shiplane/plugin";
 
-import { GH_REQUIREMENT, ghCli } from "./gh-cli";
+import { GH_REQUIREMENT, ghCli, GhError } from "./gh-cli";
 
 const RunsSchema = z.array(
   z.object({ displayTitle: z.string(), status: z.string(), conclusion: z.string().nullish() }),
@@ -11,6 +18,7 @@ const UsageSummarySchema = z.object({
     z.object({ sku: z.string(), grossQuantity: z.number(), unitType: z.string() }),
   ),
 });
+const OwnerSchema = z.object({ login: z.string(), type: z.string() });
 const JobsSchema = z.array(
   z.object({ startedAt: z.string().nullable(), completedAt: z.string().nullable() }),
 );
@@ -87,6 +95,28 @@ const callerContent = (sha: string, version: string, needs: CallerNeeds) =>
 /** A caller that hands shiplane's workflow the tag to check out, so it can run from main. */
 const PASSES_REF = /^[ \t]+ref:[ \t]*\$\{\{[ \t]*inputs\.ref[ \t]*\}\}/m;
 
+/** gh names the scope a call lacks, and the command that grants it. */
+const SCOPE_HINT = /needs the "([^"]+)" scope\.[^\n]*?run:\s+(gh auth refresh [^\n]+)/;
+
+/** GitHub answers a billing page one may not read as forbidden, or as missing. */
+const REFUSED = /HTTP 40[34]/;
+
+/** What a refused billing call is missing: a scope gh can grant, or a right the owner gives. */
+const blockedBy = (
+  error: unknown,
+  { login, type }: z.infer<typeof OwnerSchema>,
+): MinutesBlocked | null => {
+  if (!(error instanceof GhError) || !REFUSED.test(error.stderr)) return null;
+  const url =
+    type === "User"
+      ? "https://github.com/settings/billing"
+      : `https://github.com/organizations/${login}/settings/billing`;
+  const [, scope, fix] = SCOPE_HINT.exec(error.stderr) ?? [];
+  return scope && fix
+    ? { reason: `gh needs the "${scope}" scope to read them.`, url, fix: fix.trim() }
+    : { reason: `GitHub does not let this account read the billing of ${login}.`, url };
+};
+
 type Run = z.infer<typeof RunsSchema>[number];
 
 /** A workflow run as a deploy record: still going, succeeded, or anything else. */
@@ -133,6 +163,16 @@ const githubActions = (root: string, shell: Shell, shipWorkflow: string): CiPipe
     } catch {
       return null;
     }
+  };
+
+  /** The account's plan and usage: GitHub bills a person and an organization at different addresses. */
+  const billing = async (personal: boolean) => {
+    const usage = await json([
+      "api",
+      `${personal ? "users" : "organizations"}/{owner}/settings/billing/usage/summary`,
+    ]);
+    const plan = await must(["api", personal ? "user" : "orgs/{owner}", "--jq", ".plan.name"]);
+    return actionsMinutes(plan.trim(), UsageSummarySchema.parse(usage).usageItems);
   };
 
   return {
@@ -201,11 +241,15 @@ const githubActions = (root: string, shell: Shell, shipWorkflow: string): CiPipe
     },
     minutes: async () => {
       try {
-        const [plan, summary] = await Promise.all([
-          must(["api", "orgs/{owner}", "--jq", ".plan.name"]),
-          json(["api", "organizations/{owner}/settings/billing/usage/summary"]),
-        ]);
-        return actionsMinutes(plan.trim(), UsageSummarySchema.parse(summary).usageItems);
+        const owner = OwnerSchema.parse(
+          await json(["api", "users/{owner}", "--jq", "{login, type}"]),
+        );
+        const personal = owner.type === "User";
+        // Only that person reads their billing: no scope helps anyone else.
+        if (personal && (await must(["api", "user", "--jq", ".login"])).trim() !== owner.login) {
+          return null;
+        }
+        return await billing(personal).catch((error: unknown) => blockedBy(error, owner));
       } catch {
         return null;
       }
