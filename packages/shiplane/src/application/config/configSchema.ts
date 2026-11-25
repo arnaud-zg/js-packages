@@ -183,7 +183,7 @@ export const configJsonSchema = (catalog: readonly CatalogEntry[]): JsonSchema =
       },
       publishPackages: {
         description:
-          "How packages are published: channels, from the earliest to live, and onBranch, what any branch may publish. Not for apps, nor internal packages.",
+          "How packages are published: channels, from the earliest to latest, and onBranch, what any branch may publish. Not for apps, nor internal packages.",
         type: "object",
         additionalProperties: false,
         properties: {

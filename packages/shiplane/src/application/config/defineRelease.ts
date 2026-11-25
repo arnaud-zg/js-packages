@@ -32,7 +32,7 @@ export interface DeployApps {
 export interface PublishPackages {
   /**
    * The channels they publish on, from the earliest to the release:
-   * `["nightly", "alpha", "beta", "rc", "live"]`. Each publishes by itself, a version is never moved
+   * `["nightly", "alpha", "beta", "rc", "latest"]`. Each publishes by itself, a version is never moved
    * from one to the next. Any channel when unset.
    */
   channels?: readonly Channel[];

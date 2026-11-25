@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { branchRelease } from "../branchRelease";
 import { doctorCi } from "../doctorCi";
 import { shipTo } from "../ship";
-import { shipLive } from "../shipLive";
+import { shipPackages } from "../shipPackages";
 import {
   BRANCH,
   branchWorld,
@@ -20,7 +20,7 @@ const FILE = "ci/ship.yml";
 
 const world = (options: { interactive?: boolean; offers?: string; pushed?: string } = {}) => {
   const made = branchWorld({ yes: false, interactive: options.interactive ?? true });
-  made.source.seed({ files: { [`${BRANCH}:${FILE}`]: options.offers ?? "beta live" } });
+  made.source.seed({ files: { [`${BRANCH}:${FILE}`]: options.offers ?? "beta latest" } });
   Object.assign(made.source, { pushedHead: () => Promise.resolve(options.pushed ?? HEAD) });
   return made;
 };
@@ -148,7 +148,7 @@ describe("Feature: publishing released packages", () => {
     const made = world();
     made.source.seed({
       tags: { "lib@1.2.0": "head" },
-      files: { [`main:${FILE}`]: "live" },
+      files: { [`main:${FILE}`]: "latest" },
     });
     return made;
   };
@@ -160,7 +160,7 @@ describe("Feature: publishing released packages", () => {
     expect(await shipTo(context, "staging", { scope: new Set(["lib"]) })).toBe(true);
 
     expect(ci.received).toMatchObject([
-      { ref: "main", inputs: { units: "lib", environment: "live" } },
+      { ref: "main", inputs: { units: "lib", environment: "latest" } },
     ]);
     expect(shell.calls).toEqual([]);
   });
@@ -168,7 +168,7 @@ describe("Feature: publishing released packages", () => {
   it("given a runner, when live ships, then packages publish, apps do not, and nothing is dispatched", async () => {
     const { context, ci, shell } = released();
 
-    const done = await shipLive({ ...context, options: { yes: true, ci: true } }, []);
+    const done = await shipPackages({ ...context, options: { yes: true, ci: true } }, []);
 
     expect(done).toBe(true);
     expect(ci.received).toEqual([]);
@@ -178,15 +178,15 @@ describe("Feature: publishing released packages", () => {
   it("given an app named, when live ships, then it refuses", async () => {
     const { context, output } = released();
 
-    expect(await shipLive(context, ["web"])).toBe(false);
+    expect(await shipPackages(context, ["web"])).toBe(false);
 
     expect(output.text).toContain("Not a package: web");
   });
 
   it.each([
-    ["live", [], true],
+    ["latest", [], true],
     ["nightly", [], true],
-    ["latest", [], false],
+    ["Not A Channel", [], false],
     ["beta", ["web"], false],
   ])(
     "given doctor --ci for %s with units %j, when it checks, then it passes: %s",

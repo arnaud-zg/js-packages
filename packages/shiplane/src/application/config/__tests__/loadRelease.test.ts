@@ -513,8 +513,8 @@ describe("saying how apps deploy and packages publish", () => {
       { appFlow: { path: ["staging"], users: null } },
     ],
     [
-      'publishPackages: { channels: ["nightly", "alpha", "beta", "rc", "live"], onBranch: "snapshot" }',
-      { channels: ["nightly", "alpha", "beta", "rc", "live"], onBranch: "snapshot" },
+      'publishPackages: { channels: ["nightly", "alpha", "beta", "rc", "latest"], onBranch: "snapshot" }',
+      { channels: ["nightly", "alpha", "beta", "rc", "latest"], onBranch: "snapshot" },
     ],
     ["publishPackages: { onBranch: false }", { onBranch: false }],
     [
@@ -572,7 +572,7 @@ describe("saying how apps deploy and packages publish", () => {
     const release = await load(workspace.root);
 
     expect(release.problems).toEqual([]);
-    expect(release.appFlow).toEqual({ path: ["live"], users: null });
+    expect(release.appFlow).toEqual({ path: ["latest"], users: null });
   });
 
   it.each([
@@ -636,7 +636,7 @@ describe("saying how apps deploy and packages publish", () => {
     ['deployApps: { promote: [{ from: "Not A Name" }] }', "deployApps takes promote"],
     ["deployApps: { promote: [{}] }", "each step names from, to, or both"],
     ["deployApps: { promote: [] }", "deployApps takes promote"],
-    ['deployApps: { channels: ["live"] }', "deployApps takes promote"],
+    ['deployApps: { channels: ["latest"] }', "deployApps takes promote"],
     [
       'deployApps: { promote: [{ from: "staging", to: "prod" }], onBranch: "prod" }',
       "a branch never deploys there",
@@ -644,10 +644,9 @@ describe("saying how apps deploy and packages publish", () => {
     ['deployApps: { onBranch: "elsewhere" }', "promote does not name it"],
     ['deployApps: { promote: [{ to: "prod" }], onBranch: "staging" }', "promote does not name it"],
     ['publishPackages: { channels: ["staging"] }', "staging is an environment apps deploy to"],
-    ['publishPackages: { channels: ["latest"] }', "publishPackages.channels: latest"],
     ['publishPackages: { channels: ["snapshot"] }', "snapshot is what onBranch publishes"],
     ['publishPackages: { onBranch: "nightly" }', 'onBranch, "snapshot" or false'],
-    ['publishPackages: { promote: ["live"] }', "publishPackages takes channels, a list of names"],
+    ['publishPackages: { promote: ["latest"] }', "publishPackages takes channels, a list of names"],
   ])("given %s, when the release loads, then it says what is wrong", async (line, said) => {
     const release = await configured(line);
 

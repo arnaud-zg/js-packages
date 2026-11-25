@@ -9,11 +9,11 @@ export interface DeployFlow {
   users: Environment | null;
 }
 
-/** The released packages' channel: tagged, then published under their real dist-tag. */
-export const LIVE = "live";
+/** The channel of a real release: the packages are tagged, then published under their own npm tag. */
+export const RELEASE_CHANNEL = "latest";
 
-/** A repository that deploys no app: a release is live at once, with nothing to promote. */
-export const NO_APPS: DeployFlow = { path: [LIVE], users: null };
+/** A repository that deploys no app: a release reaches users at once, with nothing to promote. */
+export const NO_APPS: DeployFlow = { path: [RELEASE_CHANNEL], users: null };
 
 /** Where a release deploys. */
 export const entryOf = ({ path }: DeployFlow): Environment => path[0];

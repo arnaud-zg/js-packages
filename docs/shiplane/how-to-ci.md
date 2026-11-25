@@ -107,7 +107,7 @@ jobs:
 With no adapter that reads a secret, it passes none.
 
 1. **Create one GitHub Environment per choice** (Settings › Environments): `staging`, `prod`; for
-   npm packages, `snapshot`, `nightly`, `alpha`, `beta`, `rc` and `live` too. On npmjs.com, trust
+   npm packages, `snapshot`, `nightly`, `alpha`, `beta`, `rc` and `latest` too. On npmjs.com, trust
    `ship.yml` for each package (Settings › Trusted publishing): no npm secret.
 2. **Add each adapter's secret to it**, by the name in
    [the sign-ins table](./how-to-hosts.md#set-up-the-sign-ins): `FLY_API_TOKEN`,

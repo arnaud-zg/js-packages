@@ -3,7 +3,7 @@ import path from "node:path";
 import type { CallerNeeds, CallerWorkflow } from "../ports/ci-pipeline.port";
 import type { Release } from "./config/loadRelease";
 import type { SetupContext } from "./setupContext";
-import { LIVE } from "../domain/environment";
+import { RELEASE_CHANNEL } from "../domain/environment";
 import { channels } from "../domain/testChannel";
 import { deploysApps } from "./chooseEnvironments";
 import { requirementsOf } from "./requirements";
@@ -33,7 +33,11 @@ const placesOf = (release: Release) => {
     capability === "package-registry";
   const packages = shipping.some(isPackage);
   const onBranch = release.onBranch === false ? [] : [channels.snapshot];
-  const every = [...Object.values(channels), ...Object.values(release.testRelease ?? {}), LIVE];
+  const every = [
+    ...Object.values(channels),
+    ...Object.values(release.testRelease ?? {}),
+    RELEASE_CHANNEL,
+  ];
   const named = release.channels ?? every.filter((name) => name !== channels.snapshot);
   return {
     apps: shipping.some(deploysApps) ? [...release.appFlow.path] : [],
@@ -57,7 +61,7 @@ export const callerNeedsOf = (release: Release): CallerNeeds => {
   return {
     apps,
     // A repository with nothing to ship still has a list to write.
-    environments: environments.length > 0 ? environments : [LIVE],
+    environments: environments.length > 0 ? environments : [RELEASE_CHANNEL],
     secrets: [...new Set(requirements.flatMap(({ secrets = [] }) => secrets))]
       .filter((name) => name !== "GH_TOKEN")
       .sort(),

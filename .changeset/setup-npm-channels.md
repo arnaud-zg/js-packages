@@ -9,7 +9,7 @@
 
 Say how a repository releases: `deployApps: { promote: [{ from: "staging", to: "prod" }] }` for
 apps, and
-`publishPackages: { channels: ["nightly", "alpha", "beta", "rc", "live"], onBranch: "snapshot" }`
+`publishPackages: { channels: ["nightly", "alpha", "beta", "rc", "latest"], onBranch: "snapshot" }`
 for packages. Both are optional and unset changes nothing. Environment names are yours, and there
 may be more than two: each promote step names `from` and `to`. `shiplane setup` writes a `ship.yml`
 listing them, with the permissions npm needs, and `shiplane doctor` keeps it in step.

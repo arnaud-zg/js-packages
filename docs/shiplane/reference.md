@@ -22,7 +22,7 @@
 | `shiplane plan`                             | Deprecated: it still runs; use `ship --dry-run` instead                                                                                                                                                    |
 | `shiplane version`                          | Open the release PR for what is pending                                                                                                                                                                    |
 | `shiplane tag`                              | Tag merged versions, publish their notes                                                                                                                                                                   |
-| `shiplane ship [unit...]`                   | Trigger each tagged unit's deploy, then return; `--channel live`: tag the released packages and publish them                                                                                               |
+| `shiplane ship [unit...]`                   | Trigger each tagged unit's deploy, then return; `--channel latest`: tag the released packages and publish them                                                                                             |
 | `shiplane setup`                            | Find what ships, write the config and unit files, rehearse a release; `--format yaml` writes `shiplane.yml`                                                                                                |
 | `shiplane init`, `add`                      | Deprecated: they still run; use `setup` instead                                                                                                                                                            |
 | `shiplane remove <unit>`                    | Stop shipping a unit; it stays versioned                                                                                                                                                                   |
@@ -111,7 +111,7 @@ export default defineRelease({
 | `testRelease`     | Which channel each branch's test release takes: `testReleases.nightly`, `.prerelease`, `.gitflow`, or `{ branch: channel }` with `*` patterns; unlisted branches publish a snapshot ([how-to](./how-to-test-versions.md#give-each-branch-a-channel))                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `via`             | `"ci"` (the flow's CI pipeline) or `"local"` (this machine): how an app ships when both ways can, so a ship stops asking. `--via` wins for one run; a way that cannot ship takes the other                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `deployApps`      | Deployed apps, **required as soon as one deploys**: `{ promote: [{ from: "staging", to: "prod" }] }`, with names of your own and as many steps as you need, each starting where the one before ends. A release deploys to the first `from`; the last `to` is where users are, its name typed and `--yes` refused. A lone `{ to }` deploys straight there, a lone `{ from }` never promotes. Unit files write a value per environment under the same names, a package's `tag` included. `onBranch` names an environment a [test release](./how-to-test-versions.md#deploy-a-branch) may deploy to, never where users are, unset for nowhere. EAS takes one step, or a lone `from` |
-| `publishPackages` | Published packages only: `{ channels: ["nightly", "alpha", "beta", "rc", "live"], onBranch: "snapshot" }`. `channels` go from the earliest to `live`, the release; each publishes by itself. `onBranch` is what any branch may publish to try a change: a snapshot (the default) or `false`. Internal packages take neither key                                                                                                                                                                                                                                                                                                                                                  |
+| `publishPackages` | Published packages only: `{ channels: ["nightly", "alpha", "beta", "rc", "latest"], onBranch: "snapshot" }`. `channels` go from the earliest to `latest`, the release; each publishes by itself. `onBranch` is what any branch may publish to try a change: a snapshot (the default) or `false`. Internal packages take neither key                                                                                                                                                                                                                                                                                                                                              |
 | `prepare`         | A shell command run from the root before each unit ships from this machine or a runner, never before a CI dispatch, and [before a release](#build-before-a-release): `{unit}` its name, `{dir}` its folder, such as `"pnpm --filter {unit}... build"`. A failure fails that unit. Any other `{…}` fails loading: `unknown placeholder {app} in prepare`                                                                                                                                                                                                                                                                                                                          |
 
 Source: `src/application/config/defineRelease.ts`. A `release.config.ts` still loads, with a line
@@ -236,7 +236,7 @@ log group, writes a plan table and a result table (`Prepare`, `Ship`: success, f
 | Package manager   | pnpm, npm, yarn, from `packageManager` in package.json, else the lockfile                                                    | `unsupported package manager "bun": pnpm, npm or yarn`, or `no package manager: add packageManager to package.json, or a lockfile` |
 | Node version      | the `node-version` input, else `.nvmrc`, `.node-version`, `engines.node`, first found                                        | `no Node version: add .nvmrc or set node-version`                                                                                  |
 | Units             | Names from the config; none means every unit                                                                                 | `unknown units [x]: known [a, b]`                                                                                                  |
-| Environment       | Those of `deployApps.promote`; with packages, also `live` and any test release channel                                       | `unknown environment "qa": staging, prod`                                                                                          |
+| Environment       | Those of `deployApps.promote`; with packages, also `latest` and any test release channel                                     | `unknown environment "qa": staging, prod`                                                                                          |
 | Prepare           | `prepare` with `{unit}` and `{dir}`, run before each unit                                                                    | `unknown placeholder {app} in prepare`                                                                                             |
 | Deploy tools      | Each picked unit's tools; a missing one runs its Linux install, its folder added to `PATH` and `GITHUB_PATH`                 | `flyctl missing and no install for linux`                                                                                          |
 | Secrets           | Each picked unit's: `FLY_API_TOKEN`, `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, `EXPO_TOKEN`; the flow's `GH_TOKEN` | `api ships with fly: FLY_API_TOKEN missing in "staging"`                                                                           |
@@ -244,27 +244,55 @@ log group, writes a plan table and a result table (`Prepare`, `Ship`: success, f
 
 ### Channels and npm tags
 
-Where a package publishes, the npm tag it goes under, and how people install it:
+A channel is the npm tag it publishes under:
 
-| Channel               | npm tag       | Installed with        | Starts with                      |
-| --------------------- | ------------- | --------------------- | -------------------------------- |
-| `nightly`             | `nightly`     | `npm i <pkg>@nightly` | `shiplane test-release nightly`  |
-| `alpha`, `beta`, `rc` | the same word | `npm i <pkg>@beta`    | `shiplane test-release beta`     |
-| a word of your own    | the same word | `npm i <pkg>@canary`  | `shiplane test-release canary`   |
-| `snapshot`            | none kept     | the exact version     | `shiplane test-release snapshot` |
-| **`live`**            | **`latest`**  | `npm i <pkg>`         | `shiplane`, after its release PR |
+| Channel               | Installed with                    | Starts with                               |
+| --------------------- | --------------------------------- | ----------------------------------------- |
+| `nightly`             | `npm i <pkg>@nightly`             | `shiplane test-release nightly`           |
+| `alpha`, `beta`, `rc` | `npm i <pkg>@beta`                | `shiplane test-release beta`              |
+| a word of your own    | `npm i <pkg>@canary`              | `shiplane test-release canary`            |
+| `snapshot`            | the exact version, no tag is kept | `shiplane test-release snapshot`          |
+| **`latest`**          | `npm i <pkg>`                     | `shiplane`, once its release PR is merged |
 
-`live` is the real release: it also makes the git tags and the release notes. It publishes under the
-package's own [`tag`](../../packages/shiplane-npm/README.md#-unit-file-keys), `latest` unless the
-unit file says otherwise. With
-[staged publishing](../../packages/shiplane-npm/README.md#%EF%B8%8F-staged-publishing-recommended),
-it moves once a person approves it on npm. No test release can use `latest`.
+`latest` is the real release, never a test release's. A package whose unit file sets its own
+[`tag`](../../packages/shiplane-npm/README.md#-unit-file-keys) publishes under that one instead.
 
-With packages, a name that is no environment publishes them: `live` runs
-`shiplane ship --channel live`, any other name `shiplane test-release <name> <units>`. The caller
-lists the names as choices and allows `contents: write` and `id-token: write`. `ref` is then
-ignored: the run publishes the ref it is on, so the environment's branch rule holds. `dry-run: true`
-shows what would ship and records no deployment.
+### What each destination does
+
+`shiplane ship --channel <name>`, or the same name in `ship.yml`:
+
+|               | An environment                                   | `latest`                           | A test channel                         |
+| ------------- | ------------------------------------------------ | ---------------------------------- | -------------------------------------- |
+| Ships         | tagged apps, and packages released with them     | packages whose version is released | packages with pending changesets       |
+| Version       | the tag's                                        | the one the release PR wrote       | the next one, plus `-<channel>.<n>`    |
+| Needs first   | the version on the environment before            | the release PR merged              | a pending changeset                    |
+| Writes to git | nothing                                          | the tags and the release notes     | nothing                                |
+| Asks          | where users are: its name typed, `--yes` refused | to tag, then to publish            | which packages, and CI or this machine |
+| Already there | skipped                                          | skipped, or only the npm tag moves | takes the next number                  |
+| Stops when    | not on the environment before yet                | `main` moved past the tag          | uncommitted changes                    |
+
+**An environment.** For each tagged app: skip it if that version is already deployed there, refuse
+it if the environment before does not run it, run `prepare`, deploy, then record the deploy.
+`shiplane promote` is the same on the next environment, after showing how the one before runs.
+
+**`latest`.** Tags each released version on the commit that brought it and publishes its notes, then
+for each package: skip it if npm has it under the tag, move the tag if npm has the version, else
+publish. With
+[staged publishing](../../packages/shiplane-npm/README.md#%EF%B8%8F-staged-publishing-recommended)
+it is uploaded, and public once a person approves it on npm. The git tags and notes do not wait for
+that.
+
+**A test channel.** Takes the next free number, writes it to `package.json`, builds, publishes under
+the channel's tag, puts `package.json` back even when it fails, and comments on the branch's pull
+request. `snapshot` uses the branch and commit instead of a number and drops its tag; with
+`deployApps.onBranch` it also
+[deploys the branch's apps](./how-to-test-versions.md#deploy-a-branch).
+
+With packages, a name that is no environment publishes them: `latest` the released ones, any other
+as `shiplane test-release <name> <units>`. The caller lists the names as choices and allows
+`contents: write` and `id-token: write`. `ref` is then ignored: the run publishes the ref it is on,
+so the environment's branch rule holds. `dry-run: true` shows what would ship and records no
+deployment.
 
 `doctor --ci` stops at the first problem and prints this section's link. Source:
 `src/application/doctorCi.ts`, `src/application/shipSteps.ts`.

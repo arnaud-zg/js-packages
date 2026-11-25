@@ -13,7 +13,7 @@ import type { ConfigReader } from "../../ports/config.port";
 import type { ManifestReader } from "../../ports/manifest.port";
 import type { ConfigProblem } from "./problem";
 import type { UnitFile } from "./readUnitFile";
-import { LIVE, NO_APPS, reachesUsers } from "../../domain/environment";
+import { NO_APPS, reachesUsers, RELEASE_CHANNEL } from "../../domain/environment";
 import { PrepareSchema } from "../../domain/prepare";
 import { DEFAULT_TAG_FORMAT, TAG_FORMATS, tagFormatNamed } from "../../domain/tags";
 import { channelProblem, channels } from "../../domain/testChannel";
@@ -250,7 +250,7 @@ const flowOfSteps = (steps: Steps): DeployFlow | string => {
   const path = [first.from, ...steps.map(({ to }) => to)].filter((name) => name !== undefined);
   if (new Set(path).size < path.length) return "an environment is named twice";
   const channel = path.find(
-    (name) => name === LIVE || Object.values<string>(channels).includes(name),
+    (name) => name === RELEASE_CHANNEL || Object.values<string>(channels).includes(name),
   );
   if (channel) return `${channel} is a channel packages publish on`;
   const [entry, ...others] = path;
@@ -292,7 +292,7 @@ const deployAppsOf = (value: unknown): Partial<Pick<Release, "appFlow" | "deploy
 /** Why a name cannot be a channel of `publishPackages`, or null when it can. */
 const channelRefused = (name: string, path: readonly Environment[]) => {
   if (path.includes(name)) return `${name} is an environment apps deploy to`;
-  if (name === LIVE) return null;
+  if (name === RELEASE_CHANNEL) return null;
   if (name === channels.snapshot) return "snapshot is what onBranch publishes, not a channel";
   return channelProblem(name);
 };

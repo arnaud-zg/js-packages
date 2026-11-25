@@ -17,7 +17,7 @@ description: "Sets the project up, checks what ships, then ships it: apps to an 
 
 inputs:
   environment:
-    description: "An environment apps deploy to, a test release channel such as nightly, or live: the released npm packages"
+    description: "An environment apps deploy to, a test release channel such as nightly, or latest: the released npm packages"
     required: true
   units:
     description: "Units to ship, space separated (empty: every unit the environment lacks)"

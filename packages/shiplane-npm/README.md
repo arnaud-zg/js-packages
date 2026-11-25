@@ -54,7 +54,7 @@ In the package's `shiplane.unit.yml`, next to `module: published-package`.
 
 Source: `NpmOptions` in `src/npm-package-registry.adapter.ts`.
 
-Shipping to `live` moves this tag; a test release uses its channel's. See
+A release moves this tag; a test release uses its channel's. See
 [every channel and its npm tag](https://github.com/arnaud-zg/packages/blob/main/docs/shiplane/reference.md#channels-and-npm-tags).
 
 ## 🛡️ Staged publishing (recommended)

@@ -26,10 +26,10 @@ import { paint, reasonOf } from "../application/say";
 import { setup } from "../application/setup";
 import { CONFIG_FILE, refreshEditorSchema } from "../application/setupFiles";
 import { shipTo } from "../application/ship";
-import { shipLive } from "../application/shipLive";
+import { shipPackages } from "../application/shipPackages";
 import { missingTags, tagRelease } from "../application/tagRelease";
 import { entry, flowOf } from "../application/targets";
-import { LIVE } from "../domain/environment";
+import { RELEASE_CHANNEL } from "../domain/environment";
 import { composeContext, composeSetup, loadReleaseFrom, loadReleaseOnDisk } from "./compose";
 import { findRoot } from "./findRoot";
 import { out, printProblems } from "./output";
@@ -81,7 +81,7 @@ const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, tri
   shiplane help [all]             the main commands; all: this, every command and flag
 
   --channel <environment>         one deployApps.promote names; the first by default
-                                  ship also takes live, the released packages, or a test release channel
+                                  ship also takes latest, the released packages, or a test release channel
   --via ci|local                  ship through the CI pipeline (such as GitHub Actions) or this machine, without asking
   --yes                           answer yes to every question (never where users are)
   --dry-run                       with shiplane, ship or promote: every command it would run, run nothing;
@@ -189,7 +189,7 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
     tag: async (context) => tagRelease(context, await missingTags(context)),
     // Where it ships says what: an environment apps, live the released packages, a channel test ones.
     ship: (context) => {
-      if (values.channel === LIVE) return shipLive(context, units);
+      if (values.channel === RELEASE_CHANNEL) return shipPackages(context, units);
       if (flowOf(context).path.includes(environment)) {
         const scope = units.length > 0 ? { scope: new Set(units) } : {};
         return shipTo(context, environment, { via, ...scope });
@@ -272,7 +272,7 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
           const { path } = flowOf(context);
           if (command === "promote")
             return planShips(context, values.channel ?? path[1] ?? environment);
-          if (environment === LIVE) return planShips(context, entry(context));
+          if (environment === RELEASE_CHANNEL) return planShips(context, entry(context));
           return path.includes(environment)
             ? planShips(context, environment)
             : branchRelease(context, { ...testRelease, channel: environment, units });
@@ -302,7 +302,7 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
   }
   const { path } = flowOf({ release });
   environment = values.channel ?? entry({ release });
-  // Only a ship goes anywhere but an environment: to live, or to a test release's channel.
+  // Only a ship goes anywhere but an environment: to latest, or to a test release's channel.
   const unknown = command !== "ship" && !path.includes(environment);
   const nowhere = command === "promote" && (path.length < 2 || values.channel === path[0]);
   if (unknown || nowhere) {

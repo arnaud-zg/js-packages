@@ -9,7 +9,7 @@ import type { Shipment } from "./askPath";
 import type { ReleaseContext } from "./context";
 import type { Outcomes, ShipStep } from "./shipSteps";
 import { onlyVersionFiles, shipsFrom, webShip } from "../domain/deploys";
-import { LIVE, previousOf, reachesUsers } from "../domain/environment";
+import { previousOf, reachesUsers, RELEASE_CHANNEL } from "../domain/environment";
 import { yesAllowed } from "../domain/governance";
 import { prepareLine } from "../domain/prepare";
 import { choosesPath, forcedPath, routeChoice, shipRuns } from "../domain/shipRoute";
@@ -535,7 +535,7 @@ export const shipTo = async (
   const defaultBranch = packages[0]?.input.defaultBranch;
   if (defaultBranch !== undefined) {
     const route = await publishRoute(context, {
-      environment: LIVE,
+      environment: RELEASE_CHANNEL,
       ref: defaultBranch,
       what: packages.map(({ input }) => input.tag).join(", "),
       via,
@@ -606,7 +606,7 @@ export const shipTo = async (
       run: () =>
         services.ciPipeline.dispatch(workflow, defaultBranch, {
           units: names.join(" "),
-          environment: LIVE,
+          environment: RELEASE_CHANNEL,
         }),
       tags: toDispatch.map(({ input }) => input.tag),
       unit: names.join(", "),

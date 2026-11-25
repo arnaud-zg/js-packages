@@ -529,10 +529,10 @@ describe("writing the workflow a repository ships from", () => {
 
 describe("what a caller workflow offers", () => {
   it.each([
-    ["inline", "options: [snapshot, live]", true],
-    ["one per line", "options:\n  - snapshot\n  - live\n", true],
-    ["only in a comment", "# live\noptions: [staging]", false],
-  ])("given live %s, when read, then it is offered: %s", (_, content, offered) => {
-    expect(pipeline().offers?.(content, "live")).toBe(offered);
+    ["inline", "options: [snapshot, latest]", true],
+    ["one per line", "options:\n  - snapshot\n  - latest\n", true],
+    ["only in a comment", "# latest\noptions: [staging]", false],
+  ])("given latest %s, when read, then it is offered: %s", (_, content, offered) => {
+    expect(pipeline().offers?.(content, "latest")).toBe(offered);
   });
 });

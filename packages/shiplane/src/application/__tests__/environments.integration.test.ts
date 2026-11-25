@@ -168,11 +168,11 @@ describe("Feature: choosing the environments apps go through", () => {
 
 describe("Feature: choosing the channels packages publish on", () => {
   it("given channels without beta, when beta is asked, then it refuses and names them", async () => {
-    const { context, output } = given({ channels: ["nightly", "live"] }, [LIB]);
+    const { context, output } = given({ channels: ["nightly", "latest"] }, [LIB]);
 
     expect(await branchRelease(context, { onDefault: "publish", channel: "beta" })).toBe(false);
 
-    expect(output.text).toContain("publishPackages.channels is nightly, live");
+    expect(output.text).toContain("publishPackages.channels is nightly, latest");
   });
 });
 
@@ -186,7 +186,7 @@ describe("Feature: choosing what a branch publishes", () => {
   });
 
   it("given channels only, when a snapshot is asked, then it is not refused", async () => {
-    const { context, output } = given({ channels: ["live"] }, [LIB]);
+    const { context, output } = given({ channels: ["latest"] }, [LIB]);
 
     await branchRelease(context, { onDefault: "publish", channel: "snapshot", dryRun: true });
 
@@ -264,7 +264,7 @@ describe("Feature: deploying apps from a branch", () => {
 });
 
 describe("Feature: ship.yml lists what the config says", () => {
-  const every = ["snapshot", "nightly", "alpha", "beta", "rc", "live"];
+  const every = ["snapshot", "nightly", "alpha", "beta", "rc", "latest"];
 
   it.each([
     ["apps", {}, [API], ["staging", "prod"]],
@@ -273,11 +273,16 @@ describe("Feature: ship.yml lists what the config says", () => {
     ["packages", {}, [LIB], every],
     [
       "packages on two channels",
-      { channels: ["nightly", "live"] },
+      { channels: ["nightly", "latest"] },
       [LIB],
-      ["snapshot", "nightly", "live"],
+      ["snapshot", "nightly", "latest"],
     ],
-    ["packages with nothing on a branch", { channels: ["live"], onBranch: false }, [LIB], ["live"]],
+    [
+      "packages with nothing on a branch",
+      { channels: ["latest"], onBranch: false },
+      [LIB],
+      ["latest"],
+    ],
     ["both", {}, [API, LIB], ["staging", "prod", ...every]],
   ])("given %s, when setup writes it, then it asks for those", async (_, config, units, listed) => {
     const { context } = given(config, units);
