@@ -8,6 +8,7 @@ import { branchChoice, tagWords } from "../domain/branchRelease";
 import { channelFor, channelProblem, isNumbered } from "../domain/testChannel";
 import { plural } from "../domain/words";
 import { planBranch, printPlan, publishBranch } from "./branchPublish";
+import { appsOnBranch, deployOnBranch } from "./deployOnBranch";
 import { publishRoute } from "./publishRoute";
 import { releaseToPreview } from "./releaseToPreview";
 import { fail, paint, reasonOf } from "./say";
@@ -33,7 +34,7 @@ const refuseDirty = (context: ReleaseContext) => {
 
 const printOthers = ({ output, release }: ReleaseContext, others: readonly string[]) => {
   const why = release.deployOnBranch
-    ? "deployApps.onBranch is not available yet: nothing deploys from a branch"
+    ? "does not deploy from a branch here"
     : "test release not available yet: npm packages only";
   others.forEach((name) => output.line(`  ${paint("dim", "–")} ${name}  ${paint("dim", why)}`));
 };
@@ -148,59 +149,75 @@ const dispatchTest = async (
   return done;
 };
 
-/** Plans what the test version publishes, asks when asked to, then publishes it or only shows it. */
-const publishTest = async (
+/** What the person is asked before a test version, and how it goes. */
+interface TestRun {
+  here: Here;
+  pr: OpenPr | null;
+  ask: boolean;
+  /** Ask which pending packages to keep. */
+  pick: boolean;
+  channel: Channel;
+  via: DeployPath | undefined;
+}
+
+/** Publishes the plan's packages; "stopped" when the person cancelled or switched to the release. */
+const publishPackages = async (
   context: ReleaseContext,
-  {
-    here,
-    pr,
-    ask,
-    pick,
-    channel,
-    dryRun,
-    units,
-    via,
-  }: {
-    here: Here;
-    pr: OpenPr | null;
-    ask: boolean;
-    /** Ask which pending packages to keep. */
-    pick: boolean;
-    channel: Channel;
-    dryRun: boolean;
-    /** The packages named, empty for every pending one. */
-    units: readonly string[];
-    via: DeployPath | undefined;
-  },
+  plan: BranchPlan,
+  { here, pr, ask, pick, channel, via }: TestRun,
+): Promise<boolean | "stopped"> => {
+  const answer = ask ? await askHow(context, { here, plan }) : "publish";
+  if (answer === "switch") return (await switchAndRelease(context, here, via)) && "stopped";
+  const picked = answer === null ? null : pick ? await pickPackages(context, plan) : plan;
+  const route =
+    picked &&
+    (await publishRoute(context, {
+      environment: channel,
+      ref: here.branch,
+      head: here.head,
+      what: whatPublishes(picked),
+      via,
+    }));
+  if (picked === null || route === null) {
+    context.progress.say("resting", paint("dim", "Nothing ran."));
+    return "stopped";
+  }
+  if (route === "refused") return false;
+  if (route === "ci") return dispatchTest(context, { here, plan: picked });
+  return publishBranch(context, { here, pr, plan: picked });
+};
+
+/** Plans the test version, then publishes its packages and deploys its apps, or only shows them. */
+const runTest = async (
+  context: ReleaseContext,
+  { dryRun, units, ...run }: TestRun & { dryRun: boolean; units: readonly string[] },
 ) => {
   if (!dryRun && !(await context.services.sourceControl.isClean())) return refuseDirty(context);
+  const { here, channel } = run;
   const planned = await planOn(context, here, channel);
   if (!planned) return false;
   const plan = onlyNamed(planned, units);
-  printOthers(context, plan.others);
-  if (plan.publish.length === 0) return nothingToPublish(context, plan);
-  if (dryRun) return printPlan(context, plan);
-  const answer = ask ? await askHow(context, { here, plan }) : "publish";
-  if (answer === "switch") return switchAndRelease(context, here, via);
-  const picked = answer === null ? null : pick ? await pickPackages(context, plan) : plan;
-  if (picked === null) {
-    context.progress.say("resting", paint("dim", "Nothing ran."));
+  // Apps go with a snapshot, what a branch publishes; named packages go alone.
+  const apps =
+    isNumbered(channel) || units.length > 0
+      ? []
+      : appsOnBranch(context, { here, pending: plan.others });
+  const deploying = apps.map(({ name }) => name);
+  printOthers(
+    context,
+    plan.others.filter((name) => !deploying.includes(name)),
+  );
+  if (plan.publish.length === 0 && apps.length === 0) return nothingToPublish(context, plan);
+  if (dryRun) {
+    if (plan.publish.length > 0) printPlan(context, plan);
+    deploying.forEach((name) =>
+      context.output.line(`  ${name}  would deploy to ${context.release.deployOnBranch} (dry run)`),
+    );
     return true;
   }
-  const route = await publishRoute(context, {
-    environment: channel,
-    ref: here.branch,
-    head: here.head,
-    what: whatPublishes(picked),
-    via,
-  });
-  if (route === "refused") return false;
-  if (route === null) {
-    context.progress.say("resting", paint("dim", "Nothing ran."));
-    return true;
-  }
-  if (route === "ci") return dispatchTest(context, { here, plan: picked });
-  return publishBranch(context, { here, pr, plan: picked });
+  const published = plan.publish.length === 0 || (await publishPackages(context, plan, run));
+  if (published !== true) return published === "stopped";
+  return deployOnBranch(context, { here, apps });
 };
 
 /** Why this repository does not publish on a channel, as its config says; null when it does. */
@@ -271,5 +288,5 @@ export const branchRelease = async (
   const ask = choice === "ask" && picked === undefined && !dryRun;
   const pick =
     units.length === 0 && context.prompter.interactive && !context.options.yes && !dryRun;
-  return publishTest(context, { here, pr, ask, pick, channel, dryRun, units, via });
+  return runTest(context, { here, pr, ask, pick, channel, dryRun, units, via });
 };

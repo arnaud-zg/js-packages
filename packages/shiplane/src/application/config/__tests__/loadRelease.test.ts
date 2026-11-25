@@ -567,6 +567,7 @@ describe("saying how apps deploy and packages publish", () => {
     ["deployApps: { promote: [{}] }", "each step names from, to, or both"],
     ["deployApps: { promote: [] }", "deployApps takes promote"],
     ['deployApps: { channels: ["live"] }', "deployApps takes promote"],
+    ['deployApps: { onBranch: "production" }', "a branch never deploys there"],
     ['deployApps: { onBranch: "elsewhere" }', "promote does not name it"],
     [
       'deployApps: { promote: [{ to: "production" }], onBranch: "preview" }',

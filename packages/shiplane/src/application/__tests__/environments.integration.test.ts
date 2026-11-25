@@ -189,6 +189,75 @@ describe("Feature: choosing what a branch publishes", () => {
   });
 });
 
+describe("Feature: deploying apps from a branch", () => {
+  const onBranch = (config: object = { deployOnBranch: "preview" }, branch = "feat/x") => {
+    const world = given(config);
+    world.source.seed({ position: { branch, head: "abc1234def", originMain: "head" } });
+    world.versioning.seed({
+      plan: () => ({
+        changesets: [],
+        releases: [
+          {
+            name: "@acme/api",
+            type: "minor",
+            oldVersion: "1.0.0",
+            newVersion: "1.1.0",
+            changesets: [],
+          },
+        ],
+      }),
+    });
+    const ran = () => world.shell.calls.map(({ args }) => args.join(" "));
+    return { ...world, ran };
+  };
+  const snapshot = { onDefault: "publish", channel: "snapshot" } as const;
+
+  it("given onBranch and a pending app, when a person agrees, then this checkout deploys there and no deploy is recorded", async () => {
+    const { context, prompter, ran, host } = onBranch();
+    prompter.answer(true);
+
+    expect(await branchRelease(context, snapshot)).toBe(true);
+
+    expect(prompter.asked).toEqual([
+      "Deploy api from feat/x to preview? It replaces what runs there until the next release.",
+    ]);
+    expect(ran()).toEqual(["deploy acme-api api@1.0.0-feat-x.abc1234"]);
+    expect(host.received).toEqual([]);
+  });
+
+  it("given the person declines, when asked, then nothing deploys", async () => {
+    const { context, prompter, ran } = onBranch();
+    prompter.answer(false);
+
+    expect(await branchRelease(context, snapshot)).toBe(true);
+
+    expect(ran()).toEqual([]);
+  });
+
+  it.each([
+    ["no onBranch", onBranch({}), snapshot],
+    ["the default branch", onBranch(undefined, "main"), snapshot],
+    ["a numbered channel", onBranch(), { ...snapshot, channel: "beta" }],
+    ["a dry run", onBranch(), { ...snapshot, dryRun: true }],
+  ])(
+    "given %s, when a test release runs, then no app deploys",
+    async (_, { context, prompter, ran }, how) => {
+      await branchRelease(context, how);
+
+      expect(prompter.asked).toEqual([]);
+      expect(ran()).toEqual([]);
+    },
+  );
+
+  it("given a runner, when a test release runs, then no app deploys", async () => {
+    const { context, ran } = onBranch();
+
+    await branchRelease({ ...context, options: { yes: true, ci: true } }, snapshot);
+
+    expect(ran()).toEqual([]);
+  });
+});
+
 describe("Feature: ship.yml lists what the config says", () => {
   const every = ["snapshot", "nightly", "alpha", "beta", "rc", "live"];
 

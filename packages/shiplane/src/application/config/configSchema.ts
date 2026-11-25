@@ -175,7 +175,8 @@ export const configJsonSchema = (catalog: readonly CatalogEntry[]): JsonSchema =
             },
           },
           onBranch: {
-            description: "Where any branch may deploy. Not available yet.",
+            description:
+              "Where a test release deploys a branch's apps, never where users are; false for nowhere.",
             anyOf: [{ type: "string" }, { const: false }],
           },
         },

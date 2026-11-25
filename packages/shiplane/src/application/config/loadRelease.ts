@@ -13,7 +13,7 @@ import type { ConfigReader } from "../../ports/config.port";
 import type { ManifestReader } from "../../ports/manifest.port";
 import type { ConfigProblem } from "./problem";
 import type { UnitFile } from "./readUnitFile";
-import { DEFAULT_FLOW, keysOf, LIVE } from "../../domain/environment";
+import { DEFAULT_FLOW, keysOf, LIVE, reachesUsers } from "../../domain/environment";
 import { PrepareSchema } from "../../domain/prepare";
 import { DEFAULT_TAG_FORMAT, TAG_FORMATS, tagFormatNamed } from "../../domain/tags";
 import { channelProblem, channels } from "../../domain/testChannel";
@@ -273,6 +273,11 @@ const deployAppsOf = (value: unknown): Pick<Release, "appFlow" | "deployOnBranch
   if (typeof appFlow === "string") throw new Error(`deployApps.promote: ${appFlow}`);
   if (onBranch && !(appFlow ?? DEFAULT_FLOW).path.some((name) => name === onBranch)) {
     throw new Error(`deployApps.onBranch is ${onBranch}, and promote does not name it`);
+  }
+  if (onBranch && reachesUsers(appFlow ?? DEFAULT_FLOW, onBranch)) {
+    throw new Error(
+      `deployApps.onBranch is ${onBranch}, where users are: a branch never deploys there`,
+    );
   }
   return {
     ...(appFlow ? { appFlow } : {}),

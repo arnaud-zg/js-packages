@@ -23,7 +23,8 @@ export interface DeployApps {
   promote?: readonly PromoteStep[];
   /**
    * Where any branch may deploy to try a change, outside the steps, or `false` or unset for nowhere.
-   * Not available yet: shiplane says so and deploys nothing from a branch.
+   * A test release on a branch then deploys its pending apps there from this machine, asked first,
+   * over what runs there until the next release. Never where users are; EAS is left out.
    */
   onBranch?: Environment | false | undefined;
 }
