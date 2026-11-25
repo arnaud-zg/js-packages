@@ -47,22 +47,38 @@ const permissionsOf = ({ features, permissions = {} }: CallerNeeds) => {
   return ["permissions:", ...Object.entries(allowed).map(([name, level]) => `  ${name}: ${level}`)];
 };
 
-/** Each secret its adapters read, passed by name: GitHub hands a called workflow no other. */
-const secretsOf = ({ secrets }: CallerNeeds) =>
-  secrets.length === 0
-    ? []
-    : ["    secrets:", ...secrets.map((name) => `      ${name}: \${{ secrets.${name} }}`)];
+/** An npm channel publishes the ref the run is on: its environment's branch rule holds. */
+const CHECKED_OUT = `\${{ contains(fromJSON('["preview", "production"]'), inputs.environment) && inputs.ref || '' }}`;
 
-/** The workflow a repository ships from: a manual run calling shiplane's, pinned to a commit. */
-const DRY_RUN_INPUT = [
-  "      dry-run:",
-  '        description: "Show what would ship, ship nothing"',
-  "        type: boolean",
-  "        default: false",
+/** The job: its own environment and permissions, and one step that ships, given secrets by name. */
+const shipJob = (pin: string, needs: CallerNeeds) => [
+  "    name: Ship to ${{ inputs.environment }}",
+  "    runs-on: ubuntu-latest",
+  "    # A dry run names none: naming one records a deployment.",
+  "    environment: ${{ !inputs.dry-run && inputs.environment || '' }}",
+  "    concurrency:",
+  "      group: ship-${{ inputs.environment }}",
+  "      cancel-in-progress: false",
+  ...(needs.variables
+    ? ["    env:", ...needs.variables.map((name) => `      ${name}: \${{ vars.${name} }}`)]
+    : []),
+  "    steps:",
+  "      - uses: actions/checkout@v5",
+  "        with:",
+  `          ref: ${CHECKED_OUT}`,
+  "          fetch-depth: 0",
+  `      - uses: ${SHIPLANE_REPO}/.github/actions/ship@${pin}`,
+  "        with:",
+  "          units: ${{ inputs.units }}",
+  "          environment: ${{ inputs.environment }}",
+  "          dry-run: ${{ inputs.dry-run }}",
+  ...needs.secrets.map((name) => `          ${name}: \${{ secrets.${name} }}`),
 ];
 
+/** The workflow a repository ships from: a manual run using shiplane, pinned to a commit. */
 const callerContent = (sha: string, version: string, needs: CallerNeeds) => {
   const { environments = ["preview", "production"] } = needs;
+  const pin = `${sha} # shiplane@${version}`;
   return [
     "# Ships with shiplane: `pnpm shiplane ship --via ci`, or Run workflow here.",
     "# Written by `shiplane setup`; `shiplane doctor` keeps the pin current.",
@@ -85,26 +101,22 @@ const callerContent = (sha: string, version: string, needs: CallerNeeds) => {
     '        description: "The tag to ship; shiplane sets it (empty: the ref this runs on)"',
     "        type: string",
     '        default: ""',
-    ...(needs.environments ? DRY_RUN_INPUT : []),
+    "      dry-run:",
+    '        description: "Show what would ship, ship nothing"',
+    "        type: boolean",
+    "        default: false",
     "",
     ...permissionsOf(needs),
     "",
     "jobs:",
     "  ship:",
-    `    uses: ${SHIPLANE_REPO}/.github/workflows/shiplane-ship.yml@${sha} # shiplane@${version}`,
-    "    with:",
-    "      units: ${{ inputs.units }}",
-    "      environment: ${{ inputs.environment }}",
-    "      ref: ${{ inputs.ref }}",
-    ...(needs.environments ? ["      dry-run: ${{ inputs.dry-run }}"] : []),
-    ...(needs.variables ? [`      variables: ${needs.variables.join(" ")}`] : []),
-    ...secretsOf(needs),
+    ...shipJob(pin, needs),
     "",
   ].join("\n");
 };
 
 /** A caller that hands shiplane's workflow the tag to check out, so it can run from main. */
-const PASSES_REF = /^[ \t]+ref:[ \t]*\$\{\{[ \t]*inputs\.ref[ \t]*\}\}/m;
+const PASSES_REF = /^[ \t]+ref:[ \t]*\$\{\{[^}]*\binputs\.ref\b[^}]*\}\}/m;
 
 /** Whether one of the workflow's choice inputs lists the environment, inline or one per line. */
 const offers = (content: string, environment: string) => {
@@ -222,7 +234,7 @@ const githubActions = (root: string, shell: Shell, shipWorkflow: string): CiPipe
           orMissing,
         );
         if (commit === null) {
-          return { error: `no commit ${short} for ${tag}: pin shiplane-ship.yml by hand` };
+          return { error: `no commit ${short} for ${tag}: pin ship.yml by hand` };
         }
         const { sha } = CommitSchema.parse(commit);
         return {
@@ -234,7 +246,7 @@ const githubActions = (root: string, shell: Shell, shipWorkflow: string): CiPipe
       const ref = await json(["api", `repos/${SHIPLANE_REPO}/git/ref/tags/${tag}`]).catch(
         orMissing,
       );
-      if (ref === null) return { error: `no release tag ${tag}: pin shiplane-ship.yml by hand` };
+      if (ref === null) return { error: `no release tag ${tag}: pin ship.yml by hand` };
       const { object } = RefSchema.parse(ref);
       // An annotated tag points at a tag object, which points at the commit.
       const sha =

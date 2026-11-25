@@ -11,7 +11,7 @@ import { callerNeedsOf, RecordingShell, testContext, testUnit } from "shiplane/t
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
-// The workflow every repository ships from, read as GitHub reads it, against the secrets the
+// The action every repository ships with, read as GitHub reads it, against the secrets the
 // official adapters read on a runner; and the ship.yml setup writes for a release of them.
 
 const API = testUnit("api", { module: "backend-service", options: { app: "acme-api" } });
@@ -36,15 +36,6 @@ interface Step {
   name?: string;
   env?: Record<string, string>;
 }
-interface ShipWorkflow {
-  on: { workflow_call: { secrets: Record<string, unknown> } };
-  jobs: { ship: { steps: Step[] } };
-}
-
-const WORKFLOW = new URL("../../../../.github/workflows/shiplane-ship.yml", import.meta.url);
-const workflow = parse(readFileSync(WORKFLOW, "utf8")) as ShipWorkflow;
-const stepsNamed = (...names: string[]) =>
-  workflow.jobs.ship.steps.filter(({ name = "" }) => names.includes(name));
 
 const COMMIT = "c0ffee0000000000000000000000000000000000";
 
@@ -66,40 +57,64 @@ const callerOf = async (
   return parse(made.content) as {
     on: { workflow_dispatch: { inputs: Record<string, { options?: string[]; default: unknown }> } };
     permissions: Record<string, string>;
-    jobs: { ship: { secrets?: Record<string, string>; with?: Record<string, string> } };
+    jobs: { ship: { env?: Record<string, string>; steps: { with: Record<string, unknown> }[] } };
   };
 };
+
+type Caller = Awaited<ReturnType<typeof callerOf>>;
+
+/** What ship.yml gives the ship action. */
+const given = (caller: Caller) => caller.jobs.ship.steps.at(-1)?.with ?? {};
+
+/** The secrets among it, by name. */
+const secretsOf = (caller: Caller) =>
+  Object.fromEntries(
+    Object.entries(given(caller)).filter(([, value]) => String(value).includes("secrets.")),
+  );
 
 const byName = (names: readonly string[]) =>
   Object.fromEntries(names.map((name) => [name, `\${{ secrets.${name} }}`]));
 
-describe("the workflow every repository ships from", () => {
-  it("given the official adapters, when shiplane-ship.yml is read, then it declares each secret they read and no other", () => {
-    const declared = Object.keys(workflow.on.workflow_call.secrets)
-      .filter((name) => !name.startsWith("SHIPLANE_APP_"))
-      .sort();
+const ACTION = new URL("../../../../.github/actions/ship/action.yml", import.meta.url);
+const action = parse(readFileSync(ACTION, "utf8")) as {
+  inputs: Record<string, unknown>;
+  runs: { using: string; steps: (Step & { run?: string; shell?: string })[] };
+};
 
-    expect(declared).toEqual(ADAPTER_SECRETS);
+describe("the ship action", () => {
+  const shipping = action.runs.steps.filter(({ name = "" }) =>
+    ["Check what ships", "Ship"].includes(name),
+  );
+
+  it("given the official adapters, when it is read, then it takes each secret they read and no other", () => {
+    const taken = Object.keys(action.inputs).filter((name) => /^[A-Z_]+$/.test(name));
+
+    expect(taken.sort()).toEqual(ADAPTER_SECRETS);
   });
 
-  it("given the official adapters, when shiplane-ship.yml checks and ships, then those two steps alone see each secret they read, and GH_TOKEN", () => {
-    const shipping = stepsNamed("Check what ships", "Ship");
-
+  it("given it ships, when its steps are read, then only the check and the ship see a secret", () => {
     expect(shipping).toHaveLength(2);
     for (const { env = {} } of shipping) {
-      expect(env).toMatchObject(byName(ADAPTER_SECRETS));
-      expect(env.GH_TOKEN).toBe("${{ steps.app.outputs.token || github.token }}");
+      expect(env).toMatchObject(
+        Object.fromEntries(ADAPTER_SECRETS.map((name) => [name, `\${{ inputs.${name} }}`])),
+      );
     }
-    const others = workflow.jobs.ship.steps.filter((step) => !shipping.includes(step));
-    expect(JSON.stringify(others.map(({ env }) => env))).not.toContain("secrets.");
+    const others = action.runs.steps.filter((step) => !shipping.includes(step));
+    for (const name of ADAPTER_SECRETS) expect(JSON.stringify(others)).not.toContain(name);
   });
 
+  it("given a composite action, when its steps run, then each names its shell and reads no secret context", () => {
+    expect(action.runs.using).toBe("composite");
+    for (const step of action.runs.steps.filter(({ run }) => run)) expect(step.shell).toBeTruthy();
+    expect(JSON.stringify(action.runs.steps)).not.toMatch(/\bsecrets\.|toJSON\(vars\)/);
+  });
+});
+
+describe("the workflow every repository ships from", () => {
   it("given apps on Cloudflare Pages only, when setup writes ship.yml, then it passes the two Cloudflare secrets", async () => {
     const caller = await callerOf([PAGES]);
 
-    expect(caller.jobs.ship.secrets).toEqual(
-      byName(["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN"]),
-    );
+    expect(secretsOf(caller)).toEqual(byName(["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN"]));
     expect(caller.permissions).toEqual({
       contents: "read",
       deployments: "write",
@@ -115,8 +130,8 @@ describe("the workflow every repository ships from", () => {
 
     const caller = await callerOf([FLY, PAGES, EAS], [comments]);
 
-    expect(caller.jobs.ship.secrets).toEqual(byName(ADAPTER_SECRETS));
-    expect(Object.keys(caller.jobs.ship.secrets ?? {})).toEqual([
+    expect(secretsOf(caller)).toEqual(byName(ADAPTER_SECRETS));
+    expect(Object.keys(secretsOf(caller))).toEqual([
       "CLOUDFLARE_ACCOUNT_ID",
       "CLOUDFLARE_API_TOKEN",
       "EXPO_TOKEN",
@@ -142,13 +157,16 @@ describe("the workflow every repository ships from", () => {
       actions: "read",
       pages: "write",
     });
-    expect(caller.jobs.ship.with).toMatchObject({ variables: "SITE_KEY SITE_REGION" });
-    expect(caller.jobs.ship).not.toHaveProperty("secrets");
+    expect(caller.jobs.ship.env).toEqual({
+      SITE_KEY: "${{ vars.SITE_KEY }}",
+      SITE_REGION: "${{ vars.SITE_REGION }}",
+    });
+    expect(secretsOf(caller)).toEqual({});
   });
 
   it("given modules whose adapters read no secret, when setup writes ship.yml, then it passes none", async () => {
     const caller = await callerOf([]);
 
-    expect(caller.jobs.ship).not.toHaveProperty("secrets");
+    expect(secretsOf(caller)).toEqual({});
   });
 });

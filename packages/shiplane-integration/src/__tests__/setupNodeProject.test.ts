@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 
-// The setup-node-project action other repositories import, against the steps shiplane-ship.yml runs inline: a
-// reusable workflow cannot use an action from its own commit, so the two copies must stay equal.
+// The setup-node-project action other repositories import, against the steps the ship action runs inline: an
+// action cannot use another from its own commit, so the two copies must stay equal.
 
 interface Step {
   name?: string;
@@ -15,18 +15,19 @@ interface Step {
 const read = <T>(path: string) =>
   parse(readFileSync(new URL(`../../../../.github/${path}`, import.meta.url), "utf8")) as T;
 
-const workflow = read<{ jobs: { ship: { steps: Step[] } } }>("workflows/shiplane-ship.yml");
 const action = read<{
   inputs: Record<string, unknown>;
   outputs: Record<string, { value: string }>;
   runs: { using: string; steps: Step[] };
 }>("actions/setup-node-project/action.yml");
 
+const ship = read<typeof action>("actions/ship/action.yml");
+
 const FIRST = "Detect the package manager and Node version";
 const LAST = "Install";
 
-/** The steps from FIRST to LAST, without what only a composite step needs: `shell: bash` and the
- * working directory a workflow's `defaults.run` gives. Both read `inputs.x` the same way. */
+/** The steps from FIRST to LAST, without what every composite step has: `shell: bash` and the
+ * working directory. Both read `inputs.x` the same way. */
 const setupSteps = (steps: Step[]) => {
   const from = steps.findIndex(({ name }) => name === FIRST);
   const to = steps.findIndex(({ name }) => name === LAST);
@@ -53,8 +54,8 @@ describe("the setup-node-project action other repositories import", () => {
     });
   });
 
-  it("given shiplane-ship.yml, when its setup steps are compared with the action's, then they are the same steps", () => {
-    const inline = setupSteps(workflow.jobs.ship.steps);
+  it("given the ship action, when its setup steps are compared with the action's, then they are the same steps", () => {
+    const inline = setupSteps(ship.runs.steps);
 
     expect(inline.map(({ name }) => name)).toEqual([
       FIRST,
