@@ -1,4 +1,4 @@
-import type { Choice, Clock, Output, Prompter } from "../../../ports/terminal.port";
+import type { Choice, ChoiceGroup, Clock, Output, Prompter } from "../../../ports/terminal.port";
 
 /** Everything the CLI printed, in order, without colours. */
 export class MemoryOutput implements Output {
@@ -23,6 +23,8 @@ export class ScriptedPrompter implements Prompter {
   readonly initials: Record<string, unknown> = {};
   /** The choices each select question offered, by question. */
   readonly choices: Record<string, Choice<string>[]> = {};
+  /** The groups each grouped question offered, by question. */
+  readonly groups: Record<string, ChoiceGroup<string>[]> = {};
   private answers: Answer[] = [];
 
   constructor(readonly interactive = true) {}
@@ -58,6 +60,16 @@ export class ScriptedPrompter implements Prompter {
   ) => {
     this.initials[message] = initial;
     this.choices[message] = choices;
+    return Promise.resolve(this.next(message) as Value[] | null);
+  };
+
+  multiselectGroups = <Value extends string>(
+    message: string,
+    groups: ChoiceGroup<Value>[],
+    initial: Value[],
+  ) => {
+    this.initials[message] = initial;
+    this.groups[message] = groups;
     return Promise.resolve(this.next(message) as Value[] | null);
   };
 

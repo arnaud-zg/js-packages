@@ -23,6 +23,7 @@ describe("what the release covers, asked before anything runs", () => {
     expect(choose({ app: "expo", version: "0.1.115", changesets: 2, tagged: true })).toEqual({
       app: "expo",
       pending: true,
+      kind: "with changesets",
       hint: "2 changesets · Store decides build or update once picked",
     });
   });
@@ -31,6 +32,7 @@ describe("what the release covers, asked before anything runs", () => {
     expect(choose({ app: "landing", version: "0.1.1", tagged: true })).toEqual({
       app: "landing",
       pending: true,
+      kind: "to retry",
       hint: "0.1.1 released, not on preview yet",
     });
   });
@@ -39,6 +41,7 @@ describe("what the release covers, asked before anything runs", () => {
     expect(choose({ app: "landing", version: "0.1.1", tagged: true, onChannel: true })).toEqual({
       app: "landing",
       pending: false,
+      kind: "with nothing to release",
       hint: "0.1.1 is on preview, nothing new",
     });
   });
@@ -56,6 +59,7 @@ describe("what the release covers, asked before anything runs", () => {
     expect(choose({ app: "expo", version: "0.1.115", tagged: true, onChannel: true })).toEqual({
       app: "expo",
       pending: false,
+      kind: "with nothing to release",
       hint: "0.1.115 released, nothing new (shiplane status shows its builds)",
     });
   });
@@ -64,6 +68,7 @@ describe("what the release covers, asked before anything runs", () => {
     expect(choose({ app: "expo", version: "0.6.0", tagged: true })).toEqual({
       app: "expo",
       pending: true,
+      kind: "to retry",
       hint: "0.6.0 tagged, never reached preview: retry",
     });
   });
@@ -72,6 +77,7 @@ describe("what the release covers, asked before anything runs", () => {
     expect(choose({ app: "api", version: "0.0.2" })).toEqual({
       app: "api",
       pending: false,
+      kind: "with nothing to release",
       hint: "nothing new",
     });
   });
@@ -82,7 +88,12 @@ describe("what the release covers, asked before anything runs", () => {
         [{ ...base, app: "admin", version: "0.1.1", tagged: true, onPreview: true }],
         "production",
       )[0],
-    ).toEqual({ app: "admin", pending: true, hint: "0.1.1 is on preview, promotes it" });
+    ).toEqual({
+      app: "admin",
+      pending: true,
+      kind: "to promote",
+      hint: "0.1.1 is on preview, promotes it",
+    });
   });
 
   it("given admin 0.1.1 not on preview yet, when promoting to production, then it is greyed out", () => {
@@ -91,6 +102,7 @@ describe("what the release covers, asked before anything runs", () => {
     ).toEqual({
       app: "admin",
       pending: false,
+      kind: "with nothing to release",
       hint: "0.1.1 is not on preview yet: release it there first",
     });
   });
@@ -110,7 +122,12 @@ describe("what the release covers, asked before anything runs", () => {
         ],
         "production",
       )[0],
-    ).toEqual({ app: "admin", pending: false, hint: "0.1.1 is on production, nothing new" });
+    ).toEqual({
+      app: "admin",
+      pending: false,
+      kind: "with nothing to release",
+      hint: "0.1.1 is on production, nothing new",
+    });
   });
 
   it("given the release CLI 0.3.0 released with nothing new, when asked for preview, then it is greyed out since nothing deploys it", () => {
@@ -119,7 +136,12 @@ describe("what the release covers, asked before anything runs", () => {
         [{ ...base, app: "release", version: "0.3.0", tagged: true, releaseOnly: true }],
         "preview",
       )[0],
-    ).toEqual({ app: "release", pending: false, hint: "0.3.0 released, nothing deploys it" });
+    ).toEqual({
+      app: "release",
+      pending: false,
+      kind: "with nothing to release",
+      hint: "0.3.0 released, nothing deploys it",
+    });
   });
 
   it("given the release CLI 0.3.0 released, when promoting to production, then it is greyed out since nothing deploys it", () => {
@@ -128,6 +150,11 @@ describe("what the release covers, asked before anything runs", () => {
         [{ ...base, app: "release", version: "0.3.0", tagged: true, releaseOnly: true }],
         "production",
       )[0],
-    ).toEqual({ app: "release", pending: false, hint: "0.3.0 released, nothing deploys it" });
+    ).toEqual({
+      app: "release",
+      pending: false,
+      kind: "with nothing to release",
+      hint: "0.3.0 released, nothing deploys it",
+    });
   });
 });

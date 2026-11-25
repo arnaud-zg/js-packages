@@ -54,9 +54,10 @@ whole group up.
 
 ## A package or a plugin has no environment
 
-Preview and production are places an app runs. A package goes straight to its registry, and a plugin
-ships when its release PR merges, so neither stops anywhere on the way to its users. A run says
-`live` for them, and `preview` only when something released with them does deploy there.
+Preview is for checking, production is for users. A package with one dist-tag has nothing to check
+on preview: it goes straight to production, with the release when nothing in the repository has a
+preview, else with the next promote. A plugin ships when its release PR merges: a run says `live`
+for it.
 
 ## What runs where is read from the platform
 

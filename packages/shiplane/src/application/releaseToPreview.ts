@@ -4,8 +4,9 @@ import type { ReleaseTag } from "../domain/tags";
 import type { ReleaseContext } from "./context";
 import { nextStep, RELEASE_BRANCH_PREFIX } from "../domain/releasePr";
 import { plural } from "../domain/words";
+import { buildBeforeRelease } from "./buildBeforeRelease";
 import { checkEnvBeforeDeploy } from "./checkEnvBeforeDeploy";
-import { openReleasePr, printSummary } from "./openReleasePr";
+import { mayVersion, openReleasePr, printSummary } from "./openReleasePr";
 import { pickScope } from "./pickScope";
 import { prepareRelease } from "./prepareRelease";
 import { preflight } from "./requirements";
@@ -170,6 +171,9 @@ export const releaseToPreview = async (
     releasePrs,
     untagged: missing.length,
   });
+  if (step.step === "release-pr" && !(await mayVersion(context))) return false;
+  const built = await buildBeforeRelease(context, picking);
+  if (!built) return false;
   const prs = await releasePrsOf(context, { step, scope: picked.scope, missing, stage });
   if (typeof prs === "boolean") return prs;
   let current = context;
@@ -205,6 +209,8 @@ export const releaseToPreview = async (
   return shipTo(current, "preview", {
     scope: new Set([...picked.scope, ...tags.map(({ app }) => app)]),
     envChecked: picked.scope,
+    // A merge moved the versions: what was built before it is not what ships.
+    built: prs.length > 0 ? new Set() : built,
     via,
   });
 };

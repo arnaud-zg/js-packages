@@ -272,10 +272,11 @@ describe("talking to the person who runs the release", () => {
         prompter.typed("Type ship", "ship"),
         prompter.select("Which?", [{ value: "a", label: "A" }]),
         prompter.multiselect("Which ones?", [{ value: "a", label: "A" }], []),
+        prompter.multiselectGroups("Which folders?", [], []),
         prompter.text("Name?"),
         prompter.waitForKey("waiting", 30, ["r"]),
       ]),
-    ).toEqual([false, false, null, null, null, null]);
+    ).toEqual([false, false, null, null, null, null, null]);
     expect(Date.now() - started).toBeGreaterThanOrEqual(25);
   });
 });

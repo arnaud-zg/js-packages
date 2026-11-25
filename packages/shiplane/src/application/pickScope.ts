@@ -1,7 +1,7 @@
 import type { Environment } from "../domain/environment";
-import type { ScopeInfo } from "../domain/scope";
+import type { ScopeChoice, ScopeInfo } from "../domain/scope";
 import type { ReleaseContext } from "./context";
-import { scopeChoices } from "../domain/scope";
+import { byFolder, isLong, scopeChoices } from "../domain/scope";
 import { readScope } from "./readScope";
 import { paint } from "./say";
 import { destination } from "./targets";
@@ -54,10 +54,23 @@ export const pickScope = async (
     return null;
   }
   if (unattended(context)) return { scope: defaultScope(info, environment), info };
-  const picked = await prompter.multiselect(
-    `What do you want to release ${where}? Greyed units have nothing to release.`,
-    choices.map(({ app, pending, hint }) => ({ value: app, label: app, hint, disabled: !pending })),
-    choices.filter(({ pending }) => pending).map(({ app }) => app),
-  );
+  const question = `What do you want to release ${where}? Greyed units have nothing to release.`;
+  const initial = [...defaultScope(info, environment)];
+  const flat = ({ app, pending, hint }: ScopeChoice) => ({
+    value: app,
+    label: app,
+    hint,
+    disabled: !pending,
+  });
+  const folders = () =>
+    byFolder(choices, new Map(context.release.units.map(({ name, dir }) => [name, dir]))).map(
+      (folder) => ({
+        ...folder,
+        choices: folder.choices.map((choice) => ({ ...flat(choice), kind: choice.kind })),
+      }),
+    );
+  const picked = isLong(choices)
+    ? await prompter.multiselectGroups(question, folders(), initial)
+    : await prompter.multiselect(question, choices.map(flat), initial);
   return picked ? { scope: new Set(picked), info } : null;
 };

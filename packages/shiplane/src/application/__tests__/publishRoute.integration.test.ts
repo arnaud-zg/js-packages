@@ -286,7 +286,7 @@ describe("Feature: preview is for checking, production is for users", () => {
 
       const [choice] = scopeChoices(await readScope(context, "preview"), "preview");
 
-      expect(choice).toEqual({ app: "lib", pending, hint });
+      expect(choice).toMatchObject({ app: "lib", pending, hint });
     },
   );
 

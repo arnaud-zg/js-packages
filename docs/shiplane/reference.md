@@ -97,24 +97,46 @@ export default defineRelease({
 });
 ```
 
-| Key           | Means                                                                                                                                                                                                                                                                                                  |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `flow`        | **Required.** One adapter per port: source control, code host, CI, versioning                                                                                                                                                                                                                          |
-| `modules`     | What ships, in release order. The first app is the GitHub Latest release                                                                                                                                                                                                                               |
-| `features`    | What runs after a ship, in order, such as `releaseComments()`                                                                                                                                                                                                                                          |
-| `units`       | Folders to look in. Default: the pnpm workspace, then `package.json` workspaces                                                                                                                                                                                                                        |
-| `tag`         | Tag format: `"package"` (`{name}@{version}`, default), `"plugin"` (`{name}--v{version}`, for Claude Code, Gemini CLI and Codex), `"single"` (`v{version}`), `"module"` (`{name}/v{version}`, Go modules), or your own. A format without `{name}` takes one unit                                        |
-| `display`     | `{ verbose, mascot }` defaults for the flags; `mascot` may be your own ([Mascot](./reference-output.md#mascot))                                                                                                                                                                                        |
-| `testComment` | The test version's PR comment: `comments.table` (default), `comments.compact`, or your own text with `{branch}` `{commit}` `{table}` `{install}` ([how-to](./how-to-test-versions.md#publish-a-test-version))                                                                                          |
-| `testRelease` | Which channel each branch's test release takes: `testReleases.nightly`, `.prerelease`, `.gitflow`, or `{ branch: channel }` with `*` patterns; unlisted branches publish a snapshot ([how-to](./how-to-test-versions.md#give-each-branch-a-channel))                                                   |
-| `via`         | `"ci"` (the flow's CI pipeline) or `"local"` (this machine): how an app ships when both ways can, so a ship stops asking. `--via` wins for one run; a way that cannot ship takes the other                                                                                                             |
-| `prepare`     | A shell command run from the root before each unit ships from this machine or a runner, never before a CI dispatch: `{unit}` its name, `{dir}` its folder, such as `"pnpm --filter {unit}... build"`. A failure fails that unit. Any other `{…}` fails loading: `unknown placeholder {app} in prepare` |
+| Key           | Means                                                                                                                                                                                                                                                                                                                                                   |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `flow`        | **Required.** One adapter per port: source control, code host, CI, versioning                                                                                                                                                                                                                                                                           |
+| `modules`     | What ships, in release order. The first app is the GitHub Latest release                                                                                                                                                                                                                                                                                |
+| `features`    | What runs after a ship, in order, such as `releaseComments()`                                                                                                                                                                                                                                                                                           |
+| `units`       | Folders to look in. Default: the pnpm workspace, then `package.json` workspaces                                                                                                                                                                                                                                                                         |
+| `tag`         | Tag format: `"package"` (`{name}@{version}`, default), `"plugin"` (`{name}--v{version}`, for Claude Code, Gemini CLI and Codex), `"single"` (`v{version}`), `"module"` (`{name}/v{version}`, Go modules), or your own. A format without `{name}` takes one unit                                                                                         |
+| `display`     | `{ verbose, mascot }` defaults for the flags; `mascot` may be your own ([Mascot](./reference-output.md#mascot))                                                                                                                                                                                                                                         |
+| `testComment` | The test version's PR comment: `comments.table` (default), `comments.compact`, or your own text with `{branch}` `{commit}` `{table}` `{install}` ([how-to](./how-to-test-versions.md#publish-a-test-version))                                                                                                                                           |
+| `testRelease` | Which channel each branch's test release takes: `testReleases.nightly`, `.prerelease`, `.gitflow`, or `{ branch: channel }` with `*` patterns; unlisted branches publish a snapshot ([how-to](./how-to-test-versions.md#give-each-branch-a-channel))                                                                                                    |
+| `via`         | `"ci"` (the flow's CI pipeline) or `"local"` (this machine): how an app ships when both ways can, so a ship stops asking. `--via` wins for one run; a way that cannot ship takes the other                                                                                                                                                              |
+| `prepare`     | A shell command run from the root before each unit ships from this machine or a runner, never before a CI dispatch, and [before a release](#build-before-a-release): `{unit}` its name, `{dir}` its folder, such as `"pnpm --filter {unit}... build"`. A failure fails that unit. Any other `{…}` fails loading: `unknown placeholder {app} in prepare` |
 
 Source: `src/application/config/defineRelease.ts`. A `release.config.ts` still loads, with a line
 saying to rename it.
 
 **Release order:** by module in `modules` order, then by name. An app reading another's value
 (`${units.api.url}`) must come after it, or loading fails and names the module to move.
+
+### Build before a release
+
+`pnpm shiplane` builds every picked unit before it writes anything: no release PR, tag or publish
+happens before every build passed. It runs after the sign-in and env checks, with `--yes` too.
+
+| The config           | What runs for each picked unit                                                               |
+| -------------------- | -------------------------------------------------------------------------------------------- |
+| Has a `prepare`      | That command, from the root                                                                  |
+| Has none             | Its `buildCommand`, else its `build` script; the workspace packages it uses first, if needed |
+| Has nothing to build | Nothing                                                                                      |
+
+- **A picked unit always builds**, even when its build looks current, and once even when another
+  picked unit uses it. One failure stops the run.
+- **After a release PR merges**, what ships from this machine builds again: its version moved.
+- **With no release PR to merge**, a unit built here is not built again before it ships. A `prepare`
+  still runs again before each ship when several units are picked, since one may overwrite what
+  another wrote.
+- **A build that changes tracked files** stops the run: they would join the release PR.
+- `ship`, `promote` and test versions are unchanged.
+
+Source: `src/application/buildBeforeRelease.ts`.
 
 ### Build before publishing
 
