@@ -326,7 +326,7 @@ describe("a release that fails part way", () => {
     expect(ofType(source.received, "delete-branch")).toHaveLength(1);
     expect(ofType(host.received, "close")).toEqual([]);
     expect(output.text).toContain("HTTP 502");
-    expect(output.text).toContain("gh pr close 1800");
+    expect(output.text).toContain("fake-host close 1800");
   });
 });
 

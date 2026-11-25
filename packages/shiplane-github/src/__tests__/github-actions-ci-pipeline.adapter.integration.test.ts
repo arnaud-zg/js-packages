@@ -11,8 +11,9 @@ const pipelineOn = (gh: ReturnType<typeof fakeGh>) =>
   gitHubActionsCiPipeline().create({ root: "/repo", shell: gh.shell });
 
 describe("shipping through a GitHub Actions workflow", () => {
-  it("given the pipeline, when a person reads it, then it is called GitHub Actions", () => {
+  it("given the pipeline, when a person reads it, then it is called GitHub Actions and lists its runs with gh", () => {
     expect(pipeline().label).toBe("GitHub Actions");
+    expect(pipeline().runsLine).toBe("gh run list --limit 5");
   });
 
   it("given a workflow, when the core checks a ref holds it, then it looks under .github/workflows", () => {

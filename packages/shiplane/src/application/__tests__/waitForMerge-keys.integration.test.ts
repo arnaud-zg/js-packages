@@ -45,9 +45,9 @@ describe("Feature: waiting for a release PR to merge, with keys to act on it", (
     expect(outcome).toBe("merged");
     expect(output.lines).toEqual([
       `  ✓ Release PR  ${PR.url}`,
-      "    Review and merge it here or on GitHub; this carries on by itself once merged.",
+      "    Review and merge it here or on Fake Host; this carries on by itself once merged.",
       "",
-      "    d see the diff   m merge it from here   o open it on GitHub   Ctrl-C leave, continue later",
+      "    d see the diff   m merge it from here   o open it on Fake Host   Ctrl-C leave, continue later",
       "",
     ]);
     expect(waits).toEqual(["Waiting for #12 to merge 15000 dmo"]);
@@ -142,7 +142,7 @@ describe("Feature: waiting for a release PR to merge, with keys to act on it", (
     expect(polls).toBe(2);
   });
 
-  it("given a repository that allows no merge method, when the person presses m, then it says to merge on GitHub", async () => {
+  it("given a repository that allows no merge method, when the person presses m, then it says to merge on the host", async () => {
     // given
     const { context, host, prompter, output } = setUp();
     host.seed({
@@ -156,7 +156,7 @@ describe("Feature: waiting for a release PR to merge, with keys to act on it", (
 
     // then
     expect(output.lines).toContain(
-      "✗ No merge method: the repository allows none: merge it on GitHub.",
+      "✗ No merge method: the repository allows none: merge it on Fake Host.",
     );
     expect(prompter.asked).toEqual([]);
   });

@@ -147,7 +147,7 @@ export const openPrStep = (
       run: async () => {
         if (opened) await host.closePr(opened, "The release stopped part way, so it closed this.");
       },
-      byHand: () => (opened ? [`gh pr close ${opened.number}`] : []),
+      byHand: () => (opened ? [host.closeLine?.(opened) ?? `close ${opened.url}`] : []),
     },
   };
 };

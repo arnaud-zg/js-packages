@@ -95,6 +95,8 @@ export const githubHost = (root: string, shell: Shell): CodeHostPort => {
   let lastPost = 0;
 
   return {
+    label: "GitHub",
+    closeLine: ({ number }) => `gh pr close ${number}`,
     openPrsFrom: async (branchPrefix) => {
       const prs = OpenPrsSchema.parse(
         await json([

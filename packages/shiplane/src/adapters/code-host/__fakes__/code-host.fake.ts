@@ -45,6 +45,9 @@ const issueOf = ({ url, number }: OpenPr): IssueRef => ({
 
 /** A code host held in memory: seed its pull requests and deploys, read back what it received. */
 export class CodeHostFake implements CodeHostPort {
+  readonly label = "Fake Host";
+  closeLine = (pr: OpenPr) => `fake-host close ${pr.number}`;
+
   private state: HostState = {
     openPrs: [],
     prStates: {},

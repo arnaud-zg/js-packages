@@ -34,7 +34,7 @@ describe("Feature: previewing with --dry-run every command a ship would run", ()
         "  api@0.1.0 → acme-api (fake)",
         "    this machine",
         "      echo deploy acme-api api@0.1.0",
-        "      then record api@0.1.0 on preview in GitHub Deployments",
+        "      then record api@0.1.0 on preview, on Fake Host",
         "    Fake CI",
         "      fake-ci run ship.yml --ref api@0.1.0 -f units=api -f environment=preview",
       ]),

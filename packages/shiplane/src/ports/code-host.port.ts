@@ -11,6 +11,10 @@ export interface Deploy {
 
 /** Where pull requests, comments, release notes and deploy records live. */
 export interface CodeHostPort {
+  /** What a person calls this host, such as `GitHub`; `the code host` when unset. */
+  readonly label?: string;
+  /** The command that closes a pull request, as a person would type it. */
+  closeLine?: (pr: OpenPr) => string;
   /** Open pull requests whose branch starts with the prefix, oldest first. */
   openPrsFrom: (branchPrefix: string) => Promise<OpenPr[]>;
   createPr: (pr: {

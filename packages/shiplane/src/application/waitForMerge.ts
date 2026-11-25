@@ -1,18 +1,22 @@
 import type { MergeMethod, OpenPr, WaitAction } from "../domain/releasePr";
 import type { ReleaseContext } from "./context";
 import { mergeChoices, waitKey } from "../domain/releasePr";
-import { fail, keyHints, paint } from "./say";
+import { fail, hostLabel, keyHints, paint } from "./say";
 
 const POLL_MS = 15_000;
 
 /** How a wait for the release PR ends: merged, closed on the host, or left to a later run. */
 export type WaitOutcome = "merged" | "closed" | "left";
 
-/** Merges the pull request with the method the person picks. GitHub refuses approving your own PR. */
+/** Merges the pull request with the method the person picks. A host refuses approving your own PR. */
 const mergeHere = async (context: ReleaseContext, pr: OpenPr) => {
   const { choices, initial } = mergeChoices(await context.services.codeHost.mergeMethods());
   if (choices.length === 0) {
-    fail(context, "No merge method", "the repository allows none: merge it on GitHub.");
+    fail(
+      context,
+      "No merge method",
+      `the repository allows none: merge it on ${hostLabel(context)}.`,
+    );
     return;
   }
   const method = await context.prompter.select<MergeMethod | "no">(
@@ -34,23 +38,24 @@ const ACTIONS: Record<WaitAction, (context: ReleaseContext, pr: OpenPr) => Promi
 };
 
 /** The keys a wait offers. Someone else approves a release that requires it: no merge from here. */
-const hintsFor = (approvalRequired: boolean) => [
+const hintsFor = (context: ReleaseContext, approvalRequired: boolean) => [
   { key: "d", label: "see the diff" },
   ...(approvalRequired ? [] : [{ key: "m", label: "merge it from here" }]),
-  { key: "o", label: "open it on GitHub" },
+  { key: "o", label: `open it on ${hostLabel(context)}` },
   { key: "Ctrl-C", label: "leave, continue later" },
 ];
 
-/** What the wait is for: someone's approval, or a merge from here or GitHub. */
+/** What the wait is for: someone's approval, or a merge from here or on the host. */
 const sayWaiting = (
-  { output }: ReleaseContext,
+  context: ReleaseContext,
   { pr, approvalRequired }: { pr: OpenPr; approvalRequired: boolean },
 ) => {
+  const { output } = context;
   if (!approvalRequired) {
     output.line(
       paint(
         "dim",
-        "    Review and merge it here or on GitHub; this carries on by itself once merged.",
+        `    Review and merge it here or on ${hostLabel(context)}; this carries on by itself once merged.`,
       ),
     );
     return;
@@ -74,7 +79,7 @@ export const waitForMerge = async (context: ReleaseContext, pr: OpenPr): Promise
     if (state === "OPEN") return "left";
     return state === "MERGED" ? "merged" : "closed";
   }
-  const hints = hintsFor(approvalRequired);
+  const hints = hintsFor(context, approvalRequired);
   if (prompter.interactive) {
     output.line();
     output.line(`    ${keyHints(hints)}`);
