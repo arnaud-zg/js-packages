@@ -173,22 +173,22 @@ describe("the release pull request", () => {
     expect(releaseTitle([])).toBe("chore(release): package changelogs");
   });
 
-  it("given a staging build, when described, then the body says what ships on merge and what each app's users get", () => {
+  it("given a preview build, when described, then the body says what ships on merge and what each app's users get", () => {
     const body = releasePrBody(
       bumps,
       // What each module says on merge: the mobile app builds, a web app deploys.
       ({ app, movedWith }) =>
         app === "expo"
           ? "Build iOS and Android, submitted when done"
-          : `Deploy staging${movedWith.length > 0 ? ` (moved with ${movedWith.join(", ")})` : ""}`,
-      "to staging",
+          : `Deploy preview${movedWith.length > 0 ? ` (moved with ${movedWith.join(", ")})` : ""}`,
+      "to preview",
     );
 
     expect(body).toContain(
       "| expo  | 0.1.114 → 0.2.0 | Build iOS and Android, submitted when done |",
     );
     expect(body).toContain(
-      "| admin | 0.1.0 → 0.1.1   | Deploy staging (moved with @acme/plant-contracts) |",
+      "| admin | 0.1.0 → 0.1.1   | Deploy preview (moved with @acme/plant-contracts) |",
     );
     expect(body).toContain("- An iPhone on iOS 17 cuts the plant out, with Apple Vision.");
   });

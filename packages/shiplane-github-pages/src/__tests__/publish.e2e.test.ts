@@ -42,7 +42,7 @@ const build = (files: Record<string, string>) => {
 };
 
 const ship = (
-  environment: "staging" | "prod",
+  environment: "preview" | "production",
   tag: string,
   settings: Record<string, unknown> = {},
 ) => {
@@ -91,8 +91,8 @@ afterEach(() => {
 
 describe("publishing to the branch GitHub Pages serves", () => {
   it.each([
-    ["staging", ["staging/index.html"]],
-    ["prod", ["index.html"]],
+    ["preview", ["preview/index.html"]],
+    ["production", ["index.html"]],
   ] as const)(
     "given no branch yet, when the site first ships to %s, then the branch holds the site and none of the source",
     (environment, files) => {
@@ -104,30 +104,30 @@ describe("publishing to the branch GitHub Pages serves", () => {
     },
   );
 
-  it("given staging and prod in turn, when each ships again, then each replaces its own files and keeps the other's", () => {
+  it("given preview and production in turn, when each ships again, then each replaces its own files and keeps the other's", () => {
     build({ "index.html": "v1", "old.js": "v1", "a/old.js": "v1" });
-    ship("staging", "site@1.0.0");
-    ship("prod", "site@1.0.0");
+    ship("preview", "site@1.0.0");
+    ship("production", "site@1.0.0");
     build({ "index.html": "v2", "a/new.js": "v2" });
-    ship("prod", "site@1.1.0");
+    ship("production", "site@1.1.0");
 
     expect(published()).toEqual([
       ".nojekyll",
       "a/new.js",
       "index.html",
-      "staging/a/old.js",
-      "staging/index.html",
-      "staging/old.js",
+      "preview/a/old.js",
+      "preview/index.html",
+      "preview/old.js",
     ]);
 
-    ship("staging", "site@1.1.0");
+    ship("preview", "site@1.1.0");
 
     expect(published()).toEqual([
       ".nojekyll",
       "a/new.js",
       "index.html",
-      "staging/a/new.js",
-      "staging/index.html",
+      "preview/a/new.js",
+      "preview/index.html",
     ]);
     expect(commits()).toEqual([
       "site@1.1.0",
@@ -141,16 +141,16 @@ describe("publishing to the branch GitHub Pages serves", () => {
   it("given a site with dotfiles, when it ships, then they are published", () => {
     build({ "index.html": "v1", ".well-known/security.txt": "v1" });
 
-    ship("prod", "site@1.0.0");
+    ship("production", "site@1.0.0");
 
     expect(published()).toEqual([".nojekyll", ".well-known/security.txt", "index.html"]);
   });
 
-  it("given a custom domain, when prod ships again without naming it, then CNAME is kept", () => {
+  it("given a custom domain, when production ships again without naming it, then CNAME is kept", () => {
     build({ "index.html": "v1" });
-    ship("prod", "site@1.0.0", { domain: "www.acme.dev" });
+    ship("production", "site@1.0.0", { domain: "www.acme.dev" });
     build({ "index.html": "v2" });
-    ship("prod", "site@1.1.0");
+    ship("production", "site@1.1.0");
 
     expect(published()).toEqual([".nojekyll", "CNAME", "index.html"]);
     expect(run("git", ["show", "FETCH_HEAD:CNAME"])).toBe("www.acme.dev");
@@ -158,8 +158,8 @@ describe("publishing to the branch GitHub Pages serves", () => {
 
   it("given the same build again, when it ships, then no commit is added", () => {
     build({ "index.html": "v1" });
-    ship("prod", "site@1.0.0");
-    ship("prod", "site@1.0.0");
+    ship("production", "site@1.0.0");
+    ship("production", "site@1.0.0");
     published();
 
     expect(commits()).toEqual(["site@1.0.0", "start gh-pages"]);
@@ -168,7 +168,7 @@ describe("publishing to the branch GitHub Pages serves", () => {
   it("given another branch, when the site ships, then it goes there and main is untouched", () => {
     build({ "index.html": "v1" });
 
-    ship("prod", "site@1.0.0", { branch: "master" });
+    ship("production", "site@1.0.0", { branch: "master" });
 
     expect(published("master")).toEqual([".nojekyll", "index.html"]);
     expect(published("main")).toContain("src/secret.ts");

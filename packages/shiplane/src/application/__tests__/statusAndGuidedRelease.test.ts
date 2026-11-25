@@ -28,17 +28,17 @@ const setUp = () => {
   });
   world.source.seed({ tags: { "admin@0.1.1": "t1", "api@0.0.1": "t0" } });
   world.host.seed({
-    deployments: [{ title: "Deploy admin@0.1.1 to staging", state: "done" }],
+    deployments: [{ title: "Deploy admin@0.1.1 to preview", state: "done" }],
     releasedTags: ["admin@0.1.1", "api@0.0.1"],
   });
   return world;
 };
 
 describe("the status of a release", () => {
-  it("given a changeset naming api and admin 0.1.1 already on staging, when the status is read, then api has a change to release and admin has nothing new", async () => {
+  it("given a changeset naming api and admin 0.1.1 already on preview, when the status is read, then api has a change to release and admin has nothing new", async () => {
     const { context } = setUp();
 
-    const status = await readStatus(context, "staging");
+    const status = await readStatus(context, "preview");
 
     expect(status.units).toEqual([
       expect.objectContaining({
@@ -50,7 +50,7 @@ describe("the status of a release", () => {
       expect.objectContaining({
         unit: "admin",
         pending: false,
-        hint: "0.1.1 is on staging, nothing new",
+        hint: "0.1.1 is on preview, nothing new",
       }),
     ]);
     expect(status.next).toEqual({ step: "release-pr" });
@@ -60,7 +60,7 @@ describe("the status of a release", () => {
     const { context, host } = setUp();
     host.seed({ openPrs: [{ branch: "chore/release-notes", pr: { number: 1789, url: "u" } }] });
 
-    const status = await readStatus(context, "staging");
+    const status = await readStatus(context, "preview");
 
     expect(status.releasePrs).toEqual([]);
     expect(status.next).toEqual({ step: "release-pr" });
@@ -72,7 +72,7 @@ describe("the status of a release", () => {
       openPrs: [{ branch: "shiplane/release-2026-10-12-0900", pr: { number: 1790, url: "u" } }],
     });
 
-    const status = await readStatus(context, "staging");
+    const status = await readStatus(context, "preview");
 
     expect(status.next).toEqual({ step: "wait-merge", prs: [{ number: 1790, url: "u" }] });
   });
@@ -121,7 +121,7 @@ describe("waiting for the release pull request", () => {
   });
 });
 
-describe("a release to staging, from the top", () => {
+describe("a release to preview, from the top", () => {
   it("given a release PR already open, when release runs, then it waits for the merge, pulls main and tags what it versioned", async () => {
     const { context, source, host, prompter } = setUp();
     host.seed({
@@ -222,11 +222,11 @@ describe("resuming a mobile release whose build never shipped", () => {
     });
     world.source.seed({ tags: { "expo@0.5.0": "t0", "expo@0.6.0": "t1" } });
     world.host.seed({ releasedTags: ["expo@0.5.0", "expo@0.6.0"] });
-    mobile.fake.seed({ live: { staging: "0.5.0" } });
+    mobile.fake.seed({ live: { preview: "0.5.0" } });
     return world;
   };
 
-  it("given expo@0.6.0 tagged with its notes out but staging still on 0.5.0, when release runs again, then expo is offered and preselected as a retry", async () => {
+  it("given expo@0.6.0 tagged with its notes out but preview still on 0.5.0, when release runs again, then expo is offered and preselected as a retry", async () => {
     const { context, prompter } = setUpExpo();
     prompter.answer(null);
 
@@ -237,7 +237,7 @@ describe("resuming a mobile release whose build never shipped", () => {
       {
         value: "expo",
         label: "expo",
-        hint: "0.6.0 tagged, never reached staging: retry",
+        hint: "0.6.0 tagged, never reached preview: retry",
         disabled: false,
       },
     ]);
@@ -248,7 +248,7 @@ describe("resuming a mobile release whose build never shipped", () => {
     const { context, shell, output } = setUpExpo({ yes: true, interactive: false });
     shell.seed("echo update", { status: 1 });
 
-    expect(await shipTo(context, "staging", { via: "local" })).toBe(false);
+    expect(await shipTo(context, "preview", { via: "local" })).toBe(false);
     expect(output.text).toContain("Run shiplane again: it offers expo@0.6.0 again");
   });
 });

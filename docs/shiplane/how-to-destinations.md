@@ -25,17 +25,17 @@ first, and nothing reaches them by accident.
 ## Deploy apps through your environments
 
 ```ts
-deployApps: { promote: [{ from: "staging", to: "prod" }] },
+deployApps: { promote: [{ from: "preview", to: "production" }] },
 ```
 
-The names are yours. A release deploys to `staging`; `pnpm shiplane promote` takes the same version
-to `prod`, once `staging` runs it.
+The names are yours. A release deploys to `preview`; `pnpm shiplane promote` takes the same version
+to `production`, once `preview` runs it.
 
-| You want                 | Write                                                               |
-| ------------------------ | ------------------------------------------------------------------- |
-| One more stop on the way | `[{ from: "dev", to: "staging" }, { from: "staging", to: "prod" }]` |
-| Straight to users        | `[{ to: "prod" }]`                                                  |
-| Nothing promoted         | `[{ from: "staging" }]`                                             |
+| You want                 | Write                                                                     |
+| ------------------------ | ------------------------------------------------------------------------- |
+| One more stop on the way | `[{ from: "dev", to: "preview" }, { from: "preview", to: "production" }]` |
+| Straight to users        | `[{ to: "production" }]`                                                  |
+| Nothing promoted         | `[{ from: "preview" }]`                                                   |
 
 **What protects your users:** the last `to` is where they are. Shiplane asks to type its name,
 refuses `--yes` there, and refuses an app version the environment before does not run. A run you
@@ -47,21 +47,21 @@ takes one step:
 
 ```yaml
 app:
-  staging: acme-api-staging
-  prod: acme-api
+  preview: acme-api-preview
+  production: acme-api
 ```
 
 ## Try a branch on a real environment
 
 ```ts
-deployApps: { promote: [{ from: "staging", to: "prod" }], onBranch: "staging" },
+deployApps: { promote: [{ from: "preview", to: "production" }], onBranch: "preview" },
 ```
 
 ```sh
 pnpm shiplane test-release snapshot
 ```
 
-On a branch, it deploys the apps with pending changes to `staging`, asked first, so someone can try
+On a branch, it deploys the apps with pending changes to `preview`, asked first, so someone can try
 them before the merge. It replaces what runs there until the next release, and is never where users
 are. [What it leaves out](./how-to-test-versions.md#deploy-a-branch).
 
@@ -80,5 +80,5 @@ List the channels you use: with no list, any word is a channel, a typo included.
 ## Example
 
 [`examples/repository/shiplane.config.ts`](../../packages/shiplane/examples/repository/shiplane.config.ts)
-deploys an API and a site through `staging` and `prod`;
+deploys an API and a site through `preview` and `production`;
 `packages/shiplane-integration/src/__tests__/examples.e2e.test.ts` runs it.

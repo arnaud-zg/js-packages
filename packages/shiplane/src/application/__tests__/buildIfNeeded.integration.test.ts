@@ -31,7 +31,7 @@ const world = (files: Record<string, string> = FRESH) => {
     made.shell.calls
       .filter(({ command }) => command === "npm" || command === "sh" || command === "echo")
       .map(({ command, args }) => [command, ...args].join(" "));
-  return { ...made, commands, ship: () => shipTo(made.context, "staging", { via: "local" }) };
+  return { ...made, commands, ship: () => shipTo(made.context, "preview", { via: "local" }) };
 };
 
 describe("Feature: building a package right before it publishes, only when needed", () => {
@@ -142,7 +142,7 @@ describe("Feature: building a package right before it publishes, only when neede
   it("given a dry run, when planned, then the build is shown and nothing runs", async () => {
     const { context, commands, output } = world();
 
-    await planShips(context, "staging");
+    await planShips(context, "preview");
 
     expect(output.text).toContain("npm run build  (in packages/lib, if needed)");
     expect(commands()).toEqual([]);

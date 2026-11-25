@@ -83,7 +83,7 @@ describe("Feature: starting to ship one more app", () => {
     expect(files.read("shiplane.config.ts")).toBe(
       CONFIG.replace(
         /^ {2}modules:/m,
-        (found) => `  deployApps: { promote: [{ from: "staging", to: "prod" }] },\n${found}`,
+        (found) => `  deployApps: { promote: [{ from: "preview", to: "production" }] },\n${found}`,
       ),
     );
     expect(files.read(SCHEMA)).toContain('"web-app"');

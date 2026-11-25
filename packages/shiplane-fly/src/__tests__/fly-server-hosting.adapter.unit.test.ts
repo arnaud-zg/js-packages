@@ -28,14 +28,14 @@ describe("recognising an app Fly ships", () => {
   it("given a toml per environment, when init looks at the folder, then each environment gets its own app and toml", () => {
     const found = fly.detect?.(
       folder({
-        "fly-staging.toml": 'app = "acme-api-staging"\n',
-        "fly-prod.toml": 'app = "acme-api"\n',
+        "fly-preview.toml": 'app = "acme-api-preview"\n',
+        "fly-production.toml": 'app = "acme-api"\n',
       }),
     );
 
     expect(found?.options).toEqual({
-      app: { staging: "acme-api-staging", prod: "acme-api" },
-      config: { staging: "fly-staging.toml", prod: "fly-prod.toml" },
+      app: { preview: "acme-api-preview", production: "acme-api" },
+      config: { preview: "fly-preview.toml", production: "fly-production.toml" },
     });
   });
 
@@ -82,29 +82,29 @@ describe("recognising an app Fly ships", () => {
     expect(fly.questions?.(at, found?.options ?? {}, "acme")).toEqual([]);
   });
 
-  it("given only a staging toml, when shiplane init scans the app, then that toml configures a single Fly app", () => {
+  it("given only a preview toml, when shiplane init scans the app, then that toml configures a single Fly app", () => {
     const found = fly.detect?.(
-      folder({ "fly-staging.toml": 'app =  "acme-api-staging"\n', Dockerfile: "FROM node:24\n" }),
+      folder({ "fly-preview.toml": 'app =  "acme-api-preview"\n', Dockerfile: "FROM node:24\n" }),
     );
 
     expect(found).toEqual({
       certainty: "found",
-      reason: "fly-staging.toml",
-      options: { app: "acme-api-staging", config: "fly-staging.toml" },
+      reason: "fly-preview.toml",
+      options: { app: "acme-api-preview", config: "fly-preview.toml" },
     });
   });
 
   it("given a toml per environment, one with a commented-out app line, when shiplane init scans the app, then it names both tomls and reads each live app name", () => {
     const found = fly.detect?.(
       folder({
-        "fly-prod.toml": 'app = "acme-api"\n',
-        "fly-staging.toml": '# app = "old"\napp = "acme-api-staging"\n',
+        "fly-production.toml": 'app = "acme-api"\n',
+        "fly-preview.toml": '# app = "old"\napp = "acme-api-preview"\n',
       }),
     );
 
-    expect(found?.reason).toBe("fly-prod.toml, fly-staging.toml");
+    expect(found?.reason).toBe("fly-preview.toml, fly-production.toml");
     expect(found?.options).toMatchObject({
-      app: { staging: "acme-api-staging", prod: "acme-api" },
+      app: { preview: "acme-api-preview", production: "acme-api" },
     });
   });
 
@@ -168,11 +168,11 @@ describe("deploying to Fly", () => {
       flow: TEST_FLOW,
       unit,
       tag: "api@1.0.0",
-      environment: "staging",
+      environment: "preview",
       commit: "abc1234",
       defaultBranch: "main",
       options: {
-        app: "acme-api-staging",
+        app: "acme-api-preview",
         config: "fly.toml",
         dockerfile: "Dockerfile",
         buildSecrets: ["SENTRY_AUTH_TOKEN"],
@@ -183,22 +183,22 @@ describe("deploying to Fly", () => {
     expect(job?.record).toBe(true);
   });
 
-  it("given a unit file that sets only its app, when the app ships to staging, then flyctl deploys it remotely from the unit's fly.toml and Dockerfile", () => {
+  it("given a unit file that sets only its app, when the app ships to preview, then flyctl deploys it remotely from the unit's fly.toml and Dockerfile", () => {
     const unit = testUnit("api", { module: "backend-service", dir: "apps/api" });
-    const options = fly.settings.parse({ app: "acme-api-staging" });
+    const options = fly.settings.parse({ app: "acme-api-preview" });
 
     const [job] = port.jobs({
       flow: TEST_FLOW,
       unit,
       tag: "api@1.0.0",
-      environment: "staging",
+      environment: "preview",
       commit: "abc1234",
       defaultBranch: "main",
       options,
     });
 
     expect(job).toEqual({
-      label: "deploy api@1.0.0 to acme-api-staging (Fly)",
+      label: "deploy api@1.0.0 to acme-api-preview (Fly)",
       local: [
         {
           command: "flyctl",

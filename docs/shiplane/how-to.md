@@ -11,7 +11,7 @@ One page per area, one task per section. New here? Start with the [Tutorial](./t
 | [📝 YAML config](./how-to-yaml.md)               | Write the config in YAML, set up or migrate to YAML, get autocomplete, give an adapter options, name an adapter of your own, use a preset |
 | [🧩 Apps](./how-to-apps.md)                      | Add an app, stop shipping one, set a value per environment, read another app's value, check env before deploy, hold an app back           |
 | [🎯 Destinations](./how-to-destinations.md)      | Deploy apps through your environments, try a branch on one, publish packages on channels                                                  |
-| [🚢 Release](./how-to-release.md)                | Force another version, see every command first, promote to prod, widen a rollout, retry a failed release                                  |
+| [🚢 Release](./how-to-release.md)                | Force another version, see every command first, promote to production, widen a rollout, retry a failed release                            |
 | [🧪 Test versions](./how-to-test-versions.md)    | Publish a test version, pick its channel, shape its pull request comment, clean up old snapshots                                          |
 | [⚙️ CI](./how-to-ci.md)                          | Choose GitHub Actions or this machine, ship from GitHub Actions, set up any Node project, ship with no laptop, use it from a script       |
 | [📦 Packages and versions](./how-to-versions.md) | Publish to npm, release Claude Code plugins, choose how versions are bumped, release from commits, shape release notes                    |

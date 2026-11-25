@@ -10,7 +10,7 @@ const clientOver = (shell: RecordingShell) => easClient({ shell, cwd: CWD });
 const easBuild = (overrides: Record<string, unknown> = {}) => ({
   id: "build-1",
   status: "FINISHED",
-  buildProfile: "staging",
+  buildProfile: "preview",
   isForIosSimulator: false,
   appVersion: "0.1.115",
   appBuildVersion: "158",
@@ -36,7 +36,7 @@ describe("seeing which store build a channel ships and which is still building",
 
     const builds = await clientOver(shell).channelBuilds({
       platform: "ios",
-      environment: "staging",
+      environment: "preview",
     });
 
     expect(builds).toEqual({
@@ -65,7 +65,7 @@ describe("seeing which store build a channel ships and which is still building",
           "--non-interactive",
         ],
         cwd: CWD,
-        env: { APP_VARIANT: "staging" },
+        env: { APP_VARIANT: "preview" },
       },
     ]);
   });
@@ -74,8 +74,8 @@ describe("seeing which store build a channel ships and which is still building",
     const shell = listing([easBuild()]);
     const client = clientOver(shell);
 
-    await client.channelBuilds({ platform: "android", environment: "staging" });
-    await client.versionBuilds({ platform: "android", environment: "staging", version: "0.1.115" });
+    await client.channelBuilds({ platform: "android", environment: "preview" });
+    await client.versionBuilds({ platform: "android", environment: "preview", version: "0.1.115" });
 
     expect(shell.calls).toHaveLength(1);
   });
@@ -90,7 +90,7 @@ describe("seeing which store build a channel ships and which is still building",
 
     const builds = await clientOver(shell).versionBuilds({
       platform: "ios",
-      environment: "staging",
+      environment: "preview",
       version: "0.1.115",
     });
 
@@ -109,7 +109,7 @@ describe("seeing which store build a channel ships and which is still building",
 
     const builds = await clientOver(shell).versionBuilds({
       platform: "ios",
-      environment: "staging",
+      environment: "preview",
       version: "0.1.115",
     });
 
@@ -133,7 +133,7 @@ describe("seeing which store build a channel ships and which is still building",
 
     const builds = await clientOver(shell).versionBuilds({
       platform: "ios",
-      environment: "staging",
+      environment: "preview",
       version: "0.1.115",
     });
 
@@ -148,7 +148,7 @@ describe("seeing which store build a channel ships and which is still building",
     });
 
     await expect(
-      clientOver(shell).channelBuilds({ platform: "ios", environment: "prod" }),
+      clientOver(shell).channelBuilds({ platform: "ios", environment: "production" }),
     ).rejects.toThrow("eas build:list exited with 1: Error: Not logged in");
   });
 
@@ -159,7 +159,7 @@ describe("seeing which store build a channel ships and which is still building",
     });
 
     await expect(
-      clientOver(shell).channelBuilds({ platform: "ios", environment: "prod" }),
+      clientOver(shell).channelBuilds({ platform: "ios", environment: "production" }),
     ).rejects.toThrow(/^eas build:list exited with 2: last line$/);
   });
 });
@@ -184,7 +184,7 @@ describe("seeing which builds were submitted to the stores", () => {
 
     const submissions = await clientOver(shell).submissions({
       platform: "android",
-      environment: "prod",
+      environment: "production",
     });
 
     expect(submissions).toEqual([
@@ -212,7 +212,7 @@ describe("seeing which builds were submitted to the stores", () => {
     });
 
     await expect(
-      clientOver(shell).submissions({ platform: "ios", environment: "staging" }),
+      clientOver(shell).submissions({ platform: "ios", environment: "preview" }),
     ).resolves.toBeNull();
   });
 });
@@ -245,7 +245,7 @@ describe("seeing why an app needs a new store build", () => {
 
     const changes = await clientOver(shell).nativeChanges({
       buildId: "build-1",
-      environment: "staging",
+      environment: "preview",
     });
 
     expect(changes).toEqual([
@@ -265,11 +265,11 @@ describe("seeing why an app needs a new store build", () => {
 
 describe("seeing which over-the-air update a channel runs", () => {
   it("given the newest update was published to the channel, when shiplane reads the last update, then it reaches everyone", async () => {
-    const shell = new RecordingShell().seed("pnpm exec eas update:list --branch prod", {
+    const shell = new RecordingShell().seed("pnpm exec eas update:list --branch production", {
       stdout: JSON.stringify({ currentPage: [{ group: "g1" }, { group: "g0" }] }),
     });
 
-    const last = await clientOver(shell).lastUpdate("prod");
+    const last = await clientOver(shell).lastUpdate("production");
 
     expect(last).toEqual({ group: "g1", rolloutPercentage: 100 });
     expect(shell.calls[0]?.args).toEqual([
@@ -277,7 +277,7 @@ describe("seeing which over-the-air update a channel runs", () => {
       "eas",
       "update:list",
       "--branch",
-      "prod",
+      "production",
       "--limit",
       "1",
       "--json",
@@ -290,7 +290,7 @@ describe("seeing which over-the-air update a channel runs", () => {
       stdout: JSON.stringify({ currentPage: [] }),
     });
 
-    await expect(clientOver(shell).lastUpdate("staging")).resolves.toBeNull();
+    await expect(clientOver(shell).lastUpdate("preview")).resolves.toBeNull();
   });
 
   it("given a published update, when shiplane asks where it came from, then it shows the commit and date it was published from", async () => {
@@ -298,7 +298,7 @@ describe("seeing which over-the-air update a channel runs", () => {
       stdout: JSON.stringify([{ gitCommitHash: "abc", createdAt: "2026-10-10T09:00:00.000Z" }]),
     });
 
-    const origin = await clientOver(shell).updateOrigin({ group: "g1", environment: "staging" });
+    const origin = await clientOver(shell).updateOrigin({ group: "g1", environment: "preview" });
 
     expect(origin).toEqual({ commit: "abc", createdAt: "2026-10-10T09:00:00.000Z" });
     expect(shell.calls[0]?.args).toEqual(["exec", "eas", "update:view", "g1", "--json"]);
@@ -308,7 +308,7 @@ describe("seeing which over-the-air update a channel runs", () => {
     const shell = new RecordingShell().seed("pnpm exec eas update:view", { stdout: "[]" });
 
     await expect(
-      clientOver(shell).updateOrigin({ group: "g1", environment: "staging" }),
+      clientOver(shell).updateOrigin({ group: "g1", environment: "preview" }),
     ).resolves.toEqual({ commit: null, createdAt: null });
   });
 });

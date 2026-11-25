@@ -56,7 +56,7 @@ const setUp = ({
           files: ["apps/expo/eas.json"],
         },
         {
-          subject: "fix(build): iOS staging builds bundle without running out of memory (#1912)",
+          subject: "fix(build): iOS preview builds bundle without running out of memory (#1912)",
           files: ["packages/app/src/index.ts"],
         },
         { subject: "fix(app): a typo in the yard (#1915)", files: ["packages/app/src/yard.ts"] },
@@ -64,7 +64,7 @@ const setUp = ({
       [`${tag("api", "0.0.10")}..${tag("api", "0.0.11")}`]: [
         { subject: "feat(api): plants load faster (#1914)", files: ["apps/api/src/plants.ts"] },
         {
-          subject: "fix(build): iOS staging builds bundle without running out of memory (#1912)",
+          subject: "fix(build): iOS preview builds bundle without running out of memory (#1912)",
           files: ["packages/app/src/index.ts"],
         },
       ],
@@ -109,47 +109,47 @@ const onPrs = (events: readonly HostEvent[]) =>
   posted(events).filter(({ issue }) => PRS.has(issue));
 
 describe("telling PRs and issues a release shipped them", () => {
-  it("given a version's merged PRs, when it ships to staging, then each PR gets one comment naming the environment, the version and its issues", async () => {
+  it("given a version's merged PRs, when it ships to preview, then each PR gets one comment naming the environment, the version and its issues", async () => {
     const { context, host, prompter } = setUp();
     prompter.answer(true);
 
-    await shipTo(context, "staging", {});
+    await shipTo(context, "preview", {});
 
     expect(onPrs(host.received)).toEqual([
       {
         type: "comment",
         issue: `${REPO}#1912`,
-        body: "🚀 Released to **staging** in version **0.4.2** (expo, issue #1549).\n\n<!-- shiplane-release: expo@0.4.2 staging -->",
+        body: "🚀 Released to **preview** in version **0.4.2** (expo, issue #1549).\n\n<!-- shiplane-release: expo@0.4.2 preview -->",
       },
       {
         type: "comment",
         issue: `${REPO}#1913`,
-        body: "🚀 Released to **staging** in version **0.4.2** (expo, issues #1549, #1550).\n\n<!-- shiplane-release: expo@0.4.2 staging -->",
+        body: "🚀 Released to **preview** in version **0.4.2** (expo, issues #1549, #1550).\n\n<!-- shiplane-release: expo@0.4.2 preview -->",
       },
       {
         type: "comment",
         issue: `${REPO}#1915`,
-        body: "🚀 Released to **staging** in version **0.4.2** (expo).\n\n<!-- shiplane-release: expo@0.4.2 staging -->",
+        body: "🚀 Released to **preview** in version **0.4.2** (expo).\n\n<!-- shiplane-release: expo@0.4.2 preview -->",
       },
     ]);
   });
 
-  it("given a version whose merged PRs relate to issues, when it ships to staging, then each issue gets one comment naming the environment, the version and its PRs", async () => {
+  it("given a version whose merged PRs relate to issues, when it ships to preview, then each issue gets one comment naming the environment, the version and its PRs", async () => {
     const { context, host, prompter } = setUp();
     prompter.answer(true);
 
-    expect(await shipTo(context, "staging", {})).toBe(true);
+    expect(await shipTo(context, "preview", {})).toBe(true);
 
     expect(onIssues(host.received)).toEqual([
       {
         type: "comment",
         issue: `${REPO}#1549`,
-        body: "🚀 Released to **staging** in version **0.4.2** (expo, PR #1912, #1913).\n\n<!-- shiplane-release: expo@0.4.2 staging -->",
+        body: "🚀 Released to **preview** in version **0.4.2** (expo, PR #1912, #1913).\n\n<!-- shiplane-release: expo@0.4.2 preview -->",
       },
       {
         type: "comment",
         issue: `${REPO}#1550`,
-        body: "🚀 Released to **staging** in version **0.4.2** (expo, PR #1913).\n\n<!-- shiplane-release: expo@0.4.2 staging -->",
+        body: "🚀 Released to **preview** in version **0.4.2** (expo, PR #1913).\n\n<!-- shiplane-release: expo@0.4.2 preview -->",
       },
     ]);
   });
@@ -158,7 +158,7 @@ describe("telling PRs and issues a release shipped them", () => {
     const { context, host, prompter } = setUp();
     prompter.answer(true);
 
-    await shipTo(context, "staging", {});
+    await shipTo(context, "preview", {});
 
     const issues = posted(host.received).map(({ issue }) => issue);
     expect(issues).not.toContain(`${REPO}#1600`);
@@ -169,7 +169,7 @@ describe("telling PRs and issues a release shipped them", () => {
     const { context, host, prompter } = setUp();
     prompter.answer(true);
 
-    await shipTo(context, "staging", {});
+    await shipTo(context, "preview", {});
 
     expect(host.reads).toEqual(["pull-requests", "comments"]);
   });
@@ -178,9 +178,9 @@ describe("telling PRs and issues a release shipped them", () => {
     const { context, host, prompter } = setUp();
     prompter.answer(true, true);
 
-    await shipTo(context, "staging", {});
+    await shipTo(context, "preview", {});
     host.seed({ deployments: [] });
-    await shipTo(context, "staging", {});
+    await shipTo(context, "preview", {});
 
     expect(posted(host.received)).toHaveLength(5);
   });
@@ -189,33 +189,33 @@ describe("telling PRs and issues a release shipped them", () => {
     const { context, host, prompter } = setUp({ tagFormat: "{name}--v{version}" });
     prompter.answer(true, true);
 
-    await shipTo(context, "staging", {});
+    await shipTo(context, "preview", {});
     host.seed({ deployments: [] });
-    await shipTo(context, "staging", {});
+    await shipTo(context, "preview", {});
 
     expect(posted(host.received)).toHaveLength(5);
   });
 
-  it("given issues already told about staging, when the version is promoted to prod, then they hear about prod", async () => {
+  it("given issues already told about preview, when the version is promoted to production, then they hear about production", async () => {
     const { context, host, prompter } = setUp();
     host.seed({
-      deployments: [{ title: "Deploy expo@0.4.2 to staging", state: "done" }],
+      deployments: [{ title: "Deploy expo@0.4.2 to preview", state: "done" }],
       comments: {
-        [`${REPO}#1912`]: ["<!-- shiplane-release: expo@0.4.2 staging -->"],
-        [`${REPO}#1549`]: ["<!-- shiplane-release: expo@0.4.2 staging -->"],
-        [`${REPO}#1550`]: ["<!-- shiplane-release: expo@0.4.2 staging -->"],
+        [`${REPO}#1912`]: ["<!-- shiplane-release: expo@0.4.2 preview -->"],
+        [`${REPO}#1549`]: ["<!-- shiplane-release: expo@0.4.2 preview -->"],
+        [`${REPO}#1550`]: ["<!-- shiplane-release: expo@0.4.2 preview -->"],
       },
     });
-    prompter.answer("prod", true);
+    prompter.answer("production", true);
 
-    await shipTo(context, "prod", {});
+    await shipTo(context, "production", {});
 
     expect(posted(host.received).map(({ body }) => body.split("\n")[0])).toEqual([
-      "🚀 Released to **prod** in version **0.4.2** (expo, issue #1549).",
-      "🚀 Released to **prod** in version **0.4.2** (expo, issues #1549, #1550).",
-      "🚀 Released to **prod** in version **0.4.2** (expo).",
-      "🚀 Released to **prod** in version **0.4.2** (expo, PR #1912, #1913).",
-      "🚀 Released to **prod** in version **0.4.2** (expo, PR #1913).",
+      "🚀 Released to **production** in version **0.4.2** (expo, issue #1549).",
+      "🚀 Released to **production** in version **0.4.2** (expo, issues #1549, #1550).",
+      "🚀 Released to **production** in version **0.4.2** (expo).",
+      "🚀 Released to **production** in version **0.4.2** (expo, PR #1912, #1913).",
+      "🚀 Released to **production** in version **0.4.2** (expo, PR #1913).",
     ]);
   });
 
@@ -224,9 +224,9 @@ describe("telling PRs and issues a release shipped them", () => {
     host.failComment(new Error("gh issue comment exited with 1: HTTP 403"));
     prompter.answer(true);
 
-    expect(await shipTo(context, "staging", {})).toBe(true);
+    expect(await shipTo(context, "preview", {})).toBe(true);
 
-    expect(output.text).toContain(`comment on ${REPO}#1549: expo@0.4.2 on staging`);
+    expect(output.text).toContain(`comment on ${REPO}#1549: expo@0.4.2 on preview`);
     expect(output.text).toContain("HTTP 403");
   });
 
@@ -235,7 +235,7 @@ describe("telling PRs and issues a release shipped them", () => {
     host.seed({ pullRequests: {} });
     prompter.answer(true);
 
-    expect(await shipTo(context, "staging", {})).toBe(true);
+    expect(await shipTo(context, "preview", {})).toBe(true);
 
     expect(posted(host.received)).toEqual([]);
     expect(output.text).toContain("release-comments  could not read: no pull request #1912");
@@ -245,7 +245,7 @@ describe("telling PRs and issues a release shipped them", () => {
     const { context, host, prompter } = setUp({ apps: ["api"] });
     prompter.answer(true);
 
-    await shipTo(context, "staging", {});
+    await shipTo(context, "preview", {});
 
     expect(posted(host.received)).toEqual([]);
   });
@@ -255,7 +255,7 @@ describe("telling PRs and issues a release shipped them", () => {
     source.seed({ tags: { "expo@0.4.2": "t42" } });
     prompter.answer(true);
 
-    await shipTo(context, "staging", {});
+    await shipTo(context, "preview", {});
 
     expect(posted(host.received)).toEqual([]);
     expect(host.reads).toEqual([]);
@@ -265,11 +265,11 @@ describe("telling PRs and issues a release shipped them", () => {
   it("given a plan, when it runs, then it lists the comments a ship would post and posts none", async () => {
     const { context, host, output } = setUp();
 
-    await planShips(context, "staging");
+    await planShips(context, "preview");
 
-    expect(output.text).toContain(`comment on ${REPO}#1912: expo@0.4.2 on staging`);
-    expect(output.text).toContain(`comment on ${REPO}#1549: expo@0.4.2 on staging`);
-    expect(output.text).toContain(`comment on ${REPO}#1550: expo@0.4.2 on staging`);
+    expect(output.text).toContain(`comment on ${REPO}#1912: expo@0.4.2 on preview`);
+    expect(output.text).toContain(`comment on ${REPO}#1549: expo@0.4.2 on preview`);
+    expect(output.text).toContain(`comment on ${REPO}#1550: expo@0.4.2 on preview`);
     expect(host.received).toEqual([]);
   });
 });
@@ -279,21 +279,21 @@ describe("one comment per PR or issue, whatever the units that ship it", () => {
     const { context, host, prompter } = setUp({ units: [EXPO, API] });
     prompter.answer(true, true);
 
-    await shipTo(context, "staging", {});
+    await shipTo(context, "preview", {});
 
     const on = (issue: string) => posted(host.received).filter((event) => event.issue === issue);
     expect(on(`${REPO}#1912`)).toEqual([
       {
         type: "comment",
         issue: `${REPO}#1912`,
-        body: "🚀 Released to **staging** in versions **0.4.2** (expo) and **0.0.11** (api), issue #1549.\n\n<!-- shiplane-release: expo@0.4.2 staging -->\n<!-- shiplane-release: api@0.0.11 staging -->",
+        body: "🚀 Released to **preview** in versions **0.4.2** (expo) and **0.0.11** (api), issue #1549.\n\n<!-- shiplane-release: expo@0.4.2 preview -->\n<!-- shiplane-release: api@0.0.11 preview -->",
       },
     ]);
     expect(on(`${REPO}#1549`)).toEqual([
       {
         type: "comment",
         issue: `${REPO}#1549`,
-        body: "🚀 Released to **staging** in versions **0.4.2** (expo) and **0.0.11** (api), PR #1912, #1913.\n\n<!-- shiplane-release: expo@0.4.2 staging -->\n<!-- shiplane-release: api@0.0.11 staging -->",
+        body: "🚀 Released to **preview** in versions **0.4.2** (expo) and **0.0.11** (api), PR #1912, #1913.\n\n<!-- shiplane-release: expo@0.4.2 preview -->\n<!-- shiplane-release: api@0.0.11 preview -->",
       },
     ]);
     expect(host.reads).toEqual(["pull-requests", "comments"]);
@@ -302,17 +302,17 @@ describe("one comment per PR or issue, whatever the units that ship it", () => {
   it("given a PR already told about one unit, when both ship, then its comment names only the other", async () => {
     const { context, host, prompter } = setUp({ units: [EXPO, API] });
     host.seed({
-      comments: { [`${REPO}#1912`]: ["<!-- shiplane-release: expo@0.4.2 staging -->"] },
+      comments: { [`${REPO}#1912`]: ["<!-- shiplane-release: expo@0.4.2 preview -->"] },
     });
     prompter.answer(true, true);
 
-    await shipTo(context, "staging", {});
+    await shipTo(context, "preview", {});
 
     expect(posted(host.received).filter(({ issue }) => issue === `${REPO}#1912`)).toEqual([
       {
         type: "comment",
         issue: `${REPO}#1912`,
-        body: "🚀 Released to **staging** in version **0.0.11** (api, issue #1549).\n\n<!-- shiplane-release: api@0.0.11 staging -->",
+        body: "🚀 Released to **preview** in version **0.0.11** (api, issue #1549).\n\n<!-- shiplane-release: api@0.0.11 preview -->",
       },
     ]);
   });
@@ -321,10 +321,10 @@ describe("one comment per PR or issue, whatever the units that ship it", () => {
     const { context, host, prompter } = setUp({ units: [EXPO, API] });
     prompter.answer(true, true, true, true);
 
-    await shipTo(context, "staging", {});
+    await shipTo(context, "preview", {});
     const first = posted(host.received).length;
     host.seed({ deployments: [] });
-    await shipTo(context, "staging", {});
+    await shipTo(context, "preview", {});
 
     expect(posted(host.received)).toHaveLength(first);
   });
@@ -333,7 +333,7 @@ describe("one comment per PR or issue, whatever the units that ship it", () => {
     const { context, host, prompter } = setUp({ units: [EXPO, API] });
     prompter.answer(true, true);
 
-    await shipTo(context, "staging", {});
+    await shipTo(context, "preview", {});
 
     expect(posted(host.received).map(({ issue }) => issue)).toEqual([
       `${REPO}#1912`,
@@ -349,9 +349,9 @@ describe("one comment per PR or issue, whatever the units that ship it", () => {
   it("given two units shipping the same PR, when the plan runs, then its one comment lists both tags", async () => {
     const { context, output } = setUp({ units: [EXPO, API] });
 
-    await planShips(context, "staging");
+    await planShips(context, "preview");
 
-    expect(output.text).toContain(`comment on ${REPO}#1912: expo@0.4.2, api@0.0.11 on staging`);
+    expect(output.text).toContain(`comment on ${REPO}#1912: expo@0.4.2, api@0.0.11 on preview`);
   });
 });
 

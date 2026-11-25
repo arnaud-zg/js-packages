@@ -11,7 +11,7 @@ describe("Feature: shipping through the CI pipeline", () => {
     const { context, ci, output, progress } = shipWorld(["api"], { yes: true });
 
     // when
-    const ok = await shipTo(context, "staging", { via: "ci" });
+    const ok = await shipTo(context, "preview", { via: "ci" });
 
     // then
     expect(ok).toBe(true);
@@ -20,7 +20,7 @@ describe("Feature: shipping through the CI pipeline", () => {
         type: "dispatch",
         workflow: "ship.yml",
         ref: "api@0.1.0",
-        inputs: { units: "api", environment: "staging" },
+        inputs: { units: "api", environment: "preview" },
       },
     ]);
     expect(progress.events).toContainEqual({
@@ -29,9 +29,9 @@ describe("Feature: shipping through the CI pipeline", () => {
       text: "ship api from api@0.1.0 (ship.yml)",
       step: { index: 0, total: 1 },
     });
-    expect(output.lines).toContain("✓ Triggered. api@0.1.0, shipping to staging on their own.");
+    expect(output.lines).toContain("✓ Triggered. api@0.1.0, shipping to preview on their own.");
     expect(output.lines).toContain("    fake-ci runs");
-    expect(output.lines).toContain("    shiplane status --channel staging");
+    expect(output.lines).toContain("    shiplane status --channel preview");
   });
 
   it("given api and web tagged on one commit, when shipped through CI, then one run ships both from the first tag", async () => {
@@ -40,7 +40,7 @@ describe("Feature: shipping through the CI pipeline", () => {
     source.seed({ tags: { "api@0.1.0": "same", "web@0.1.0": "same" } });
 
     // when
-    await shipTo(context, "staging", { via: "ci" });
+    await shipTo(context, "preview", { via: "ci" });
 
     // then
     expect(ci.received).toEqual([
@@ -48,7 +48,7 @@ describe("Feature: shipping through the CI pipeline", () => {
         type: "dispatch",
         workflow: "ship.yml",
         ref: "api@0.1.0",
-        inputs: { units: "api web", environment: "staging" },
+        inputs: { units: "api web", environment: "preview" },
       },
     ]);
   });
@@ -58,7 +58,7 @@ describe("Feature: shipping through the CI pipeline", () => {
     const { context, ci } = shipWorld(["api", "web"], { yes: true });
 
     // when
-    await shipTo(context, "staging", { via: "ci" });
+    await shipTo(context, "preview", { via: "ci" });
 
     // then
     expect(ci.received.map(({ ref, inputs }) => [ref, inputs.units])).toEqual([
@@ -78,7 +78,7 @@ describe("Feature: shipping through the CI pipeline", () => {
     source.seed({ files: { [`main:${SHIP_YML}`]: "on: dispatch" } });
 
     // when
-    await shipTo(context, "staging", { via: "ci" });
+    await shipTo(context, "preview", { via: "ci" });
 
     // then
     expect(ci.received.map(({ ref, inputs }) => [ref, inputs.units])).toEqual([["main", "a b"]]);
@@ -91,7 +91,7 @@ describe("Feature: shipping through the CI pipeline", () => {
     ci.dispatch = () => Promise.reject(new Error("HTTP 422"));
 
     // when
-    const ok = await shipTo(context, "staging", { via: "ci" });
+    const ok = await shipTo(context, "preview", { via: "ci" });
 
     // then
     expect(ok).toBe(false);
@@ -112,7 +112,7 @@ describe("Feature: forcing a way that cannot ship an app", () => {
     source.seed({ files: {} });
 
     // when
-    const ok = await shipTo(context, "staging", { via: "ci" });
+    const ok = await shipTo(context, "preview", { via: "ci" });
 
     // then
     expect(ok).toBe(true);
@@ -126,7 +126,7 @@ describe("Feature: forcing a way that cannot ship an app", () => {
     source.seed({ files: { [`main:${SHIP_YML}`]: "on: dispatch" } });
 
     // when
-    await shipTo(context, "staging", { via: "ci" });
+    await shipTo(context, "preview", { via: "ci" });
 
     // then
     expect(output.lines).toContain("  ! api@0.1.0  predates ship.yml: ship it from this machine");
@@ -142,7 +142,7 @@ describe("Feature: forcing a way that cannot ship an app", () => {
     const { context, output } = shipWorld([], { yes: true, deciding, decided: ["a"] });
 
     // when
-    await shipTo(context, "staging", { via: "ci" });
+    await shipTo(context, "preview", { via: "ci" });
 
     // then
     expect(output.lines).toContain(
@@ -156,7 +156,7 @@ describe("Feature: forcing a way that cannot ship an app", () => {
     source.seed({ diffs: { "api@0.1.0..HEAD": ["apps/api/src/server.ts"] } });
 
     // when
-    const ok = await shipTo(context, "staging", { via: "local" });
+    const ok = await shipTo(context, "preview", { via: "local" });
 
     // then
     expect(ok).toBe(true);
@@ -173,14 +173,14 @@ describe("Feature: shipping from this machine", () => {
     const { context, shell, host, output, ci } = shipWorld(["api"], { yes: true });
 
     // when
-    const ok = await shipTo(context, "staging", { via: "local" });
+    const ok = await shipTo(context, "preview", { via: "local" });
 
     // then
     expect(ok).toBe(true);
     expect(shell.calls).toEqual([
       { command: "echo", args: ["deploy", "acme-api", "api@0.1.0"], cwd: "/repo" },
     ]);
-    expect(host.received).toEqual([{ type: "record", ref: "api@0.1.0", environment: "staging" }]);
+    expect(host.received).toEqual([{ type: "record", ref: "api@0.1.0", environment: "preview" }]);
     expect(ci.received).toEqual([]);
     expect(output.lines).not.toContain("    fake-ci runs");
   });
@@ -191,7 +191,7 @@ describe("Feature: shipping from this machine", () => {
     source.seed({ clean: false });
 
     // when
-    const ok = await shipTo(context, "staging", { via: "local" });
+    const ok = await shipTo(context, "preview", { via: "local" });
 
     // then
     expect(ok).toBe(false);
@@ -207,7 +207,7 @@ describe("Feature: shipping from this machine", () => {
     source.seed({ clean: false });
 
     // when
-    const ok = await shipTo(context, "staging", { via: "ci" });
+    const ok = await shipTo(context, "preview", { via: "ci" });
 
     // then
     expect(ok).toBe(true);
@@ -220,7 +220,7 @@ describe("Feature: shipping from this machine", () => {
     shell.seedOnce("echo deploy acme-api", { status: 1 });
 
     // when
-    const ok = await shipTo(context, "staging", { via: "local" });
+    const ok = await shipTo(context, "preview", { via: "local" });
 
     // then
     expect(ok).toBe(false);
@@ -240,13 +240,13 @@ describe("Feature: being told the only way an app can ship", () => {
     prompter.answer(true);
 
     // when
-    const ok = await shipTo(context, "staging", {});
+    const ok = await shipTo(context, "preview", {});
 
     // then
     expect(ok).toBe(true);
     expect(output.lines).toContain("  · api@0.1.0  no ship.yml: ships from this machine");
-    expect(prompter.asked).toEqual(["Ship api@0.1.0 to staging through this machine?"]);
-    expect(prompter.initials["Ship api@0.1.0 to staging through this machine?"]).toBe(true);
+    expect(prompter.asked).toEqual(["Ship api@0.1.0 to preview through this machine?"]);
+    expect(prompter.initials["Ship api@0.1.0 to preview through this machine?"]).toBe(true);
     expect(shell.calls).toHaveLength(1);
   });
 
@@ -256,7 +256,7 @@ describe("Feature: being told the only way an app can ship", () => {
     source.seed({ diffs: { "api@0.1.0..HEAD": ["apps/api/src/server.ts"] } });
 
     // when
-    await shipTo(context, "staging", {});
+    await shipTo(context, "preview", {});
 
     // then
     expect(output.lines).toContain("  · api@0.1.0  main moved past it: ships through Fake CI");
@@ -275,14 +275,14 @@ describe("Feature: being told the only way an app can ship", () => {
     });
 
     // when
-    const ok = await shipTo(context, "staging", {});
+    const ok = await shipTo(context, "preview", {});
 
     // then
     expect(ok).toBe(false);
     expect(output.lines).toContain(
       "  ✗ api@0.1.0  no ship.yml, and main moved past it: nothing can ship it",
     );
-    expect(output.lines).toContain("✓ Triggered. web@0.1.0, shipping to staging on their own.");
+    expect(output.lines).toContain("✓ Triggered. web@0.1.0, shipping to preview on their own.");
     expect(shell.calls).toEqual([]);
   });
 
@@ -292,7 +292,7 @@ describe("Feature: being told the only way an app can ship", () => {
     source.seed({ files: {}, diffs: { "api@0.1.0..HEAD": ["apps/api/src/server.ts"] } });
 
     // when
-    const ok = await shipTo(context, "staging", {});
+    const ok = await shipTo(context, "preview", {});
 
     // then
     expect(ok).toBe(false);
@@ -305,16 +305,16 @@ describe("Feature: choosing how each app ships when both ways can", () => {
     // given
     const { context, prompter, shell, ci, progress } = shipWorld(["api", "web"]);
     prompter.answer("ci", "local", true);
-    const question = "Ship api@0.1.0 (Fake CI), web@0.1.0 (this machine) to staging?";
+    const question = "Ship api@0.1.0 (Fake CI), web@0.1.0 (this machine) to preview?";
 
     // when
-    const ok = await shipTo(context, "staging", {});
+    const ok = await shipTo(context, "preview", {});
 
     // then
     expect(ok).toBe(true);
     expect(prompter.asked).toEqual([
-      "How should api@0.1.0 ship to staging?",
-      "How should web@0.1.0 ship to staging?",
+      "How should api@0.1.0 ship to preview?",
+      "How should web@0.1.0 ship to preview?",
       question,
     ]);
     expect(ci.received.map(({ ref }) => ref)).toEqual(["api@0.1.0"]);
@@ -342,10 +342,10 @@ describe("Feature: choosing how each app ships when both ways can", () => {
     prompter.answer(true);
 
     // when
-    await shipTo(context, "staging", {});
+    await shipTo(context, "preview", {});
 
     // then
-    expect(prompter.asked).toEqual(["Ship api@0.1.0 to staging through Fake CI?"]);
+    expect(prompter.asked).toEqual(["Ship api@0.1.0 to preview through Fake CI?"]);
     expect(ci.received).toHaveLength(1);
   });
 
@@ -355,7 +355,7 @@ describe("Feature: choosing how each app ships when both ways can", () => {
     prompter.answer(null);
 
     // when
-    const ok = await shipTo(context, "staging", {});
+    const ok = await shipTo(context, "preview", {});
 
     // then
     expect(ok).toBe(true);
@@ -369,7 +369,7 @@ describe("Feature: choosing how each app ships when both ways can", () => {
     const { context, output } = shipWorld(["api"], { interactive: false });
 
     // when
-    const ok = await shipTo(context, "staging", {});
+    const ok = await shipTo(context, "preview", {});
 
     // then
     expect(ok).toBe(false);
@@ -383,7 +383,7 @@ describe("Feature: choosing how each app ships when both ways can", () => {
     context.options.ci = true;
 
     // when
-    const ok = await shipTo(context, "staging", { via: "ci" });
+    const ok = await shipTo(context, "preview", { via: "ci" });
 
     // then
     expect(ok).toBe(true);

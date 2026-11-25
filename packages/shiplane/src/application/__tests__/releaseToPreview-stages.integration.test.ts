@@ -8,7 +8,7 @@ import { planFrom } from "../../testing/plans";
 import { changesetText, testContext, testUnit } from "../../testing/releaseContext";
 import { releaseToEntry } from "../releaseToEntry";
 
-// `release` on staging, stage by stage: what it says and runs from the pick to the ship.
+// `release` on preview, stage by stage: what it says and runs from the pick to the ship.
 
 const RATE_LIMIT: PlannedChangeset = {
   id: "rate-limit",
@@ -82,8 +82,8 @@ const stages = (world: ReturnType<typeof setUp>) =>
 const opened = (world: ReturnType<typeof setUp>) =>
   world.host.received.filter(({ type }) => type === "pr");
 
-describe("Feature: releasing to staging, from picking the apps to shipping them", () => {
-  it("given release PR #12 open and merged from the terminal, when releasing to staging, then main is pulled, api@0.1.0 is tagged and deployed", async () => {
+describe("Feature: releasing to preview, from picking the apps to shipping them", () => {
+  it("given release PR #12 open and merged from the terminal, when releasing to preview, then main is pulled, api@0.1.0 is tagged and deployed", async () => {
     // given
     const world = setUp();
     world.host.seed({ openPrs: [OPEN_12], prStates: { 12: ["OPEN", "MERGED"] } });
@@ -96,7 +96,7 @@ describe("Feature: releasing to staging, from picking the apps to shipping them"
     // then
     expect(world.prompter.asked.slice(1)).toEqual([
       "Tag api@0.1.0 and publish their release notes?",
-      "Ship api@0.1.0 to staging through this machine?",
+      "Ship api@0.1.0 to preview through this machine?",
     ]);
     expect(ok).toBe(true);
     expect(stages(world)).toEqual(["What to release", "Merge", "Tags", "Ship"]);
@@ -116,7 +116,7 @@ describe("Feature: releasing to staging, from picking the apps to shipping them"
     ]);
   });
 
-  it("given pulling main fails after the merge, when releasing to staging, then nothing is tagged and the release fails", async () => {
+  it("given pulling main fails after the merge, when releasing to preview, then nothing is tagged and the release fails", async () => {
     // given
     const world = setUp();
     world.host.seed({ openPrs: [OPEN_12], prStates: { 12: ["MERGED"] } });
@@ -131,7 +131,7 @@ describe("Feature: releasing to staging, from picking the apps to shipping them"
     expect(world.source.received.map(({ type }) => type)).toEqual(["switch", "pull"]);
   });
 
-  it("given the person picks no app, when releasing to staging, then nothing runs, no PR opens and the release ends fine", async () => {
+  it("given the person picks no app, when releasing to preview, then nothing runs, no PR opens and the release ends fine", async () => {
     // given
     const world = setUp();
     world.prompter.answer([]);
@@ -146,7 +146,7 @@ describe("Feature: releasing to staging, from picking the apps to shipping them"
     expect(opened(world)).toEqual([]);
   });
 
-  it("given no changeset pending and api tagged, when releasing to staging, then it goes straight to shipping", async () => {
+  it("given no changeset pending and api tagged, when releasing to preview, then it goes straight to shipping", async () => {
     // given
     const world = setUp({ pending: false });
     world.prompter.answer(["api"], true);
@@ -161,7 +161,7 @@ describe("Feature: releasing to staging, from picking the apps to shipping them"
     expect(opened(world)).toEqual([]);
   });
 
-  it("given a missing sign-in, when releasing to staging, then it stops before any PR opens", async () => {
+  it("given a missing sign-in, when releasing to preview, then it stops before any PR opens", async () => {
     // given
     const world = setUp();
     world.hosting.seed({

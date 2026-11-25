@@ -7,12 +7,12 @@ describe("where a release may start from", () => {
   const main = { branch: "main", head: "abc", originMain: "abc" };
 
   it("given main in sync with origin, when building, then it may start", () => {
-    expect(releaseSource("build", "staging", main, { flow: TEST_FLOW })).toEqual({ allowed: true });
+    expect(releaseSource("build", "preview", main, { flow: TEST_FLOW })).toEqual({ allowed: true });
   });
 
   it("given a feature branch, when building, then it is refused: the binary would ship unmerged code", () => {
     expect(
-      releaseSource("build", "staging", { ...main, branch: "feat/x" }, { flow: TEST_FLOW }),
+      releaseSource("build", "preview", { ...main, branch: "feat/x" }, { flow: TEST_FLOW }),
     ).toEqual({
       allowed: false,
       why: "not-main",
@@ -23,7 +23,7 @@ describe("where a release may start from", () => {
     const atTag = { branch: "HEAD", head: "tagged", originMain: "abc" };
 
     expect(
-      releaseSource("build", "staging", atTag, {
+      releaseSource("build", "preview", atTag, {
         flow: TEST_FLOW,
         tagCommit: "tagged",
       }),
@@ -31,7 +31,7 @@ describe("where a release may start from", () => {
       allowed: true,
     });
     expect(
-      releaseSource("build", "staging", atTag, {
+      releaseSource("build", "preview", atTag, {
         flow: TEST_FLOW,
         tagCommit: "other",
       }),
@@ -43,16 +43,16 @@ describe("where a release may start from", () => {
 
   it("given main behind origin, when building, then it is refused until pulled", () => {
     expect(
-      releaseSource("build", "staging", { ...main, originMain: "def" }, { flow: TEST_FLOW }),
+      releaseSource("build", "preview", { ...main, originMain: "def" }, { flow: TEST_FLOW }),
     ).toEqual({
       allowed: false,
       why: "behind-main",
     });
   });
 
-  it("given a feature branch, when updating staging, then testers may get it", () => {
+  it("given a feature branch, when updating preview, then testers may get it", () => {
     expect(
-      releaseSource("update", "staging", { ...main, branch: "feat/x" }, { flow: TEST_FLOW }),
+      releaseSource("update", "preview", { ...main, branch: "feat/x" }, { flow: TEST_FLOW }),
     ).toEqual({
       allowed: true,
     });
@@ -62,7 +62,7 @@ describe("where a release may start from", () => {
     const master = { branch: "master", head: "abc", originMain: "abc" };
 
     expect(
-      releaseSource("build", "staging", master, {
+      releaseSource("build", "preview", master, {
         flow: TEST_FLOW,
         defaultBranch: "master",
       }),
@@ -73,7 +73,7 @@ describe("where a release may start from", () => {
 
   it("given a repository whose default branch is master, when building from main, then it is refused", () => {
     expect(
-      releaseSource("build", "staging", main, {
+      releaseSource("build", "preview", main, {
         flow: TEST_FLOW,
         defaultBranch: "master",
       }),
@@ -83,9 +83,9 @@ describe("where a release may start from", () => {
     });
   });
 
-  it("given a feature branch, when updating prod, then it is refused", () => {
+  it("given a feature branch, when updating production, then it is refused", () => {
     expect(
-      releaseSource("update", "prod", { ...main, branch: "feat/x" }, { flow: TEST_FLOW }),
+      releaseSource("update", "production", { ...main, branch: "feat/x" }, { flow: TEST_FLOW }),
     ).toEqual({
       allowed: false,
       why: "not-main",

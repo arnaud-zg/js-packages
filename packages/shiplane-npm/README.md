@@ -8,8 +8,8 @@ registry** port with `pnpm publish` and `npm dist-tag`.
 flowchart LR
     CFG["shiplane.config.ts"] --> MOD["publishedPackage"]
     MOD --> NPM["npmPackageRegistry()"]
-    NPM --> PUB["staging: pnpm publish under next"]
-    PUB --> TAG["prod: move latest to it"]
+    NPM --> PUB["preview: pnpm publish under next"]
+    PUB --> TAG["production: move latest to it"]
 ```
 
 ## ⚡ Install
@@ -37,7 +37,7 @@ export default defineRelease({
     ciPipeline: gitHubActionsCiPipeline(),
     versioning: changesetsVersioning(),
   }),
-  deployApps: { promote: [{ from: "staging", to: "prod" }] },
+  deployApps: { promote: [{ from: "preview", to: "production" }] },
   modules: [publishedPackage({ packageRegistry: npmPackageRegistry() })],
 });
 ```
@@ -84,11 +84,11 @@ From [`examples/packages/toolkit/shiplane.unit.yml`](./examples/packages/toolkit
 ```yaml
 module: published-package
 tag:
-  staging: next
-  prod: latest
+  preview: next
+  production: latest
 ```
 
-`pnpm shiplane ship --dry-run` in that repository prints what a ship to staging could run:
+`pnpm shiplane ship --dry-run` in that repository prints what a ship to preview could run:
 
 ```text
   Plan  ·  live  · nothing runs

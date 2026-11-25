@@ -9,8 +9,8 @@ export const SAMPLE_UNITS: UnitRef[] = ["expo", "api", "admin", "landing"].map((
 
 export const SAMPLE_VERSION_FILES = new Set([
   "apps/expo/app-version.json",
-  "apps/api/public/app-version.staging.json",
-  "apps/api/public/app-version.prod.json",
+  "apps/api/public/app-version.preview.json",
+  "apps/api/public/app-version.production.json",
 ]);
 
 // Billed minutes per deploy with no successful run to measure: the api validates before deploying.

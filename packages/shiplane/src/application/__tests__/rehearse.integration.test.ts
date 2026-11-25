@@ -97,7 +97,7 @@ describe("Feature: rehearsing a release", () => {
       const broken: ReleaseModule[] = release.modules.map((module) => ({
         ...module,
         ship: () => {
-          throw new Error("service is not set for staging");
+          throw new Error("service is not set for preview");
         },
       }));
       return testContext({ units: release.units, modules: broken }).context;
@@ -105,7 +105,7 @@ describe("Feature: rehearsing a release", () => {
 
     expect(await rehearse(context)).toBe(false);
 
-    expect(output.text).toContain("service is not set for staging");
+    expect(output.text).toContain("service is not set for preview");
   });
 
   it("given a module that plans cleanly, when the release is rehearsed, then the plan step passes and nothing runs", async () => {

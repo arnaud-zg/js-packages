@@ -4,38 +4,38 @@ import { TEST_FLOW } from "../../testing/flow";
 import { deployRunTitle, deployState, deployVia, needsPath, shipsFrom, webShip } from "../deploys";
 
 describe("shipping the web apps", () => {
-  it("given api@0.0.2 deployed to staging, when its run is named, then the runs list says which version went where", () => {
-    expect(deployRunTitle("api@0.0.2", "staging")).toBe("Deploy api@0.0.2 to staging");
+  it("given api@0.0.2 deployed to preview, when its run is named, then the runs list says which version went where", () => {
+    expect(deployRunTitle("api@0.0.2", "preview")).toBe("Deploy api@0.0.2 to preview");
   });
 
-  it("given a tagged version never deployed, when shipping to staging, then it deploys", () => {
+  it("given a tagged version never deployed, when shipping to preview, then it deploys", () => {
     expect(
-      webShip({ flow: TEST_FLOW, environment: "staging", run: "none", onPrevious: false }),
+      webShip({ flow: TEST_FLOW, environment: "preview", run: "none", onPrevious: false }),
     ).toBe("deploy");
   });
 
   it("given its deploy waiting on the approval gate, when resumed, then it is deploying, not deployed twice", () => {
     expect(
-      webShip({ flow: TEST_FLOW, environment: "staging", run: "running", onPrevious: false }),
+      webShip({ flow: TEST_FLOW, environment: "preview", run: "running", onPrevious: false }),
     ).toBe("deploying");
   });
 
   it("given its deploy finished, when resumed, then it is shipped", () => {
     expect(
-      webShip({ flow: TEST_FLOW, environment: "staging", run: "done", onPrevious: true }),
+      webShip({ flow: TEST_FLOW, environment: "preview", run: "done", onPrevious: true }),
     ).toBe("shipped");
   });
 
-  it("given a version staging never got, when shipping to prod, then it waits for staging first", () => {
-    expect(webShip({ flow: TEST_FLOW, environment: "prod", run: "none", onPrevious: false })).toBe(
-      "not-on-previous",
-    );
+  it("given a version preview never got, when shipping to production, then it waits for preview first", () => {
+    expect(
+      webShip({ flow: TEST_FLOW, environment: "production", run: "none", onPrevious: false }),
+    ).toBe("not-on-previous");
   });
 
-  it("given a version staging has, when shipping to prod, then it deploys", () => {
-    expect(webShip({ flow: TEST_FLOW, environment: "prod", run: "none", onPrevious: true })).toBe(
-      "deploy",
-    );
+  it("given a version preview has, when shipping to production, then it deploys", () => {
+    expect(
+      webShip({ flow: TEST_FLOW, environment: "production", run: "none", onPrevious: true }),
+    ).toBe("deploy");
   });
 
   it("given a deployment that succeeded, when read, then the version is deployed", () => {

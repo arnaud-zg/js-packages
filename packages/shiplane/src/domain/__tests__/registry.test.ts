@@ -26,33 +26,33 @@ describe("shipping a package to its registry", () => {
     const subject = facts({});
 
     expect(
-      await registryDecision({ flow: TEST_FLOW, environment: "staging", facts: subject.facts }),
+      await registryDecision({ flow: TEST_FLOW, environment: "preview", facts: subject.facts }),
     ).toBe("not-released");
     expect(subject.read).toEqual(["tagged"]);
   });
 
-  it("given a tagged version not published yet, when it ships to prod, then staging has to publish it first", async () => {
+  it("given a tagged version not published yet, when it ships to production, then preview has to publish it first", async () => {
     const subject = facts({ tagged: true });
 
     expect(
-      await registryDecision({ flow: TEST_FLOW, environment: "prod", facts: subject.facts }),
+      await registryDecision({ flow: TEST_FLOW, environment: "production", facts: subject.facts }),
     ).toBe("not-on-previous");
     expect(subject.read).toEqual(["tagged", "published"]);
   });
 
-  it("given main moved past the tag with code, when staging publishes, then it refuses to publish code no release named", async () => {
+  it("given main moved past the tag with code, when preview publishes, then it refuses to publish code no release named", async () => {
     const subject = facts({ tagged: true });
 
     expect(
-      await registryDecision({ flow: TEST_FLOW, environment: "staging", facts: subject.facts }),
+      await registryDecision({ flow: TEST_FLOW, environment: "preview", facts: subject.facts }),
     ).toBe("moved-past");
   });
 
-  it("given the checkout is the tagged code, when staging publishes, then it publishes", async () => {
+  it("given the checkout is the tagged code, when preview publishes, then it publishes", async () => {
     const subject = facts({ tagged: true, sinceTagOnlyVersionFiles: true });
 
     expect(
-      await registryDecision({ flow: TEST_FLOW, environment: "staging", facts: subject.facts }),
+      await registryDecision({ flow: TEST_FLOW, environment: "preview", facts: subject.facts }),
     ).toBe("publish");
   });
 
@@ -60,16 +60,16 @@ describe("shipping a package to its registry", () => {
     const subject = facts({ tagged: true, published: true, onDistTag: true });
 
     expect(
-      await registryDecision({ flow: TEST_FLOW, environment: "prod", facts: subject.facts }),
+      await registryDecision({ flow: TEST_FLOW, environment: "production", facts: subject.facts }),
     ).toBe("on-tag");
     expect(subject.read).not.toContain("sinceTagOnlyVersionFiles");
   });
 
-  it("given a published version under another dist-tag, when prod ships, then it moves the tag to it", async () => {
+  it("given a published version under another dist-tag, when production ships, then it moves the tag to it", async () => {
     const subject = facts({ tagged: true, published: true });
 
     expect(
-      await registryDecision({ flow: TEST_FLOW, environment: "prod", facts: subject.facts }),
+      await registryDecision({ flow: TEST_FLOW, environment: "production", facts: subject.facts }),
     ).toBe("move-tag");
   });
 });

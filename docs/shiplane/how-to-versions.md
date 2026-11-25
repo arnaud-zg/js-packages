@@ -22,8 +22,9 @@ module: published-package
 ```
 
 Needs `publishedPackage({ packageRegistry: npmPackageRegistry() })` in `modules`. A release
-publishes under `latest`; to stage under `next` first, add `tag: { staging: next, prod: latest }`. A
-new package needs no changeset for its first version: merge it, then run `pnpm shiplane`.
+publishes under `latest`; to stage under `next` first, add
+`tag: { preview: next, production: latest }`. A new package needs no changeset for its first
+version: merge it, then run `pnpm shiplane`.
 
 Recommended: `npmPackageRegistry({ staged: true })` holds each release on npm until a person
 approves it with 2FA. See
@@ -41,7 +42,7 @@ export default defineRelease({
     ciPipeline: gitHubActionsCiPipeline(),
     versioning: changesetsVersioning(),
   }),
-  deployApps: { promote: [{ from: "staging", to: "prod" }] },
+  deployApps: { promote: [{ from: "preview", to: "production" }] },
   modules: [agentPlugin()],
 });
 ```
@@ -104,7 +105,7 @@ export default defineRelease({
     ciPipeline: gitHubActionsCiPipeline(),
     versioning: commitsVersioning(),
   }),
-  deployApps: { promote: [{ from: "staging", to: "prod" }] },
+  deployApps: { promote: [{ from: "preview", to: "production" }] },
   modules: [agentPlugin()],
 });
 ```

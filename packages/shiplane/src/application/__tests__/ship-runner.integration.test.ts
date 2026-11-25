@@ -37,7 +37,7 @@ describe("Feature: shipping every unit on a runner, whatever fails", () => {
     const { context, shell, output, files } = threeUnits({ runner: true });
 
     // when
-    const ok = await shipTo(context, "staging", {});
+    const ok = await shipTo(context, "preview", {});
 
     // then
     expect(ok).toBe(false);
@@ -55,7 +55,7 @@ describe("Feature: shipping every unit on a runner, whatever fails", () => {
     );
     const summary = files.read(SUMMARY);
     expect(summary).toContain(
-      "### Ship to staging\n\n| Unit | Target | Version | Where it stands |\n| --- | --- | --- | --- |\n| api | fake | 0.1.0 |",
+      "### Ship to preview\n\n| Unit | Target | Version | Where it stands |\n| --- | --- | --- | --- |\n| api | fake | 0.1.0 |",
     );
     expect(summary?.indexOf("| api |")).toBeLessThan(summary?.indexOf("| worker |") ?? 0);
     expect(summary).toContain(
@@ -69,7 +69,7 @@ describe("Feature: shipping every unit on a runner, whatever fails", () => {
         "| worker | skipped | success |",
       ].join("\n"),
     );
-    expect(summary?.indexOf("### Ship to staging")).toBeLessThan(
+    expect(summary?.indexOf("### Ship to preview")).toBeLessThan(
       summary?.indexOf("### Result") ?? 0,
     );
   });
@@ -78,11 +78,11 @@ describe("Feature: shipping every unit on a runner, whatever fails", () => {
     // given
     const { context, shell } = threeUnits({ runner: true, failing: null });
     shell.seedOnce("echo deploy acme-web", { status: 1 });
-    await shipTo(context, "staging", {});
+    await shipTo(context, "preview", {});
     const before = shell.calls.length;
 
     // when
-    const ok = await shipTo(context, "staging", {});
+    const ok = await shipTo(context, "preview", {});
 
     // then
     expect(ok).toBe(true);
@@ -94,7 +94,7 @@ describe("Feature: shipping every unit on a runner, whatever fails", () => {
     const { context, files } = threeUnits({ runner: true, failing: null });
 
     // when
-    const ok = await shipTo(context, "staging", {});
+    const ok = await shipTo(context, "preview", {});
 
     // then
     expect(ok).toBe(true);
@@ -107,7 +107,7 @@ describe("Feature: shipping every unit on a runner, whatever fails", () => {
     shell.seedEnv({ GITHUB_STEP_SUMMARY: "" });
 
     // when
-    const ok = await shipTo(context, "staging", {});
+    const ok = await shipTo(context, "preview", {});
 
     // then
     expect(ok).toBe(false);
@@ -122,7 +122,7 @@ describe("Feature: stopping at the first failure on a laptop", () => {
     const { context, shell, output, files } = threeUnits({ runner: false });
 
     // when
-    const ok = await shipTo(context, "staging", { via: "local" });
+    const ok = await shipTo(context, "preview", { via: "local" });
 
     // then
     expect(ok).toBe(false);
@@ -144,7 +144,7 @@ describe("Feature: preparing each unit before it ships", () => {
     });
 
     // when
-    const ok = await shipTo(context, "staging", { via: "local" });
+    const ok = await shipTo(context, "preview", { via: "local" });
 
     // then
     expect(ok).toBe(true);
@@ -165,7 +165,7 @@ describe("Feature: preparing each unit before it ships", () => {
     const { context, shell } = shipWorld(["api"], { yes: true, prepare: "make {unit}" });
 
     // when
-    await shipTo(context, "staging", { via: "ci" });
+    await shipTo(context, "preview", { via: "ci" });
 
     // then
     expect(shell.calls.filter(({ command }) => command === "sh")).toEqual([]);
@@ -181,7 +181,7 @@ describe("Feature: preparing each unit before it ships", () => {
     shell.seed("sh -c make web", { status: 2 });
 
     // when
-    const ok = await shipTo(context, "staging", {});
+    const ok = await shipTo(context, "preview", {});
 
     // then
     expect(ok).toBe(false);
@@ -200,7 +200,7 @@ describe("Feature: preparing each unit before it ships", () => {
     shell.seed("sh -c make api", { status: 2 });
 
     // when
-    const ok = await shipTo(context, "staging", { via: "local" });
+    const ok = await shipTo(context, "preview", { via: "local" });
 
     // then
     expect(ok).toBe(false);

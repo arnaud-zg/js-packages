@@ -9,28 +9,28 @@ describe("the env a deploy checks on the platform", () => {
   it("given one list, when read for each environment, then every environment checks the same names", () => {
     const toCheck = new EnvToCheck(names("SENTRY_DSN", "DATABASE_URL"));
 
-    expect([...toCheck.for("staging")]).toEqual(["SENTRY_DSN", "DATABASE_URL"]);
-    expect([...toCheck.for("prod")]).toEqual(["SENTRY_DSN", "DATABASE_URL"]);
+    expect([...toCheck.for("preview")]).toEqual(["SENTRY_DSN", "DATABASE_URL"]);
+    expect([...toCheck.for("production")]).toEqual(["SENTRY_DSN", "DATABASE_URL"]);
   });
 
-  it("given all plus a list per environment, when read for prod, then it checks all and prod's extras only", () => {
+  it("given all plus a list per environment, when read for production, then it checks all and production's extras only", () => {
     const toCheck = new EnvToCheck({
       all: names("SENTRY_DSN"),
-      staging: names("DISABLE_PLANT_IMAGE_WRITES"),
-      prod: names("REVENUECAT_PROJECT_ID"),
+      preview: names("DISABLE_PLANT_IMAGE_WRITES"),
+      production: names("REVENUECAT_PROJECT_ID"),
     });
 
-    expect([...toCheck.for("prod")]).toEqual(["SENTRY_DSN", "REVENUECAT_PROJECT_ID"]);
+    expect([...toCheck.for("production")]).toEqual(["SENTRY_DSN", "REVENUECAT_PROJECT_ID"]);
   });
 
   it("given only all, when read for an environment with no list of its own, then it inherits all", () => {
     const toCheck = new EnvToCheck({ all: names("SENTRY_DSN") });
 
-    expect([...toCheck.for("staging")]).toEqual(["SENTRY_DSN"]);
+    expect([...toCheck.for("preview")]).toEqual(["SENTRY_DSN"]);
   });
 
   it("given a name in all and in an environment list, when read, then it is reported as listed twice", () => {
-    const toCheck = new EnvToCheck({ all: names("SENTRY_DSN"), prod: names("SENTRY_DSN") });
+    const toCheck = new EnvToCheck({ all: names("SENTRY_DSN"), production: names("SENTRY_DSN") });
 
     expect(toCheck.listedTwice()).toEqual(["SENTRY_DSN"]);
   });

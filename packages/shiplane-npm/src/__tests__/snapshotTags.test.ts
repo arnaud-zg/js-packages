@@ -13,7 +13,7 @@ const KIT = testUnit("kit", {
 const input = (options: Record<string, unknown> = {}) => ({
   unit: KIT,
   tag: "kit@0.6.0",
-  environment: "staging" as const,
+  environment: "preview" as const,
   flow: TEST_FLOW,
   commit: "ae08284",
   defaultBranch: "main",

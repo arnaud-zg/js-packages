@@ -10,8 +10,8 @@ flowchart LR
     CFG["shiplane.config.ts"] --> MOD["webApp"]
     MOD --> GH["githubPagesStaticHosting()"]
     GH --> BUILD["build with BASE_PATH"]
-    BUILD --> PRE["staging: /staging/"]
-    BUILD --> PROD["prod: the rest of the branch"]
+    BUILD --> PRE["preview: /preview/"]
+    BUILD --> PRODUCTION["production: the rest of the branch"]
 ```
 
 ## ⚡ Install
@@ -41,7 +41,7 @@ export default defineRelease({
     ciPipeline: gitHubActionsCiPipeline(),
     versioning: changesetsVersioning(),
   }),
-  deployApps: { promote: [{ from: "staging", to: "prod" }] },
+  deployApps: { promote: [{ from: "preview", to: "production" }] },
   modules: [webApp({ staticHosting: githubPagesStaticHosting() })],
 });
 ```
@@ -79,21 +79,21 @@ module: web-app
 url: https://acme.github.io/acme/
 ```
 
-`pnpm shiplane ship --dry-run` in that repository prints what a ship to staging would run:
+`pnpm shiplane ship --dry-run` in that repository prints what a ship to preview would run:
 
 ```text
-  Plan  ·  staging  · nothing runs
+  Plan  ·  preview  · nothing runs
   Order  1 site · Latest
 
-  site@1.0.0 → https://acme.github.io/acme/staging/ (GitHub Pages)  (not tagged yet: release first)
+  site@1.0.0 → https://acme.github.io/acme/preview/ (GitHub Pages)  (not tagged yet: release first)
     this machine
-      BASE_PATH=/acme/staging/ pnpm --filter=@acme/site run build
+      BASE_PATH=/acme/preview/ pnpm --filter=@acme/site run build
       sh -c [ -z "$GITHUB_ACTIONS" ] || { git config --global user.name "github-actions[bot]" && git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com" && git config --global credential.https://github.com.helper "!gh auth git-credential"; } && { git ls-remote --exit-code --heads origin "$1" >/dev/null || git push origin "$(git commit-tree 4b825dc642cb6eb9a060e54bf8d69288fbee4904 -m "start $1")":"refs/heads/$1"; } sh gh-pages
-      npx --yes gh-pages@6.3.0 --dist=apps/site/dist --branch=gh-pages --message=site@1.0.0 --dotfiles --nojekyll --dest=staging
+      npx --yes gh-pages@6.3.0 --dist=apps/site/dist --branch=gh-pages --message=site@1.0.0 --dotfiles --nojekyll --dest=preview
       sh -c [ -z "$GITHUB_ACTIONS" ] || gh api -X POST "repos/$GITHUB_REPOSITORY/pages/builds" --silent || echo "Pages was not asked to build: ship again, or build it from Settings > Pages"
-      then record site@1.0.0 on staging, on GitHub
+      then record site@1.0.0 on preview, on GitHub
     GitHub Actions
-      gh workflow run ship.yml --ref site@1.0.0 -f units=site -f environment=staging
+      gh workflow run ship.yml --ref site@1.0.0 -f units=site -f environment=preview
 ```
 
 ## 📏 Rules
@@ -108,7 +108,7 @@ url: https://acme.github.io/acme/
 | Someone pushed at the same time | The push is refused, never forced: ship again                          |
 | CI                              | Ships through shiplane's workflow, which then asks Pages to build      |
 
-Staging is public, and shares prod's origin.
+Preview is public, and shares production's origin.
 
 ## 🔑 Tools and sign-ins
 

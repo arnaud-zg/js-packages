@@ -2,7 +2,7 @@ import { platformEnvContract, RecordingShell, serverHostingContract } from "ship
 
 import { flyServerHosting } from "../fly-server-hosting.adapter";
 
-const settings = { app: { staging: "api-staging", prod: "api" } };
+const settings = { app: { preview: "api-preview", production: "api" } };
 
 serverHostingContract([{ adapter: flyServerHosting(), settings }]);
 
@@ -10,9 +10,9 @@ platformEnvContract([
   {
     adapter: flyServerHosting(),
     settings,
-    environment: "staging",
+    environment: "preview",
     listing: {
-      shell: new RecordingShell().seed("flyctl secrets list -a api-staging --json", {
+      shell: new RecordingShell().seed("flyctl secrets list -a api-preview --json", {
         stdout: JSON.stringify([{ name: "SENTRY_DSN" }]),
       }),
       names: ["SENTRY_DSN"],

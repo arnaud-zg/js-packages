@@ -3,5 +3,5 @@ project: acme-site
 build:
   env:
     PUBLIC_API_URL:
-      staging: https://api-staging.acme.dev
-      prod: https://api.acme.dev
+      preview: https://api-preview.acme.dev
+      production: https://api.acme.dev

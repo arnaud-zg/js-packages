@@ -41,33 +41,33 @@ const given = (config: object, units = [API]) => {
 };
 
 const STRAIGHT: { appFlow: DeployFlow } = {
-  appFlow: { path: ["prod"], users: "prod" },
+  appFlow: { path: ["production"], users: "production" },
 };
 const THREE: { appFlow: DeployFlow } = {
-  appFlow: { path: ["dev", "staging", "prod"], users: "prod" },
+  appFlow: { path: ["dev", "review", "public"], users: "public" },
 };
 
 describe("Feature: choosing the environments apps go through", () => {
-  it("given prod only, when a release ships, then prod gets it with no environment before, its name typed", async () => {
+  it("given production only, when a release ships, then production gets it with no environment before, its name typed", async () => {
     const { context, prompter, shell, host } = given(STRAIGHT);
-    prompter.answer("prod", true);
+    prompter.answer("production", true);
 
-    expect(await shipTo(context, "prod", { via: "local" })).toBe(true);
+    expect(await shipTo(context, "production", { via: "local" })).toBe(true);
 
-    expect(prompter.asked[0]).toBe('Type "prod" to start:');
+    expect(prompter.asked[0]).toBe('Type "production" to start:');
     expect(shell.calls.map(({ args }) => args.join(" "))).toEqual(["deploy acme-api api@1.0.0"]);
-    expect(host.received).toMatchObject([{ environment: "prod" }]);
+    expect(host.received).toMatchObject([{ environment: "production" }]);
   });
 
   it.each([
-    ["prod", {}, "staging"],
-    ["staging", THREE, "dev"],
-    ["prod", THREE, "staging"],
+    ["production", {}, "preview"],
+    ["review", THREE, "dev"],
+    ["public", THREE, "review"],
   ])(
     "given %s asked before what comes first, when it ships, then it refuses",
     async (environment, config, first) => {
       const { context, prompter, output, shell } = given(config);
-      if (environment !== "staging") prompter.answer(environment);
+      if (environment !== "review") prompter.answer(environment);
 
       await shipTo(context, environment, { via: "local" });
 
@@ -78,29 +78,29 @@ describe("Feature: choosing the environments apps go through", () => {
 
   it("given three environments and a version on the second, when it ships to the third, then it goes, its name typed", async () => {
     const { context, prompter, host } = given(THREE);
-    host.seed({ deployments: [{ title: "Deploy api@1.0.0 to staging", state: "done" }] });
-    prompter.answer("prod", true);
+    host.seed({ deployments: [{ title: "Deploy api@1.0.0 to review", state: "done" }] });
+    prompter.answer("public", true);
 
-    expect(await shipTo(context, "prod", { via: "local" })).toBe(true);
+    expect(await shipTo(context, "public", { via: "local" })).toBe(true);
 
-    expect(prompter.asked[0]).toBe('Type "prod" to start:');
-    expect(host.received).toMatchObject([{ environment: "prod" }]);
+    expect(prompter.asked[0]).toBe('Type "public" to start:');
+    expect(host.received).toMatchObject([{ environment: "public" }]);
   });
 
   it("given three environments, when --yes ships to the one users are on, then it refuses, and not for the others", async () => {
     const { context, output, host } = given(THREE);
     const yes = { ...context, options: { yes: true, ci: false } };
 
-    expect(await shipTo(yes, "prod", { via: "local" })).toBe(false);
-    expect(output.text).toContain("No --yes on prod");
+    expect(await shipTo(yes, "public", { via: "local" })).toBe(false);
+    expect(output.text).toContain("No --yes on public");
     expect(await shipTo(yes, "dev", { via: "local" })).toBe(true);
     expect(host.received).toMatchObject([{ environment: "dev" }]);
   });
 
   it.each([
-    ["prod", STRAIGHT, "1.0.0 released, not on prod yet", true],
+    ["production", STRAIGHT, "1.0.0 released, not on production yet", true],
     ["dev", THREE, "1.0.0 released, not on dev yet", true],
-    ["staging", THREE, "1.0.0 is not on dev yet: release it there first", false],
+    ["review", THREE, "1.0.0 is not on dev yet: release it there first", false],
   ])(
     "given a tagged app, when %s's scope is read, then it says where it stands",
     async (environment, config, hint, pending) => {
@@ -116,15 +116,15 @@ describe("Feature: choosing the environments apps go through", () => {
   it("given three environments, when a person promotes, then they pick where it goes", async () => {
     const { context, prompter, host } = given(THREE);
     host.seed({ deployments: [{ title: "Deploy api@1.0.0 to dev", state: "done" }] });
-    prompter.answer("staging", ["api"], true);
+    prompter.answer("review", ["api"], true);
 
     expect(await promote(context, "local")).toBe(true);
 
     expect(prompter.choices["Promote to?"]?.map(({ value, hint }) => [value, hint])).toEqual([
-      ["staging", "from what dev runs"],
-      ["prod", "from what staging runs"],
+      ["review", "from what dev runs"],
+      ["public", "from what review runs"],
     ]);
-    expect(host.received).toMatchObject([{ environment: "staging" }]);
+    expect(host.received).toMatchObject([{ environment: "review" }]);
   });
 
   it("given an option written per environment, when it is read, then each name has its value", () => {
@@ -132,7 +132,7 @@ describe("Feature: choosing the environments apps go through", () => {
     const module = backendService({ serverHosting: serverHostingFake() });
     const unit = testUnit("api", {
       module: "backend-service",
-      options: { service: "acme", url: { dev: "d", staging: "s", prod: "p" } },
+      options: { service: "acme", url: { dev: "d", review: "s", public: "p" } },
     });
 
     const urls = THREE.appFlow.path.map(
@@ -143,9 +143,9 @@ describe("Feature: choosing the environments apps go through", () => {
   });
 
   it.each([
-    ["prod", TEST_FLOW, "not-on-previous"],
-    ["prod", STRAIGHT.appFlow, "publish"],
-    ["prod", THREE.appFlow, "not-on-previous"],
+    ["production", TEST_FLOW, "not-on-previous"],
+    ["production", STRAIGHT.appFlow, "publish"],
+    ["public", THREE.appFlow, "not-on-previous"],
     ["dev", THREE.appFlow, "publish"],
   ])(
     "given a registry asked for %s, when it decides, then the environment before counts",
@@ -195,7 +195,7 @@ describe("Feature: choosing what a branch publishes", () => {
 });
 
 describe("Feature: deploying apps from a branch", () => {
-  const onBranch = (config: object = { deployOnBranch: "staging" }, branch = "feat/x") => {
+  const onBranch = (config: object = { deployOnBranch: "preview" }, branch = "feat/x") => {
     const world = given(config);
     world.source.seed({ position: { branch, head: "abc1234def", originMain: "head" } });
     world.versioning.seed({
@@ -224,7 +224,7 @@ describe("Feature: deploying apps from a branch", () => {
     expect(await branchRelease(context, snapshot)).toBe(true);
 
     expect(prompter.asked).toEqual([
-      "Deploy api from feat/x to staging? It replaces what runs there until the next release.",
+      "Deploy api from feat/x to preview? It replaces what runs there until the next release.",
     ]);
     expect(ran()).toEqual(["deploy acme-api api@1.0.0-feat-x.abc1234"]);
     expect(host.received).toEqual([]);
@@ -267,9 +267,9 @@ describe("Feature: ship.yml lists what the config says", () => {
   const every = ["snapshot", "nightly", "alpha", "beta", "rc", "latest"];
 
   it.each([
-    ["apps", {}, [API], ["staging", "prod"]],
-    ["apps on prod only", STRAIGHT, [API], ["prod"]],
-    ["apps on three", THREE, [API], ["dev", "staging", "prod"]],
+    ["apps", {}, [API], ["preview", "production"]],
+    ["apps on production only", STRAIGHT, [API], ["production"]],
+    ["apps on three", THREE, [API], ["dev", "review", "public"]],
     ["packages", {}, [LIB], every],
     [
       "packages on two channels",
@@ -283,7 +283,7 @@ describe("Feature: ship.yml lists what the config says", () => {
       [LIB],
       ["latest"],
     ],
-    ["both", {}, [API, LIB], ["staging", "prod", ...every]],
+    ["both", {}, [API, LIB], ["preview", "production", ...every]],
   ])("given %s, when setup writes it, then it asks for those", async (_, config, units, listed) => {
     const { context } = given(config, units);
     const asked: unknown[] = [];

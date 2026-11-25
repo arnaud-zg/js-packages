@@ -22,7 +22,7 @@ const NEED: Requirement = {
 const inputFor = (options: Record<string, unknown>, version = "1.0.0") => ({
   unit: testUnit("app", { version }),
   tag: `app@${version}`,
-  environment: "staging" as const,
+  environment: "preview" as const,
   flow: TEST_FLOW,
   options,
   commit: "abc1234",
@@ -58,7 +58,7 @@ describe("rehearsing a delivery in memory while a custom adapter is written", ()
           record: true,
         },
       ],
-      received: [{ tag: "app@1.0.0", environment: "staging", service: "api" }],
+      received: [{ tag: "app@1.0.0", environment: "preview", service: "api" }],
       needs: [NEED],
     });
   });
@@ -80,7 +80,7 @@ describe("rehearsing a delivery in memory while a custom adapter is written", ()
       name: "fake",
       capability: "static-hosting",
       minutes: 1,
-      describe: "admin (fake, staging)",
+      describe: "admin (fake, preview)",
       jobs: [
         {
           label: "build app@1.0.0 and upload it to admin (fake)",
@@ -89,7 +89,7 @@ describe("rehearsing a delivery in memory while a custom adapter is written", ()
           record: true,
         },
       ],
-      received: [{ tag: "app@1.0.0", environment: "staging", site: "admin" }],
+      received: [{ tag: "app@1.0.0", environment: "preview", site: "admin" }],
       needs: [NEED],
     });
   });
@@ -98,7 +98,7 @@ describe("rehearsing a delivery in memory while a custom adapter is written", ()
     const adapter = mobileDistributionMemory();
     const port = adapter.create(CONTEXT);
     adapter.fake.seed({
-      live: { staging: "1.0.0" },
+      live: { preview: "1.0.0" },
       health: { "app@1.0.0": { ok: true, summary: "0 crashes" } },
       requirements: [NEED],
     });
@@ -106,13 +106,13 @@ describe("rehearsing a delivery in memory while a custom adapter is written", ()
     const same = await port.decide(DECIDE, inputFor({ app: "mobile" }));
     const newer = await port.decide(DECIDE, inputFor({ app: "mobile" }, "1.1.0"));
 
-    expect(same).toEqual({ action: "none", status: "app 1.0.0 is on staging" });
+    expect(same).toEqual({ action: "none", status: "app 1.0.0 is on preview" });
     expect(newer).toEqual({
       action: "ship",
       kind: "update",
       jobs: [
         {
-          label: "publish app@1.1.0 to mobile on staging (fake)",
+          label: "publish app@1.1.0 to mobile on preview (fake)",
           local: [{ command: "echo", args: ["update", "mobile", "app@1.1.0"] }],
           ci: { ref: "app@1.1.0" },
         },
@@ -137,7 +137,7 @@ describe("rehearsing a delivery in memory while a custom adapter is written", ()
       live: [true, false],
       health: [{ ok: true, summary: "0 crashes" }, null],
       inspect: { live: "1.0.0" },
-      describe: "mobile on staging (fake)",
+      describe: "mobile on preview (fake)",
       decidedBy: {
         platform: "the fake platform",
         choice: "update or nothing",

@@ -48,7 +48,7 @@ export default defineRelease({
     ciPipeline: gitHubActionsCiPipeline({ shipWorkflow: "deploy.yml" }),
     versioning: changesetsVersioning(),
   }),
-  deployApps: { promote: [{ from: "staging", to: "prod" }] },
+  deployApps: { promote: [{ from: "preview", to: "production" }] },
   modules: [backendService({ serverHosting: shellServerHosting() })],
   // After a ship, each PR in the version and each issue it relates to hears about it.
   features: [releaseComments({ codeHost, sourceControl })],
@@ -76,15 +76,15 @@ Source: `src/github-code-host.adapter.ts`, `src/github-actions-ci-pipeline.adapt
 through GitHub Actions dispatching `deploy.yml`:
 
 ```text
-  Plan  ·  staging  · nothing runs
+  Plan  ·  preview  · nothing runs
   Order  1 api · Latest
 
   api@1.0.0 → ./deploy.sh  (not tagged yet: release first)
     this machine
       ./deploy.sh
-      then record api@1.0.0 on staging, on GitHub
+      then record api@1.0.0 on preview, on GitHub
     GitHub Actions
-      gh workflow run deploy.yml --ref api@1.0.0 -f units=api -f environment=staging
+      gh workflow run deploy.yml --ref api@1.0.0 -f units=api -f environment=preview
 ```
 
 On the runner, the workflow runs `shiplane ship` with the same unit files. Each comment carries a

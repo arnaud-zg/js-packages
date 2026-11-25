@@ -13,7 +13,7 @@ const feature = (name: string, afterShip: Feature["afterShip"]): Feature => ({
   afterShip,
 });
 
-const SHIPPED: Shipped[] = [{ unit: testUnit("api"), tag: "api@1.0.0", environment: "prod" }];
+const SHIPPED: Shipped[] = [{ unit: testUnit("api"), tag: "api@1.0.0", environment: "production" }];
 
 const given = () => {
   const ran: string[] = [];

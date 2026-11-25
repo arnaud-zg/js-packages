@@ -70,9 +70,9 @@ describe("seeing what a release will do before anything is written", () => {
 
     expect(output.lines).toEqual([
       "",
-      "  Release  ·  staging  ·  1 changeset  ·  admin held",
+      "  Release  ·  preview  ·  1 changeset  ·  admin held",
       "",
-      "  Unit           Version             Ships to staging",
+      "  Unit           Version             Ships to preview",
       "  api            0.0.1 → 0.0.2       ↑ ship  fake",
       "  admin          0.1.0               ⏸ held, its changesets stay pending",
       "",
@@ -92,9 +92,9 @@ describe("seeing what a release will do before anything is written", () => {
 
     expect(output.lines).toEqual([
       "",
-      "  Release  ·  staging  ·  2 changesets",
+      "  Release  ·  preview  ·  2 changesets",
       "",
-      "  Unit           Version             Ships to staging",
+      "  Unit           Version             Ships to preview",
       "  api            0.0.1 → 0.0.2       ↑ ship  fake",
       "  admin          0.1.0 → 0.2.0       ↑ ship  fake",
       "",
@@ -127,7 +127,7 @@ describe("seeing what a release will do before anything is written", () => {
     await openReleasePr(context, await prepareRelease(context, new Set(["admin"])));
 
     expect(output.lines.slice(3, 6)).toEqual([
-      "  Unit           Version             Ships to staging",
+      "  Unit           Version             Ships to preview",
       "  api            0.0.1               ⏸ held, its changesets stay pending",
       `  admin          0.1.0 → 0.2.0       build 12 for iOS\n${" ".repeat(37)}update for 0.2.x`,
     ]);
@@ -229,9 +229,9 @@ describe("seeing which apps a release takes along", () => {
 
     expect(output.lines.slice(0, 12)).toEqual([
       "",
-      "  Release  ·  staging  ·  1 changeset",
+      "  Release  ·  preview  ·  1 changeset",
       "",
-      "  Unit           Version             Ships to staging",
+      "  Unit           Version             Ships to preview",
       "  expo           0.2.1 → 0.2.2       ↑ ship  fake",
       "  api            0.0.7 → 0.0.8       ↑ ship  fake  not picked, goes along",
       "  packages       1 bumped            changelogs only, nothing published",
@@ -252,7 +252,7 @@ describe("seeing which apps a release takes along", () => {
     const [pr] = host.received;
     const body = pr?.type === "pr" ? pr.body : "";
     expect(body).toContain(
-      "Ship to staging with fake (not picked: uses @acme/assets, which expo's changes move)",
+      "Ship to preview with fake (not picked: uses @acme/assets, which expo's changes move)",
     );
   });
 });

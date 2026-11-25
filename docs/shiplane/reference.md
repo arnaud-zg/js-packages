@@ -88,7 +88,7 @@ export default defineRelease({
     ciPipeline: gitHubActionsCiPipeline(),
     versioning: changesetsVersioning(),
   }),
-  deployApps: { promote: [{ from: "staging", to: "prod" }] },
+  deployApps: { promote: [{ from: "preview", to: "production" }] },
   modules: [
     backendService({ serverHosting: flyServerHosting() }),
     webApp({ staticHosting: cloudflarePagesStaticHosting() }),
@@ -168,8 +168,8 @@ each.
 ```yaml
 module: backend-service # a module of shiplane.config.ts
 app: # every other key belongs to that module's plugin
-  staging: acme-api-staging
-  prod: acme-api
+  preview: acme-api-preview
+  production: acme-api
 url: ${units.other.url} # another unit's value, same environment
 checkEnvBeforeDeploy: # env var names a deploy waits for, read on the platform
   - SENTRY_DSN
@@ -201,8 +201,8 @@ manifest in its folder that has one: `.claude-plugin/plugin.json`, `.codex-plugi
 it with `tag: "plugin"`.
 
 A published package, an agent plugin and an internal tool have no environment, so a run names none:
-it asks to release them live, not to staging. A repository mixing them with an app that deploys
-reads `staging`, since the app does go there.
+it asks to release them live, not to preview. A repository mixing them with an app that deploys
+reads `preview`, since the app does go there.
 
 Each takes an optional `name`, for two modules of one kind:
 `backendService({ name: "workers", ... })` then `module: workers`. Source: `src/modules/`.
@@ -236,10 +236,10 @@ log group, writes a plan table and a result table (`Prepare`, `Ship`: success, f
 | Package manager   | pnpm, npm, yarn, from `packageManager` in package.json, else the lockfile                                                    | `unsupported package manager "bun": pnpm, npm or yarn`, or `no package manager: add packageManager to package.json, or a lockfile` |
 | Node version      | the `node-version` input, else `.nvmrc`, `.node-version`, `engines.node`, first found                                        | `no Node version: add .nvmrc or set node-version`                                                                                  |
 | Units             | Names from the config; none means every unit                                                                                 | `unknown units [x]: known [a, b]`                                                                                                  |
-| Environment       | Those of `deployApps.promote`; with packages, also `latest` and any test release channel                                     | `unknown environment "qa": staging, prod`                                                                                          |
+| Environment       | Those of `deployApps.promote`; with packages, also `latest` and any test release channel                                     | `unknown environment "qa": preview, production`                                                                                    |
 | Prepare           | `prepare` with `{unit}` and `{dir}`, run before each unit                                                                    | `unknown placeholder {app} in prepare`                                                                                             |
 | Deploy tools      | Each picked unit's tools; a missing one runs its Linux install, its folder added to `PATH` and `GITHUB_PATH`                 | `flyctl missing and no install for linux`                                                                                          |
-| Secrets           | Each picked unit's: `FLY_API_TOKEN`, `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, `EXPO_TOKEN`; the flow's `GH_TOKEN` | `api ships with fly: FLY_API_TOKEN missing in "staging"`                                                                           |
+| Secrets           | Each picked unit's: `FLY_API_TOKEN`, `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, `EXPO_TOKEN`; the flow's `GH_TOKEN` | `api ships with fly: FLY_API_TOKEN missing in "preview"`                                                                           |
 | Working directory | The repository root, or the `working-directory` input naming a folder holding `shiplane.config.ts` or `shiplane.yml`         | `no shiplane.config.ts or shiplane.yml in apps/x`                                                                                  |
 
 ### Channels and npm tags
@@ -308,7 +308,7 @@ other unreleased version: `no release tag shiplane@x.y.z: pin ship.yml by hand`.
 
 A tag holds the `ship.yml` of the day it was cut. So that a ship, or its retry, runs today's
 workflow, `shiplane ship --via ci` starts the run on the default branch and passes the tag as `ref`:
-`gh workflow run ship.yml --ref main -f units=api -f environment=staging -f ref=api@1.2.0`. It
+`gh workflow run ship.yml --ref main -f units=api -f environment=preview -f ref=api@1.2.0`. It
 checks out `ref`, so what deploys is the tag's code, never main's.
 
 Its `environment` input lists where the repository ships: apps' environments, then packages'

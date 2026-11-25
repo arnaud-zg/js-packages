@@ -33,8 +33,8 @@ one.
 | `resting`  | nothing to do                           |
 
 A moment is `{ mood, tick, label }`: `tick` counts frames from 0 and stays 0 when motion is off;
-`label` is what runs, such as `deploy api@1.2.0 to prod`. Every frame is padded to the widest one.
-Type: `Mascot` from `shiplane`. Source: `src/domain/display.ts`.
+`label` is what runs, such as `deploy api@1.2.0 to production`. Every frame is padded to the widest
+one. Type: `Mascot` from `shiplane`. Source: `src/domain/display.ts`.
 
 ## `status --json`
 
@@ -42,7 +42,7 @@ From `pnpm -s shiplane status --json`, trimmed to one unit:
 
 ```json
 {
-  "environment": "staging",
+  "environment": "preview",
   "units": [
     {
       "unit": "api",

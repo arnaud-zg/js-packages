@@ -15,23 +15,23 @@ const envOf = (shell: RecordingShell) => {
 };
 
 describe("the env EAS holds for an app", () => {
-  it("given two variables on the staging environment, when listed, then their names come back and run from the app's folder", async () => {
-    const shell = new RecordingShell().seed("pnpm exec eas env:list staging", {
-      stdout: "EXPO_PUBLIC_API_URL=https://api-staging.example.com\nSENTRY_DSN=*****\n",
+  it("given two variables on the preview environment, when listed, then their names come back and run from the app's folder", async () => {
+    const shell = new RecordingShell().seed("pnpm exec eas env:list preview", {
+      stdout: "EXPO_PUBLIC_API_URL=https://api-preview.example.com\nSENTRY_DSN=*****\n",
     });
 
     const listed = await envOf(shell).listNames({
       flow: TEST_FLOW,
       unit,
-      environment: "staging",
+      environment: "preview",
       options,
     });
 
     expect([...listed]).toEqual(["EXPO_PUBLIC_API_URL", "SENTRY_DSN"]);
     expect(shell.calls[0]).toMatchObject({
-      args: ["exec", "eas", "env:list", "staging", "--format", "short"],
+      args: ["exec", "eas", "env:list", "preview", "--format", "short"],
       cwd: "/repo/apps/expo",
-      env: { APP_VARIANT: "staging" },
+      env: { APP_VARIANT: "preview" },
     });
   });
 
@@ -42,21 +42,21 @@ describe("the env EAS holds for an app", () => {
     });
 
     await expect(
-      envOf(shell).listNames({ flow: TEST_FLOW, unit, environment: "prod", options }),
-    ).rejects.toThrow("eas env:list prod: Not logged in");
+      envOf(shell).listNames({ flow: TEST_FLOW, unit, environment: "production", options }),
+    ).rejects.toThrow("eas env:list production: Not logged in");
   });
 
   it("given two unset names, when the set command is printed, then each is created as a secret on that environment, run from the app's folder", () => {
     const command = envOf(new RecordingShell()).setCommand({
       flow: TEST_FLOW,
       unit,
-      environment: "prod",
+      environment: "production",
       options,
       names: names("SENTRY_DSN", "EXPO_PUBLIC_API_URL"),
     });
 
     expect(command).toBe(
-      "cd apps/expo && pnpm exec eas env:create --environment prod --name SENTRY_DSN --value ... --visibility secret && pnpm exec eas env:create --environment prod --name EXPO_PUBLIC_API_URL --value ... --visibility secret",
+      "cd apps/expo && pnpm exec eas env:create --environment production --name SENTRY_DSN --value ... --visibility secret && pnpm exec eas env:create --environment production --name EXPO_PUBLIC_API_URL --value ... --visibility secret",
     );
   });
 });

@@ -6,7 +6,7 @@ import { openReleasePr } from "../openReleasePr";
 import { prepareRelease } from "../prepareRelease";
 import { pickPromotion } from "../promote";
 
-describe("a staging release that takes apps along", () => {
+describe("a preview release that takes apps along", () => {
   const setUp = () => {
     const world = testContext({
       units: [
@@ -79,7 +79,7 @@ describe("a staging release that takes apps along", () => {
   });
 });
 
-describe("promoting to prod what staging ran together", () => {
+describe("promoting to production what preview ran together", () => {
   const changelog = (name: string, version: string, ...lines: string[]) =>
     `# @acme/${name}\n\n## ${version}\n\n### Patch Changes\n\n${lines.join("\n")}\n`;
 
@@ -113,37 +113,37 @@ describe("promoting to prod what staging ran together", () => {
     });
     world.host.seed({
       deployments: ["expo@0.3.0", "api@0.0.8", "landing@0.1.3"].map((tag) => ({
-        title: `Deploy ${tag} to staging`,
+        title: `Deploy ${tag} to preview`,
         state: "done" as const,
       })),
     });
     return world;
   };
 
-  it("given expo picked alone and api went to staging with it, when promoting, then api is offered first-ticked with the change they share and goes when accepted", async () => {
+  it("given expo picked alone and api went to preview with it, when promoting, then api is offered first-ticked with the change they share and goes when accepted", async () => {
     const { context, output, prompter } = setUp();
     prompter.answer(["expo"], true);
 
-    const scope = await pickPromotion(context, "prod");
+    const scope = await pickPromotion(context, "production");
 
-    expect(prompter.asked[1]).toBe("Promote api 0.0.8 too? Staging has only run it with expo.");
+    expect(prompter.asked[1]).toBe("Promote api 0.0.8 too? Preview has only run it with expo.");
     expect(prompter.initials[prompter.asked[1] ?? ""]).toBe(true);
     expect(output.text).toContain(
-      "went to staging with expo 0.3.0 for: An identification you left running is pushed to your phone when it ends.",
+      "went to preview with expo 0.3.0 for: An identification you left running is pushed to your phone when it ends.",
     );
     expect(output.text).not.toContain("landing  ");
     expect(scope && [...scope]).toEqual(["expo", "api"]);
   });
 
-  it("given the person keeps api on staging, when promoting, then only expo goes and the release says what prod runs it next to", async () => {
+  it("given the person keeps api on preview, when promoting, then only expo goes and the release says what production runs it next to", async () => {
     const { context, output, prompter } = setUp();
     prompter.answer(["expo"], false);
 
-    const scope = await pickPromotion(context, "prod");
+    const scope = await pickPromotion(context, "production");
 
     expect(scope && [...scope]).toEqual(["expo"]);
     expect(output.text).toContain(
-      "api stays on staging: prod runs expo 0.3.0 next to the api it has.",
+      "api stays on preview: production runs expo 0.3.0 next to the api it has.",
     );
   });
 });

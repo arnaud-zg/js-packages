@@ -30,7 +30,7 @@ export default`,
 const CHECKED = `${SERVER_UNIT}checkEnvBeforeDeploy:
   all:
     - SENTRY_DSN
-  prod:
+  production:
     - REVENUECAT_PROJECT_ID
 `;
 
@@ -65,25 +65,25 @@ describe("doctor and the env checked before deploy", () => {
 
     expect(passed).toBe(true);
     expect(text).toContain("Check env before deploy");
-    expect(text).toContain("api on staging: 1 of 1 set");
-    expect(text).toContain("api on prod: 2 of 2 set");
+    expect(text).toContain("api on preview: 1 of 1 set");
+    expect(text).toContain("api on production: 2 of 2 set");
   });
 
-  it("given a prod name unset, when doctor runs, then it names it with the command to set it and fails", async () => {
+  it("given a production name unset, when doctor runs, then it names it with the command to set it and fails", async () => {
     const { passed, text } = await doctorOn({
       config: serverHolding(["SENTRY_DSN"]),
       unit: CHECKED,
     });
 
     expect(passed).toBe(false);
-    expect(text).toContain("api on prod: 1 unset env vars: REVENUECAT_PROJECT_ID");
+    expect(text).toContain("api on production: 1 unset env vars: REVENUECAT_PROJECT_ID");
     expect(text).toContain("server env set REVENUECAT_PROJECT_ID");
   });
 
-  it("given a name listed in all and again for prod, when doctor runs, then it says so", async () => {
+  it("given a name listed in all and again for production, when doctor runs, then it says so", async () => {
     const { text } = await doctorOn({
       config: serverHolding(["SENTRY_DSN"]),
-      unit: `${SERVER_UNIT}checkEnvBeforeDeploy:\n  all:\n    - SENTRY_DSN\n  prod:\n    - SENTRY_DSN\n`,
+      unit: `${SERVER_UNIT}checkEnvBeforeDeploy:\n  all:\n    - SENTRY_DSN\n  production:\n    - SENTRY_DSN\n`,
     });
 
     expect(text).toContain("api: SENTRY_DSN is in all and listed again");

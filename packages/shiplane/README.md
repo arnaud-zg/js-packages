@@ -16,7 +16,7 @@ your npm packages.
 is yours to say:
 
 ```ts
-deployApps: { promote: [{ from: "staging", to: "prod" }] },
+deployApps: { promote: [{ from: "preview", to: "production" }] },
 publishPackages: { channels: ["nightly", "latest"] },
 ```
 
@@ -35,8 +35,8 @@ flowchart LR
 
 ```sh
 pnpm shiplane setup      # find what ships, rehearse, write the config
-pnpm shiplane            # release PR, merge, tags, ship to staging
-pnpm shiplane promote    # what staging validated, to prod
+pnpm shiplane            # release PR, merge, tags, ship to preview
+pnpm shiplane promote    # what preview validated, to production
 ```
 
 ## 🔌 Ports
@@ -101,7 +101,7 @@ export default defineRelease({
     ciPipeline: gitHubActionsCiPipeline(),
     versioning: commitsVersioning(),
   }),
-  deployApps: { promote: [{ from: "staging", to: "prod" }] },
+  deployApps: { promote: [{ from: "preview", to: "production" }] },
   modules: [
     backendService({ serverHosting: flyServerHosting() }),
     webApp({ staticHosting: cloudflarePagesStaticHosting() }),

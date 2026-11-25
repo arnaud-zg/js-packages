@@ -16,7 +16,7 @@ import { rehearsal } from "shiplane/rehearsal";
 
 const fakes = rehearsal();
 
-export default defineRelease({ deployApps: { promote: [{ from: "staging", to: "prod" }] },
+export default defineRelease({ deployApps: { promote: [{ from: "preview", to: "production" }] },
   flow: releaseFlow({
     sourceControl: fakes.sourceControl,
     codeHost: fakes.codeHost,
@@ -75,39 +75,39 @@ const setUp = (answers: Parameters<ScriptedPrompter["answer"]> = []) => {
 };
 
 describe("a release rehearsed on Fakes, through the CLI's entry", () => {
-  it("given two tagged apps, when shipped to staging through CI, then each app's workflow is dispatched on its tag, in release order", async () => {
+  it("given two tagged apps, when shipped to preview through CI, then each app's workflow is dispatched on its tag, in release order", async () => {
     const { fakes, run } = setUp();
 
     expect(await run("ship", "--via", "ci", "--yes")).toBe(0);
 
     expect(fakes.serverHosting.fake.received).toEqual([
-      { tag: "api@1.0.0", environment: "staging", service: "api" },
+      { tag: "api@1.0.0", environment: "preview", service: "api" },
     ]);
     expect(fakes.staticHosting.fake.received).toEqual([
-      { tag: "site@1.0.0", environment: "staging", site: "site" },
+      { tag: "site@1.0.0", environment: "preview", site: "site" },
     ]);
     expect(fakes.ciPipeline.fake.received).toEqual([
       {
         type: "dispatch",
         workflow: "ship.yml",
         ref: "api@1.0.0",
-        inputs: { units: "api", environment: "staging" },
+        inputs: { units: "api", environment: "preview" },
       },
       {
         type: "dispatch",
         workflow: "ship.yml",
         ref: "site@1.0.0",
-        inputs: { units: "site", environment: "staging" },
+        inputs: { units: "site", environment: "preview" },
       },
     ]);
   });
 
-  it("given both apps on staging, when promoted through CI, then each is dispatched to prod", async () => {
-    const { fakes, prompter, run } = setUp([["api", "site"], "prod", true]);
+  it("given both apps on preview, when promoted through CI, then each is dispatched to production", async () => {
+    const { fakes, prompter, run } = setUp([["api", "site"], "production", true]);
     fakes.codeHost.fake.seed({
       deployments: [
-        { title: "Deploy api@1.0.0 to staging", state: "done" },
-        { title: "Deploy site@1.0.0 to staging", state: "done" },
+        { title: "Deploy api@1.0.0 to preview", state: "done" },
+        { title: "Deploy site@1.0.0 to preview", state: "done" },
       ],
     });
 
@@ -115,12 +115,12 @@ describe("a release rehearsed on Fakes, through the CLI's entry", () => {
 
     expect(code).toBe(0);
     expect(prompter.asked).toEqual([
-      "What do you want to release to prod? Greyed units have nothing to release.",
-      'Type "prod" to start:',
-      "Ship api@1.0.0, site@1.0.0 to prod through Fake CI?",
+      "What do you want to release to production? Greyed units have nothing to release.",
+      'Type "production" to start:',
+      "Ship api@1.0.0, site@1.0.0 to production through Fake CI?",
     ]);
     expect(
       fakes.ciPipeline.fake.received.map(({ ref, inputs }) => `${ref} ${inputs.environment ?? ""}`),
-    ).toEqual(["api@1.0.0 prod", "site@1.0.0 prod"]);
+    ).toEqual(["api@1.0.0 production", "site@1.0.0 production"]);
   });
 });

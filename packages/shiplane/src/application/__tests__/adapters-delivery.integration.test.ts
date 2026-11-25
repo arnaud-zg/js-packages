@@ -17,7 +17,7 @@ const CONTEXT = { root: "/repo", shell: new RecordingShell() };
 const inputFor = (options: Record<string, unknown>) => ({
   unit: testUnit("api"),
   tag: "api@1.2.0",
-  environment: "prod" as const,
+  environment: "production" as const,
   flow: TEST_FLOW,
   options,
   commit: "abc1234",
@@ -49,7 +49,7 @@ describe("shipping a server with a deploy command of one's own", () => {
     expect(settings.safeParse({}).success).toBe(false);
     expect(
       settings.safeParse({
-        deploy: { staging: ["pnpm", "deploy:staging"], prod: ["pnpm", "deploy"] },
+        deploy: { preview: ["pnpm", "deploy:preview"], production: ["pnpm", "deploy"] },
         url: "https://api.example.com",
       }).success,
     ).toBe(true);

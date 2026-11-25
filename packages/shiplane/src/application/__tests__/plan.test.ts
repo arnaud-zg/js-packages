@@ -17,7 +17,7 @@ describe("the order a plan shows", () => {
       ],
     });
 
-    await planShips(world.context, "staging");
+    await planShips(world.context, "preview");
 
     expect(stripVTControlCharacters(world.output.text)).toContain(
       "Order  1 api · Latest → 2 admin (reads api.url) → 3 expo",

@@ -25,18 +25,18 @@ describe("Feature: dry-running with --dry-run every command a ship would run", (
     const { context, output, shell, ci } = shipWorld(["api"]);
 
     // when
-    await planShips(context, "staging");
+    await planShips(context, "preview");
 
     // then
     expect(output.lines).toEqual(
       expect.arrayContaining([
-        "  Plan  ·  staging  · nothing runs",
+        "  Plan  ·  preview  · nothing runs",
         "  api@0.1.0 → acme-api (fake)",
         "    this machine",
         "      echo deploy acme-api api@0.1.0",
-        "      then record api@0.1.0 on staging, on Fake Host",
+        "      then record api@0.1.0 on preview, on Fake Host",
         "    Fake CI",
-        "      fake-ci run ship.yml --ref api@0.1.0 -f units=api -f environment=staging",
+        "      fake-ci run ship.yml --ref api@0.1.0 -f units=api -f environment=preview",
       ]),
     );
     expect(output.lines.at(-1)).toBe("");
@@ -49,7 +49,7 @@ describe("Feature: dry-running with --dry-run every command a ship would run", (
     const { context, output, shell } = shipWorld(["api"], { prepare: "make {unit} -C {dir}" });
 
     // when
-    await planShips(context, "staging");
+    await planShips(context, "preview");
 
     // then
     const at = output.lines.indexOf("    this machine");
@@ -61,20 +61,20 @@ describe("Feature: dry-running with --dry-run every command a ship would run", (
     expect(shell.calls).toEqual([]);
   });
 
-  it("given web not tagged yet, when a ship to prod is dry-run, then web says to release it first", async () => {
+  it("given web not tagged yet, when a ship to production is dry-run, then web says to release it first", async () => {
     // given
     const { context, output, source } = shipWorld(["api", "web"]);
     source.seed({ tags: { "api@0.1.0": "c-api" } });
 
     // when
-    await planShips(context, "prod");
+    await planShips(context, "production");
 
     // then
     expect(output.lines).toContain(
       "  web@0.1.0 → acme-web (fake)  (not tagged yet: release first)",
     );
     expect(output.lines).toContain("  api@0.1.0 → acme-api (fake)");
-    expect(output.lines).toContain("  Plan  ·  prod  · nothing runs");
+    expect(output.lines).toContain("  Plan  ·  production  · nothing runs");
   });
 
   it("given a CI pipeline with no command line for its dispatch, when a ship is dry-run, then it says in words what it would dispatch", async () => {
@@ -83,11 +83,11 @@ describe("Feature: dry-running with --dry-run every command a ship would run", (
     ci.dispatchLine = undefined as unknown as typeof ci.dispatchLine;
 
     // when
-    await planShips(context, "staging");
+    await planShips(context, "preview");
 
     // then
     expect(output.lines).toContain(
-      "      dispatch ship.yml on api@0.1.0 with units=api, environment=staging",
+      "      dispatch ship.yml on api@0.1.0 with units=api, environment=preview",
     );
   });
 
@@ -102,7 +102,7 @@ describe("Feature: dry-running with --dry-run every command a ship would run", (
     const { context, output } = shipWorld([], { deciding, decided: ["a"] });
 
     // when
-    await planShips(context, "staging");
+    await planShips(context, "preview");
 
     // then
     expect(output.lines).toContain("  a@0.1.0 → the store");
@@ -126,10 +126,10 @@ describe("Feature: dry-running with --dry-run every command a ship would run", (
     source.seed({ tags: { "api@0.1.0": "c-api", "cli@0.1.0": "c-cli" } });
 
     // when
-    await planShips(context, "staging");
+    await planShips(context, "preview");
 
     // then
-    expect(told).toEqual(["api@0.1.0 on staging"]);
+    expect(told).toEqual(["api@0.1.0 on preview"]);
     expect(output.lines).toContain("  Then  once shipped");
     expect(output.lines).toContain("    comment on api@0.1.0");
   });
@@ -142,7 +142,7 @@ describe("Feature: dry-running with --dry-run every command a ship would run", (
     ];
 
     // when
-    await planShips(context, "staging");
+    await planShips(context, "preview");
 
     // then
     expect(output.text).not.toContain("Then");

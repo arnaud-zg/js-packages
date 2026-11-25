@@ -32,8 +32,8 @@ const REPO = {
   "pnpm-workspace.yaml": "packages:\n  - apps/*\n",
   ".vscode/settings.json": '{\n  // the team\'s settings\n  "editor.formatOnSave": true\n}\n',
   "apps/api/package.json": packageJson("@acme/api", "0.0.3"),
-  "apps/api/fly-staging.toml": 'app = "acme-api-staging"\nprimary_region = "fra"\n',
-  "apps/api/fly-prod.toml": 'app = "acme-api-prod"\n',
+  "apps/api/fly-preview.toml": 'app = "acme-api-preview"\nprimary_region = "fra"\n',
+  "apps/api/fly-production.toml": 'app = "acme-api-production"\n',
   "apps/api/Dockerfile": "FROM node:22\n",
   "apps/admin/package.json": packageJson("@acme/admin", "0.1.3"),
   "apps/admin/vite.config.ts": "export default {};\n",
@@ -41,8 +41,8 @@ const REPO = {
   "apps/admin/Dockerfile": "FROM nginx\n",
   "apps/expo/package.json": packageJson("@acme/expo", "0.1.115", {
     scripts: {
-      "eas:update:staging": "eas update --channel staging",
-      "eas:update:prod:gated": "eas update --channel prod --rollout-percentage 10",
+      "eas:update:preview": "eas update --channel preview",
+      "eas:update:production:gated": "eas update --channel production --rollout-percentage 10",
     },
   }),
   "apps/expo/eas.json": "{}\n",
@@ -95,10 +95,12 @@ describe("shiplane init --yes", () => {
     expect(config).toContain("backendService({ serverHosting: flyServerHosting() })");
     expect(config).toContain("mobileApp({ mobileDistribution: easMobileDistribution() })");
     expect(yaml(ws, "apps/api/shiplane.unit.yml")).toContain("module: backend-service");
-    expect(yaml(ws, "apps/api/shiplane.unit.yml")).toContain("staging: acme-api-staging");
-    expect(yaml(ws, "apps/api/shiplane.unit.yml")).toContain("prod: fly-prod.toml");
+    expect(yaml(ws, "apps/api/shiplane.unit.yml")).toContain("preview: acme-api-preview");
+    expect(yaml(ws, "apps/api/shiplane.unit.yml")).toContain("production: fly-production.toml");
     expect(yaml(ws, "apps/admin/shiplane.unit.yml")).toContain("project: acme-admin");
-    expect(yaml(ws, "apps/expo/shiplane.unit.yml")).toContain("prod: eas:update:prod:gated");
+    expect(yaml(ws, "apps/expo/shiplane.unit.yml")).toContain(
+      "production: eas:update:production:gated",
+    );
     expect(ws.exists("apps/ui/shiplane.unit.yml")).toBe(false);
     expect(ws.exists(".release")).toBe(false);
     expect(ws.read("node_modules/.cache/shiplane/schema.json")).toContain(

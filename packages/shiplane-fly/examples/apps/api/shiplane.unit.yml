@@ -1,10 +1,10 @@
 module: backend-service
 app:
-  staging: acme-api-staging
-  prod: acme-api
+  preview: acme-api-preview
+  production: acme-api
 config:
-  staging: fly-staging.toml
-  prod: fly-prod.toml
+  preview: fly-preview.toml
+  production: fly-production.toml
 url:
-  staging: https://api-staging.acme.dev
-  prod: https://api.acme.dev
+  preview: https://api-preview.acme.dev
+  production: https://api.acme.dev

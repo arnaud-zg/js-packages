@@ -598,13 +598,13 @@ describe("Feature: naming the environments apps go through", () => {
 
   it("given an app and no name, when setup runs, then it asks and writes the steps in that order", async () => {
     const { context, prompter, files } = unnamed();
-    prompter.answer(true, "dev, staging, prod", true);
+    prompter.answer(true, "dev, review, public", true);
 
     expect(await setup(context, { yes: false })).toBe(true);
 
     expect(prompter.asked).toContain(QUESTION);
     expect(files.read("shiplane.config.ts")).toContain(
-      'deployApps: { promote: [{ from: "dev", to: "staging" }, { from: "staging", to: "prod" }] },',
+      'deployApps: { promote: [{ from: "dev", to: "review" }, { from: "review", to: "public" }] },',
     );
   });
 
@@ -630,12 +630,12 @@ describe("Feature: naming the environments apps go through", () => {
 
   it("given one name, when setup writes it, then apps go straight there", async () => {
     const { context, prompter, files } = unnamed();
-    prompter.answer(true, "Not A Name", "prod", true);
+    prompter.answer(true, "Not A Name", "public", true);
 
     expect(await setup(context, { yes: false })).toBe(true);
 
     expect(files.read("shiplane.config.ts")).toContain(
-      'deployApps: { promote: [{ to: "prod" }] },',
+      'deployApps: { promote: [{ to: "public" }] },',
     );
   });
 

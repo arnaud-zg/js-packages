@@ -28,7 +28,7 @@ const OWN = [
   "    steps:",
   "      - uses: acme/shiplane/.github/actions/ship@sha-0.6.0 # shiplane@0.6.0",
   "        with:",
-  "          environment: staging",
+  "          environment: preview",
   "          SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }} # ours",
   "  notify:",
   "    runs-on: ubuntu-latest",

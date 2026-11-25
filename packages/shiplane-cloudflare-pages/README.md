@@ -37,7 +37,7 @@ export default defineRelease({
     ciPipeline: gitHubActionsCiPipeline(),
     versioning: changesetsVersioning(),
   }),
-  deployApps: { promote: [{ from: "staging", to: "prod" }] },
+  deployApps: { promote: [{ from: "preview", to: "production" }] },
   modules: [webApp({ staticHosting: cloudflarePagesStaticHosting() })],
 });
 ```
@@ -68,23 +68,23 @@ project: acme-site
 build:
   env:
     PUBLIC_API_URL:
-      staging: https://api-staging.acme.dev
-      prod: https://api.acme.dev
+      preview: https://api-preview.acme.dev
+      production: https://api.acme.dev
 ```
 
-`pnpm shiplane ship --dry-run` in that repository prints what a ship to staging would run:
+`pnpm shiplane ship --dry-run` in that repository prints what a ship to preview would run:
 
 ```text
-  Plan  ·  staging  · nothing runs
+  Plan  ·  preview  · nothing runs
   Order  1 site · Latest
 
-  site@1.0.0 → acme-site on Pages (staging)  (not tagged yet: release first)
+  site@1.0.0 → acme-site on Pages (preview)  (not tagged yet: release first)
     this machine
-      PUBLIC_API_URL=https://api-staging.acme.dev pnpm turbo run build --filter=@acme/site
-      npx --yes wrangler@4.141.0 pages deploy apps/site/dist --project-name=acme-site --branch=staging --commit-hash=66a58b57e844921774ad2c7bbd362d5d994574e2 --commit-message=site@1.0.0
-      then record site@1.0.0 on staging, on GitHub
+      PUBLIC_API_URL=https://api-preview.acme.dev pnpm turbo run build --filter=@acme/site
+      npx --yes wrangler@4.141.0 pages deploy apps/site/dist --project-name=acme-site --branch=preview --commit-hash=29e2296c35bb876f1535439d2260c3052f7c7657 --commit-message=site@1.0.0
+      then record site@1.0.0 on preview, on GitHub
     GitHub Actions
-      gh workflow run ship.yml --ref site@1.0.0 -f units=site -f environment=staging
+      gh workflow run ship.yml --ref site@1.0.0 -f units=site -f environment=preview
 ```
 
 The upload is the deploy: it returns in seconds. `setup` offers this adapter for a folder with a

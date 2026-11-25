@@ -177,17 +177,17 @@ describe("finding what ships", () => {
 });
 
 describe("values that differ per environment", () => {
-  it("given a value per environment, when staging and prod are read, then each gets its own", async () => {
+  it("given a value per environment, when preview and production are read, then each gets its own", async () => {
     const { root } = setUp({ "apps/api/shiplane.unit.yml": SERVER_UNIT });
 
     const release = await load(root);
     const [api] = release.units;
 
-    expect(api && optionsFor(api, "staging", release.units, TEST_FLOW.path)).toMatchObject({
-      app: "api-staging",
+    expect(api && optionsFor(api, "preview", release.units, TEST_FLOW.path)).toMatchObject({
+      app: "api-preview",
     });
-    expect(api && optionsFor(api, "prod", release.units, TEST_FLOW.path)).toMatchObject({
-      app: "api-prod",
+    expect(api && optionsFor(api, "production", release.units, TEST_FLOW.path)).toMatchObject({
+      app: "api-production",
     });
   });
 
@@ -201,7 +201,7 @@ describe("values that differ per environment", () => {
     const admin = release.units.find(({ name }) => name === "admin");
 
     expect(admin?.after).toEqual(["api"]);
-    expect(admin && optionsFor(admin, "prod", release.units, TEST_FLOW.path)).toEqual({
+    expect(admin && optionsFor(admin, "production", release.units, TEST_FLOW.path)).toEqual({
       project: "admin-site",
       build: { env: { API_URL: "https://api.example.com" } },
     });
@@ -223,7 +223,7 @@ describe("values that differ per environment", () => {
 
   it("given two apps that read each other, when the release loads, then the later one is told it reads an app released after it", async () => {
     const { root } = setUp({
-      "apps/api/shiplane.unit.yml": `${SERVER_UNIT.replace("url:\n  staging: https://api-staging.example.com\n  prod: https://api.example.com", "url: ${units.admin.project}")}`,
+      "apps/api/shiplane.unit.yml": `${SERVER_UNIT.replace("url:\n  preview: https://api-preview.example.com\n  production: https://api.example.com", "url: ${units.admin.project}")}`,
       "apps/admin/shiplane.unit.yml": ADMIN_UNIT,
     });
 
@@ -504,13 +504,16 @@ describe("saying how apps deploy and packages publish", () => {
 
   it.each([
     [
-      'deployApps: { promote: [{ from: "staging", to: "prod" }] }',
-      { appFlow: { path: ["staging", "prod"], users: "prod" } },
+      'deployApps: { promote: [{ from: "preview", to: "production" }] }',
+      { appFlow: { path: ["preview", "production"], users: "production" } },
     ],
-    ['deployApps: { promote: [{ to: "prod" }] }', { appFlow: { path: ["prod"], users: "prod" } }],
     [
-      'deployApps: { promote: [{ from: "staging" }] }',
-      { appFlow: { path: ["staging"], users: null } },
+      'deployApps: { promote: [{ to: "production" }] }',
+      { appFlow: { path: ["production"], users: "production" } },
+    ],
+    [
+      'deployApps: { promote: [{ from: "preview" }] }',
+      { appFlow: { path: ["preview"], users: null } },
     ],
     [
       'publishPackages: { channels: ["nightly", "alpha", "beta", "rc", "latest"], onBranch: "snapshot" }',
@@ -518,8 +521,8 @@ describe("saying how apps deploy and packages publish", () => {
     ],
     ["publishPackages: { onBranch: false }", { onBranch: false }],
     [
-      'deployApps: { promote: [{ from: "staging", to: "prod" }], onBranch: "staging" }',
-      { deployOnBranch: "staging" },
+      'deployApps: { promote: [{ from: "preview", to: "production" }], onBranch: "preview" }',
+      { deployOnBranch: "preview" },
     ],
   ])("given %s, when the release loads, then it keeps them in order", async (line, kept) => {
     const release = await configured(line);
@@ -528,7 +531,7 @@ describe("saying how apps deploy and packages publish", () => {
   });
 
   it.each([
-    'deployApps: { promote: [{ from: "staging", to: "prod" }], onBranch: undefined }',
+    'deployApps: { promote: [{ from: "preview", to: "production" }], onBranch: undefined }',
     "publishPackages: { onBranch: undefined }",
   ])("given %s, when the release loads, then it is as if unset", async (line) => {
     const release = await configured(line);
@@ -540,10 +543,10 @@ describe("saying how apps deploy and packages publish", () => {
 
   it("given three environments, when the release loads, then it keeps their order, and a unit file written for others is refused", async () => {
     const release = await configured(
-      'deployApps: { promote: [{ from: "dev", to: "staging" }, { from: "staging", to: "prod" }] }',
+      'deployApps: { promote: [{ from: "dev", to: "review" }, { from: "review", to: "public" }] }',
     );
 
-    expect(release.appFlow).toEqual({ path: ["dev", "staging", "prod"], users: "prod" });
+    expect(release.appFlow).toEqual({ path: ["dev", "review", "public"], users: "public" });
     expect(release.problems.map(({ file }) => file)).toContain("apps/api/shiplane.unit.yml");
   });
 
@@ -579,7 +582,7 @@ describe("saying how apps deploy and packages publish", () => {
     ["two, users last", '{ from: "trial", to: "store" }', 0],
     ["one, before any user", '{ from: "trial" }', 0],
     ["users at once", '{ to: "store" }', 1],
-    ["three", '{ from: "trial", to: "staging" }, { from: "staging", to: "store" }', 1],
+    ["three", '{ from: "trial", to: "review" }, { from: "review", to: "store" }', 1],
   ])(
     "given an app its own platform decides for and %s, when the release loads, then it is accepted or told",
     async (_, steps, problems) => {
@@ -606,16 +609,16 @@ describe("saying how apps deploy and packages publish", () => {
   it("given a typo in an environment's name, when the release loads, then the closest one is suggested", async () => {
     workspace = setUp({
       "apps/api/shiplane.unit.yml": SERVER_UNIT.replace(
-        "  prod: api-prod",
-        "  prod: api\n  stagin: api",
+        "  production: api-production",
+        "  production: api\n  prevew: api",
       ),
     });
 
     const release = await load(workspace.root);
 
     expect(release.problems[0]).toMatchObject({
-      message: 'unknown key "app.stagin" for backend-service',
-      hint: 'did you mean "staging"?',
+      message: 'unknown key "app.prevew" for backend-service',
+      hint: 'did you mean "preview"?',
     });
   });
 
@@ -638,12 +641,15 @@ describe("saying how apps deploy and packages publish", () => {
     ["deployApps: { promote: [] }", "deployApps takes promote"],
     ['deployApps: { channels: ["latest"] }', "deployApps takes promote"],
     [
-      'deployApps: { promote: [{ from: "staging", to: "prod" }], onBranch: "prod" }',
+      'deployApps: { promote: [{ from: "preview", to: "production" }], onBranch: "production" }',
       "a branch never deploys there",
     ],
     ['deployApps: { onBranch: "elsewhere" }', "promote does not name it"],
-    ['deployApps: { promote: [{ to: "prod" }], onBranch: "staging" }', "promote does not name it"],
-    ['publishPackages: { channels: ["staging"] }', "staging is an environment apps deploy to"],
+    [
+      'deployApps: { promote: [{ to: "production" }], onBranch: "preview" }',
+      "promote does not name it",
+    ],
+    ['publishPackages: { channels: ["preview"] }', "preview is an environment apps deploy to"],
     ['publishPackages: { channels: ["snapshot"] }', "snapshot is what onBranch publishes"],
     ['publishPackages: { onBranch: "nightly" }', 'onBranch, "snapshot" or false'],
     ['publishPackages: { promote: ["latest"] }', "publishPackages takes channels, a list of names"],

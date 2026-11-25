@@ -139,7 +139,7 @@ describe("release notes read from a hard-wrapped changelog", () => {
         "",
         "- [#2460](https://host.test/OWNER/REPO/pull/2460)",
         "  [`5f26d0c`](https://host.test/OWNER/REPO/commit/5f26d0c)",
-        "  Thanks [@user](https://host.test/user)! - The staging update ships again: the 0.7.1",
+        "  Thanks [@user](https://host.test/user)! - The preview update ships again: the 0.7.1",
         "  update failed before it was published.",
       ].join("\n"),
     );
@@ -148,7 +148,7 @@ describe("release notes read from a hard-wrapped changelog", () => {
       [
         "### Patch Changes",
         "",
-        "- [#2460](https://host.test/OWNER/REPO/pull/2460) [`5f26d0c`](https://host.test/OWNER/REPO/commit/5f26d0c) Thanks [@user](https://host.test/user)! - The staging update ships again: the 0.7.1 update failed before it was published.",
+        "- [#2460](https://host.test/OWNER/REPO/pull/2460) [`5f26d0c`](https://host.test/OWNER/REPO/commit/5f26d0c) Thanks [@user](https://host.test/user)! - The preview update ships again: the 0.7.1 update failed before it was published.",
       ].join("\n"),
     );
   });

@@ -9,8 +9,9 @@
 
 1. Update `shiplane` and every `@shiplane/*` package to the same version.
 2. If it deploys apps, or a package's `tag` is a map per environment, add to the config, with the
-   names your unit files already use: `deployApps: { promote: [{ from: "staging", to: "prod" }] }`.
-   Every value per environment then holds each of those names and no other.
+   names your unit files already use:
+   `deployApps: { promote: [{ from: "preview", to: "production" }] }`. Every value per environment
+   then holds each of those names and no other.
 3. On EAS, `eas.json` has a profile and a channel of each name, and there is one step. On Cloudflare
    Pages with `checkEnvBeforeDeploy`, add `secretsIn`, the Cloudflare environment holding its
    secrets.

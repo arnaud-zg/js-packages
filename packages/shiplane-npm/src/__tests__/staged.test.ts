@@ -34,7 +34,7 @@ describe("staging a package on npm", () => {
     shell.seed(LIST, { stdout: "[]" });
     prompter.answer(true);
 
-    expect(await shipTo(context, "staging", {})).toBe(true);
+    expect(await shipTo(context, "preview", {})).toBe(true);
 
     expect(ran().slice(-4)).toEqual([
       "pnpm run --if-present prepublishOnly",
@@ -48,7 +48,7 @@ describe("staging a package on npm", () => {
     const { context, shell, output, ran } = setUp();
     shell.seed(LIST, { stdout: JSON.stringify([{ version: "0.2.0" }]) });
 
-    expect(await shipTo(context, "staging", {})).toBe(true);
+    expect(await shipTo(context, "preview", {})).toBe(true);
 
     expect(ran().some((line) => line.startsWith(STAGE))).toBe(false);
     expect(output.text).toContain("staged on npm: approve it on npmjs.com");
@@ -63,7 +63,7 @@ describe("staging a package on npm", () => {
     shell.seed(LIST, reply);
     prompter.answer(true);
 
-    expect(await shipTo(context, "staging", {})).toBe(true);
+    expect(await shipTo(context, "preview", {})).toBe(true);
 
     expect(ran().some((line) => line.startsWith(STAGE))).toBe(true);
   });
@@ -74,7 +74,7 @@ describe("staging a package on npm", () => {
     shell.seed(STAGE, { status: 1 });
     prompter.answer(true);
 
-    expect(await shipTo(context, "staging", {})).toBe(false);
+    expect(await shipTo(context, "preview", {})).toBe(false);
 
     expect(ran()).toContain("npm pkg set name=@acme/kit");
     expect(ran().slice(-2)).toEqual(["rm -f .shiplane-stage.tgz", "npm pkg set name=kit"]);
@@ -88,7 +88,7 @@ describe("staging a package on npm", () => {
         flow: TEST_FLOW,
         unit: kitWith(),
         tag: "kit@0.2.0",
-        environment: "staging",
+        environment: "preview",
         commit: "head-1",
         defaultBranch: "main",
         options: { access: "public", tag: "latest" },

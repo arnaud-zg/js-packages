@@ -23,7 +23,7 @@ export default defineRelease({
     ciPipeline: gitHubActionsCiPipeline(),
     versioning: commitsVersioning(),
   }),
-  deployApps: { promote: [{ from: "staging", to: "prod" }] },
+  deployApps: { promote: [{ from: "preview", to: "production" }] },
   modules: [
     backendService({ serverHosting: flyServerHosting() }),
     webApp({ staticHosting: cloudflarePagesStaticHosting() }),

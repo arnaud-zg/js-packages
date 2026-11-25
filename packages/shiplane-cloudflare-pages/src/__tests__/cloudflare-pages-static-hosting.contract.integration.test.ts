@@ -10,7 +10,7 @@ platformEnvContract([
   {
     adapter: cloudflarePagesStaticHosting(),
     settings,
-    environment: "prod",
+    environment: "production",
     listing: {
       shell: new RecordingShell().seed("npx --yes wrangler@4.141.0 pages secret list", {
         stdout: "  - TURNSTILE_SECRET: Value Encrypted\n",

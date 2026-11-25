@@ -136,7 +136,7 @@ describe("Feature: coming back to a release", () => {
 
       // then
       expect(world.output.text).toContain("↻ Picking up a merged release");
-      expect(world.output.text).toContain("Left to do: tag 1 version → ship to staging");
+      expect(world.output.text).toContain("Left to do: tag 1 version → ship to preview");
       const tags = world.source.received.filter(({ type }) => type === "tag");
       expect(tags).toEqual([expect.objectContaining({ name: "api@0.1.0", sha: "r2" })]);
       expect(opened(world)).toEqual([]);

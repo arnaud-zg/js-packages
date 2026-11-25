@@ -53,7 +53,7 @@ const setUp = ({
   platform,
   toCheck = new EnvToCheck({
     all: names("SENTRY_DSN", "WAITLIST_CONFIRM_URL"),
-    prod: names("REVENUECAT_PROJECT_ID"),
+    production: names("REVENUECAT_PROJECT_ID"),
   }),
   interactive = true,
   yes = false,
@@ -84,35 +84,35 @@ const setUp = ({
 };
 
 describe("checking the env before a deploy", () => {
-  it("given every listed name on the platform, when staging is checked, then the deploy goes on with one line and no question", async () => {
-    const platform = new PlatformEnvFake({ staging: names("SENTRY_DSN", "WAITLIST_CONFIRM_URL") });
+  it("given every listed name on the platform, when preview is checked, then the deploy goes on with one line and no question", async () => {
+    const platform = new PlatformEnvFake({ preview: names("SENTRY_DSN", "WAITLIST_CONFIRM_URL") });
     const { run, output, prompter } = setUp({ platform });
 
-    expect(await run("staging")).toBe(true);
-    expect(output.text).toContain("Check env before deploy  api on staging: 2 of 2 set");
+    expect(await run("preview")).toBe(true);
+    expect(output.text).toContain("Check env before deploy  api on preview: 2 of 2 set");
     expect(prompter.asked).toEqual([]);
   });
 
-  it("given prod adds its own name, when prod is checked, then that name is checked too", async () => {
+  it("given production adds its own name, when production is checked, then that name is checked too", async () => {
     const platform = new PlatformEnvFake({
-      prod: names("SENTRY_DSN", "WAITLIST_CONFIRM_URL"),
+      production: names("SENTRY_DSN", "WAITLIST_CONFIRM_URL"),
     });
     const { run, output } = setUp({ platform, interactive: false });
 
-    expect(await run("prod")).toBe(false);
+    expect(await run("production")).toBe(false);
     expect(output.text).toContain("REVENUECAT_PROJECT_ID");
   });
 
   it("given two names unset in a terminal, when the person sets them and says so, then the platform is read again and the deploy goes on", async () => {
     const platform = new PlatformEnvFake(
-      { staging: [] },
-      { staging: names("SENTRY_DSN", "WAITLIST_CONFIRM_URL") },
+      { preview: [] },
+      { preview: names("SENTRY_DSN", "WAITLIST_CONFIRM_URL") },
     );
     const { run, output, prompter } = setUp({ platform });
     prompter.answer(true);
 
-    expect(await run("staging")).toBe(true);
-    expect(output.text).toContain("api on staging: 2 unset env vars, the deploy waits");
+    expect(await run("preview")).toBe(true);
+    expect(output.text).toContain("api on preview: 2 unset env vars, the deploy waits");
     expect(output.text).toContain("You set these values; shiplane never does.");
     expect(output.text).toContain(
       "hostctl secrets set --stage -a acme-api SENTRY_DSN=... WAITLIST_CONFIRM_URL=...",
@@ -122,18 +122,18 @@ describe("checking the env before a deploy", () => {
   });
 
   it("given names unset in a terminal, when the person stops, then nothing deploys", async () => {
-    const platform = new PlatformEnvFake({ staging: [] });
+    const platform = new PlatformEnvFake({ preview: [] });
     const { run, prompter } = setUp({ platform });
     prompter.answer(false);
 
-    expect(await run("staging")).toBe(false);
+    expect(await run("preview")).toBe(false);
   });
 
   it("given names unset in CI, when checked, then the deploy stops with the command to run and asks nothing", async () => {
-    const platform = new PlatformEnvFake({ staging: names("SENTRY_DSN") });
+    const platform = new PlatformEnvFake({ preview: names("SENTRY_DSN") });
     const { run, output, prompter } = setUp({ platform, interactive: false });
 
-    expect(await run("staging")).toBe(false);
+    expect(await run("preview")).toBe(false);
     expect(output.text).toContain("Nothing was written. Set them, then run again:");
     expect(output.text).toContain(
       "hostctl secrets set --stage -a acme-api WAITLIST_CONFIRM_URL=...",
@@ -142,48 +142,48 @@ describe("checking the env before a deploy", () => {
   });
 
   it("given names unset and --yes, when checked, then it stops like CI, since only a person can set a value", async () => {
-    const platform = new PlatformEnvFake({ staging: [] });
+    const platform = new PlatformEnvFake({ preview: [] });
     const { run, prompter } = setUp({ platform, yes: true });
 
-    expect(await run("staging")).toBe(false);
+    expect(await run("preview")).toBe(false);
     expect(prompter.asked).toEqual([]);
   });
 
   it("given a unit that lists nothing to check, when checked, then the platform is never read and nothing is printed", async () => {
-    const platform = new PlatformEnvFake({ staging: [] });
+    const platform = new PlatformEnvFake({ preview: [] });
     const { run, output } = setUp({ platform, toCheck: null });
 
-    expect(await run("staging")).toBe(true);
+    expect(await run("preview")).toBe(true);
     expect(platform.reads).toBe(0);
     expect(output.text).toBe("");
   });
 
   it("given a platform plugin that cannot list names, when checked, then it warns and the deploy goes on", async () => {
-    const platform = new PlatformEnvFake({ staging: [] });
+    const platform = new PlatformEnvFake({ preview: [] });
     const { run, output } = setUp({ platform, withEnv: false });
 
-    expect(await run("staging")).toBe(true);
+    expect(await run("preview")).toBe(true);
     expect(output.text).toContain("can't check env on fake");
   });
 
   it("given a platform that cannot be read in CI, when checked, then the deploy stops and nothing counts as set", async () => {
     const platform = new PlatformEnvFake({
-      staging: names("SENTRY_DSN", "WAITLIST_CONFIRM_URL"),
+      preview: names("SENTRY_DSN", "WAITLIST_CONFIRM_URL"),
     }).failNext(1);
     const { run, output } = setUp({ platform, interactive: false });
 
-    expect(await run("staging")).toBe(false);
+    expect(await run("preview")).toBe(false);
     expect(output.text).toContain("host: not signed in");
   });
 
   it("given a platform that cannot be read in a terminal, when the person retries, then it reads again", async () => {
     const platform = new PlatformEnvFake({
-      staging: names("SENTRY_DSN", "WAITLIST_CONFIRM_URL"),
+      preview: names("SENTRY_DSN", "WAITLIST_CONFIRM_URL"),
     }).failNext(1);
     const { run, prompter } = setUp({ platform });
     prompter.answer(true);
 
-    expect(await run("staging")).toBe(true);
+    expect(await run("preview")).toBe(true);
     expect(prompter.asked).toEqual(["Read the platform again?"]);
   });
 });

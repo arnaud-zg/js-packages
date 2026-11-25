@@ -73,7 +73,7 @@ describe("showing where the release is", () => {
       units: [testUnit("api", { version: "0.0.1" })],
     });
     source.seed({ tags: { "api@0.0.1": "t0" } });
-    host.seed({ deployments: [{ title: "Deploy api@0.0.1 to staging", state: "done" }] });
+    host.seed({ deployments: [{ title: "Deploy api@0.0.1 to preview", state: "done" }] });
 
     await releaseToEntry(context);
 

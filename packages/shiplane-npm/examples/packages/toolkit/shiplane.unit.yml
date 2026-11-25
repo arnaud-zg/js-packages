@@ -1,4 +1,4 @@
 module: published-package
 tag:
-  staging: next
-  prod: latest
+  preview: next
+  production: latest

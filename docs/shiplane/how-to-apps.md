@@ -41,8 +41,8 @@ Its unit file goes. Changesets still version it.
 
 ```yaml
 app:
-  staging: acme-api-staging
-  prod: acme-api
+  preview: acme-api-preview
+  production: acme-api
 ```
 
 ## Read another app's value
@@ -74,7 +74,7 @@ new environment inherits `all`.
 checkEnvBeforeDeploy:
   all:
     - SENTRY_DSN
-  prod:
+  production:
     - REVENUECAT_PROJECT_ID
 ```
 
@@ -86,7 +86,7 @@ checkEnvBeforeDeploy:
 
 Fly reads its secrets and the fly.toml `[env]` keys, EAS its environment's variables, and Cloudflare
 Pages its secrets plus the unit's `build.env`. `shiplane doctor` shows the same check for every
-environment. `release`, `promote` and `ship` check before anything deploys; a release to staging
+environment. `release`, `promote` and `ship` check before anything deploys; a release to preview
 checks before it opens the release PR.
 
 ## Hold an app back

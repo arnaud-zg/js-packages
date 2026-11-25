@@ -83,8 +83,8 @@ modules:
 tag: plugin
 deployApps:
   promote:
-    - from: staging
-      to: prod
+    - from: preview
+      to: production
 testComment: compact
 prepare: pnpm --filter {unit}... build
 `);
