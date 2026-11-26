@@ -69,7 +69,9 @@ permissions:
 jobs:
   ship:
     runs-on: ubuntu-26.04
-    environment: ${{ !inputs.dry-run && inputs.environment || '' }}
+    environment:
+      name: ${{ inputs.environment }}
+      deployment: ${{ !inputs.dry-run }} # a dry run reads its secrets, records no deployment
     steps:
       - uses: actions/checkout@v5 # at the tag, with its history
       - uses: arnaud-zg/js-packages/.github/actions/ship@<commit> # shiplane@<version>
