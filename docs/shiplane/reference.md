@@ -307,8 +307,10 @@ protection rules; required reviewers and branch rules still apply.
 manual run (`units`, `environment`, `ref`) using the `.github/actions/ship` action, pinned to the
 commit of the installed shiplane's tag (`uses: …/actions/ship@<sha> # shiplane@x.y.z`). A test
 version (`x.y.z-<branch>.<short sha>`) has no tag: it pins the commit its short sha names, or says
-`no commit <short sha> for shiplane@x.y.z-…: pin ship.yml by hand` when GitHub does not know it. Any
-other unreleased version: `no release tag shiplane@x.y.z: pin ship.yml by hand`.
+`no commit <short sha> for shiplane@x.y.z-…: pin ship.yml by hand` when GitHub does not know it. A
+pre-release with no tag (`x.y.z-nightly.n`, `x.y.z-rc.n`) pins the commit its npm provenance names,
+when that provenance comes from `arnaud-zg/js-packages`. Otherwise:
+`no release tag shiplane@x.y.z: pin ship.yml by hand`.
 
 A tag holds the `ship.yml` of the day it was cut. So that a ship, or its retry, runs today's
 workflow, `shiplane ship --via ci` starts the run on the default branch and passes the tag as `ref`:
