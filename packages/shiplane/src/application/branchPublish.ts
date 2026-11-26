@@ -18,6 +18,7 @@ import {
   SNAPSHOT_TAG,
   tagWords,
 } from "../domain/branchRelease";
+import { moves } from "../domain/changes";
 import { isNumbered, nextNumber, sharedNumbers, testTag, testVersion } from "../domain/testChannel";
 import { buildingIfNeeded } from "./buildIfNeeded";
 import { readManifest } from "./manifest";
@@ -60,7 +61,7 @@ export interface BranchPlan {
 const pendingUnits = async (
   context: ReleaseContext,
 ): Promise<{ unit: ReleaseUnit; base: string }[]> => {
-  const { releases } = await context.services.versioning.plan([], []);
+  const releases = moves(await context.services.versioning.plan([], []));
   return context.release.units.flatMap((unit) => {
     const next = releases.find(({ name }) => name === unit.packageName)?.newVersion;
     return next ? [{ unit, base: next }] : [];

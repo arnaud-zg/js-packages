@@ -1,5 +1,6 @@
 import type { StatusPlan, UnitRef } from "./changes";
 import type { Environment } from "./environment";
+import { moves } from "./changes";
 
 /** A unit that goes out with the picked ones without being picked, and why. */
 export interface Companion {
@@ -48,13 +49,14 @@ export const draggedUnits = (
   units: readonly UnitRef[],
   scope: ReadonlySet<string>,
 ): Companion[] => {
-  const moving = new Set(plan.releases.map(({ name }) => name));
+  const releases = moves(plan);
+  const moving = new Set(releases.map(({ name }) => name));
   const named = new Set(
-    plan.releases.filter(({ changesets }) => changesets.length > 0).map(({ name }) => name),
+    releases.filter(({ changesets }) => changesets.length > 0).map(({ name }) => name),
   );
   const picked = units.filter(({ name }) => scope.has(name));
   return units.flatMap(({ name: app, packageName }) => {
-    const release = plan.releases.find(({ name }) => name === packageName);
+    const release = releases.find(({ name }) => name === packageName);
     if (scope.has(app) || !release) return [];
     const chain = chainTo(packageName, dependencies, moving, named);
     const source = chain[chain.length - 1];
