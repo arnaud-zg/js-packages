@@ -156,6 +156,43 @@ describe("Feature: doctor checks the workflow a repository ships from", () => {
     expect(output.lines).toContain(`│  ~ ${SHIP_YML}`);
   });
 
+  it("given ship.yml naming no environment on a dry run, when the person agrees, then a dry run reads its secrets and records no deployment", async () => {
+    const current = callerFor("0.6.0");
+    const hiding = current.replace(
+      "  ship:\n",
+      [
+        "  ship:",
+        "    # A dry run names none: naming one records a deployment.",
+        "    environment: ${{ !inputs.dry-run && inputs.environment || '' }}",
+        "",
+      ].join("\n"),
+    );
+    const { context, output, prompter, files } = given({ files: { [SHIP_YML]: hiding } });
+    prompter.answer(true);
+
+    expect(await doctor(context)).toBe(true);
+
+    expect(output.lines).toContain(
+      "│  ✗ ship.yml names no environment on a dry run, so the run cannot read its secrets",
+    );
+    expect(prompter.asked).toEqual([
+      `Let a dry run of ${SHIP_YML} read the environment's secrets?`,
+    ]);
+    expect(files.read(SHIP_YML)).toBe(
+      current.replace(
+        "  ship:\n",
+        [
+          "  ship:",
+          "    # A dry run reads the environment's secrets and records no deployment.",
+          "    environment:",
+          "      name: ${{ inputs.environment }}",
+          "      deployment: ${{ !inputs.dry-run }}",
+          "",
+        ].join("\n"),
+      ),
+    );
+  });
+
   it("given ship.yml pinned to an older shiplane, when doctor runs with --yes, then it is re-pinned without asking", async () => {
     const { context, prompter, files } = given({ files: { [SHIP_YML]: OWN_PINNED } });
 
