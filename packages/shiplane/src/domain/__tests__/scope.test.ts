@@ -31,7 +31,7 @@ describe("what the release covers, asked before anything runs", () => {
   });
 
   it("given a package with changesets that expo and api use, when asked, then it says they may go along", () => {
-    const package_ = { ...base, app: "app", version: "0.3.1", changesets: 7, tagged: true };
+    const package_ = { ...base, app: "shared", version: "1.2.0", changesets: 2, tagged: true };
 
     expect(
       scopeChoices(
@@ -39,20 +39,18 @@ describe("what the release covers, asked before anything runs", () => {
         "preview",
         TEST_FLOW,
       )[0]?.hint,
-    ).toBe("7 changesets · expo, api use it, may go along");
+    ).toBe("2 changesets · expo, api use it, may go along");
   });
 
   it("given a package expo uses through another package, when the users are read, then expo is named and release-only units are not", () => {
     const units = [
       { name: "expo", packageName: "@acme/expo" },
-      { name: "app", packageName: "@acme/app" },
-      { name: "es-core", packageName: "@acme/es-core" },
+      { name: "shared", packageName: "@acme/shared" },
+      { name: "core", packageName: "@acme/core" },
     ];
-    const dependencies = { "@acme/expo": ["@acme/app"], "@acme/app": ["@acme/es-core"] };
+    const dependencies = { "@acme/expo": ["@acme/shared"], "@acme/shared": ["@acme/core"] };
 
-    expect(deployedUsers("@acme/es-core", dependencies, units, new Set(["expo"]))).toEqual([
-      "expo",
-    ]);
+    expect(deployedUsers("@acme/core", dependencies, units, new Set(["expo"]))).toEqual(["expo"]);
   });
 
   it("given landing 0.1.1 released but not on preview, when asked, then it is offered to deploy", () => {

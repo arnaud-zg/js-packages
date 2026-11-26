@@ -10,15 +10,15 @@ import { changesetText, testContext, testUnit } from "../../testing/releaseConte
 import { openReleasePr } from "../openReleasePr";
 import { prepareRelease } from "../prepareRelease";
 
-const PLANT: PlannedChangeset = {
-  id: "plant-not-in-catalog",
-  summary: "A plant not in the catalog yet never blocks its page.",
+const SEARCH: PlannedChangeset = {
+  id: "search-empty-state",
+  summary: "A search with no result shows an empty page, not an error.",
   releases: [{ name: "@acme/api", type: "patch" }],
 };
 
 const HISTORY: PlannedChangeset = {
   id: "admin-history",
-  summary: "Admin shows every identification a user made.",
+  summary: "Admin shows every order a user made.",
   releases: [{ name: "@acme/admin", type: "minor" }],
 };
 
@@ -50,8 +50,8 @@ const setUp = ({
   ];
   const world = testContext({ units, modules });
   world.versioning.seed({
-    pending: pendingOf([PLANT, HISTORY]),
-    plan: planFrom([PLANT, HISTORY], { "@acme/api": "0.0.1", "@acme/admin": "0.1.0" }),
+    pending: pendingOf([SEARCH, HISTORY]),
+    plan: planFrom([SEARCH, HISTORY], { "@acme/api": "0.0.1", "@acme/admin": "0.1.0" }),
   });
   world.source.seed({
     defaultBranch,
@@ -139,8 +139,8 @@ describe("seeing what a release will do before anything is written", () => {
       units: [testUnit("api", { version: "0.0.1" }), testUnit("landing", { version: "1.0.0" })],
     });
     world.versioning.seed({
-      pending: pendingOf([PLANT]),
-      plan: planFrom([PLANT], { "@acme/api": "0.0.1" }),
+      pending: pendingOf([SEARCH]),
+      plan: planFrom([SEARCH], { "@acme/api": "0.0.1" }),
     });
     world.prompter.answer(false);
 
@@ -158,8 +158,8 @@ describe("seeing which apps a release takes along", () => {
   const plan: StatusPlan = {
     changesets: [
       {
-        id: "inbox-copy",
-        summary: "the mascot's inbox says when a result is new.",
+        id: "home-news",
+        summary: "the home screen says when a message is new.",
         releases: [
           { name: "@acme/expo", type: "patch" },
           { name: "@acme/assets", type: "patch" },
@@ -177,14 +177,14 @@ describe("seeing which apps a release takes along", () => {
         type: "patch",
         oldVersion: "0.2.1",
         newVersion: "0.2.2",
-        changesets: ["inbox-copy"],
+        changesets: ["home-news"],
       },
       {
         name: "@acme/assets",
         type: "patch",
         oldVersion: "0.1.0",
         newVersion: "0.1.1",
-        changesets: ["inbox-copy"],
+        changesets: ["home-news"],
       },
       {
         name: "@acme/api",
@@ -210,10 +210,10 @@ describe("seeing which apps a release takes along", () => {
     world.versioning.seed({
       pending: [
         {
-          id: "inbox-copy",
+          id: "home-news",
           text: changesetText(
             { "@acme/expo": "patch", "@acme/assets": "patch" },
-            "the mascot's inbox says when a result is new.",
+            "the home screen says when a message is new.",
           ),
         },
         { id: "api-fix", text: changesetText({ "@acme/api": "patch" }, "api answers faster.") },
@@ -371,7 +371,7 @@ describe("opening a release PR", () => {
       type: "commit",
       files: ["apps/api/package.json"],
       title: "chore(api): release v0.0.2",
-      body: "api 0.0.2\n- A plant not in the catalog yet never blocks its page.",
+      body: "api 0.0.2\n- A search with no result shows an empty page, not an error.",
     });
   });
 
