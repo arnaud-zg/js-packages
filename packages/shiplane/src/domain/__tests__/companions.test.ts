@@ -6,10 +6,10 @@ import { SAMPLE_UNITS } from "../../testing/sample";
 import { draggedUnits, releasedTogether } from "../companions";
 
 const DEPENDENCIES = {
-  "@acme/expo": ["@acme/app", "@acme/assets"],
-  "@acme/api": ["@acme/data-translator", "@acme/es-core"],
-  "@acme/admin": ["@acme/assets", "@acme/es-core"],
-  "@acme/data-translator": ["@acme/assets"],
+  "@acme/expo": ["@acme/shared", "@acme/assets"],
+  "@acme/api": ["@acme/translator", "@acme/core"],
+  "@acme/admin": ["@acme/assets", "@acme/core"],
+  "@acme/translator": ["@acme/assets"],
   "@acme/landing": [],
 };
 
@@ -17,8 +17,8 @@ const DEPENDENCIES = {
 const TRANSLATIONS: StatusPlan = {
   changesets: [
     {
-      id: "inbox-copy",
-      summary: "the mascot's inbox says when a result is new.",
+      id: "home-news",
+      summary: "the home screen says when a message is new.",
       releases: [
         { name: "@acme/expo", type: "patch" },
         { name: "@acme/assets", type: "patch" },
@@ -31,17 +31,17 @@ const TRANSLATIONS: StatusPlan = {
       type: "patch",
       oldVersion: "0.2.1",
       newVersion: "0.2.2",
-      changesets: ["inbox-copy"],
+      changesets: ["home-news"],
     },
     {
       name: "@acme/assets",
       type: "patch",
       oldVersion: "0.1.0",
       newVersion: "0.1.1",
-      changesets: ["inbox-copy"],
+      changesets: ["home-news"],
     },
     {
-      name: "@acme/data-translator",
+      name: "@acme/translator",
       type: "patch",
       oldVersion: "0.1.1",
       newVersion: "0.1.2",
@@ -65,7 +65,7 @@ describe("apps a preview release takes along without being picked", () => {
         app: "api",
         version: "0.0.8",
         with: ["expo"],
-        why: "uses @acme/data-translator → @acme/assets, which expo's changes move",
+        why: "uses @acme/translator → @acme/assets, which expo's changes move",
       },
       {
         app: "admin",
@@ -74,6 +74,26 @@ describe("apps a preview release takes along without being picked", () => {
         why: "uses @acme/assets, which expo's changes move",
       },
     ]);
+  });
+
+  it("given status lists landing with no bump, when only expo is picked, then landing does not go along", () => {
+    const unmoved: StatusPlan = {
+      ...TRANSLATIONS,
+      releases: [
+        ...TRANSLATIONS.releases,
+        {
+          name: "@acme/landing",
+          type: "none",
+          oldVersion: "0.4.0",
+          newVersion: "0.4.0",
+          changesets: [],
+        },
+      ],
+    };
+
+    expect(
+      draggedUnits(unmoved, DEPENDENCIES, SAMPLE_UNITS, new Set(["expo"])).map(({ app }) => app),
+    ).toEqual(["api", "admin"]);
   });
 
   it("given every moving app picked, when the release is planned, then nothing goes along unasked", () => {
@@ -90,9 +110,9 @@ describe("apps preview ran together, offered when promoting to production", () =
     app: "expo",
     version: "0.3.0",
     notes: notes(
-      "- 03acc29: An identification you left running is pushed to your phone when it ends, even",
+      "- 03acc29: An export you left running is pushed to your phone when it ends, even",
       "  with the app closed.",
-      "- 9f1e2d3: the mascot's inbox says when a result is new.",
+      "- 9f1e2d3: the home screen says when a message is new.",
     ),
   };
 
@@ -101,7 +121,7 @@ describe("apps preview ran together, offered when promoting to production", () =
       app: "api",
       version: "0.0.8",
       notes: notes(
-        "- 03acc29: An identification you left running is pushed to your phone when it ends, even",
+        "- 03acc29: An export you left running is pushed to your phone when it ends, even",
         "  with the app closed.",
       ),
     };
@@ -111,7 +131,7 @@ describe("apps preview ran together, offered when promoting to production", () =
         app: "api",
         version: "0.0.8",
         with: ["expo"],
-        why: "went to preview with expo 0.3.0 for: An identification you left running is pushed to your phone when it ends, even…",
+        why: "went to preview with expo 0.3.0 for: An export you left running is pushed to your phone when it ends, even…",
       },
     ]);
   });
@@ -128,7 +148,7 @@ describe("apps preview ran together, offered when promoting to production", () =
         app: "admin",
         version: "0.1.5",
         with: ["expo"],
-        why: "went to preview with expo 0.3.0 for: the mascot's inbox says when a result is new.",
+        why: "went to preview with expo 0.3.0 for: the home screen says when a message is new.",
       },
     ]);
   });
@@ -137,15 +157,15 @@ describe("apps preview ran together, offered when promoting to production", () =
     const expoMoved = {
       app: "expo",
       version: "0.2.0",
-      notes: notes("- Updated dependencies [3c58e56]", "  - @acme/es-core@0.1.1"),
+      notes: notes("- Updated dependencies [3c58e56]", "  - @acme/core@0.1.1"),
     };
     const admin = {
       app: "admin",
       version: "0.1.4",
       notes: notes(
         "- Updated dependencies [3c58e56]",
-        "  - @acme/es-core@0.1.1",
-        "  - @acme/plant-hooks@0.1.1",
+        "  - @acme/core@0.1.1",
+        "  - @acme/hooks@0.1.1",
       ),
     };
 
@@ -154,7 +174,7 @@ describe("apps preview ran together, offered when promoting to production", () =
         app: "admin",
         version: "0.1.4",
         with: ["expo"],
-        why: "went to preview with expo 0.2.0: both use @acme/es-core, which moved",
+        why: "went to preview with expo 0.2.0: both use @acme/core, which moved",
       },
     ]);
   });

@@ -12,23 +12,23 @@ const LAST_WEEK: StatusPlan = {
       summary: "The Android app builds again.",
       releases: [
         { name: "@acme/expo", type: "patch" },
-        { name: "react-native-smart-crop", type: "patch" },
+        { name: "@acme/image-crop", type: "patch" },
       ],
     },
     {
       id: "apple-vision-cut-out",
-      summary: "An iPhone on iOS 17 cuts the plant out, with Apple Vision.",
+      summary: "An iPhone on iOS 17 crops the photo with Apple Vision.",
       releases: [
         { name: "@acme/expo", type: "minor" },
         { name: "react-native-subject-finder", type: "minor" },
       ],
     },
     {
-      id: "plant-not-in-catalog",
-      summary: "A plant not in the catalog yet never blocks its page.",
+      id: "search-empty-state",
+      summary: "A search with no result shows an empty page, not an error.",
       releases: [
         { name: "@acme/api", type: "patch" },
-        { name: "@acme/plant-contracts", type: "patch" },
+        { name: "@acme/contracts", type: "patch" },
       ],
     },
   ],
@@ -45,7 +45,7 @@ const LAST_WEEK: StatusPlan = {
       type: "patch",
       oldVersion: "0.0.1",
       newVersion: "0.0.2",
-      changesets: ["plant-not-in-catalog"],
+      changesets: ["search-empty-state"],
     },
     {
       name: "@acme/admin",
@@ -55,14 +55,14 @@ const LAST_WEEK: StatusPlan = {
       changesets: [],
     },
     {
-      name: "@acme/plant-contracts",
+      name: "@acme/contracts",
       type: "patch",
       oldVersion: "0.1.0",
       newVersion: "0.1.1",
-      changesets: ["plant-not-in-catalog"],
+      changesets: ["search-empty-state"],
     },
     {
-      name: "react-native-smart-crop",
+      name: "@acme/image-crop",
       type: "patch",
       oldVersion: "0.1.0",
       newVersion: "0.1.1",
@@ -72,9 +72,9 @@ const LAST_WEEK: StatusPlan = {
 };
 
 const WORKSPACE_DEPENDENCIES = {
-  "@acme/admin": ["@acme/plant-contracts", "@acme/ui"],
-  "@acme/api": ["@acme/plant-contracts"],
-  "@acme/expo": ["@acme/app", "react-native-smart-crop"],
+  "@acme/admin": ["@acme/contracts", "@acme/ui"],
+  "@acme/api": ["@acme/contracts"],
+  "@acme/expo": ["@acme/shared", "@acme/image-crop"],
 };
 
 const bumps = appBumps(LAST_WEEK, WORKSPACE_DEPENDENCIES, SAMPLE_UNITS);
@@ -87,7 +87,7 @@ describe("what each app ships", () => {
       to: "0.2.0",
       notes: [
         "The Android app builds again.",
-        "An iPhone on iOS 17 cuts the plant out, with Apple Vision.",
+        "An iPhone on iOS 17 crops the photo with Apple Vision.",
       ],
       movedWith: [],
     });
@@ -97,7 +97,7 @@ describe("what each app ships", () => {
     expect(bumps.find(({ app }) => app === "admin")).toMatchObject({
       to: "0.1.1",
       notes: [],
-      movedWith: ["@acme/plant-contracts"],
+      movedWith: ["@acme/contracts"],
     });
   });
 
@@ -108,16 +108,50 @@ describe("what each app ships", () => {
   it("given internal packages moved, when planned, then they are counted apart from the apps", () => {
     expect(packageBumps(LAST_WEEK, SAMPLE_UNITS)).toBe(2);
   });
+
+  // changeset status lists a package it leaves at its version with the bump type "none".
+  const UNMOVED: StatusPlan = {
+    ...LAST_WEEK,
+    releases: [
+      ...LAST_WEEK.releases,
+      {
+        name: "@acme/landing",
+        type: "none",
+        oldVersion: "0.4.0",
+        newVersion: "0.4.0",
+        changesets: [],
+      },
+      {
+        name: "@acme/tokens",
+        type: "none",
+        oldVersion: "0.1.0",
+        newVersion: "0.1.0",
+        changesets: [],
+      },
+    ],
+  };
+
+  it("given status lists landing with no bump, when planned, then landing is not part of the release", () => {
+    expect(appBumps(UNMOVED, WORKSPACE_DEPENDENCIES, SAMPLE_UNITS).map(({ app }) => app)).toEqual([
+      "expo",
+      "api",
+      "admin",
+    ]);
+  });
+
+  it("given status lists a package with no bump, when planned, then it is not counted as bumped", () => {
+    expect(packageBumps(UNMOVED, SAMPLE_UNITS)).toBe(2);
+  });
 });
 
 describe("picking what ships", () => {
   const SHARED = {
-    id: "plant-names-everywhere",
-    summary: "A plant's common name shows in the app and in the admin.",
+    id: "product-names-everywhere",
+    summary: "A product's full name shows in the app and in the admin.",
     releases: [
       { name: "@acme/expo", type: "patch" as const },
       { name: "@acme/admin", type: "patch" as const },
-      { name: "@acme/plant-contracts", type: "patch" as const },
+      { name: "@acme/contracts", type: "patch" as const },
     ],
   };
 
@@ -144,7 +178,7 @@ describe("picking what ships", () => {
         ...SHARED,
         releases: [
           { name: "@acme/expo", type: "patch" },
-          { name: "@acme/plant-contracts", type: "patch" },
+          { name: "@acme/contracts", type: "patch" },
         ],
       },
     ]);
@@ -154,7 +188,7 @@ describe("picking what ships", () => {
 describe("a pending changeset", () => {
   it("given a pending changeset, when read, then it names the apps it releases and not the packages", () => {
     const text =
-      '---\n"@acme/admin": patch\n"@acme/plant-contracts": minor\n"@acme/api": patch\n---\n\nNotes.\n';
+      '---\n"@acme/admin": patch\n"@acme/contracts": minor\n"@acme/api": patch\n---\n\nNotes.\n';
 
     expect(changesetApps(text, SAMPLE_UNITS)).toEqual(["api", "admin"]);
   });

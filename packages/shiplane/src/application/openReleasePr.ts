@@ -86,13 +86,13 @@ export const printSummary = (context: ReleaseContext, prepared: Prepared) => {
     const ships = (() => {
       if (held.includes(unit.name) && !bump)
         return paint("yellow", "⏸ held, its changesets stay pending");
-      const contributed = contributions[unit.name]?.summary;
-      if (contributed && contributed.length > 0)
-        return contributed.join(`\n  ${" ".repeat(width + 20)}`);
-      if (!bump) return paint("dim", "– nothing changed");
       const along = companions.some(({ app }) => app === unit.name)
         ? paint("yellow", "  not picked, goes along")
         : "";
+      const contributed = contributions[unit.name]?.summary;
+      if (contributed && contributed.length > 0)
+        return `${contributed.join(`\n  ${" ".repeat(width + 20)}`)}${along}`;
+      if (!bump) return paint("dim", "– nothing changed");
       return `${paint("green", "↑ ship")}  ${paint("dim", moduleOf(context, unit)?.provider ?? "")}${along}`;
     })();
     output.line(`  ${unit.name.padEnd(width)}${version.padEnd(20)}${ships}`);

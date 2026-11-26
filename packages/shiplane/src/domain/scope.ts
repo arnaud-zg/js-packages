@@ -1,3 +1,4 @@
+import type { UnitRef } from "./changes";
 import type { DeployFlow, Environment } from "./environment";
 import { entryOf, previousOf } from "./environment";
 import { plural } from "./words";
@@ -33,6 +34,8 @@ export interface ScopeInfo {
   releaseOnly?: boolean;
   /** It has no environment to be on, such as a package: a person reads it as live or not. */
   noEnvironment?: boolean;
+  /** Deployed apps that use it, directly or through other packages: its move may take them along. */
+  usedBy?: string[];
 }
 
 export interface ScopeChoice {
@@ -131,6 +134,31 @@ const promoteChoice = (
       };
 };
 
+/** The `deployable` units whose package uses `packageName`, directly or through other packages. */
+export const deployedUsers = (
+  packageName: string,
+  dependencies: Record<string, string[]>,
+  units: readonly UnitRef[],
+  deployable: ReadonlySet<string>,
+): string[] => {
+  const uses = (from: string, seen: Set<string>): boolean =>
+    (dependencies[from] ?? []).some(
+      (dependency) =>
+        dependency === packageName ||
+        (!seen.has(dependency) && uses(dependency, seen.add(dependency))),
+    );
+  return units
+    .filter(({ name, packageName: own }) => own !== packageName && deployable.has(name))
+    .filter(({ packageName: own }) => uses(own, new Set([own])))
+    .map(({ name }) => name);
+};
+
+/** What a pending unit says about the apps that use it: changesets move them with it. */
+const goesAlong = (usedBy: readonly string[] = []) =>
+  usedBy.length === 0
+    ? ""
+    : ` · ${usedBy.join(", ")} ${usedBy.length === 1 ? "uses" : "use"} it, may go along`;
+
 /** The first question: which units have something to release here, and why not the rest. */
 export const scopeChoices = (
   apps: ScopeInfo[],
@@ -138,12 +166,12 @@ export const scopeChoices = (
   flow: DeployFlow,
 ): ScopeChoice[] => {
   const previous = previousOf(flow, environment);
-  return apps.map((info) => ({
-    app: info.app,
-    ...(previous === null
-      ? releaseChoice(info, entryOf(flow))
-      : promoteChoice(info, environment, previous)),
-  }));
+  return apps.map((info) => {
+    if (previous !== null) return { app: info.app, ...promoteChoice(info, environment, previous) };
+    const choice = releaseChoice(info, entryOf(flow));
+    const hint = choice.pending ? `${choice.hint}${goesAlong(info.usedBy)}` : choice.hint;
+    return { app: info.app, ...choice, hint };
+  });
 };
 
 /** Units listed flat up to here; past it, by folder. */

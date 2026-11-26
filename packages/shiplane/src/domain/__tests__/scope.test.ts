@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { TEST_FLOW } from "../../testing/flow";
 import { STORE_DECIDES } from "../../testing/sample";
-import { scopeChoices } from "../scope";
+import { deployedUsers, scopeChoices } from "../scope";
 
 describe("what the release covers, asked before anything runs", () => {
   const base = {
@@ -28,6 +28,29 @@ describe("what the release covers, asked before anything runs", () => {
       kind: "with changesets",
       hint: "2 changesets · Store decides build or update once picked",
     });
+  });
+
+  it("given a package with changesets that expo and api use, when asked, then it says they may go along", () => {
+    const package_ = { ...base, app: "shared", version: "1.2.0", changesets: 2, tagged: true };
+
+    expect(
+      scopeChoices(
+        [{ ...package_, releaseOnly: true, usedBy: ["expo", "api"] }],
+        "preview",
+        TEST_FLOW,
+      )[0]?.hint,
+    ).toBe("2 changesets · expo, api use it, may go along");
+  });
+
+  it("given a package expo uses through another package, when the users are read, then expo is named and release-only units are not", () => {
+    const units = [
+      { name: "expo", packageName: "@acme/expo" },
+      { name: "shared", packageName: "@acme/shared" },
+      { name: "core", packageName: "@acme/core" },
+    ];
+    const dependencies = { "@acme/expo": ["@acme/shared"], "@acme/shared": ["@acme/core"] };
+
+    expect(deployedUsers("@acme/core", dependencies, units, new Set(["expo"]))).toEqual(["expo"]);
   });
 
   it("given landing 0.1.1 released but not on preview, when asked, then it is offered to deploy", () => {

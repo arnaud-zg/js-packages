@@ -7,6 +7,7 @@ import type { ReleaseContext } from "./context";
 import { changesetApps } from "../domain/changes";
 import { deployRunTitle } from "../domain/deploys";
 import { previousOf } from "../domain/environment";
+import { deployedUsers } from "../domain/scope";
 import { cameWithRelease, firstRelease, tagName } from "../domain/tags";
 import { checkout, decideContext, flowOf, hasNoEnvironment, jobInput, moduleOf } from "./targets";
 
@@ -45,10 +46,19 @@ export const readScope = async (
   const pending = await services.versioning.pending();
   const refs = unitRefs(release.units);
   const named = pending.map(({ text }) => changesetApps(text, refs));
-  const [deployed, tags] = await Promise.all([
+  const [deployed, tags, dependencies] = await Promise.all([
     services.codeHost.deployments(release.appFlow.path).catch(() => []),
     services.sourceControl.tags(),
+    services.versioning.dependencies(),
   ]);
+  const deployable = new Set(
+    release.units
+      .filter((unit) => {
+        const target = moduleOf(context, unit);
+        return target !== undefined && !target.releaseOnly;
+      })
+      .map(({ name }) => name),
+  );
   return Promise.all(
     release.units.map(async (unit) => {
       const tag = tagName(unit.name, unit.version, context.release.tagFormat);
@@ -79,6 +89,7 @@ export const readScope = async (
         ...(decidedBy ? { decidedBy } : {}),
         ...(target?.releaseOnly ? { releaseOnly: true } : {}),
         ...(target && hasNoEnvironment(target) ? { noEnvironment: true } : {}),
+        usedBy: deployedUsers(unit.packageName, dependencies, refs, deployable),
       };
     }),
   );

@@ -42,12 +42,17 @@ export interface AppBump {
   movedWith: string[];
 }
 
+/** The releases that move a version: status also lists packages it leaves where they are, as "none". */
+export const moves = ({ releases }: StatusPlan) => releases.filter(({ type }) => type !== "none");
+
 /** The units a release moves, in `units` order, each with its notes or the packages it moves with. */
 export const appBumps = (
-  { changesets, releases }: StatusPlan,
+  plan: StatusPlan,
   dependencies: Record<string, string[]>,
   units: readonly UnitRef[],
 ): AppBump[] => {
+  const { changesets } = plan;
+  const releases = moves(plan);
   const moving = new Set(releases.map(({ name }) => name));
   return units.flatMap(({ name: app, packageName }) => {
     const release = releases.find(({ name }) => name === packageName);
@@ -62,8 +67,8 @@ export const appBumps = (
 };
 
 /** How many internal packages a release moves: they get changelogs, nothing ships. */
-export const packageBumps = ({ releases }: StatusPlan, units: readonly UnitRef[]) =>
-  releases.filter(({ name }) => !units.some(({ packageName }) => packageName === name)).length;
+export const packageBumps = (plan: StatusPlan, units: readonly UnitRef[]) =>
+  moves(plan).filter(({ name }) => !units.some(({ packageName }) => packageName === name)).length;
 
 /**
  * Holding an app back keeps its lines pending, with any package line they came with so the package
