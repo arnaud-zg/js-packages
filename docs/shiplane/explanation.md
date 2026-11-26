@@ -52,6 +52,14 @@ need to know what broke. Going up adds a changeset, so the changes keep the sect
 written for. Going down caps every line, since a single minor left in a fixed group would hold the
 whole group up.
 
+## Picking a package can ship an app
+
+Changesets bumps every workspace package that uses one it moves (`updateInternalDependencies`). An
+app bumped that way ships, even unpicked: a version tagged but never deployed would name code no
+environment runs. So the first question says beside a package which deployed apps use it, and an app
+that goes along says why and asks how it ships (a new build or an update) before the summary, which
+the person then confirms or cancels as a whole.
+
 ## A package or a plugin has no environment
 
 An environment is a place an app runs, under a name of its repository. A package goes straight to
