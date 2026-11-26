@@ -35,6 +35,49 @@ const isMissing = (error: unknown) =>
 /** Where shiplane's own workflow and its release tags live. */
 const SHIPLANE_REPO = "arnaud-zg/js-packages";
 
+const NPMJS = "https://registry.npmjs.org";
+
+const AttestationsSchema = z.object({
+  attestations: z.array(
+    z.object({
+      predicateType: z.string(),
+      bundle: z.object({ dsseEnvelope: z.object({ payload: z.string() }) }),
+    }),
+  ),
+});
+const ProvenanceSchema = z.object({
+  predicate: z.object({
+    buildDefinition: z.object({
+      externalParameters: z.object({ workflow: z.object({ repository: z.string() }) }),
+      resolvedDependencies: z
+        .array(z.object({ digest: z.object({ gitCommit: z.string().regex(/^[0-9a-f]{40}$/) }) }))
+        .min(1),
+    }),
+  }),
+});
+
+/** The commit npm provenance says shiplane `version` was built from in its own repository; null when npm cannot say. */
+const provenanceCommit = async (shell: Shell, version: string) => {
+  const registry = (shell.env("npm_config_registry") ?? NPMJS).replace(/\/$/, "");
+  try {
+    const answer = await fetch(`${registry}/-/npm/v1/attestations/shiplane@${version}`);
+    if (!answer.ok) return null;
+    const { attestations } = AttestationsSchema.parse(await answer.json());
+    const slsa = attestations.find(({ predicateType }) =>
+      predicateType.startsWith("https://slsa.dev/provenance/"),
+    );
+    if (!slsa) return null;
+    const payload = Buffer.from(slsa.bundle.dsseEnvelope.payload, "base64").toString("utf8");
+    const { buildDefinition } = ProvenanceSchema.parse(JSON.parse(payload)).predicate;
+    const built = buildDefinition.externalParameters.workflow.repository;
+    return built === `https://github.com/${SHIPLANE_REPO}`
+      ? (buildDefinition.resolvedDependencies[0]?.digest.gitCommit ?? null)
+      : null;
+  } catch {
+    return null;
+  }
+};
+
 /** What shiplane's workflow may do: comment on PRs and issues only with release comments. */
 const permissionsOf = ({ features, permissions = {} }: CallerNeeds) => {
   const allowed = {
@@ -249,7 +292,16 @@ const githubActions = (root: string, shell: Shell, shipWorkflow: string): CiPipe
       const ref = await json(["api", `repos/${SHIPLANE_REPO}/git/ref/tags/${tag}`]).catch(
         orMissing,
       );
-      if (ref === null) return { error: `no release tag ${tag}: pin ship.yml by hand` };
+      if (ref === null) {
+        // A pre-release has no release tag: npm's provenance names the commit it was built from.
+        const built = await provenanceCommit(shell, version);
+        if (built === null) return { error: `no release tag ${tag}: pin ship.yml by hand` };
+        return {
+          file: `.github/workflows/${shipWorkflow}`,
+          content: callerContent(built, version, needs),
+          pin: built,
+        };
+      }
       const { object } = RefSchema.parse(ref);
       // An annotated tag points at a tag object, which points at the commit.
       const sha =
