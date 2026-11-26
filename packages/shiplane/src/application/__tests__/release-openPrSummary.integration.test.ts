@@ -196,13 +196,16 @@ describe("seeing which apps a release takes along", () => {
     ],
   };
 
-  const setUpAlong = () => {
+  const setUpAlong = ({
+    apiModule = "web-app",
+    modules = [webApp({ staticHosting: staticHostingFake() })],
+  }: { apiModule?: string; modules?: ReleaseModule[] } = {}) => {
     const world = testContext({
       units: [
         testUnit("expo", { version: "0.2.1", options: { site: "expo-site" } }),
-        testUnit("api", { version: "0.0.7", options: { site: "api-site" } }),
+        testUnit("api", { version: "0.0.7", module: apiModule, options: { site: "api-site" } }),
       ],
-      modules: [webApp({ staticHosting: staticHostingFake() })],
+      modules,
     });
     world.versioning.seed({
       pending: [
@@ -240,6 +243,43 @@ describe("seeing which apps a release takes along", () => {
       "      api        0.0.8               uses @acme/assets, which expo's changes move · picking it ships its 1 changeset too",
       "",
       "  Steps",
+    ]);
+  });
+
+  it("given api goes along and its host asks how to ship, when the person dry-runs the release, then it is asked before the summary, after why api ships", async () => {
+    const { context, output, prompter } = setUpAlong({
+      apiModule: "contributing-app",
+      modules: [
+        webApp({ staticHosting: staticHostingFake() }),
+        contributing({
+          choice: {
+            question: "What should api ship to preview?",
+            options: [
+              { value: "build", label: "New build" },
+              { value: "update", label: "Over-the-air update" },
+            ],
+            suggested: "build",
+          },
+          summary: ["new build"],
+        }),
+      ],
+    });
+    prompter.answer("build", false);
+
+    await openReleasePr(context, await prepareRelease(context, new Set(["expo"])));
+
+    expect(prompter.asked).toEqual([
+      "What should api ship to preview?",
+      expect.stringContaining("Release"),
+    ]);
+    expect(output.lines.slice(0, 7)).toEqual([
+      "  ! api is not picked but ships too: uses @acme/assets, which expo's changes move",
+      "",
+      "  Release  ·  preview  ·  1 changeset",
+      "",
+      "  Unit           Version             Ships to preview",
+      "  expo           0.2.1 → 0.2.2       ↑ ship  fake",
+      "  api            0.0.7 → 0.0.8       new build  not picked, goes along",
     ]);
   });
 
