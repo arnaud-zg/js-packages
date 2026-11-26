@@ -33,8 +33,10 @@ jobs:
   ship:
     name: Ship to ${{ inputs.environment }}
     runs-on: ubuntu-26.04
-    # A dry run names none: naming one records a deployment.
-    environment: ${{ !inputs.dry-run && inputs.environment || '' }}
+    # A dry run reads the environment's secrets and records no deployment.
+    environment:
+      name: ${{ inputs.environment }}
+      deployment: ${{ !inputs.dry-run }}
     concurrency:
       group: ship-${{ inputs.environment }}
       cancel-in-progress: false

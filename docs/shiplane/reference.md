@@ -294,7 +294,9 @@ With packages, a name that is no environment publishes them: `latest` the releas
 as `shiplane test-release <name> <units>`. The caller lists the names as choices and allows
 `contents: write` and `id-token: write`. `ref` is then ignored: the run publishes the ref it is on,
 so the environment's branch rule holds. `dry-run: true` shows what would ship and records no
-deployment.
+deployment: the job still names the environment, with `deployment: false`, so `doctor --ci` reads
+the secrets kept there. GitHub fails such a job when the environment has custom deployment
+protection rules; required reviewers and branch rules still apply.
 
 `doctor --ci` stops at the first problem and prints this section's link. Source:
 `src/application/doctorCi.ts`, `src/application/shipSteps.ts`.
