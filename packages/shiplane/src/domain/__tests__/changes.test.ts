@@ -108,6 +108,40 @@ describe("what each app ships", () => {
   it("given internal packages moved, when planned, then they are counted apart from the apps", () => {
     expect(packageBumps(LAST_WEEK, SAMPLE_UNITS)).toBe(2);
   });
+
+  // changeset status lists a package it leaves at its version with the bump type "none".
+  const UNMOVED: StatusPlan = {
+    ...LAST_WEEK,
+    releases: [
+      ...LAST_WEEK.releases,
+      {
+        name: "@acme/landing",
+        type: "none",
+        oldVersion: "0.4.0",
+        newVersion: "0.4.0",
+        changesets: [],
+      },
+      {
+        name: "@acme/tokens",
+        type: "none",
+        oldVersion: "0.1.0",
+        newVersion: "0.1.0",
+        changesets: [],
+      },
+    ],
+  };
+
+  it("given status lists landing with no bump, when planned, then landing is not part of the release", () => {
+    expect(appBumps(UNMOVED, WORKSPACE_DEPENDENCIES, SAMPLE_UNITS).map(({ app }) => app)).toEqual([
+      "expo",
+      "api",
+      "admin",
+    ]);
+  });
+
+  it("given status lists a package with no bump, when planned, then it is not counted as bumped", () => {
+    expect(packageBumps(UNMOVED, SAMPLE_UNITS)).toBe(2);
+  });
 });
 
 describe("picking what ships", () => {

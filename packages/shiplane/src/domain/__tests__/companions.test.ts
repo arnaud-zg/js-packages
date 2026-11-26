@@ -76,6 +76,26 @@ describe("apps a preview release takes along without being picked", () => {
     ]);
   });
 
+  it("given status lists landing with no bump, when only expo is picked, then landing does not go along", () => {
+    const unmoved: StatusPlan = {
+      ...TRANSLATIONS,
+      releases: [
+        ...TRANSLATIONS.releases,
+        {
+          name: "@acme/landing",
+          type: "none",
+          oldVersion: "0.4.0",
+          newVersion: "0.4.0",
+          changesets: [],
+        },
+      ],
+    };
+
+    expect(
+      draggedUnits(unmoved, DEPENDENCIES, SAMPLE_UNITS, new Set(["expo"])).map(({ app }) => app),
+    ).toEqual(["api", "admin"]);
+  });
+
   it("given every moving app picked, when the release is planned, then nothing goes along unasked", () => {
     expect(
       draggedUnits(TRANSLATIONS, DEPENDENCIES, SAMPLE_UNITS, new Set(["expo", "api", "admin"])),
