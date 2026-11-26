@@ -46,7 +46,7 @@ configured adapters read, and only the check and ship steps see them.
 # Ships with shiplane: `pnpm shiplane ship --via ci`, or Run workflow here.
 # Written by `shiplane setup`; `shiplane doctor` keeps the pin current.
 name: Ship
-run-name: Ship ${{ inputs.units || 'every released unit' }} to ${{ inputs.environment }}
+run-name: Ship to ${{ inputs.environment }}${{ inputs.dry-run && ' (dry run)' || '' }}
 
 on:
   workflow_dispatch:
@@ -109,13 +109,14 @@ With no adapter that reads a secret, it passes none.
 1. **Create one GitHub Environment per choice** (Settings › Environments): `preview`, `production`;
    for npm packages, `snapshot`, `nightly`, `alpha`, `beta`, `rc` and `latest` too. On npmjs.com,
    trust `ship.yml` for each package (Settings › Trusted publishing): no npm secret.
+   [The command, and the error without it](../../packages/shiplane-npm/README.md#-npm-does-not-trust-the-workflow).
 2. **Add each adapter's secret to it**, by the name in
    [the sign-ins table](./how-to-hosts.md#set-up-the-sign-ins): `FLY_API_TOKEN`,
    `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, `EXPO_TOKEN`. Setup passes the ones your
    adapters read; after adding an adapter, `pnpm shiplane doctor` offers to add its secret there.
 3. **Ship:** `pnpm shiplane ship --via ci`, or Run workflow in the Actions tab.
 
-A unit that fails never stops the next one. The run page shows what ships before, and how each unit
+A unit that fails never stops the next one. The run page lists what ships before, and how each unit
 went after; the run fails when one did.
 
 **Build before shipping.** Set `prepare` in `shiplane.config.ts`. It runs before each unit ships,

@@ -175,6 +175,32 @@ describe("Feature: publishing released packages", () => {
     expect(shell.calls.map(({ args }) => args.join(" "))).toContain("publish @acme/lib 1.2.0");
   });
 
+  it("given a package its registry refuses on a runner, when live ships, then nothing is tagged or published and the fix is shown", async () => {
+    const { context, shell, output, source } = released();
+    const trust = {
+      label: "trust for lib",
+      check: { command: "trust", args: ["check"] },
+      fix: { command: "trust", args: ["add", "lib"] },
+      help: "Run this on your own machine.",
+    };
+    const modules = context.release.modules.map((module) => ({
+      ...module,
+      requirements: () => [trust],
+    }));
+    shell.seed("trust check", { status: 1 });
+
+    const done = await shipPackages(
+      { ...context, release: { ...context.release, modules }, options: { yes: true, ci: true } },
+      ["lib"],
+    );
+
+    expect(done).toBe(false);
+    expect(output.text).toContain("nothing was written. Run this on your own machine.");
+    expect(output.text).toContain("trust add lib");
+    expect(source.received).toEqual([]);
+    expect(shell.calls.map(({ command }) => command)).toEqual(["trust"]);
+  });
+
   it("given an app named, when live ships, then it refuses", async () => {
     const { context, output } = released();
 

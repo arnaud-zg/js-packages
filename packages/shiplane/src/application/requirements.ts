@@ -87,11 +87,15 @@ export const signIn = async (
     failing.push(requirement);
   }
   if (failing.length === 0) return true;
+  const fixes = failing.flatMap(({ fix }) => (fix ? [commandLine(fix)] : []));
+  const help = [...new Set(failing.flatMap((requirement) => requirement.help ?? []))];
   fail(
     context,
     `Not signed in: ${failing.map(({ label }) => label).join(", ")}`,
-    `nothing was written. Sign in, then ${again}.`,
-    [...failing.flatMap(({ fix }) => (fix ? [commandLine(fix)] : [])), "shiplane"],
+    help.length > 0
+      ? `nothing was written. ${help.join(" ")}`
+      : `nothing was written. Sign in, then ${again}.`,
+    help.length > 0 ? fixes : [...fixes, "shiplane"],
   );
   return false;
 };

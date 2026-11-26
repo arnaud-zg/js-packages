@@ -108,12 +108,32 @@ for a public package with a `bin`, `exports` or `main`.
 
 ## 🔑 Tools and sign-ins
 
-| Tool  | Checked with | Fixed with  | In CI                                                   |
-| ----- | ------------ | ----------- | ------------------------------------------------------- |
-| `npm` | `npm whoami` | `npm login` | GitHub Actions OIDC: no secret, `npm whoami` is skipped |
+| Tool  | Checked with | Fixed with  | In CI                                                                                                                                     |
+| ----- | ------------ | ----------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm` | `npm whoami` | `npm login` | GitHub Actions OIDC: no secret, `npm whoami` is skipped, [npm is asked whether it trusts the workflow](#-npm-does-not-trust-the-workflow) |
 
 Source: `requirements` in `src/npm-package-registry.adapter.ts`. `pnpm shiplane doctor` runs each
 check and offers the fix.
+
+## 🔐 npm does not trust the workflow
+
+`Not signed in: npm trust for <package>`, or `ENEEDAUTH` from npm itself: npm does not let your
+workflow publish that package. On your own machine, with 2FA on your npm account, run the command
+shiplane prints for each package, then run the workflow again:
+
+```sh
+npx -y npm@^11.21.0 trust github <package> --file ship.yml --repo <owner>/<repo> \
+  --allow-publish --allow-stage-publish -y
+```
+
+Already done? `npx -y npm@^11.21.0 trust list <package>` must show the same workflow file and
+repository, and no environment, or the one the run uses. Remove a wrong entry with
+`npx -y npm@^11.21.0 trust revoke <package> --id=<id>`, then add it again. A package must be on npm
+before npm can trust a workflow for it: publish it once from your machine.
+
+The check runs on a runner with `id-token: write`, before anything is written. An npm token that
+signs in passes it, and so does another registry. It cannot see whether publishing is allowed: when
+the publish still fails, check the entry allows it.
 
 ## 📚 Docs
 

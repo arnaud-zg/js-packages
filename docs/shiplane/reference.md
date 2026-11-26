@@ -229,7 +229,9 @@ On a runner (`GITHUB_ACTIONS=true`) the workflow runs
 `shiplane ship <units> --channel <env> --yes --no-mascot`: a log reads plainer without the mascot,
 whatever `display.mascot` says. `ship` there ships every unit even when one fails, each in its own
 log group, writes a plan table and a result table (`Prepare`, `Ship`: success, failed or skipped) to
-`GITHUB_STEP_SUMMARY`, and exits 1 when any failed.
+`GITHUB_STEP_SUMMARY`, and exits 1 when any failed. A test release writes there each package and
+version, then its result (success, failed or skipped); it stops at the first failure, and its dry
+run writes the plan only.
 
 | Check             | Supported                                                                                                                    | Fails with                                                                                                                         |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |

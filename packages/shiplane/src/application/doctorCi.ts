@@ -132,7 +132,8 @@ export const doctorCi = async (
   if (!publishes && !environment.success) return stop(problemOf(environment.error));
   passed("environment", channel);
   const picked = new Set(named.data);
-  for (const requirement of requirementsOf(release, picked)) {
+  const tools = requirementsOf(release, picked).filter(({ help }) => help === undefined);
+  for (const requirement of tools) {
     const found = (await checkStatus(shell, root, requirement)) !== 127;
     const problem = found ? null : await install(context, requirement);
     if (problem) return stop(problem);

@@ -20,6 +20,8 @@ import {
   z,
 } from "shiplane/plugin";
 
+import { trustRequirement } from "./trusted-publishing";
+
 const NpmOptions = z.object({
   publishAs: z
     .string()
@@ -325,7 +327,7 @@ export const npmPackageRegistry = (
         ? { certainty: "found", reason: `package.json, public, ${entry}`, options: {} }
         : null;
     },
-    requirements: () => [
+    requirements: (unit) => [
       {
         label: "npm",
         check: signInCheck(),
@@ -333,6 +335,10 @@ export const npmPackageRegistry = (
         // A runner stages with a short-lived OIDC token, no secret.
         ...(staged ? { permissions: { "id-token": "write" as const } } : {}),
       },
+      ...trustRequirement({
+        name: NpmOptions.shape.publishAs.parse(unit.options.publishAs) ?? unit.packageName,
+        dir: unit.dir,
+      }),
     ],
   });
   return { ...adapter, options };

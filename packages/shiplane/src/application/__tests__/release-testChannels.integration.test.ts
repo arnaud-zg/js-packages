@@ -221,3 +221,75 @@ describe("choosing which pending packages get a test release", () => {
     expect(shell.calls).toEqual([]);
   });
 });
+
+describe("showing a test release on a runner's run page", () => {
+  const SUMMARY = "/runner/summary.md";
+  const onRunner = () => {
+    const world = branchWorld({
+      units: [lib, kit],
+      pending: [
+        { name: "@acme/lib", newVersion: "1.3.0" },
+        { name: "@acme/ui-kit", newVersion: "0.5.0" },
+      ],
+      files: {
+        "packages/lib/package.json": LIB_MANIFEST,
+        "packages/kit/package.json": manifest({ name: "@acme/ui-kit", version: "0.4.0" }),
+      },
+    });
+    world.context.options.ci = true;
+    world.shell.seedEnv({ GITHUB_STEP_SUMMARY: SUMMARY });
+    return world;
+  };
+  const PLAN =
+    "### Ship to beta: 2 packages\n\n| Package | Version |\n| --- | --- |\n| @acme/lib | 1.3.0-beta.0 |\n| @acme/ui-kit | 0.5.0-beta.0 |\n\n";
+  const result = (libResult: string, kitResult: string) =>
+    `### Result\n\n| Package | Version | Result |\n| --- | --- | --- |\n| @acme/lib | 1.3.0-beta.0 | ${libResult} |\n| @acme/ui-kit | 0.5.0-beta.0 | ${kitResult} |\n\n`;
+
+  it("given a runner, when a test release publishes, then the run page has the plan, then each package's success", async () => {
+    const { context, files } = onRunner();
+
+    await branchRelease(context, { onDefault: "publish", channel: "beta" });
+
+    expect(files.read(SUMMARY)).toBe(PLAN + result("success", "success"));
+  });
+
+  it("given the first package failing on a runner, when a test release publishes, then the run page says it failed and the next was skipped", async () => {
+    const { context, files, shell } = onRunner();
+    shell.seed("sh -c make lib", { status: 1 });
+    const prepared = { ...context, release: { ...context.release, prepare: "make {unit}" } };
+
+    const done = await branchRelease(prepared, { onDefault: "publish", channel: "beta" });
+
+    expect(done).toBe(false);
+    expect(files.read(SUMMARY)).toBe(PLAN + result("failed", "skipped"));
+  });
+
+  it("given a package prepared but not published on a runner, when a test release stops, then the run page says failed, not success", async () => {
+    const { context, files, shell } = onRunner();
+    const attach = shell.attach;
+    shell.attach = (command, args, options) =>
+      args.includes("publish") ? Promise.resolve(1) : attach(command, args, options);
+    const prepared = { ...context, release: { ...context.release, prepare: "make {unit}" } };
+
+    await branchRelease(prepared, { onDefault: "publish", channel: "beta" });
+
+    expect(files.read(SUMMARY)).toBe(PLAN + result("failed", "skipped"));
+  });
+
+  it("given a dry run on a runner, when it runs, then the run page has the plan and no result", async () => {
+    const { context, files } = onRunner();
+
+    await branchRelease(context, { onDefault: "publish", channel: "beta", dryRun: true });
+
+    expect(files.read(SUMMARY)).toBe(PLAN.replace("beta:", "beta (dry run):"));
+  });
+
+  it("given a laptop, when a test release publishes, then no run page is written", async () => {
+    const { context, files } = onRunner();
+    context.options.ci = false;
+
+    await branchRelease(context, { onDefault: "publish", channel: "beta" });
+
+    expect(files.read(SUMMARY)).toBeNull();
+  });
+});
