@@ -6,6 +6,7 @@ import type { ReleaseContext } from "./context";
 import { appBumps, packageBumps, splitChangesets } from "../domain/changes";
 import { draggedUnits } from "../domain/companions";
 import { namedUnits, unitRefs } from "./readScope";
+import { paint } from "./say";
 import { checkout, decideContext, entry, unitTarget } from "./targets";
 import { unattended } from "./unattended";
 
@@ -43,16 +44,21 @@ const choose = async (context: ReleaseContext, choice: VersionChoice | undefined
   return context.prompter.select(choice.question, choice.options, choice.suggested);
 };
 
-/** What each picked unit's plugin adds, given the unit's bump so far. One at a time: it may ask. */
+/**
+ * What each unit's plugin adds, given the unit's bump so far: the picked ones and those going along.
+ * One at a time: it may ask.
+ */
 const contributionsOf = async (
   context: ReleaseContext,
   scope: ReadonlySet<string>,
   bumps: readonly AppBump[],
+  along: readonly Companion[],
   known: Readonly<Record<string, VersionContribution>> = {},
 ) => {
   const at = await checkout(context);
   const contributions: Record<string, VersionContribution> = {};
-  for (const unit of context.release.units.filter(({ name }) => scope.has(name))) {
+  const covered = (name: string) => scope.has(name) || along.some(({ app }) => app === name);
+  for (const unit of context.release.units.filter(({ name }) => covered(name))) {
     // Already answered for the whole release: one release PR of several never asks twice.
     const answered = known[unit.name];
     if (answered) {
@@ -67,6 +73,13 @@ const contributionsOf = async (
     const contribute = (chosen?: string) =>
       version(decideContext(context), { ...input, bump, chosen });
     const suggested = await contribute();
+    const dragged = along.find(({ app }) => app === unit.name);
+    // Its question names an app the person did not pick: say why it ships first.
+    if (dragged && suggested.choice && !unattended(context)) {
+      context.output.line(
+        `  ${paint(["bold", "yellow"], "!")} ${paint("bold", `${unit.name} is not picked but ships too:`)} ${paint("dim", dragged.why)}`,
+      );
+    }
     const chosen = await choose(context, suggested.choice);
     contributions[unit.name] =
       chosen && chosen !== suggested.choice?.suggested ? await contribute(chosen) : suggested;
@@ -99,6 +112,7 @@ export const prepareRelease = async (
     context,
     scope,
     appBumps(picked, dependencies, refs),
+    draggedUnits(picked, dependencies, refs, scope),
     known,
   );
   const added = [
