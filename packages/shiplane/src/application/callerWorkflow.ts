@@ -129,6 +129,9 @@ const WITH = /^[ \t]+with:[ \t]*$/;
 const SECRET = /^[ \t]+([A-Z][A-Z0-9_]*):[ \t]*\$\{\{[ \t]*secrets\.\w+[ \t]*\}\}/;
 const VARIABLE = /\$\{\{[ \t]*vars\.(\w+)/g;
 const OPTIONS = /^([ \t]*)options:[ \t]*\[.*\][ \t]*$/m;
+/** The job environment once written, named on a run and left off a dry run: its secrets too. */
+const HIDING =
+  /^([ \t]+)(?:# A dry run names none.*\n\1)?environment:[ \t]*\$\{\{[ \t]*!inputs\.dry-run && inputs\.environment \|\| ''[ \t]*\}\}[ \t]*$/m;
 const indentOf = (line = "") => /^[ \t]*/.exec(line)?.[0] ?? "";
 
 /** The block that starts at `start`, as [start, end): the lines indented under it. */
@@ -189,6 +192,17 @@ const reoffered = (text: string, content: string) => {
   const line = OPTIONS.exec(content)?.[0].trim();
   return line ? text.replace(OPTIONS, (_line, indent: string) => `${indent}${line}`) : text;
 };
+
+/** `text` binding its job to the environment on a dry run too, recording no deployment then. */
+const unhidden = (text: string) =>
+  text.replace(HIDING, (_found, indent: string) =>
+    [
+      `${indent}# A dry run reads the environment's secrets and records no deployment.`,
+      `${indent}environment:`,
+      `${indent}  name: \${{ inputs.environment }}`,
+      `${indent}  deployment: \${{ !inputs.dry-run }}`,
+    ].join("\n"),
+  );
 
 /** Which app needs a secret, and what it ships with, as a person reads it. */
 const whoNeeds = (release: Release, secret: string) => {
@@ -279,6 +293,13 @@ const problemsOf = (release: Release, caller: Caller, text: string | null): Prob
       said: `${name} does not offer ${missing.join(", ")}`,
       ask: `Let ${file} ship to ${missing.join(", ")}?`,
       fix: reoffered,
+    });
+  }
+  if (HIDING.test(text)) {
+    problems.push({
+      said: `${name} names no environment on a dry run, so the run cannot read its secrets`,
+      ask: `Let a dry run of ${file} read the environment's secrets?`,
+      fix: unhidden,
     });
   }
   const read = [...text.matchAll(VARIABLE)].map(([, variable]) => variable);
