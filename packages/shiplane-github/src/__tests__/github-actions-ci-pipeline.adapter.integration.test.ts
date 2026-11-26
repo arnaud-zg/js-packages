@@ -1,5 +1,7 @@
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { RecordingShell } from "shiplane/testing";
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { gitHubActionsCiPipeline } from "../github-actions-ci-pipeline.adapter";
 import { fakeGh } from "./gh.fake";
@@ -409,6 +411,64 @@ jobs:
           CLOUDFLARE_API_TOKEN: \${{ secrets.CLOUDFLARE_API_TOKEN }}
 `;
 
+const NIGHTLY = "0.6.0-nightly.17";
+const NIGHTLY_REF = `api repos/arnaud-zg/js-packages/git/ref/tags/shiplane@${NIGHTLY}`;
+
+/** npm's attestations of each shiplane version, by version; any other answers 404. */
+const attested = new Map<string, unknown>();
+const registry = createServer((request, response) => {
+  const version = /^\/-\/npm\/v1\/attestations\/shiplane@(.+)$/.exec(request.url ?? "")?.[1];
+  const body = version === undefined ? undefined : attested.get(decodeURIComponent(version));
+  response.writeHead(body === undefined ? 404 : 200, { "content-type": "application/json" });
+  response.end(JSON.stringify(body ?? { message: "Not found" }));
+});
+let registryUrl = "";
+beforeAll(async () => {
+  await new Promise<void>((resolve) => registry.listen(0, "127.0.0.1", resolve));
+  registryUrl = `http://127.0.0.1:${(registry.address() as AddressInfo).port}`;
+});
+afterAll(() => new Promise<void>((resolve) => registry.close(() => resolve())));
+
+/** The gh fake on a shell whose npm registry is the local one. */
+const onRegistry = (gh: ReturnType<typeof fakeGh>) => ({
+  ...gh,
+  shell: {
+    ...gh.shell,
+    env: (name: string) => (name === "npm_config_registry" ? registryUrl : undefined),
+  },
+});
+
+/** npm's SLSA provenance of a build of `repository` at `commit`, as its registry serves it. */
+const provenance = (repository: string, commit: string) => ({
+  attestations: [
+    {
+      predicateType: "https://slsa.dev/provenance/v1",
+      bundle: {
+        dsseEnvelope: {
+          payload: Buffer.from(
+            JSON.stringify({
+              predicate: {
+                buildDefinition: {
+                  externalParameters: {
+                    workflow: {
+                      ref: "refs/heads/main",
+                      repository,
+                      path: ".github/workflows/ship.yml",
+                    },
+                  },
+                  resolvedDependencies: [
+                    { uri: `git+${repository}@refs/heads/main`, digest: { gitCommit: commit } },
+                  ],
+                },
+              },
+            }),
+          ).toString("base64"),
+        },
+      },
+    },
+  ],
+});
+
 /** A release shipping to Cloudflare Pages, commenting on what it ships. */
 const NEEDS = {
   apps: ["preview", "production"],
@@ -474,11 +534,33 @@ describe("writing the workflow a repository ships from", () => {
     });
   });
 
-  it("given no release tag for the version, when the caller workflow is made, then it says to pin by hand", async () => {
+  it("given no release tag and no provenance for the version, when the caller workflow is made, then it says to pin by hand", async () => {
     const gh = fakeGh().seed(REF, { status: 1, stderr: "gh: Not Found (HTTP 404)\n" });
 
-    expect(await pipelineOn(gh).callerWorkflow?.("0.6.0", NEEDS)).toEqual({
+    expect(await pipelineOn(onRegistry(gh)).callerWorkflow?.("0.6.0", NEEDS)).toEqual({
       error: "no release tag shiplane@0.6.0: pin ship.yml by hand",
+    });
+  });
+
+  it("given a pre-release with no release tag, when the caller workflow is made, then it pins the commit npm provenance says it was built from", async () => {
+    const gh = fakeGh().seed(NIGHTLY_REF, { status: 1, stderr: "gh: Not Found (HTTP 404)\n" });
+    attested.set(NIGHTLY, provenance("https://github.com/arnaud-zg/js-packages", COMMIT));
+
+    const made = await pipelineOn(onRegistry(gh)).callerWorkflow?.(NIGHTLY, NEEDS);
+
+    expect(made).toEqual({
+      file: ".github/workflows/ship.yml",
+      content: CALLER.replace("# shiplane@0.6.0", `# shiplane@${NIGHTLY}`),
+      pin: COMMIT,
+    });
+  });
+
+  it("given a pre-release whose provenance names another repository, when the caller workflow is made, then it says to pin by hand", async () => {
+    const gh = fakeGh().seed(NIGHTLY_REF, { status: 1, stderr: "gh: Not Found (HTTP 404)\n" });
+    attested.set(NIGHTLY, provenance("https://github.com/someone/fork", COMMIT));
+
+    expect(await pipelineOn(onRegistry(gh)).callerWorkflow?.(NIGHTLY, NEEDS)).toEqual({
+      error: `no release tag shiplane@${NIGHTLY}: pin ship.yml by hand`,
     });
   });
 
