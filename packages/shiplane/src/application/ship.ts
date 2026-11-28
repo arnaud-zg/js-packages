@@ -38,6 +38,7 @@ import {
   unitTag,
   versionFiles,
 } from "./targets";
+import { watchRuns } from "./watchRuns";
 
 interface Ready {
   unit: ReleaseUnit;
@@ -615,6 +616,7 @@ export const shipTo = async (
   }
   await writePlan(context, environment, new Set(going.map(({ unit }) => unit.name)));
   const outcomes: Outcomes = new Map();
+  const since = context.clock.now();
   const shipped = await runShipSteps(context, steps, outcomes);
   writeResult(context, outcomes);
   if (!shipped) return false;
@@ -633,14 +635,13 @@ export const shipTo = async (
     context,
     going.map(({ unit, input }) => ({ unit, tag: input.tag, environment })),
   );
-  const { runsLine } = context.services.ciPipeline;
-  if (runs.length + toDispatch.length > 0 && runsLine) {
-    output.line(`    ${paint("cyan", runsLine)}`);
-  }
+  const dispatched = runs.length + (defaultBranch !== undefined && toDispatch.length > 0 ? 1 : 0);
+  const watched =
+    dispatched === 0 || (await watchRuns(context, { workflow, since, count: dispatched }));
   // A package has no channel to read, so status has nothing to show for one.
   if (going.some(({ module }) => module.kind !== "published-package")) {
     output.line(`    ${paint("cyan", `shiplane status --channel ${environment}`)}`);
   }
   output.line();
-  return !stuck;
+  return watched && !stuck;
 };

@@ -82,6 +82,13 @@ export interface ReleaseConfig {
    */
   via?: "ci" | "local";
   /**
+   * Whether a ship follows the runs it starts on the CI pipeline (such as GitHub Actions) live, until
+   * they end: `true` follows each, in order, without asking; `false` never follows and prints the
+   * command to follow each. Without it, each ship asks, the first run preselected. `--watch` and
+   * `--no-watch` still win for one run. A failed run that was followed fails the ship.
+   */
+  watch?: boolean;
+  /**
    * A shell command run from the root before each unit ships from this machine (a laptop or a
    * runner), never before a CI dispatch: `{unit}` is the unit's name, `{dir}` its folder from the
    * root, such as `"pnpm --filter {unit}... build"`. A failure fails that unit.

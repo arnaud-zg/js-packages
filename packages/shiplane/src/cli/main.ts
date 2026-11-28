@@ -83,6 +83,8 @@ const HELP = `${paint("bold", "shiplane")}: detect what changed, version it, tri
   --channel <environment>         one deployApps.promote names; the first by default
                                   ship also takes latest, the released packages, or a test release channel
   --via ci|local                  ship through the CI pipeline (such as GitHub Actions) or this machine, without asking
+  --watch / --no-watch            follow the runs a ship starts on the CI pipeline until they end, or never;
+                                  asked when unset, never with --yes
   --yes                           answer yes to every question (never where users are)
   --dry-run                       with shiplane, ship or promote: every command it would run, run nothing;
                                   with test-release: each package's version and npm tag, publish nothing
@@ -118,6 +120,7 @@ const parse = (argv: string[]) =>
       yes: { type: "boolean", short: "y", default: false },
       channel: { type: "string" },
       via: { type: "string" },
+      watch: { type: "boolean" },
       blank: { type: "boolean", default: false },
       ci: { type: "boolean", default: false },
       "older-than": { type: "string" },
@@ -317,7 +320,11 @@ export const runCli = async (argv: string[], cwd: string, io: ContextIo = {}): P
   refreshEditorSchema(nodeFiles(release.root), release);
   const context = composeContext(
     release,
-    { yes: values.yes, display: { verbose: values.verbose, mascot: values.mascot } },
+    {
+      yes: values.yes,
+      ...(values.watch === undefined ? {} : { watch: values.watch }),
+      display: { verbose: values.verbose, mascot: values.mascot },
+    },
     io,
   );
   return (await run(context)) === false ? 1 : 0;

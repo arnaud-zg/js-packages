@@ -78,7 +78,7 @@ export interface ContextIo {
 /** A context wired to this machine: its shell, its terminal, its clock, unless `io` says otherwise. */
 export const composeContext = (
   release: Release,
-  { yes, display: flags }: { yes: boolean; display: DisplayChoice },
+  { yes, watch, display: flags }: { yes: boolean; watch?: boolean; display: DisplayChoice },
   io: ContextIo = {},
 ): ReleaseContext => {
   const ci = onGitHubActions() || systemShell.env("CI") === "true";
@@ -102,7 +102,7 @@ export const composeContext = (
     clock: systemClock,
     shell,
     files: nodeFiles(release.root),
-    options: { yes, ci: onGitHubActions() },
+    options: { yes, ci: onGitHubActions(), ...(watch === undefined ? {} : { watch }) },
   };
 };
 

@@ -1059,6 +1059,10 @@
         "local"
       ]
     },
+    "watch": {
+      "description": "Whether a ship follows the runs it starts on the CI pipeline until they end: true always, false never. Unset, each ship asks. --watch and --no-watch win for one run.",
+      "type": "boolean"
+    },
     "display": {
       "description": "How much the release says while it runs; --verbose and --mascot override.",
       "type": "object",

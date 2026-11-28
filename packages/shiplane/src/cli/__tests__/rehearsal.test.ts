@@ -103,7 +103,7 @@ describe("a release rehearsed on Fakes, through the CLI's entry", () => {
   });
 
   it("given both apps on preview, when promoted through CI, then each is dispatched to production", async () => {
-    const { fakes, prompter, run } = setUp([["api", "site"], "production", true]);
+    const { fakes, prompter, run } = setUp([["api", "site"], "production", true, ""]);
     fakes.codeHost.fake.seed({
       deployments: [
         { title: "Deploy api@1.0.0 to preview", state: "done" },
@@ -118,9 +118,28 @@ describe("a release rehearsed on Fakes, through the CLI's entry", () => {
       "What do you want to release to production? Greyed units have nothing to release.",
       'Type "production" to start:',
       "Ship api@1.0.0, site@1.0.0 to production through Fake CI?",
+      "Watch a run on Fake CI until it ends?",
     ]);
+    expect(prompter.initials["Watch a run on Fake CI until it ends?"]).toBe("run-1");
+    expect(fakes.ciPipeline.fake.watched).toEqual([]);
     expect(
       fakes.ciPipeline.fake.received.map(({ ref, inputs }) => `${ref} ${inputs.environment ?? ""}`),
     ).toEqual(["api@1.0.0 production", "site@1.0.0 production"]);
+  });
+
+  it("given both apps on preview, when promoted through CI with --watch, then both runs are followed in order without asking", async () => {
+    const { fakes, prompter, run } = setUp([["api", "site"], "production", true]);
+    fakes.codeHost.fake.seed({
+      deployments: [
+        { title: "Deploy api@1.0.0 to preview", state: "done" },
+        { title: "Deploy site@1.0.0 to preview", state: "done" },
+      ],
+    });
+
+    const code = await run("promote", "--via", "ci", "--watch");
+
+    expect(code).toBe(0);
+    expect(prompter.asked).not.toContain("Watch a run on Fake CI until it ends?");
+    expect(fakes.ciPipeline.fake.watched).toEqual(["run-1", "run-2"]);
   });
 });

@@ -28,6 +28,7 @@ export const TOP_KEYS = [
   "units",
   "tag",
   "via",
+  "watch",
   "deployApps",
   "publishPackages",
   "display",

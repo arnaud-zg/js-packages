@@ -41,17 +41,18 @@ Source: `src/cli/main.ts`. Here, `pnpm shiplane` builds the CLI first when its s
 
 ## Flags
 
-| Flag                      | Means                                                                                       |
-| ------------------------- | ------------------------------------------------------------------------------------------- |
-| `--channel <environment>` | The environment worked on (the first by default)                                            |
-| `--via ci\|local`         | Ship through the CI pipeline or this machine, without asking                                |
-| `--yes`, `-y`             | Yes to every question, at the computed version. Refused where users are                     |
-| `--json`                  | `status` and `plugins` print JSON                                                           |
-| `--blank`                 | Deprecated: `init` writes commented templates, not guesses                                  |
-| `--verbose`, `--mascot`   | On by default; `--no-` turns off. Defaults: `display` in config                             |
-| `--dry-run`               | `shiplane`, `ship`, `promote`: every command it would run, run none                         |
-| `--environments a,b`      | `setup`: the environments apps go through, in order, where users are last; asked without it |
-| `--ci`                    | `doctor`: check this runner can ship, installing a missing tool                             |
+| Flag                      | Means                                                                                                                           |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `--channel <environment>` | The environment worked on (the first by default)                                                                                |
+| `--via ci\|local`         | Ship through the CI pipeline or this machine, without asking                                                                    |
+| `--watch`, `--no-watch`   | Follow the CI runs a ship starts until they end, or never, without asking ([cases](./how-to-ci.md#watch-the-run-until-it-ends)) |
+| `--yes`, `-y`             | Yes to every question, at the computed version. Refused where users are                                                         |
+| `--json`                  | `status` and `plugins` print JSON                                                                                               |
+| `--blank`                 | Deprecated: `init` writes commented templates, not guesses                                                                      |
+| `--verbose`, `--mascot`   | On by default; `--no-` turns off. Defaults: `display` in config                                                                 |
+| `--dry-run`               | `shiplane`, `ship`, `promote`: every command it would run, run none                                                             |
+| `--environments a,b`      | `setup`: the environments apps go through, in order, where users are last; asked without it                                     |
+| `--ci`                    | `doctor`: check this runner can ship, installing a missing tool                                                                 |
 
 ## Exit codes
 
@@ -110,6 +111,7 @@ export default defineRelease({
 | `testComment`     | The test version's PR comment: `comments.table` (default), `comments.compact`, or your own text with `{branch}` `{commit}` `{table}` `{install}` ([how-to](./how-to-test-versions.md#publish-a-test-version))                                                                                                                                           |
 | `testRelease`     | Which channel each branch's test release takes: `testReleases.nightly`, `.prerelease`, `.gitflow`, or `{ branch: channel }` with `*` patterns; unlisted branches publish a snapshot ([how-to](./how-to-test-versions.md#give-each-branch-a-channel))                                                                                                    |
 | `via`             | `"ci"` (the flow's CI pipeline) or `"local"` (this machine): how an app ships when both ways can, so a ship stops asking. `--via` wins for one run; a way that cannot ship takes the other                                                                                                                                                              |
+| `watch`           | `true` follows every CI run a ship starts until it ends, `false` never does (it prints the command instead); unset, each ship asks, and `--yes` accepts. `--watch`/`--no-watch` win for one run. [Every case](./how-to-ci.md#watch-the-run-until-it-ends)                                                                                               |
 | `deployApps`      | Deployed apps only, **required as soon as one deploys**: `{ promote: [{ from, to }], onBranch }`, the way to users and where a branch may deploy. [How-to](./how-to-destinations.md#deploy-apps-through-your-environments)                                                                                                                              |
 | `publishPackages` | Published packages only: `{ channels, onBranch }`, where they publish and what a branch may publish. [How-to](./how-to-destinations.md#publish-packages-on-channels)                                                                                                                                                                                    |
 | `prepare`         | A shell command run from the root before each unit ships from this machine or a runner, never before a CI dispatch, and [before a release](#build-before-a-release): `{unit}` its name, `{dir}` its folder, such as `"pnpm --filter {unit}... build"`. A failure fails that unit. Any other `{…}` fails loading: `unknown placeholder {app} in prepare` |

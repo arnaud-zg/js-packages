@@ -30,6 +30,7 @@ export type {
   CallerWorkflow,
   CiPipelinePort,
   MinutesBlocked,
+  PipelineRun,
 } from "./ports/ci-pipeline.port";
 export type { CodeHostPort } from "./ports/code-host.port";
 export type { SourceControlPort } from "./ports/source-control.port";

@@ -35,6 +35,16 @@ export interface MinutesBlocked {
   fix?: string;
 }
 
+/** One run of a workflow, as the pipeline names it: what a person can follow until it ends. */
+export interface PipelineRun {
+  /** The pipeline's own id for it. */
+  id: string;
+  /** What the pipeline shows it as, such as the title its workflow gives it. */
+  title: string;
+  /** Its page. */
+  url?: string;
+}
+
 /** Where workflows run: dispatched on a ref, their runs read back, the minutes they cost. */
 export interface CiPipelinePort {
   /** The one workflow that ships on CI: `shiplane ship` on a runner, given units and an environment. */
@@ -60,6 +70,15 @@ export interface CiPipelinePort {
   readonly runsLine?: string;
   /** Where a ref holds a workflow's file, checked before dispatching on it; unchecked when unset. */
   workflowFile?: (workflow: string) => string;
+  /**
+   * The runs of a workflow this person started at `since` or later, oldest first: those a dispatch
+   * just started. Runs are not offered to watch when unset.
+   */
+  startedRuns?: (workflow: string, since: Date) => Promise<PipelineRun[]>;
+  /** Follows a run live in the person's terminal until it ends; true when it succeeded. */
+  watch?: (run: PipelineRun) => Promise<boolean>;
+  /** The command that follows a run live, as a person would type it. */
+  watchLine?: (run: PipelineRun) => string;
   /** The command a dry run prints for a dispatch, as a person would type it. */
   dispatchLine?: (workflow: string, ref: string, inputs: Record<string, string>) => string;
   /**

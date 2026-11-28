@@ -14,6 +14,7 @@ import { releaseToEntry } from "./releaseToEntry";
 import { fail, paint, reasonOf } from "./say";
 import { runSteps } from "./steps";
 import { isRegistry } from "./targets";
+import { watchRuns } from "./watchRuns";
 
 const whereHere = async ({ services }: ReleaseContext): Promise<Here> => {
   const [{ branch, head, originMain }, defaultBranch] = await Promise.all([
@@ -133,6 +134,7 @@ const dispatchTest = async (
 ) => {
   const { ciPipeline } = context.services;
   const units = plan.publish.map(({ unit }) => unit.name).join(" ");
+  const since = context.clock.now();
   const done = await runSteps(context, [
     {
       label: `start ${ciPipeline.shipWorkflow} on ${here.branch}, to ${plan.channel}`,
@@ -145,8 +147,8 @@ const dispatchTest = async (
         ),
     },
   ]);
-  if (done && ciPipeline.runsLine) context.output.line(`    ${paint("cyan", ciPipeline.runsLine)}`);
-  return done;
+  if (!done) return false;
+  return watchRuns(context, { workflow: ciPipeline.shipWorkflow, since, count: 1 });
 };
 
 /** What the person is asked before a test version, and how it goes. */

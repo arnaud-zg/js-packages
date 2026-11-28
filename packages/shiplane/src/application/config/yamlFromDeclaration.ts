@@ -179,6 +179,7 @@ export const yamlFromDeclaration = (
     ...(declared.features === undefined ? {} : { features: listOf("features") }),
     ...(declared.tag === undefined ? {} : { tag: declared.tag }),
     ...(declared.via === undefined ? {} : { via: declared.via }),
+    ...(declared.watch === undefined ? {} : { watch: declared.watch }),
     ...(declared.deployApps === undefined ? {} : { deployApps: declared.deployApps }),
     ...(declared.publishPackages === undefined
       ? {}

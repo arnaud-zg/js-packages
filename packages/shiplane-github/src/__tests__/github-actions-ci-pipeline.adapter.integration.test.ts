@@ -194,6 +194,68 @@ describe("dispatching a workflow", () => {
   });
 });
 
+describe("following the runs a ship dispatched", () => {
+  const SINCE = new Date("2026-10-12T09:00:00Z");
+  const listed = (runs: { id: number; createdAt: string; title?: string }[]) =>
+    JSON.stringify(
+      runs.map(({ id, createdAt, title = "Ship to preview" }) => ({
+        databaseId: id,
+        displayTitle: title,
+        createdAt,
+        url: `https://github.com/acme/app/actions/runs/${id}`,
+      })),
+    );
+
+  it("given runs this person dispatched before and after the ship, when the started runs are read, then only the new ones come back, oldest first", async () => {
+    const gh = fakeGh()
+      .seed("api user", "octocat\n")
+      .seed(
+        "run list",
+        listed([
+          { id: 3, createdAt: "2026-10-12T09:00:20Z", title: "Ship to production" },
+          { id: 2, createdAt: "2026-10-12T09:00:05Z" },
+          { id: 1, createdAt: "2026-10-12T08:30:00Z" },
+        ]),
+      );
+
+    await expect(pipelineOn(gh).startedRuns?.("ship.yml", SINCE)).resolves.toEqual([
+      { id: "2", title: "Ship to preview", url: "https://github.com/acme/app/actions/runs/2" },
+      { id: "3", title: "Ship to production", url: "https://github.com/acme/app/actions/runs/3" },
+    ]);
+    expect(gh.args).toContainEqual([
+      "run",
+      "list",
+      "--workflow",
+      "ship.yml",
+      "--event",
+      "workflow_dispatch",
+      "--user",
+      "octocat",
+      "--limit",
+      "20",
+      "--json",
+      "databaseId,displayTitle,createdAt,url",
+    ]);
+  });
+
+  it("given a run, when it is watched, then gh follows that run alone in the terminal and its exit says how it went", async () => {
+    const gh = fakeGh().seed("run watch", { status: 1 });
+    const run = { id: "42", title: "Ship to preview" };
+
+    await expect(pipelineOn(gh).watch?.(run)).resolves.toBe(false);
+    expect(gh.calls).toEqual([
+      {
+        how: "attach",
+        command: "gh",
+        args: ["run", "watch", "42", "--exit-status"],
+        cwd: "/repo",
+        input: undefined,
+      },
+    ]);
+    expect(pipeline().watchLine?.(run)).toBe("gh run watch 42");
+  });
+});
+
 describe("checking a ship fits the GitHub Actions minutes budget", () => {
   it("given an organization on the team plan, when the minutes are read, then the month's usage is weighed against its allowance", async () => {
     const gh = fakeGh()

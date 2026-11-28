@@ -35,6 +35,7 @@ const composed = (release: Release) =>
     settings: [
       release.tagFormat,
       release.via,
+      release.watch,
       release.appFlow,
       release.channels,
       release.onBranch,
