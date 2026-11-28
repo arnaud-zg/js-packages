@@ -227,3 +227,57 @@ describe("Feature: main moved while the release PR waited", () => {
     });
   });
 });
+
+describe("Feature: a release PR conflicts once another one merged", () => {
+  const PR_13 = { number: 13, url: "https://host.test/acme/repo/pull/13", head: "pr13" };
+  const OPEN_13 = { branch: "shiplane/release-2026-10-11-0900-api", pr: PR_13 };
+
+  describe("Scenario: the conflicting PR is replaced from main", () => {
+    it("given #12 and #13 open from one run, when #12 merges and #13 can no longer merge, then a PR versioned from main replaces #13 and the release carries on with it", async () => {
+      // given
+      const world = setUp({ interactive: false, yes: true });
+      world.host.seed({
+        openPrs: [OPEN_12, OPEN_13],
+        prStates: { 12: ["MERGED"], 1800: ["MERGED"] },
+        conflicting: [13],
+      });
+
+      // when
+      const ok = await releaseToEntry(world.context);
+
+      // then
+      expect(ok).toBe(true);
+      expect(world.output.text).toContain(
+        "↻ Release #13 conflicts with #12, merged before it: replacing it from main.",
+      );
+      const [replacement] = opened(world);
+      expect(replacement).toMatchObject({
+        body: expect.stringMatching(/^Replaces #13, which went out of date when main moved\./),
+      });
+      const close = world.host.received.find(({ type }) => type === "close");
+      expect(close).toMatchObject({ pr: PR_13 });
+      const comment = close && "comment" in close ? close.comment : "";
+      expect(comment).toContain("#12 merged first and changed the same files");
+      expect(comment).toContain("Replaced by #1800");
+      expect(world.output.text).toContain("Release PR #1800 merged");
+    });
+
+    it("given #12 and #13 open from one run, when #12 merges and #13 still merges cleanly, then #13 is kept and waited on", async () => {
+      // given
+      const world = setUp({ interactive: false, yes: true });
+      world.host.seed({
+        openPrs: [OPEN_12, OPEN_13],
+        prStates: { 12: ["MERGED"], 13: ["MERGED"] },
+      });
+
+      // when
+      const ok = await releaseToEntry(world.context);
+
+      // then
+      expect(ok).toBe(true);
+      expect(opened(world)).toHaveLength(0);
+      expect(world.host.received.some(({ type }) => type === "close")).toBe(false);
+      expect(world.output.text).toContain("Release PR #13 merged");
+    });
+  });
+});
