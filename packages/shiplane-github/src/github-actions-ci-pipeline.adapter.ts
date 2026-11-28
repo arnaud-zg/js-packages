@@ -3,6 +3,7 @@ import type {
   CiPipelinePort,
   Deploy,
   MinutesBlocked,
+  PipelineRun,
   ServiceAdapter,
   Shell,
 } from "shiplane/plugin";
@@ -22,6 +23,18 @@ const OwnerSchema = z.object({ login: z.string(), type: z.string() });
 const JobsSchema = z.array(
   z.object({ startedAt: z.string().nullable(), completedAt: z.string().nullable() }),
 );
+
+const StartedSchema = z.array(
+  z.object({
+    databaseId: z.number(),
+    displayTitle: z.string(),
+    createdAt: z.string(),
+    url: z.string(),
+  }),
+);
+
+/** How far GitHub's clock may be behind this machine's when it stamps a run it just started. */
+const CLOCK_SKEW_MS = 60_000;
 
 const RefSchema = z.object({ object: z.object({ sha: z.string(), type: z.string() }) });
 const CommitSchema = z.object({ sha: z.string() });
@@ -245,6 +258,37 @@ const githubActions = (root: string, shell: Shell, shipWorkflow: string): CiPipe
     }
   };
 
+  let login: Promise<string> | undefined;
+  /** Who gh is signed in as: the runs this person started are the ones dispatched from here. */
+  const me = () => (login ??= must(["api", "user", "--jq", ".login"]).then((name) => name.trim()));
+
+  /** Runs of `workflow` this person dispatched since `since`, oldest first. */
+  const startedRuns = async (workflow: string, since: Date): Promise<PipelineRun[]> => {
+    const listed = await json([
+      "run",
+      "list",
+      "--workflow",
+      workflow,
+      "--event",
+      "workflow_dispatch",
+      "--user",
+      await me(),
+      "--limit",
+      "20",
+      "--json",
+      "databaseId,displayTitle,createdAt,url",
+    ]);
+    const after = since.getTime() - CLOCK_SKEW_MS;
+    return StartedSchema.parse(listed)
+      .filter(({ createdAt }) => Date.parse(createdAt) >= after)
+      .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
+      .map(({ databaseId, displayTitle, url }) => ({
+        id: String(databaseId),
+        title: displayTitle,
+        url,
+      }));
+  };
+
   /** The account's plan and usage: GitHub bills a person and an organization at different addresses. */
   const billing = async (personal: boolean) => {
     const usage = await json([
@@ -267,6 +311,11 @@ const githubActions = (root: string, shell: Shell, shipWorkflow: string): CiPipe
         ...Object.entries(inputs).map(([key, value]) => `-f ${key}=${value}`),
       ].join(" "),
     workflowRuns: runs,
+    startedRuns,
+    // gh follows the one run asked for, never its own picker of every run in progress.
+    watch: async ({ id }) =>
+      (await shell.attach("gh", ["run", "watch", id, "--exit-status"], { cwd: root })) === 0,
+    watchLine: ({ id }) => `gh run watch ${id}`,
     callerWorkflow: async (version, needs) => {
       const tag = `shiplane@${version}`;
       const orMissing = (error: unknown) => {

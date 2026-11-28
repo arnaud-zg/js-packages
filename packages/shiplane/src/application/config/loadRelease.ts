@@ -60,6 +60,8 @@ export interface Release {
   onBranch?: "snapshot" | false;
   /** How a unit ships when both ways can, as the config asks; unset, each ship asks. */
   via?: DeployPath;
+  /** Whether a ship follows the CI runs it starts: true always, false never; unset, each ship asks. */
+  watch?: boolean;
   /** How much the release says while it runs, as the config asks. */
   display?: DisplayChoice;
   /** Files still under their name from before shiplane. */
@@ -84,6 +86,7 @@ type Composed = Pick<
   | "testComment"
   | "testRelease"
   | "via"
+  | "watch"
   | "channels"
   | "onBranch"
   | "deployOnBranch"
@@ -218,6 +221,7 @@ const checkConfig = (loaded: unknown): Composed => {
     ...testCommentOf(loaded.testComment),
     ...testReleaseOf(loaded.testRelease),
     via: viaOf(loaded.via),
+    watch: watchOf(loaded.watch),
     ...deployApps,
     ...publishPackagesOf(loaded.publishPackages, deployApps.appFlow?.path ?? []),
     ...prepareOf(loaded.prepare),
@@ -365,6 +369,12 @@ const viaOf = (via: unknown): DeployPath | undefined => {
   if (via === undefined) return undefined;
   if (via === "ci" || via === "local") return via;
   throw new Error('via is "ci" (the CI pipeline) or "local" (this machine)');
+};
+
+/** Whether to follow the CI runs a ship starts: said once in the config, or asked each ship. */
+const watchOf = (watch: unknown): boolean | undefined => {
+  if (watch === undefined || typeof watch === "boolean") return watch;
+  throw new Error("watch is true (follow the runs a ship starts) or false (never follow them)");
 };
 
 /** A config's mascot: true, false, frames per mood, or a function; anything else is ignored. */
@@ -586,6 +596,7 @@ export const loadRelease = async (root: string, ports: LoadPorts): Promise<Relea
     modules: config.modules,
     features: config.features,
     ...(config.via ? { via: config.via } : {}),
+    ...(config.watch === undefined ? {} : { watch: config.watch }),
     appFlow: config.appFlow ?? NO_APPS,
     ...(config.channels ? { channels: config.channels } : {}),
     ...(config.deployOnBranch === undefined ? {} : { deployOnBranch: config.deployOnBranch }),

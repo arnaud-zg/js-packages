@@ -51,6 +51,7 @@ export const testContext = ({
   features = [],
   yes = false,
   interactive = true,
+  watch = false,
   root = "/repo",
   tagFormat = DEFAULT_TAG_FORMAT,
   approval,
@@ -63,6 +64,8 @@ export const testContext = ({
   features?: Feature[] | ((flow: FlowFakes) => Feature[]);
   yes?: boolean;
   interactive?: boolean;
+  /** Whether the runs a ship starts are followed; never unless said, so only tests of it are asked. */
+  watch?: boolean | "ask";
   root?: string;
   tagFormat?: string;
   /** Whether someone else approves the release PR; the config default when absent. */
@@ -107,7 +110,7 @@ export const testContext = ({
     clock: new FixedClock(new Date("2026-10-12T09:00:00Z")),
     shell,
     files,
-    options: { yes, ci: false },
+    options: { yes, ci: false, ...(watch === "ask" ? {} : { watch }) },
   };
   return {
     context,

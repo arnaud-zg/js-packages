@@ -30,6 +30,8 @@ export interface ReleaseContext {
     yes: boolean;
     /** Running inside GitHub Actions: a ship runs on this runner, never dispatching another. */
     ci: boolean;
+    /** Follows the runs a ship starts on the CI pipeline: true without asking, false never; asked when unset. */
+    watch?: boolean;
   };
 }
 

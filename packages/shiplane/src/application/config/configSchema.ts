@@ -143,6 +143,11 @@ export const configJsonSchema = (catalog: readonly CatalogEntry[]): JsonSchema =
           "How a unit ships when both ways can: ci (the flow's CI pipeline) or local (this machine).",
         enum: ["ci", "local"],
       },
+      watch: {
+        description:
+          "Whether a ship follows the runs it starts on the CI pipeline until they end: true always, false never. Unset, each ship asks. --watch and --no-watch win for one run.",
+        type: "boolean",
+      },
       display: {
         description: "How much the release says while it runs; --verbose and --mascot override.",
         type: "object",

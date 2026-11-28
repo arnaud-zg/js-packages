@@ -9,6 +9,7 @@ Ship from GitHub Actions, from this machine, or from a script. Every option name
 [Reference](./reference.md).
 
 - [Choose GitHub Actions or this machine](#choose-github-actions-or-this-machine)
+- [Watch the run until it ends](#watch-the-run-until-it-ends)
 - [Ship from GitHub Actions](#ship-from-github-actions)
 - [Set up any Node project in your workflow](#set-up-any-node-project-in-your-workflow)
 - [Ship with no laptop](#ship-with-no-laptop)
@@ -28,6 +29,40 @@ the right, if one does; you can ship anyway. To stop asking, set `via: "ci"` (yo
 is not asked, and it says why. Through GitHub Actions, each run goes on a release tag, so a merge to
 `main` while it waits cannot change what ships; see
 [Explanation](./explanation.md#ci-and-your-laptop-run-the-same-jobs).
+
+## Watch the run until it ends
+
+```sh
+pnpm shiplane ship --via ci --watch     # or --no-watch
+```
+
+Once a ship, a promote or a test release starts runs on your CI pipeline, shiplane can follow them
+live in your terminal, `gh run watch <run id>` on GitHub Actions, on the run it just started: never
+gh's own list of every run in progress. A run that fails fails the ship, with its page linked. Which
+happens is decided in this order; the first that says wins:
+
+| Case                                | What happens                                                                                                                                                                                |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--watch`                           | Follows each run it started, in order. Nothing asked                                                                                                                                        |
+| `--no-watch`                        | Follows none. Prints `gh run watch <id>` per run, nothing asked                                                                                                                             |
+| `watch: true` in the config         | As `--watch`, on every ship                                                                                                                                                                 |
+| `watch: false` in the config        | As `--no-watch`, on every ship                                                                                                                                                              |
+| `--yes`, with neither of the above  | The question counts as accepted: as `--watch`                                                                                                                                               |
+| None of them, in a terminal         | Asks. One run: `Watch Ship to preview on GitHub Actions until it ends?`, yes first. Several: pick one, the first preselected, or **No, return now**; after each, the rest are offered again |
+| None of them, without a terminal    | Follows none. Prints `gh run list --limit 5`                                                                                                                                                |
+| On a runner (inside GitHub Actions) | Never follows: the runner ships itself                                                                                                                                                      |
+
+Set it once in `shiplane.config.ts` (or `shiplane.yml`) to stop being asked:
+
+```ts
+export default defineRelease({
+  // ...
+  watch: true, // follow every run a ship starts; false: never, print the command instead
+});
+```
+
+When GitHub has not shown the run after about ten seconds, it says so and prints the command to list
+the latest runs. Ctrl+C stops following; the run keeps going on GitHub.
 
 ## Ship from GitHub Actions
 
@@ -183,6 +218,8 @@ pnpm -s shiplane status --json
 ```
 
 Without a terminal every question answers no: pass `--yes` (refused where users are) and `--via`.
+`--yes` also follows the runs a ship starts until they end, so the script's exit code is theirs: add
+`--no-watch` (or set `watch: false`) to return as soon as they are started.
 
 ## Example
 

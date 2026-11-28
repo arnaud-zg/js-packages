@@ -1,12 +1,16 @@
 import type { ActionsMinutes } from "../../../domain/budget";
 import type { ServiceAdapter } from "../../../ports/adapter.port";
-import type { CiPipelinePort, MinutesBlocked } from "../../../ports/ci-pipeline.port";
+import type { CiPipelinePort, MinutesBlocked, PipelineRun } from "../../../ports/ci-pipeline.port";
 import type { Deploy } from "../../../ports/code-host.port";
 
 interface PipelineState {
   workflowRuns: Record<string, Deploy[]>;
   minutes: ActionsMinutes | MinutesBlocked | null;
   measured: Record<string, number[]>;
+  /** Whether each run a dispatch starts shows up to watch; true unless seeded. */
+  showsRuns: boolean;
+  /** How each watched run ends, by id; succeeded unless seeded. */
+  outcomes: Record<string, boolean>;
 }
 
 export interface Dispatched {
@@ -22,9 +26,13 @@ export class CiPipelineFake implements CiPipelinePort {
     workflowRuns: {},
     minutes: null,
     measured: {},
+    showsRuns: true,
+    outcomes: {},
   };
 
   readonly received: Dispatched[] = [];
+  /** The runs followed live, by id, in order. */
+  readonly watched: string[] = [];
 
   constructor(readonly shipWorkflow = "ship.yml") {}
 
@@ -50,6 +58,31 @@ export class CiPipelineFake implements CiPipelinePort {
     this.received.push({ type: "dispatch", workflow, ref, inputs });
     return Promise.resolve();
   };
+
+  /** Each dispatch starts run `run-<n>`, titled after its inputs; the clock is not read. */
+  startedRuns = (workflow: string): Promise<PipelineRun[]> =>
+    Promise.resolve(
+      this.state.showsRuns
+        ? this.received.flatMap((dispatched, index) =>
+            dispatched.workflow === workflow
+              ? [
+                  {
+                    id: `run-${index + 1}`,
+                    title: `Ship ${dispatched.inputs.units ?? ""} to ${dispatched.inputs.environment ?? ""}`,
+                    url: `https://ci.example/runs/${index + 1}`,
+                  },
+                ]
+              : [],
+          )
+        : [],
+    );
+
+  watch = (run: PipelineRun) => {
+    this.watched.push(run.id);
+    return Promise.resolve(this.state.outcomes[run.id] ?? true);
+  };
+
+  watchLine = (run: PipelineRun) => `fake-ci watch ${run.id}`;
 
   minutes = () => Promise.resolve(this.state.minutes);
   measuredMinutes = (workflow: string) => Promise.resolve(this.state.measured[workflow] ?? []);
