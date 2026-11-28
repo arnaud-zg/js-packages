@@ -55,6 +55,7 @@
     "clean": "git clean -xdf .cache .turbo dist node_modules",
     "format": "prettier --write . --cache --cache-location .cache/.prettiercache",
     "lint": "eslint --cache --cache-location .cache/.eslintcache",
+    "prepack": "pnpm build",
     "start": "node dist/cli.js",
     "test": "vitest run",
     "test:mutate": "stryker run ../../stryker.config.mjs",
