@@ -139,6 +139,20 @@ pnpm shiplane ship my-api                      # add --channel production for pr
 If the unit is greyed out as `deploying already`, a GitHub deployment is still marked in progress.
 Find its run with `gh run list --limit 5` and rerun it from GitHub.
 
+### A release PR conflicts once another one merged
+
+A run that opens several release PRs can bump one app in two of them, such as an app a shared
+package moves. Once the first merges, GitHub cannot merge the second. After each merge, shiplane
+asks the host, and when a PR left can no longer merge it pulls main and replaces every PR left with
+one versioned from there:
+
+```
+  ↻ Release #13 conflicts with #12, merged before it: replacing it from main.
+  ✓ Opened #14  ✓ Closed #13, with a comment pointing to it
+```
+
+The run then waits on the replacement, as on any release PR. Nothing to resolve by hand.
+
 ### A mobile build failed and main moved on
 
 ```sh
