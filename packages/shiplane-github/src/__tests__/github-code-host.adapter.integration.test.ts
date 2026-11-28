@@ -72,6 +72,19 @@ describe("finding the release pull request already open", () => {
     expect(gh.args).toEqual([["pr", "view", "42", "--json", "state"]]);
   });
 
+  it("given a release PR GitHub can no longer merge, when shiplane checks on it, then it sees the conflict", async () => {
+    const gh = fakeGh().seed("pr view 42", '{"mergeable":"CONFLICTING"}');
+
+    await expect(hostOn(gh).conflicts?.(PR)).resolves.toBe(true);
+    expect(gh.args).toEqual([["pr", "view", "42", "--json", "mergeable"]]);
+  });
+
+  it("given a release PR GitHub can merge, when shiplane checks on it, then it sees no conflict", async () => {
+    const gh = fakeGh().seed("pr view 42", '{"mergeable":"MERGEABLE"}');
+
+    await expect(hostOn(gh).conflicts?.(PR)).resolves.toBe(false);
+  });
+
   it("given a branch, when shiplane looks for its PR, then gh is asked for the one open PR from that branch", async () => {
     const gh = fakeGh().seed("pr list", "[]");
 

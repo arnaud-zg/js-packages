@@ -19,6 +19,10 @@ const toOpenPr = ({ number, url, headRefOid }: z.infer<typeof PrSchema>) => ({
   head: headRefOid,
 });
 const PrStateSchema = z.object({ state: z.enum(["OPEN", "MERGED", "CLOSED"]) });
+const MergeableSchema = z.object({ mergeable: z.enum(["MERGEABLE", "CONFLICTING", "UNKNOWN"]) });
+// GitHub computes mergeability after a push to the base: UNKNOWN until then.
+const MERGEABLE_TRIES = 5;
+const MERGEABLE_GAP_MS = 3000;
 const METHOD = { MERGE: "--merge", SQUASH: "--squash", REBASE: "--rebase" } as const;
 const RepoMergeSchema = z.object({
   data: z.object({
@@ -145,6 +149,16 @@ export const githubHost = (root: string, shell: Shell): CodeHostPort => {
     },
     prState: async (pr) =>
       PrStateSchema.parse(await json(["pr", "view", String(pr.number), "--json", "state"])).state,
+    conflicts: async (pr) => {
+      for (let attempt = 1; ; attempt++) {
+        const { mergeable } = MergeableSchema.parse(
+          await json(["pr", "view", String(pr.number), "--json", "mergeable"]),
+        );
+        if (mergeable !== "UNKNOWN" || attempt >= MERGEABLE_TRIES)
+          return mergeable === "CONFLICTING";
+        await sleep(MERGEABLE_GAP_MS);
+      }
+    },
     mergeMethods: async () => {
       const { repository } = RepoMergeSchema.parse(
         await json([

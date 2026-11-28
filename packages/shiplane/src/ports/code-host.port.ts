@@ -25,6 +25,8 @@ export interface CodeHostPort {
     label: string;
   }) => Promise<OpenPr>;
   prState: (pr: OpenPr) => Promise<"OPEN" | "MERGED" | "CLOSED">;
+  /** True once the host cannot merge the pull request cleanly; a host that cannot tell omits it. */
+  conflicts?: (pr: OpenPr) => Promise<boolean>;
   closePr: (pr: OpenPr, comment: string) => Promise<void>;
   mergeMethods: () => Promise<MergeMethods>;
   merge: (pr: OpenPr, method: MergeMethod) => Promise<void>;

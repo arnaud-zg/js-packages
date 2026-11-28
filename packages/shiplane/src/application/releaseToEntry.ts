@@ -52,15 +52,72 @@ const refreshStale = async (
     `↻ Release ${names} is out of date: ${plural(subjects.length, "commit")} landed on main since.`,
   );
   output.line(paint("dim", "    Replacing it so the changelog matches what ships."));
+  return replaceReleases(context, { prs, scope, why: (opened) => closedComment(opened, subjects) });
+};
+
+/** Opens a release of everything merged in place of `prs`, then closes each with `why`. */
+const replaceReleases = async (
+  context: ReleaseContext,
+  {
+    prs,
+    scope,
+    why,
+  }: { prs: OpenPr[]; scope: ReadonlySet<string>; why: (opened: OpenPr[], pr: OpenPr) => string },
+): Promise<OpenPr[] | null> => {
   const prepared = await prepareRelease(context, scope);
   const opened = await openReleasePr(context, prepared, prs);
   if (!opened) return null;
-  for (const pr of prs)
-    await context.services.codeHost.closePr(pr, closedComment(opened, subjects));
-  output.line(
-    `  ${paint("green", "✓")} Opened ${listed(opened.map(({ number }) => `#${number}`))}${context.release.flow.approval === "required" ? " (needs approval again)" : ""}  ${paint("green", "✓")} Closed ${names}, with a comment pointing to it`,
+  for (const pr of prs) await context.services.codeHost.closePr(pr, why(opened, pr));
+  context.output.line(
+    `  ${paint("green", "✓")} Opened ${listed(opened.map(({ number }) => `#${number}`))}${context.release.flow.approval === "required" ? " (needs approval again)" : ""}  ${paint("green", "✓")} Closed ${listed(prs.map(({ number }) => `#${number}`))}, with a comment pointing to it`,
   );
   return opened;
+};
+
+/** Why a release PR closed after another merged: it conflicted, or went with one that did. */
+const conflictComment = (
+  { merged, blocked }: { merged: OpenPr; blocked: readonly OpenPr[] },
+  replacement: readonly OpenPr[],
+  pr: OpenPr,
+) =>
+  [
+    blocked.includes(pr)
+      ? `Closed by shiplane: #${merged.number} merged first and changed the same files, so this release PR could no longer merge.`
+      : `Closed by shiplane: ${listed(blocked.map(({ number }) => `#${number}`))} could no longer merge after #${merged.number}, and one release versions everything pending, so this one was replaced with it.`,
+    `Replaced by ${listed(replacement.map(({ number }) => `#${number}`))}, versioned from main after #${merged.number}. Please review that one.`,
+  ].join("\n");
+
+/**
+ * The release PRs left once `merged` went in. When the host can no longer merge one, main is
+ * pulled and a release versioned from it replaces them all, as its changelog covers each one.
+ */
+const replaceConflicting = async (
+  context: ReleaseContext,
+  { merged, remaining, scope }: { merged: OpenPr; remaining: OpenPr[]; scope: ReadonlySet<string> },
+): Promise<{ context: ReleaseContext; prs: OpenPr[] } | null> => {
+  const { conflicts } = context.services.codeHost;
+  if (!conflicts || remaining.length === 0) return { context, prs: remaining };
+  const flags = await Promise.all(remaining.map((pr) => conflicts(pr).catch(() => false)));
+  const blocked = remaining.filter((_, index) => flags[index]);
+  if (blocked.length === 0) return { context, prs: remaining };
+  const one = blocked.length === 1;
+  context.progress.say(
+    "thinking",
+    `↻ Release ${listed(blocked.map(({ number }) => `#${number}`))} ${one ? "conflicts" : "conflict"} with #${merged.number}, merged before ${one ? "it" : "them"}: replacing ${one ? "it" : "them"} from main.`,
+  );
+  const from = await context.services.sourceControl.defaultBranch();
+  const pulled = await runSteps(context, [
+    { label: `switch to ${from}`, run: () => context.services.sourceControl.switchTo(from) },
+    { label: `pull ${from}`, run: () => context.services.sourceControl.pull() },
+  ]);
+  if (!pulled) return null;
+  const fresh = { ...context, release: await context.load() };
+  const opened = await replaceReleases(fresh, {
+    prs: remaining,
+    scope,
+    why: (replacement, pr) => conflictComment({ merged, blocked }, replacement, pr),
+  });
+  return opened ? { context: fresh, prs: opened } : null;
 };
 
 const STAGES = ["What to release", "Versions", "Release PR", "Merge", "Tags", "Ship"] as const;
@@ -183,9 +240,12 @@ export const releaseToEntry = async (
   if (typeof prs === "boolean") return prs;
   let current = context;
   if (prs.length > 0) stage("Merge");
-  for (const pr of prs) {
+  let queue = prs;
+  while (queue.length > 0) {
+    const [pr, ...remaining] = queue;
+    if (!pr) break;
     output.line();
-    const outcome = await waitForMerge(context, pr);
+    const outcome = await waitForMerge(current, pr);
     if (outcome === "closed") {
       progress.say("resting", `○ Release #${pr.number} was closed: nothing shipped.`);
       output.line(paint("dim", "    Run shiplane to open a new release with everything pending."));
@@ -196,6 +256,10 @@ export const releaseToEntry = async (
       return true;
     }
     progress.say("happy", `${paint("green", "✓")} Release PR #${pr.number} merged`);
+    const next = await replaceConflicting(current, { merged: pr, remaining, scope: picked.scope });
+    if (!next) return false;
+    current = next.context;
+    queue = next.prs;
   }
   if (prs.length > 0) {
     const from = await services.sourceControl.defaultBranch();

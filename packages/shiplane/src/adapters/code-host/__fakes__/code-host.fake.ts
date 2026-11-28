@@ -18,6 +18,8 @@ interface HostState {
   pullRequests: Record<number, LinkedPr>;
   /** `owner/name#123` → the text of its comments. */
   comments: Record<string, string[]>;
+  /** Pull requests the host can no longer merge cleanly. */
+  conflicting: number[];
 }
 
 export type HostEvent =
@@ -57,6 +59,7 @@ export class CodeHostFake implements CodeHostPort {
     nextPrNumber: 1800,
     pullRequests: {},
     comments: {},
+    conflicting: [],
   };
 
   readonly received: HostEvent[] = [];
@@ -121,6 +124,8 @@ export class CodeHostFake implements CodeHostPort {
     if (rest.length > 0) this.state.prStates[pr.number] = rest;
     return Promise.resolve(state);
   };
+
+  conflicts = (pr: OpenPr) => Promise.resolve(this.state.conflicting.includes(pr.number));
 
   mergeMethods = () => Promise.resolve(this.state.merges);
 
